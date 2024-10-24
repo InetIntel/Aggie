@@ -2,6 +2,7 @@ import {
   faXmark,
   faExclamationTriangle,
   faRetweet,
+  faDotCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Report } from "../../api/reports/types";
@@ -17,9 +18,10 @@ import TagsList from "../Tags/TagsList";
 interface IProps {
   report: Report;
   header?: React.ReactNode;
+  headerClassName?: string;
 }
 
-const SocialMediaListItem = ({ report, header }: IProps) => {
+const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const contentType = parseContentType(report);
 
   function renderText(type: typeof contentType) {
@@ -111,7 +113,9 @@ const SocialMediaListItem = ({ report, header }: IProps) => {
   return (
     <>
       <header className='flex justify-between mb-2 relative'>
-        <div className='flex flex-wrap gap-1 text-sm items-baseline max-w-[43em]'>
+        <div
+          className={`flex flex-wrap gap-1 text-sm items-baseline ${headerClassName}`}
+        >
           <h1 className={`text-sm text-black mx-1 font-medium `}>
             <span className='mr-2 text-slate-600 text-xs'>
               <SocialMediaIcon mediaKey={report._media[0]} />
@@ -122,6 +126,15 @@ const SocialMediaListItem = ({ report, header }: IProps) => {
           {report.irrelevant && report.irrelevant === "true" && (
             <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
               Irrelevant
+            </AggieToken>
+          )}
+          {report.irrelevant && report.irrelevant === "false" && (
+            <AggieToken
+              variant='light:green'
+              icon={faDotCircle}
+              className='text-xs'
+            >
+              Relevant
             </AggieToken>
           )}
           {report.red_flag && (

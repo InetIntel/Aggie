@@ -16,6 +16,8 @@ import AggieButton from "../../components/AggieButton";
 
 import { faMinus } from "@fortawesome/free-solid-svg-icons";
 import MultiSelectActions from "./components/MultiSelectActions";
+import { report } from "process";
+import AddReportsToIncidents from "./components/AddReportsToIncident";
 
 interface IProps {}
 
@@ -100,6 +102,7 @@ const AllReportsList = ({}: IProps) => {
                 selection={multiSelect.selection}
                 disabled={!multiSelect.any()}
                 currentPageId={currentPageId}
+                addRemoveSelection={multiSelect.addRemove}
               />
             </>
           )}

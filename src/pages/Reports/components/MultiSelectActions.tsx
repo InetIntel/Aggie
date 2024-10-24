@@ -17,7 +17,6 @@ import {
   faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { hasId } from "../../../api/common";
 import { Report } from "../../../api/reports/types";
 
 interface IProps {
@@ -25,6 +24,7 @@ interface IProps {
   selection: Report[];
   currentPageId: string | undefined;
   queryKey: string[];
+  addRemoveSelection: (r: Report) => void;
 }
 
 const MultiSelectActions = ({
@@ -32,6 +32,7 @@ const MultiSelectActions = ({
   selection,
   currentPageId,
   queryKey,
+  addRemoveSelection,
 }: IProps) => {
   const { setRead, setIrrelevance } = useReportMutations({ key: queryKey });
   const navigate = useNavigate();
@@ -154,6 +155,7 @@ const MultiSelectActions = ({
         selection={selection}
         queryKey={queryKey}
         isOpen={addReportModal}
+        addRemove={addRemoveSelection}
         onClose={() => {
           setAddReportModal(false);
         }}

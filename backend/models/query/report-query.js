@@ -105,9 +105,10 @@ ReportQuery.prototype.toMongooseFilter = function () {
   }
 
   // default filter open
-  filter.irrelevant = "false";
+  filter.irrelevant = { $in: ["false", "maybe"] };
   if (this.irrelevant === 'all') delete filter.irrelevant
   if (this.irrelevant === 'true') filter.irrelevant = "true";
+
   if (this.tags) {
     filter.smtcTags = { $all: this.tags };
   } else {

@@ -6,11 +6,8 @@ import { useParams } from "react-router-dom";
 import { Report, ReportQueryState } from "../../../api/reports/types";
 import { getGroup } from "../../../api/groups";
 
-import AggieCheck from "../../../components/AggieCheck";
-
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faCheck,
   faDotCircle,
   faEnvelope,
   faEnvelopeOpen,
@@ -92,16 +89,17 @@ const ReportListItem = ({
           }`}
         >
           <SocialMediaListItem
+            headerClassName='max-w-[35em]'
             report={report}
             header={
               <>
                 <div className='text-xs group-hover:opacity-0'>
                   <DateTime dateString={report.authoredAt} />
                 </div>
-                <div className='flex absolute right-0 top-0 text-xs shadow-md rounded-lg border border-slate-300 group-hover:opacity-100 opacity-0'>
+                <div className='flex gap-1 absolute right-0 top-0 text-xs group-hover:opacity-100 opacity-0'>
                   <AggieButton
                     variant={report.read ? "light:lime" : "light:amber"}
-                    className='rounded-l-lg'
+                    className='rounded-lg border border-slate-300 shadow-md'
                     onClick={(e) => {
                       e.stopPropagation();
 
@@ -117,32 +115,42 @@ const ReportListItem = ({
                   >
                     {report.read ? <> unread</> : <> read</>}
                   </AggieButton>
-                  <AggieButton
-                    variant={
-                      report.irrelevant === "true"
-                        ? "light:green"
-                        : "light:rose"
-                    }
-                    className='rounded-r-lg'
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIrrelevance.mutate({
-                        reportIds: [report._id],
-                        irrelevant:
-                          report.irrelevant === "true" ? "false" : "true",
-                        currentPageId: currentPageId,
-                      });
-                    }}
-                    icon={report.irrelevant === "true" ? faDotCircle : faXmark}
-                    loading={setIrrelevance.isLoading}
-                    disabled={!report || setIrrelevance.isLoading}
-                  >
-                    {report.irrelevant === "true" ? (
-                      <>relevant</>
-                    ) : (
-                      <>irrelevant</>
-                    )}
-                  </AggieButton>
+                  <div className='shadow-md rounded-lg border border-slate-300 '>
+                    <AggieButton
+                      variant={"light:rose"}
+                      className='rounded-l-lg'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIrrelevance.mutate({
+                          reportIds: [report._id],
+                          irrelevant: "false",
+                          currentPageId: currentPageId,
+                        });
+                      }}
+                      icon={faXmark}
+                      loading={setIrrelevance.isLoading}
+                      disabled={!report || setIrrelevance.isLoading}
+                    >
+                      irrelevant
+                    </AggieButton>
+                    <AggieButton
+                      variant={"light:green"}
+                      className='rounded-r-lg'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIrrelevance.mutate({
+                          reportIds: [report._id],
+                          irrelevant: "true",
+                          currentPageId: currentPageId,
+                        });
+                      }}
+                      icon={faDotCircle}
+                      loading={setIrrelevance.isLoading}
+                      disabled={!report || setIrrelevance.isLoading}
+                    >
+                      relevant
+                    </AggieButton>
+                  </div>
                 </div>
               </>
             }
@@ -150,9 +158,6 @@ const ReportListItem = ({
         </div>
 
         <div className='flex flex-col '>
-          {/* <div className='flex gap-1 opacity-0 group-hover:opacity-100'>
-      <AggieButton>test</AggieButton>
-    </div> */}
           {!!report._group && !!incident ? (
             <div
               className='rounded-lg text-slate-500 bg-slate-50 px-2 py-1 flex-grow border border-slate-300 hover:cursor-pointer hover:bg-white'
@@ -196,6 +201,7 @@ const ReportListItem = ({
           isOpen={openAttachModal}
           queryKey={["reports"]}
           onClose={() => setOpenAttachModal(false)}
+          addRemove={() => setOpenAttachModal(false)}
         />
       </div>
     </MultiSelectListItem>

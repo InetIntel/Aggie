@@ -123,6 +123,7 @@ const Report = () => {
         isOpen={addReportModal}
         queryKey={["reports"]}
         onClose={() => setAddReportModal(false)}
+        addRemove={() => setAddReportModal(false)}
       />
       <nav className='pl-3 pr-2 py-2 flex justify-between items-center rounded-lg text-xs border border-slate-300 mb-2 shadow-md bg-white'>
         <div className='flex   '>Actions</div>

@@ -93,6 +93,7 @@ const FlaggedReportsList = ({}: IProps) => {
                 selection={multiSelect.selection}
                 disabled={!multiSelect.any()}
                 currentPageId={currentPageId}
+                addRemoveSelection={multiSelect.addRemove}
               />
             </>
           )}

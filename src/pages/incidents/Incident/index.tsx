@@ -104,6 +104,7 @@ const Incident = () => {
     <section className='max-w-screen-2xl mx-auto px-4 grid grid-cols-2 pt-6 gap-6 '>
       <AddReportsToIncidents
         selection={multiSelect.selection}
+        addRemove={multiSelect.addRemove}
         isOpen={addReportModal}
         queryKey={["groups", "reports", { groupId: id }]}
         onClose={() => setAddReportModal(false)}

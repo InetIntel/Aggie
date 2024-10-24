@@ -145,6 +145,7 @@ const BatchReportList = ({}: IProps) => {
                 queryKey={["batch"]}
                 selection={multiSelect.selection}
                 disabled={!multiSelect.any()}
+                addRemoveSelection={multiSelect.addRemove}
                 currentPageId={currentPageId}
               />
             </>

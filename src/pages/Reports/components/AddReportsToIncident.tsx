@@ -20,7 +20,7 @@ import MultiSelectListItem from "../../../components/MultiSelectListItem";
 import SocialMediaListItem from "../../../components/SocialMediaListItem";
 import { useMultiSelect } from "../../../hooks/useMultiSelect";
 import AggieCheck from "../../../components/AggieCheck";
-import { faMinus } from "@fortawesome/free-solid-svg-icons";
+import { faMinus, faMinusCircle } from "@fortawesome/free-solid-svg-icons";
 
 interface IAddReportsToIncidents {
   isOpen: boolean;
@@ -28,6 +28,7 @@ interface IAddReportsToIncidents {
   queryKey: any[];
   onSuccess?: () => void;
   onClose: () => void;
+  addRemove: (r: Report) => void;
 }
 const AddReportsToIncidents = ({
   isOpen,
@@ -35,6 +36,7 @@ const AddReportsToIncidents = ({
   queryKey,
   onClose,
   onSuccess,
+  addRemove,
 }: IAddReportsToIncidents) => {
   const [selectedIncident, setSelectedIncident] = useState<Group>();
   const queryClient = useQueryClient();
@@ -157,7 +159,21 @@ const AddReportsToIncidents = ({
                     key={report._id}
                   >
                     <div className='text-sm'>
-                      <SocialMediaListItem report={report} />
+                      <SocialMediaListItem
+                        report={report}
+                        header={
+                          <span className='flex gap-1 group-hover:opacity-100 opacity-0'>
+                            <AggieButton
+                              variant='light:rose'
+                              className='rounded-lg text-xs border border-slate-300 '
+                              icon={faMinusCircle}
+                              onClick={() => addRemove(report)}
+                            >
+                              Remove from Selection
+                            </AggieButton>
+                          </span>
+                        }
+                      />
                     </div>
                   </MultiSelectListItem>
                 ))}
