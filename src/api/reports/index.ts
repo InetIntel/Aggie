@@ -161,3 +161,17 @@ export function urlFromReportsQuery(
   }
   return url.toString();
 }
+
+interface IAITagsFeedback {
+  report: Report;
+  aitags_feedback: Record<string, unknown>;
+}
+/**
+ * ai tags feedback submissions
+ */
+export async function setAITagsFeedback(params: IAITagsFeedback) {
+  const combine = { ...params.report, aitags_feedback: params.aitags_feedback };
+  console.log(combine);
+  const data = await editReport(combine);
+  return data;
+}

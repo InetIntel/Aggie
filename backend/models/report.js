@@ -39,6 +39,11 @@ let schema = new Schema({
     of: SchemaTypes.Mixed,
     default: {},
   },
+  aitags_feedback: {
+    type: Map,
+    of: SchemaTypes.Mixed,
+    default: {},
+  },
   aitagnames: { type: [String], default: [] },
   red_flag: { type: Boolean, default: false, index: true }
 });
