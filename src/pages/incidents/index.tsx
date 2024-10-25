@@ -20,7 +20,7 @@ const Incidents = () => {
 
   const { data, refetch, isLoading } = useQuery(
     ["groups"],
-    () => getGroups(getAllParams()),
+    () => getGroups(getAllParams(searchParams)),
     {
       refetchInterval: 120000,
     }

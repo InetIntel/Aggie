@@ -19,10 +19,10 @@ export function useQueryParams<T extends object>(initialParams?: T) {
   );
 
   /** gets all parameters and returns defined object */
-  const getAllParams = (): T => {
-    const params = searchParams.entries();
+  const getAllParams = (params: URLSearchParams): T => {
+    const entries = params.entries();
     let paramObject = {};
-    for (const [key, value] of params) {
+    for (const [key, value] of entries) {
       paramObject = { ...paramObject, [key]: value };
     }
     return paramObject as T;

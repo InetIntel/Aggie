@@ -27,12 +27,12 @@ const AllReportsList = ({}: IProps) => {
   const { searchParams, getAllParams, setParams, getParam } =
     useQueryParams<ReportQueryState>();
 
+
   const reportsQuery = useQuery(["reports"], () => getReports(getAllParams()), {
     refetchInterval: 120000,
   });
   useEffect(() => {
     // refetch on filter change
-    reportsQuery.refetch();
     multiSelect.set([]);
     window.scrollTo({
       top: 0,

@@ -26,7 +26,7 @@ interface LinkOptions {
 const mainLinks: Record<string, LinkOptions> = {
   Reports: { to: "/rpt/batch" },
   "All Reports": { to: "/rpt", not: ["batch", "search"] },
-  // Search: { to: "/r/search" },
+  Search: { to: "/rpt/search" },
 
   divider1: { type: "divider", to: "" },
   Incidents: { to: "/incidents" },

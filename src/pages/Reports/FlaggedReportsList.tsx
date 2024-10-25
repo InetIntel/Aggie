@@ -16,21 +16,24 @@ import AggieButton from "../../components/AggieButton";
 
 import { faMinus } from "@fortawesome/free-solid-svg-icons";
 import MultiSelectActions from "./components/MultiSelectActions";
+import { getSearch, SearchQueryState } from "../../api/search";
 
 interface IProps {}
-
-interface FlaggedReportQueryState extends ReportQueryState {}
 
 const FlaggedReportsList = ({}: IProps) => {
   const { id: currentPageId } = useParams();
   const navigate = useNavigate();
 
   const { searchParams, getAllParams, setParams, getParam } =
-    useQueryParams<FlaggedReportQueryState>();
+    useQueryParams<Partial<SearchQueryState>>();
 
-  const reportsQuery = useQuery(["reports"], () => getReports(getAllParams()), {
-    refetchInterval: 120000,
+  const reportsQuery = useQuery({
+    queryKey: ["search"],
+    queryFn: () => getSearch(getAllParams(searchParams)),
+    enabled: searchParams.size > 0,
   });
+
+  const { data: reports } = reportsQuery;
   useEffect(() => {
     // refetch on filter change
     reportsQuery.refetch();
@@ -41,26 +44,20 @@ const FlaggedReportsList = ({}: IProps) => {
     });
   }, [searchParams]);
 
-  // useEffect(() => {
-  //   if (reportsStatus === "success") {
-  //     window.scrollTo(0, 0);
-  //   }
-  // }, [reportsStatus]);
-
   const multiSelect = useMultiSelect({
-    allItems: reportsQuery.data?.results,
+    allItems: reports?.results,
     mapFn: (i) => i._id,
   });
 
   function onReportItemClick(id: string, isRead: boolean) {
-    navigate({ pathname: `/r/${id}`, search: searchParams.toString() });
+    navigate({ pathname: `/rpt/search/${id}`, search: searchParams.toString() });
   }
 
   return (
     <>
       <div className='px-1 py-2 bg-gray-50/75 backdrop-blur-sm sticky top-0 z-10 '>
         <ReportsFilters
-          reportCount={reportsQuery.data && reportsQuery.data.total}
+          reportCount={reports && reports.total}
           headerElement={
             <AggieButton
               variant='secondary'
@@ -101,8 +98,8 @@ const FlaggedReportsList = ({}: IProps) => {
       </div>
 
       <div className='flex flex-col border border-slate-300 rounded-lg'>
-        {!!reportsQuery.data?.results && reportsQuery.data?.total > 0 ? (
-          reportsQuery.data?.results.map((report) => (
+        {!!reports && reports?.total > 0 && searchParams.size > 0 ? (
+          reports?.results.map((report) => (
             <div
               onClick={() => onReportItemClick(report._id, report.read)}
               className='cursor-pointer group focus-theme'

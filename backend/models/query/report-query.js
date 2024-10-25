@@ -56,6 +56,7 @@ ReportQuery.prototype.toMongooseFilter = function () {
     commentTo: this.commentTo,
     escalated: this.escalated,
     veracity: this.veracity,
+    aitagnames: this.aitagnames,
   }
   if (this.escalated === 'unescalated') filter.escalated = false;
   if (this.escalated === 'escalated') filter.escalated = true;
