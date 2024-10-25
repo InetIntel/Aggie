@@ -145,13 +145,14 @@ const BatchReportList = ({}: IProps) => {
                 queryKey={["batch"]}
                 selection={multiSelect.selection}
                 disabled={!multiSelect.any()}
+                addRemoveSelection={multiSelect.addRemove}
                 currentPageId={currentPageId}
               />
             </>
           )}
         </div>
       </div>
-      <div className='flex flex-col border border-slate-200 rounded-lg'>
+      <div className='flex flex-col border border-slate-200 rounded-lg bg-white'>
         {batchData &&
           batchData.results.map((report) => (
             <div
@@ -163,9 +164,9 @@ const BatchReportList = ({}: IProps) => {
             >
               <ReportListItem
                 report={report}
-                isChecked={multiSelect.exists(report._id)}
+                isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
-                onCheckChange={() => multiSelect.addRemove(report._id)}
+                onCheckChange={() => multiSelect.addRemove(report)}
               />
             </div>
           ))}

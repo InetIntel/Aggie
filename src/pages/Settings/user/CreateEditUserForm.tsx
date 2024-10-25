@@ -12,7 +12,8 @@ import AggieButton from "../../../components/AggieButton";
 const userEditSchema = Yup.object().shape({
   username: Yup.string()
     .required("Username is required")
-    .min(8, "Username should be atleast 8 characters long."),
+    .min(6, "Username should be atleast 6 characters long."),
+  displayName: Yup.string(),
   role: Yup.mixed()
     .required("User Role is required")
     .oneOf([...USER_ROLES], "Invalid user role."),
@@ -26,7 +27,8 @@ type editSchema = Yup.InferType<typeof userEditSchema>;
 const userCreateSchema = Yup.object().shape({
   username: Yup.string()
     .required("Username is required")
-    .min(8, "Username should be atleast 8 characters long."),
+    .min(6, "Username should be atleast 6 characters long."),
+  displayName: Yup.string(),
   role: Yup.mixed()
     .oneOf([...USER_ROLES], "Invalid user role.")
     .required("User Role is required")
@@ -104,6 +106,11 @@ const CreateEditUserForm = ({ user, onClose }: IProps) => {
           })}
         />
         <FormikInput label='Username' name='username' />
+        <FormikInput
+          label='Display Name'
+          name='displayName'
+          placeholder='(optional) display name'
+        />
         <FormikInput label='Email' name='email' type='email' />
         {!user && (
           <>

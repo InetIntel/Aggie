@@ -24,45 +24,45 @@ const CommentSchema = Yup.object().shape({
 
 interface IProps {
   data: GroupComment;
-  groupdId: string | undefined;
+  groupId: string | undefined;
 }
-const Comment = ({ data, groupdId }: IProps) => {
+const Comment = ({ data, groupId }: IProps) => {
   const queryClient = useQueryClient();
-  const [edit, setEdit] = useState(false);
   const { data: session } = useQuery(["session"], getSession, {
     staleTime: 50000,
   });
+  const [edit, setEdit] = useState(false);
 
   const doDeleteComment = useMutation(removeComment, {
     onSuccess() {
-      queryClient.invalidateQueries(["group", groupdId]);
+      queryClient.invalidateQueries(["group", groupId]);
     },
   });
   const doUpdateComment = useMutation(editComment, {
     onSuccess() {
-      queryClient.invalidateQueries(["group", groupdId]);
+      queryClient.invalidateQueries(["group", groupId]);
     },
   });
-
   function onEditSubmit(
     formData: { commentdata: string },
     resetForm: () => void
   ) {
     doUpdateComment.mutate(
       {
-        id: groupdId,
+        id: groupId,
         comment: { ...data, data: formData.commentdata },
       },
       {
         onSuccess: () => {
           resetForm();
           setEdit(false);
-          queryClient.invalidateQueries(["group", groupdId]);
+          queryClient.invalidateQueries(["group", groupId]);
         },
       }
     );
   }
-  if (!groupdId) return <></>;
+  if (!groupId) return <></>;
+
   return (
     <div
       key={data._id}
@@ -96,7 +96,7 @@ const Comment = ({ data, groupdId }: IProps) => {
                 <AggieButton
                   className='w-full px-2 py-1 hover:bg-red-100  font-medium flex gap-2 text-nowrap items-center flex-grow text-red-800 '
                   onClick={() =>
-                    doDeleteComment.mutate({ id: groupdId, comment: data })
+                    doDeleteComment.mutate({ id: groupId, comment: data })
                   }
                 >
                   <FontAwesomeIcon icon={faEdit} />

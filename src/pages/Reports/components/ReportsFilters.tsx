@@ -12,12 +12,13 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch, faXmarkSquare } from "@fortawesome/free-solid-svg-icons";
 import AggieButton from "../../../components/AggieButton";
 import Pagination from "../../../components/Pagination";
-import { getAllGroups, getGroups } from "../../../api/groups";
+import { getAllGroups } from "../../../api/groups";
 import { useCallback } from "react";
+import FilterRadioGroup from "../../../components/filters/FilterRadioGroup";
 
 interface IReportFilters {
   reportCount?: number;
-  headerElement: React.ReactElement;
+  headerElement?: React.ReactElement;
 }
 
 const ReportFilters = ({ reportCount, headerElement }: IReportFilters) => {
@@ -99,7 +100,21 @@ const ReportFilters = ({ reportCount, headerElement }: IReportFilters) => {
         </div>
       </div>
       <div className='flex justify-between text-sm'>
-        <div className='flex gap-2'>{headerElement}</div>
+        <div className='flex gap-2 items-center'>
+          {headerElement}
+          <FilterRadioGroup
+            options={{
+              false: "Relevant/Unmarked",
+              true: "Irrelevant",
+              all: "All",
+            }}
+            value={getParam("irrelevant")}
+            defaultValue={"false"}
+            onChange={(e) =>
+              setParams({ irrelevant: e === "false" ? undefined : e })
+            }
+          />
+        </div>
         <div className='flex items-center gap-1'>
           <FilterListbox
             label='Platforms'

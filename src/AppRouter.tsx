@@ -164,7 +164,7 @@ const AppRouter = () => {
     variant: "primary",
   });
   const InitialApp = (
-    <div className='grid-rows-[auto_auto_1fr]'>
+    <div className='grid grid-rows-[auto_auto_1fr] h-[100svh]'>
       <div>
         <AggieNavbar isAuthenticated={isLoggedIn} session={userData} />
         <AlertService
@@ -173,12 +173,16 @@ const AppRouter = () => {
         />
       </div>
       <FetchIndicator className='sticky top-0 z-20 ' />
-
-      {isLoggedIn ? (
-        <PrivateRoutes sessionData={userData} setGlobalAlert={setGlobalAlert} />
-      ) : (
-        <PublicRoutes />
-      )}
+      <div className='h-full overflow-y-auto'>
+        {isLoggedIn ? (
+          <PrivateRoutes
+            sessionData={userData}
+            setGlobalAlert={setGlobalAlert}
+          />
+        ) : (
+          <PublicRoutes />
+        )}
+      </div>
     </div>
   );
 

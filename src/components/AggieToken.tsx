@@ -7,6 +7,7 @@ const variants = {
   "light:red": "bg-red-200 text-red-800",
   "dark:red": "text-red-50 bg-red-600",
   "light:amber": "bg-amber-200 text-amber-800",
+  "light:green": "bg-green-200 text-green-800",
 };
 
 interface IProps {

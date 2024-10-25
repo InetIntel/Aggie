@@ -15,7 +15,7 @@ const parseQueryData = (queryString) => {
   if (!queryString) return {};
   // Data passed through URL parameters
   var query = _.pick(queryString, ['keywords', 'status', 'after', 'before', 'media',
-    'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports',]);
+    'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 }
@@ -23,6 +23,7 @@ const parseQueryData = (queryString) => {
 // Get a list of queried Reports
 exports.report_reports = (req, res) => {
   // Parse query string
+
   const queryData = parseQueryData(req.query);
   if (queryData) {
     let query = new ReportQuery(queryData);

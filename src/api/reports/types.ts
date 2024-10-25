@@ -55,6 +55,7 @@ export interface ReportQueryState {
   tagNames?: string[];
   page?: number;
   batch?: boolean;
+  irrelevant?: string;
 }
 
 // metadata typed

@@ -2,16 +2,18 @@ import axios from "axios";
 import type { Report, ReportQueryState, Reports } from "./types";
 
 import type { hasId, IrrelevanceOptions, VeracityOptions } from "../common";
+import { isString } from "lodash";
 
 export const getReports = async (
   searchState: ReportQueryState,
   tagIds: hasId[] | string[] = [],
   isRelevantReports = false
 ) => {
-  if (generateReportsSearchURL(searchState, tagIds, isRelevantReports) != "") {
+  const urlparams = urlFromReportsQuery(searchState, tagIds);
+
+  if (urlparams != "") {
     const { data } = await axios.get<Reports | undefined>(
-      "/api/report?" +
-        generateReportsSearchURL(searchState, tagIds, isRelevantReports)
+      "/api/report?" + urlparams
     );
     return data;
   } else {
@@ -131,66 +133,31 @@ export const setSelectedGroup = async (
   });
   return data;
 };
-
-//TODO: refactor
-const generateReportsSearchURL = (
-  searchState: ReportQueryState,
-  tagIds: hasId[] | string[],
-  isRelevantReports: boolean
-) => {
-  // Writing this method because the readability of the API call url is much less readable than the page URL.
-  let url = "";
-  if (isRelevantReports) {
-    url += "isRelevantReports=true";
+/**
+ * todo: get rid of tagId? i dont see why this needs to be separated
+ * @param queryState
+ * @param tagIds
+ */
+export function urlFromReportsQuery(
+  queryState: ReportQueryState,
+  tagIds: hasId[] | string[] = []
+) {
+  const url = new URLSearchParams();
+  // i think ideally GroupQueryState should convert to record<string,string>
+  Object.entries(queryState).forEach(([key, value]) => {
+    //overrides:
+    if (key === "locationName") {
+      url.set("location", value);
+    } else {
+      url.set(key, value);
+    }
+  });
+  if (tagIds && tagIds.length > 0) {
+    if (isString(tagIds[0])) url.set("tags", tagIds.toString());
+    else {
+      const tostring = tagIds.map((i) => (i as hasId)._id);
+      url.set("tags", tostring.toString());
+    }
   }
-  if (tagIds.length > 0) {
-    let tagsURL = "";
-    tagIds.forEach((tagId) => {
-      if (typeof tagId === "string") {
-        tagsURL += tagId + ",";
-      } else {
-        tagsURL += tagId._id + ",";
-      }
-    });
-    tagsURL = tagsURL.slice(0, -1);
-    if (url === "") url += "tags=" + tagsURL;
-    else url += "&tags=" + tagsURL;
-  }
-  if (searchState.keywords) {
-    if (url === "") url += "keywords=" + searchState.keywords;
-    else url += "&keywords=" + searchState.keywords;
-  }
-  if (searchState.author) {
-    if (url === "") url += "author=" + searchState.author;
-    else url += "&author=" + searchState.author;
-  }
-  if (searchState.groupId) {
-    if (url === "") url += "groupId=" + searchState.groupId;
-    else url += "&groupId=" + searchState.groupId;
-  }
-  if (searchState.media) {
-    if (url === "") url += "media=" + searchState.media;
-    else url += "&media=" + searchState.media;
-  }
-  if (searchState.sourceId) {
-    if (url === "") url += "sourceId=" + searchState.sourceId;
-    else url += "&sourceId=" + searchState.sourceId;
-  }
-  if (searchState.list) {
-    if (url === "") url += "list=" + searchState.list;
-    else url += "&list=" + searchState.list;
-  }
-  if (searchState.before) {
-    if (url === "") url += "before=" + searchState.before;
-    else url += "&before=" + searchState.before;
-  }
-  if (searchState.after) {
-    if (url === "") url += "after=" + searchState.after;
-    else url += "&after=" + searchState.after;
-  }
-  if (searchState.page) {
-    if (url === "") url += "page=" + searchState.page;
-    else url += "&page=" + searchState.page;
-  }
-  return url;
-};
+  return url.toString();
+}

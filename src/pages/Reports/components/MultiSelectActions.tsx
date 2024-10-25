@@ -17,12 +17,14 @@ import {
   faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Report } from "../../../api/reports/types";
 
 interface IProps {
   disabled: boolean;
-  selection: string[];
+  selection: Report[];
   currentPageId: string | undefined;
   queryKey: string[];
+  addRemoveSelection: (r: Report) => void;
 }
 
 const MultiSelectActions = ({
@@ -30,6 +32,7 @@ const MultiSelectActions = ({
   selection,
   currentPageId,
   queryKey,
+  addRemoveSelection,
 }: IProps) => {
   const { setRead, setIrrelevance } = useReportMutations({ key: queryKey });
   const navigate = useNavigate();
@@ -37,11 +40,13 @@ const MultiSelectActions = ({
 
   function onNewIncidentFromReports() {
     const params = new URLSearchParams({
-      reports: selection.join(":"),
+      reports: selection.map((i) => i._id).join(":"),
     });
 
     navigate({ pathname: "/incidents/new", search: params.toString() });
   }
+
+  const idList = selection.map((i) => i._id);
 
   return (
     <>
@@ -53,7 +58,7 @@ const MultiSelectActions = ({
           icon={faEnvelopeOpen}
           onClick={() =>
             setRead.mutate({
-              reportIds: selection,
+              reportIds: idList,
               read: true,
               currentPageId,
             })
@@ -68,7 +73,7 @@ const MultiSelectActions = ({
           icon={faEnvelope}
           onClick={() =>
             setRead.mutate({
-              reportIds: selection,
+              reportIds: idList,
               read: false,
               currentPageId,
             })
@@ -85,7 +90,7 @@ const MultiSelectActions = ({
           icon={faXmark}
           onClick={() =>
             setIrrelevance.mutate({
-              reportIds: selection,
+              reportIds: idList,
               irrelevant: "true",
               currentPageId,
             })
@@ -100,7 +105,7 @@ const MultiSelectActions = ({
           icon={faDotCircle}
           onClick={() =>
             setIrrelevance.mutate({
-              reportIds: selection,
+              reportIds: idList,
               irrelevant: "false",
               currentPageId,
             })
@@ -117,7 +122,7 @@ const MultiSelectActions = ({
           disabled={disabled}
         >
           <FontAwesomeIcon icon={faPlus} />
-          Attach Incident
+          Add to Incident
         </AggieButton>
         <DropdownMenu
           variant='secondary'
@@ -150,6 +155,7 @@ const MultiSelectActions = ({
         selection={selection}
         queryKey={queryKey}
         isOpen={addReportModal}
+        addRemove={addRemoveSelection}
         onClose={() => {
           setAddReportModal(false);
         }}

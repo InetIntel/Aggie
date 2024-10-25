@@ -5,6 +5,7 @@ import {
   useFocus,
   safePolygon,
   flip,
+  shift,
   offset,
 } from "@floating-ui/react";
 import { useState } from "react";
@@ -23,10 +24,8 @@ export function usePopover(
   const [isOpen, setIsOpen] = useState(false);
 
   const { refs, floatingStyles, context } = useFloating({
-    middleware: [
-      flip({ fallbackAxisSideDirection: "start" }),
-      offset(options.offset),
-    ],
+    placement: "bottom",
+    middleware: [flip(), shift(), offset(options.offset)],
 
     open: isOpen,
     onOpenChange: setIsOpen,

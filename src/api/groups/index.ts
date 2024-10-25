@@ -11,6 +11,8 @@ import {
 import type { Reports } from "../reports/types";
 import { hasId, VeracityOptions } from "../common";
 import { omitBy, isNil } from "lodash";
+import { ReportQueryState } from "../../objectTypes";
+import { urlFromReportsQuery } from "../reports";
 
 export const getGroups = async (
   searchState: GroupQueryState = {},
@@ -71,17 +73,15 @@ export const deleteGroup = async (group: Group) => {
   return data;
 };
 
-export const getGroupReports = async (
-  groupId: string | undefined,
-  page: number
-) => {
-  if (groupId) {
-    const { data } = await axios.get<Reports | undefined>(
-      "/api/report?groupId=" + groupId + "&page=" + page
-    );
-    return data;
-  }
+export const getGroupReports = async (searchState: ReportQueryState = {}) => {
+  if (!searchState.groupId) return undefined;
+  const queryState = urlFromReportsQuery(searchState);
+  const { data } = await axios.get<Reports | undefined>(
+    "/api/report?" + queryState
+  );
+  return data;
 };
+
 interface Selected {
   ids: string[];
 }
@@ -200,7 +200,7 @@ export const setSelectedLocationName = async (
  * @param queryState
  * @param tagIds
  */
-function urlFromQuery(queryState: GroupQueryState, tagIds: hasId[]) {
+function urlFromQuery(queryState: GroupQueryState, tagIds: hasId[] = []) {
   const url = new URLSearchParams();
   // i think ideally GroupQueryState should convert to record<string,string>
   Object.entries(queryState).forEach(([key, value]) => {
