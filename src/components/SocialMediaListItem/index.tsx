@@ -146,7 +146,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
               Red Flag
             </AggieToken>
           )}
-          <GeneratedTagsList tags={report.aitags} />
+          <GeneratedTagsList tags={report.aitags} report={report} />
           <TagsList values={report.smtcTags} />
         </div>
         {header || (

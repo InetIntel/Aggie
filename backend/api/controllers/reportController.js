@@ -111,7 +111,7 @@ exports.report_update = (req, res) => {
     if (err) return res.status(err.status).send(err.message);
     if (!report) return res.sendStatus(404);
     // Update the actual value
-    _.forEach(_.pick(req.body, ['_group', 'read', 'smtcTags', 'notes', 'escalated', 'veracity']), (val, key) => {
+    _.forEach(_.pick(req.body, ['_group', 'read', 'smtcTags', 'notes', 'escalated', 'veracity', "aitags_feedback"]), (val, key) => {
       report[key] = val;
     });
     if (!report.read) {
