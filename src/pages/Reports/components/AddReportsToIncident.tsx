@@ -121,7 +121,7 @@ const AddReportsToIncidents = ({
           <div className='overflow-y-auto flex flex-col gap-1 h-full'>
             <h2 className='font-medium text-lg mb-1'>Selected Reports:</h2>
             <div className='flex gap-1 items-center'>
-              <AggieCheck
+              {/* <AggieCheck
                 active={multiSelect.isActive}
                 icon={!multiSelect.all() ? faMinus : undefined}
                 onClick={() => {
@@ -135,7 +135,7 @@ const AddReportsToIncidents = ({
                     multiSelect.addRemoveAll(selection);
                   }
                 }}
-              />
+              /> */}
 
               {multiSelect.isActive && (
                 <>

@@ -72,7 +72,7 @@ const Incident = () => {
 
   const { data: groupReports, refetch: groupRefetch } = useQuery(
     ["groups", "reports", { groupId: id }],
-    () => getGroupReports({ ...getAllParams(), groupId: id })
+    () => getGroupReports({ ...getAllParams(searchParams), groupId: id })
   );
 
   const multiSelect = useMultiSelect({
