@@ -123,7 +123,7 @@ const ReportListItem = ({
                         e.stopPropagation();
                         setIrrelevance.mutate({
                           reportIds: [report._id],
-                          irrelevant: "false",
+                          irrelevant: "true",
                           currentPageId: currentPageId,
                         });
                       }}
@@ -140,7 +140,7 @@ const ReportListItem = ({
                         e.stopPropagation();
                         setIrrelevance.mutate({
                           reportIds: [report._id],
-                          irrelevant: "true",
+                          irrelevant: "false",
                           currentPageId: currentPageId,
                         });
                       }}
