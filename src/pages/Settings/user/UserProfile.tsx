@@ -73,7 +73,14 @@ const UserProfile = ({ session }: IProps) => {
             </DropdownMenu>
           )}
         </div>
-
+        <PlaceholderDiv loading={isLoading} className={grid}>
+          <p className=''>Display Name</p>
+          <p
+            className={`text-1xl font-medium inline-flex items-center gap-1 ${grid}`}
+          >
+            {data?.displayName || "Not Set"}
+          </p>
+        </PlaceholderDiv>
         <PlaceholderDiv loading={isLoading} className={grid}>
           <p className=''>Username</p>
           <p

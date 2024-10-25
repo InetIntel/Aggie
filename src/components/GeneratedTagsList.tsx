@@ -1,35 +1,33 @@
 // refactor with floating-ui
 
-import React from "react";
-import { GeneratedTags } from "../api/reports/types";
+import React, { useState } from "react";
+import { GeneratedTags, Report } from "../api/reports/types";
 import { isBoolean } from "lodash";
 import GeneratedTag from "./GeneratedTag";
 
-const starIcon = (
-  <svg
-    width='16'
-    height='16'
-    fill='none'
-    className='text-purple-600'
-    xmlns='http://www.w3.org/2000/svg'
-  >
-    <path
-      d='M9.346 3.114c.093-.321.549-.321.641 0l.953 3.315c.03.107.112.191.218.225l3.19 1.029c.309.099.309.535 0 .634l-3.19 1.029a.333.333 0 0 0-.218.225l-.953 3.315c-.092.321-.548.321-.64 0L8.392 9.57a.333.333 0 0 0-.218-.225l-3.19-1.029a.333.333 0 0 1 0-.634l3.19-1.029a.333.333 0 0 0 .218-.225l.953-3.315ZM3.348 2.381a.333.333 0 0 1 .638 0l.329 1.082c.032.107.116.19.222.222l1.082.33a.333.333 0 0 1 0 .637l-1.082.33a.333.333 0 0 0-.222.222l-.33 1.082a.333.333 0 0 1-.637 0l-.33-1.082a.333.333 0 0 0-.221-.222l-1.083-.33a.333.333 0 0 1 0-.637l1.083-.33a.333.333 0 0 0 .221-.222l.33-1.082ZM4.681 10.381a.333.333 0 0 1 .638 0l.33 1.082c.032.107.115.19.221.222l1.082.33a.333.333 0 0 1 0 .637l-1.082.33a.333.333 0 0 0-.222.222l-.33 1.082a.333.333 0 0 1-.637 0l-.33-1.082a.333.333 0 0 0-.221-.222l-1.082-.33a.333.333 0 0 1 0-.637l1.082-.33a.333.333 0 0 0 .222-.222l.33-1.082Z'
-      fill='currentColor'
-    />
-  </svg>
-);
+import { useMutation } from "@tanstack/react-query";
+import { setAITagsFeedback } from "../api/reports";
+import AIFeedbackScale from "./AIFeedback/AIFeedbackScale";
+import AggieDialog from "./AggieDialog";
+import AggieButton from "./AggieButton";
+import { faFilePen } from "@fortawesome/free-solid-svg-icons";
+import { Formik, Form } from "formik";
 
 interface IProps {
+  report: Report;
   tags?: GeneratedTags;
   showCount?: number;
   tempHoverCSS?: string;
 }
-const GeneratedTagsList = ({
-  tags,
-  showCount = 2,
-  tempHoverCSS = "left-0",
-}: IProps) => {
+const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  const doSetAIFeedback = useMutation(setAITagsFeedback, {
+    onSuccess: () => {
+      setFeedbackOpen(false);
+    },
+  });
+
   if (!tags) return <></>;
 
   const tagsList = Object.entries(tags).filter(
@@ -37,16 +35,22 @@ const GeneratedTagsList = ({
   );
 
   if (!tagsList) return <></>;
-  const keyClass = "pl-1 pr-2 flex items-center gap-1 rounded-full font-medium";
 
   const booleanTagsList = tagsList
     .filter(([key, value]) => isBoolean(value) && value)
     .slice(0, showCount);
   const moreTagsLength = tagsList.length - booleanTagsList.length;
+  const defaultFormValues = tagsList.reduce(
+    (a, v) => ({ ...a, [v[0]]: null }),
+    {}
+  );
   return (
     <>
       {booleanTagsList?.map(([key, value]) => (
-        <GeneratedTag name={key.replaceAll("_", " ")} key={key.replaceAll("_", " ")}>
+        <GeneratedTag
+          name={key.replaceAll("_", " ")}
+          key={key.replaceAll("_", " ")}
+        >
           <span className='block '>
             {key.replaceAll("_", " ")}
             {isBoolean(value) ? (
@@ -66,26 +70,107 @@ const GeneratedTagsList = ({
           className='rounded-full hover:bg-purple-100  text-purple-900 border border-purple-400'
         >
           <div className='divide-y divide-purple-400'>
+            <div className='flex justify-between items-center text-sm'>
+              <h2 className='font-medium'>Generated Tags</h2>
+              <AggieButton
+                variant='secondary'
+                onClick={() => setFeedbackOpen(true)}
+                className='rounded-full  text-xs'
+                icon={faFilePen}
+              >
+                Submit Feedback
+              </AggieButton>
+            </div>
             {tagsList.map(([key, value]) => (
-              <div key={key} className='py-1'>
-                <span className='block '>
-                  {key.replaceAll("_", " ")}{" "}
-                  {isBoolean(value) ? (
-                    <span className='rounded-full px-2 bg-purple-600 text-white'>
-                      {`${value}`}
-                    </span>
-                  ) : (
-                    <span className='block font-medium'>{value}</span>
-                  )}
-                </span>
-                <span className='block mb-1 text-xs italic'>
-                  {`${key}_rationale` in tags && tags[`${key}_rationale`]}
-                </span>
+              <div key={key} className='py-1 flex justify-between items-center'>
+                <div>
+                  <span className='block  text-sm font-medium'>
+                    {key.replaceAll("_", " ")}{" "}
+                    {isBoolean(value) ? (
+                      <span className='rounded-full px-2 bg-purple-600 text-white text-xs'>
+                        {`${value}`}
+                      </span>
+                    ) : (
+                      <span className='block font-medium'>{value}</span>
+                    )}
+                  </span>
+                  <span className='block mb-1 text-xs italic max-w-prose'>
+                    {`${key}_rationale` in tags && tags[`${key}_rationale`]}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
         </GeneratedTag>
       )}
+      <div className='pointer-events-none'>
+        <AggieDialog
+          isOpen={feedbackOpen}
+          onClose={() => setFeedbackOpen(false)}
+          className='max-w-2xl w-full p-4 pointer-events-auto'
+        >
+          <Formik
+            initialValues={defaultFormValues}
+            onSubmit={(e) =>
+              doSetAIFeedback.mutate({ report: report, aitags_feedback: e })
+            }
+            validateOnBlur={false}
+          >
+            <Form className='flex flex-col gap-3'>
+              <div className='divide-y divide-purple-400'>
+                {tagsList.map(([key, value]) => (
+                  <div
+                    key={key}
+                    className='py-1 flex justify-between items-center'
+                  >
+                    <div className='max-w-md w-full'>
+                      <span className='flex gap-2 items-center'>
+                        {isBoolean(value) ? (
+                          <span className='rounded-full px-2 bg-purple-600 font-medium text-white text-sm'>
+                            {`${value}`}
+                          </span>
+                        ) : (
+                          <span className='block font-medium'>{value}</span>
+                        )}
+                        {key.replaceAll("_", " ")}{" "}
+                      </span>
+                      <span className='block mb-1 text-xs italic max-w-prose'>
+                        {`${key}_rationale` in tags && tags[`${key}_rationale`]}
+                      </span>
+                    </div>
+                    <div>
+                      <AIFeedbackScale
+                        name={key}
+                        labelLeft={"not useful"}
+                        labelRight={"useful"}
+                        size={5}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className='flex justify-between'>
+                <AggieButton
+                  variant='secondary'
+                  type='button'
+                  onClick={() => setFeedbackOpen(false)}
+                >
+                  Cancel
+                </AggieButton>
+                <AggieButton
+                  variant='primary'
+                  disabled={doSetAIFeedback.isLoading}
+                  loading={doSetAIFeedback.isLoading}
+                  type={"submit"}
+                >
+                  Submit
+                </AggieButton>
+              </div>
+            </Form>
+          </Formik>
+        </AggieDialog>
+      </div>
     </>
   );
 };

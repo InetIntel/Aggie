@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { isEqual } from "lodash";
+import { hasId } from "../api/common";
 
-interface IOptions<T> {
+interface IOptions<T extends hasId> {
   /** list of data that we want to select. can by any type.*/
   allItems?: T[];
   /** tells function how to grab a unique id string from each data object. must return a string
@@ -9,9 +10,9 @@ interface IOptions<T> {
    *
    * (item) => item.id
    */
-  mapFn: (item: T) => string;
+  mapFn?: (item: T) => string;
   /** initial selection */
-  initial?: string[];
+  initial?: T[];
 }
 
 /**
@@ -22,27 +23,34 @@ interface IOptions<T> {
  * @param options required options
  * @returns
  */
-export function useMultiSelect<T>({ allItems, mapFn, initial }: IOptions<T>) {
-  const [selection, setSelection] = useState<string[]>(initial || []);
+export function useMultiSelect<T extends hasId>({
+  allItems,
+  mapFn,
+  initial,
+}: IOptions<T>) {
+  const [selection, setSelection] = useState<T[]>(initial || []);
   const [isActive, setIsActive] = useState(false);
 
   /**utility to compare if items in list are equal. if no allItems list is provided, do a simple length comparison */
   function compareSelection(data: T[]) {
     if (!allItems) return selection.length === data.length;
 
-    const allItemIds = allItems.map(mapFn);
-    return isEqual(allItemIds, selection);
+    return isEqual(
+      allItems.map((i) => i._id),
+      selection.map((i) => i._id)
+    );
   }
 
   /**  if id exists, remove. otherwise add to list */
-  function addRemove(id: string) {
-    if (selection.includes(id)) {
-      const newSelection = selection.filter((i) => i !== id);
+  function addRemove(obj: T) {
+    const ifExists = selection.some((i) => i._id === obj._id);
+    if (ifExists) {
+      const newSelection = selection.filter((i) => i._id !== obj._id);
       setSelection(newSelection || []);
     } else {
       if (selection.length === 0) setIsActive(true);
 
-      setSelection([...selection, id]);
+      setSelection([...selection, obj]);
     }
   }
 
@@ -53,7 +61,7 @@ export function useMultiSelect<T>({ allItems, mapFn, initial }: IOptions<T>) {
     if (data.length === 0 || compareSelection(data)) {
       setSelection([]);
     } else {
-      setSelection(data.map(mapFn));
+      setSelection(data);
     }
   }
   /** toggles select multiple mode and clears selection */
@@ -77,8 +85,11 @@ export function useMultiSelect<T>({ allItems, mapFn, initial }: IOptions<T>) {
     return selection.length === allItems.length;
   }
   /** returns true if id exists in selection */
-  function exists(id: string) {
-    return selection.includes(id);
+  function exists(obj: T) {
+    return selection.some((i) => i._id === obj._id);
+  }
+  function toIdList() {
+    return selection.map((i) => i._id);
   }
   return {
     isActive,
@@ -86,6 +97,7 @@ export function useMultiSelect<T>({ allItems, mapFn, initial }: IOptions<T>) {
     selection,
     addRemoveAll,
     addRemove,
+    toIdList,
     any,
     all,
     exists,

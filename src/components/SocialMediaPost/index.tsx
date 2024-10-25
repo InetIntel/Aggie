@@ -14,6 +14,7 @@ import TwitterPost from "./TwitterPost";
 import YoutubePost from "./YoutubePost";
 import SocialMediaAuthor from "./SocialMediaAuthor";
 import TruthSocialPost from "./TruthSocialPost";
+import SocialMediaIcon from "./SocialMediaIcon";
 
 interface IProps {
   report: Report;
@@ -40,7 +41,6 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
       </div>
     );
   };
-  console.log(report);
   return (
     <div className='pb-2 px-3 pt-3 bg-white rounded-xl border border-slate-300 text-base '>
       {report._media[0] === "twitter" && <TwitterReply report={report} />}
@@ -53,7 +53,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
             url={report.metadata.accountUrl}
           />
         </div>
-        <p className='flex flex-col items-end gap-1'>
+        <p className='flex items-center gap-2 h-fit pr-1'>
           <a
             target='_blank'
             href={report.url}
@@ -62,6 +62,9 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
             <span>Open Post</span>
             <FontAwesomeIcon icon={faExternalLink} />
           </a>
+          <div className='text-slate-600'>
+            <SocialMediaIcon mediaKey={report._media[0]} />
+          </div>
         </p>
       </div>
 

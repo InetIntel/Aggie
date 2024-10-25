@@ -9,11 +9,13 @@ export interface User extends hasId {
   role: UserRoles | string; // string for backwards compat
   email: string;
   username: string;
+  displayName?: string;
   __v: number;
 }
 
 export interface UserEditableData {
   username: string;
+  displayName?: string;
   email: string;
   role: UserRoles;
   _id?: string;

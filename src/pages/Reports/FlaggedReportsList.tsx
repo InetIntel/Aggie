@@ -90,6 +90,7 @@ const FlaggedReportsList = ({}: IProps) => {
                 selection={multiSelect.selection}
                 disabled={!multiSelect.any()}
                 currentPageId={currentPageId}
+                addRemoveSelection={multiSelect.addRemove}
               />
             </>
           )}
@@ -108,9 +109,9 @@ const FlaggedReportsList = ({}: IProps) => {
             >
               <ReportListItem
                 report={report}
-                isChecked={multiSelect.exists(report._id)}
+                isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
-                onCheckChange={() => multiSelect.addRemove(report._id)}
+                onCheckChange={() => multiSelect.addRemove(report)}
               />
             </div>
           ))

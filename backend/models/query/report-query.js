@@ -29,6 +29,8 @@ function ReportQuery(options) {
   this.veracity = options.veracity;
   this.notes = options.notes;
   this.isRelevantReports = options.isRelevantReports;
+  this.irrelevant = options.irrelevant;
+
 }
 
 _.extend(ReportQuery, Query);
@@ -102,6 +104,11 @@ ReportQuery.prototype.toMongooseFilter = function () {
     // filter.$and = [res]
     //filter.$and.push(res)
   }
+
+  // default filter open
+  filter.irrelevant = { $in: ["false", "maybe"] };
+  if (this.irrelevant === 'all') delete filter.irrelevant
+  if (this.irrelevant === 'true') filter.irrelevant = "true";
 
   if (this.tags) {
     filter.smtcTags = { $all: this.tags };

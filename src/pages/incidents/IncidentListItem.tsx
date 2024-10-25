@@ -63,8 +63,8 @@ const IncidentListItem = ({ item }: IProps) => {
   }
 
   return (
-    <article className='group relative grid grid-cols-4 lg:grid-cols-6 p-3 text-sm text-slate-600 border-b border-slate-300'>
-      <div className='absolute top-0 left-0 bottom-0 right-[15%] z-20'>
+    <article className='group relative grid grid-cols-4 lg:grid-cols-6 p-3 text-sm text-slate-600 border-b border-slate-300 z-0'>
+      <div className='absolute top-0 left-0 bottom-0 right-[15%] z-10'>
         <button
           onClick={onOpenIncidentPage}
           title={`open incident ${item.title}`}

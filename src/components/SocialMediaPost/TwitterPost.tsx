@@ -174,7 +174,7 @@ function parseTwitterUser(rawPostData: any) {
   };
 }
 
-function parseQuoteRetweet(post_data: any) {
+export function parseQuoteRetweet(post_data: any) {
   const retweetResult = post_data?.retweeted_status_result?.result;
   const quotedResult = post_data?.api_data?.quoted_status_result?.result;
   const result = retweetResult || quotedResult;

@@ -8,6 +8,7 @@ require('dotenv').config()
 var userSchema = new Schema({
   provider: { type: String, default: 'local' },
   username: { type: String, required: true, unique: true },
+  displayName: { type: String },
   email: { type: String, required: true, unique: true },
   password: { type: String },
   hasDefaultPassword: { type: Boolean, default: true },

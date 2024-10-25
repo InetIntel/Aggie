@@ -17,12 +17,15 @@ import type {
   ReportQueryState,
 } from "../../api/reports/types";
 
-const defaultOptions = {
+interface IOptions {
+  key: any[];
+}
+const defaultOptions: IOptions = {
   key: ["reports"],
 };
 
 export const useReportMutations = (
-  userOptions: Partial<typeof defaultOptions> = defaultOptions
+  userOptions: Partial<IOptions> = defaultOptions
 ) => {
   const queryData = useUpdateQueryData();
   const navigate = useNavigate();

@@ -36,13 +36,18 @@ const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
       </span>
     );
   if (disabled)
-    return <span className={`${className}`}> {user?.username}</span>;
+    return (
+      <span className={`${className}`}>
+        {" "}
+        {user?.displayName || user?.username}
+      </span>
+    );
   return (
     <Link
       to={"/settings/user/" + user?._id}
       className={`text-blue-600 hover:underline hover:bg-slate-200 ${className}`}
     >
-      {user?.username}
+      {user?.displayName || user?.username}
     </Link>
   );
 };
