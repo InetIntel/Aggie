@@ -170,7 +170,13 @@ interface IAITagsFeedback {
  * ai tags feedback submissions
  */
 export async function setAITagsFeedback(params: IAITagsFeedback) {
-  const combine = { ...params.report, aitags_feedback: params.aitags_feedback };
+  const combine = {
+    ...params.report,
+    aitags_feedback: [
+      ...(params.report.aitags_feedback || []),
+      params.aitags_feedback
+    ]
+  };
   console.log(combine);
   const data = await editReport(combine);
   return data;

@@ -29,6 +29,7 @@ export interface Report extends hasId {
   __v: number;
   aitags: GeneratedTags;
   aitagnames: string[];
+  aitags_feedback: Record<string, unknown>[];
   red_flag: boolean;
 }
 
