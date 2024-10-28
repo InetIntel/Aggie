@@ -63,57 +63,65 @@ const IncidentListItem = ({ item }: IProps) => {
   }
 
   return (
-    <article className='group relative grid grid-cols-4 lg:grid-cols-6 p-3 text-sm text-slate-600 border-b border-slate-300 z-0'>
-      <div className='absolute top-0 left-0 bottom-0 right-[15%] z-10'>
+    <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-600 border-b border-slate-300 z-0'>
+      {/* <div className='absolute top-0 left-0 bottom-0 right-[15%] z-10'>
         <button
           onClick={onOpenIncidentPage}
           title={`open incident ${item.title}`}
           type='button'
           className='w-full h-full hover:bg-slate-300/15 pointer-events-auto'
         ></button>
-      </div>
-      <header className='col-span-3 flex flex-col'>
-        <div className='flex gap-1 '>
-          <VeracityToken value={item.veracity} />
-          {item.closed && (
-            <span className='px-1 bg-purple-200 text-purple-700 font-medium flex gap-1 items-center'>
-              <FontAwesomeIcon icon={faMinusCircle} />
-              Closed
-            </span>
-          )}
-          <TagsList values={item.smtcTags} />
-        </div>
-        <h2 className=' text-slate-700 flex gap-2 items-center font-medium'>
-          <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
-            {item.title}
-          </span>
-          {item.escalated && (
-            <span className='px-1 bg-orange-700 text-white font-medium text-sm flex gap-1 items-center no-underline'>
-              <FontAwesomeIcon icon={faWarning} />
-              Escalated
-            </span>
-          )}
-        </h2>
-        <div className='grid grid-cols-4 flex-grow items-end font-medium'>
-          <p>#{item.idnum}</p>
-          <p>{item._reports?.length} reports</p>
-          <p>
-            {!!item.locationName && (
-              <>
-                <FontAwesomeIcon icon={faLocationPin} size='xs' />{" "}
-                {item.locationName}
-              </>
+      </div> */}
+      <div
+        className='col-span-5 grid grid-cols-subgrid hover:bg-slate-300/15 pl-3 py-3 pr-1'
+        onClick={onOpenIncidentPage}
+        title={`open incident ${item.title}`}
+        role='button'
+      >
+        <header className='col-span-3 flex flex-col'>
+          <div className='flex gap-1 '>
+            <VeracityToken value={item.veracity} />
+            {item.closed && (
+              <span className='px-1 bg-purple-200 text-purple-700 font-medium flex gap-1 items-center'>
+                <FontAwesomeIcon icon={faMinusCircle} />
+                Closed
+              </span>
             )}
+            <TagsList values={item.smtcTags} />
+          </div>
+          <h2 className=' text-slate-700 flex gap-2 items-center font-medium'>
+            <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
+              {item.title}
+            </span>
+            {item.escalated && (
+              <span className='px-1 bg-orange-700 text-white font-medium text-sm flex gap-1 items-center no-underline'>
+                <FontAwesomeIcon icon={faWarning} />
+                Escalated
+              </span>
+            )}
+          </h2>
+          <div className='grid grid-cols-4 flex-grow items-end font-medium'>
+            <p>#{item.idnum}</p>
+            <p>{item._reports?.length} reports</p>
+            <p>
+              {!!item.locationName && (
+                <>
+                  <FontAwesomeIcon icon={faLocationPin} size='xs' />{" "}
+                  {item.locationName}
+                </>
+              )}
+            </p>
+            <p>By: {item.creator?.username}</p>
+          </div>
+        </header>
+        <div className='hidden lg:block col-span-2 '>
+          <p className='px-2 py-1 text-slate-700 bg-slate-50 h-[6em] overflow-y-auto border border-slate-200 rounded whitespace-pre-line'>
+            {item.notes && item.notes}
           </p>
-          <p>By: {item.creator?.username}</p>
         </div>
-      </header>
-      <div className='hidden lg:block col-span-2 '>
-        <p className='px-2 py-1 text-slate-700 bg-slate-50 h-[6em] overflow-y-auto border border-slate-200 rounded whitespace-pre-line'>
-          {item.notes && item.notes}
-        </p>
       </div>
-      <footer className='col-span-1 flex justify-end gap-2 '>
+
+      <footer className='col-span-1 flex justify-end gap-2 pr-3 py-3 '>
         <div className='text-end flex flex-col items-end '>
           <p className=''>
             {item.assignedTo && item.assignedTo.length > 0
