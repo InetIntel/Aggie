@@ -21,7 +21,7 @@ const lengthValidator = function (str) {
 };
 
 let schema = new mongoose.Schema({
-  title: { type: String, required: true, validate: lengthValidator },
+  title: { type: String, required: true },
   locationName: String,
   latitude: Number,
   longitude: Number,
