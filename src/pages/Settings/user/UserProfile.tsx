@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { deleteUser, getUser } from "../../../api/users";
@@ -27,7 +27,7 @@ interface IProps {
 const UserProfile = ({ session }: IProps) => {
   const params = useParams();
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery(["user", params.id], () => {
+  const { data, isLoading, refetch } = useQuery(["users", params.id], () => {
     if (params.id) return getUser(params.id);
     else return undefined;
   });
@@ -37,6 +37,7 @@ const UserProfile = ({ session }: IProps) => {
   const doDeleteUser = useMutation(deleteUser, {
     onSuccess: () => {
       setOpenDelete(false);
+      navigate("/settings/users");
     },
   });
 
@@ -76,7 +77,7 @@ const UserProfile = ({ session }: IProps) => {
         <PlaceholderDiv loading={isLoading} className={grid}>
           <p className=''>Display Name</p>
           <p
-            className={`text-1xl font-medium inline-flex items-center gap-1 ${grid}`}
+            className={`text-1xl font-medium inline-flex items-center gap-1 col-span-3  ${grid}`}
           >
             {data?.displayName || "Not Set"}
           </p>
@@ -84,7 +85,7 @@ const UserProfile = ({ session }: IProps) => {
         <PlaceholderDiv loading={isLoading} className={grid}>
           <p className=''>Username</p>
           <p
-            className={`text-1xl font-medium inline-flex items-center gap-1 ${grid}`}
+            className={`text-1xl font-medium inline-flex items-center gap-1 col-span-3 ${grid}`}
           >
             {data?.username}
           </p>

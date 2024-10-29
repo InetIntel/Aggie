@@ -73,14 +73,28 @@ const UsersIndex = ({ session }: IProps) => {
               key={user._id}
               className='grid grid-cols-4 px-3 py-3 items-center'
             >
-              <p className='font-medium  text-blue-600 '>
-                <Link
-                  to={"/settings/user/" + user._id}
-                  className=' hover:underline'
-                >
-                  {user.username}
-                </Link>
-              </p>
+              <div className=''>
+                {!!user.displayName ? (
+                  <>
+                    <Link
+                      to={"/settings/user/" + user._id}
+                      className=' hover:underline font-medium text-blue-600 '
+                    >
+                      <p>{user.displayName}</p>{" "}
+                    </Link>
+                    <p className='text-sm'>@{user.username}</p>
+                  </>
+                ) : (
+                  <p>
+                    <Link
+                      to={"/settings/user/" + user._id}
+                      className=' hover:underline font-medium text-blue-600'
+                    >
+                      {user.username}
+                    </Link>
+                  </p>
+                )}
+              </div>
               <p className='px-2 py-1 bg-slate-200 rounded text-sm w-fit font-medium'>
                 {user.role}
               </p>

@@ -17,14 +17,23 @@ import AggieSwitch from "../../components/AggieSwitch";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faCommentAlt,
   faEdit,
   faEllipsis,
+  faFile,
+  faFileAlt,
   faLocationPin,
   faMinusCircle,
   faPlus,
+  faUserEdit,
   faWarning,
 } from "@fortawesome/free-solid-svg-icons";
-import { faDotCircle } from "@fortawesome/free-regular-svg-icons";
+import {
+  faCompass,
+  faDotCircle,
+  faFileLines,
+  faMessage,
+} from "@fortawesome/free-regular-svg-icons";
 
 interface IProps {
   item: Group;
@@ -63,7 +72,7 @@ const IncidentListItem = ({ item }: IProps) => {
   }
 
   return (
-    <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-600 border-b border-slate-300 z-0'>
+    <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-600 border-b border-slate-300 '>
       {/* <div className='absolute top-0 left-0 bottom-0 right-[15%] z-10'>
         <button
           onClick={onOpenIncidentPage}
@@ -80,6 +89,7 @@ const IncidentListItem = ({ item }: IProps) => {
       >
         <header className='col-span-3 flex flex-col'>
           <div className='flex gap-1 '>
+            <p className='font-medium'>#{item.idnum}</p>
             <VeracityToken value={item.veracity} />
             {item.closed && (
               <span className='px-1 bg-purple-200 text-purple-700 font-medium flex gap-1 items-center'>
@@ -89,7 +99,7 @@ const IncidentListItem = ({ item }: IProps) => {
             )}
             <TagsList values={item.smtcTags} />
           </div>
-          <h2 className=' text-slate-700 flex gap-2 items-center font-medium'>
+          <h2 className=' text-black flex gap-2 items-center font-medium'>
             <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
               {item.title}
             </span>
@@ -101,17 +111,32 @@ const IncidentListItem = ({ item }: IProps) => {
             )}
           </h2>
           <div className='grid grid-cols-4 flex-grow items-end font-medium'>
-            <p>#{item.idnum}</p>
-            <p>{item._reports?.length} reports</p>
             <p>
+              <FontAwesomeIcon icon={faFileLines} size='sm' />{" "}
+              {item._reports?.length}{" "}
+              {item._reports?.length === 1 ? "report" : "reports"}
+            </p>
+            <p className='line-clamp-2'>
               {!!item.locationName && (
                 <>
-                  <FontAwesomeIcon icon={faLocationPin} size='xs' />{" "}
+                  <FontAwesomeIcon icon={faCompass} size='xs' />{" "}
                   {item.locationName}
                 </>
               )}
             </p>
-            <p>By: {item.creator?.username}</p>
+            <p>
+              {item.comments && item.comments?.length > 0 && (
+                <>
+                  <FontAwesomeIcon icon={faMessage} size='sm' />{" "}
+                  {item.comments?.length}
+                </>
+              )}
+            </p>
+            <p>
+              {" "}
+              <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
+              {item.creator?.username}
+            </p>
           </div>
         </header>
         <div className='hidden lg:block col-span-2 '>
@@ -121,7 +146,7 @@ const IncidentListItem = ({ item }: IProps) => {
         </div>
       </div>
 
-      <footer className='col-span-1 flex justify-end gap-2 pr-3 py-3 '>
+      <footer className='col-span-1 flex justify-end gap-2 pr-3 py-3  '>
         <div className='text-end flex flex-col items-end '>
           <p className=''>
             {item.assignedTo && item.assignedTo.length > 0
@@ -140,7 +165,7 @@ const IncidentListItem = ({ item }: IProps) => {
             ))
           ) : (
             <AggieButton
-              className='px-2 py-1 bg-slate-600 rounded text-slate-100 hover:bg-slate-500 mt-1'
+              variant='secondary'
               disabled={!session || doSetAssign.isLoading}
               loading={doSetAssign.isLoading}
               icon={faPlus}
@@ -152,7 +177,7 @@ const IncidentListItem = ({ item }: IProps) => {
         </div>
         <DropdownMenu
           variant='secondary'
-          className='px-2 py-1 hover:bg-slate-200 rounded h-full z-0 pointer-events-auto'
+          className='px-2 py-1 hover:bg-slate-200 rounded h-full z-10 pointer-events-auto'
           panelClassName='right-0 pointer-events-auto text-base'
           buttonElement={
             <div className=''>

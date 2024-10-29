@@ -1,4 +1,13 @@
-import { faMinusCircle, faWarning } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCompass,
+  faFileLines,
+  faMessage,
+} from "@fortawesome/free-regular-svg-icons";
+import {
+  faMinusCircle,
+  faUserEdit,
+  faWarning,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useNavigate } from "react-router-dom";
 import { Groups, Group } from "../../../api/groups/types";
@@ -40,6 +49,8 @@ const NestedIncidentsList = ({
             <article className='grid grid-cols-4 lg:grid-cols-6 px-2 py-2 text-sm text-slate-500  group-hover:bg-slate-50 border-b border-slate-200'>
               <header className='col-span-3 flex flex-col'>
                 <div className='flex gap-1 text-xs'>
+                  <p className='font-medium'>#{item.idnum}</p>
+
                   <VeracityToken value={item.veracity} />
                   {item.closed && (
                     <span className='px-1 bg-purple-200 text-purple-700 font-medium flex gap-1 items-center'>
@@ -61,10 +72,32 @@ const NestedIncidentsList = ({
                   )}
                 </h2>
                 <div className='grid grid-cols-4 flex-grow items-end text-xs font-medium'>
-                  <p>#{item.idnum}</p>
-                  <p>{item._reports?.length} reports</p>
-                  <p>{item.locationName}</p>
-                  <p>{item.creator?.username}</p>
+                  <p>
+                    <FontAwesomeIcon icon={faFileLines} size='sm' />{" "}
+                    {item._reports?.length}{" "}
+                    {item._reports?.length === 1 ? "report" : "reports"}
+                  </p>
+                  <p className='line-clamp-2'>
+                    {!!item.locationName && (
+                      <>
+                        <FontAwesomeIcon icon={faCompass} size='xs' />{" "}
+                        {item.locationName}
+                      </>
+                    )}
+                  </p>
+                  <p>
+                    {item.comments && item.comments?.length > 0 && (
+                      <>
+                        <FontAwesomeIcon icon={faMessage} size='sm' />{" "}
+                        {item.comments?.length}
+                      </>
+                    )}
+                  </p>
+                  <p className=''>
+                    {" "}
+                    <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
+                    {item.creator?.username}
+                  </p>
                 </div>
               </header>
               <div className='hidden lg:block col-span-2 text-xs '>
