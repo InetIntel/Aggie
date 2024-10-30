@@ -62,7 +62,7 @@ const ReportFilters = ({
       } ${group.escalated ? "escalated" : ""}`,
     }));
     if (!array) return [];
-    return [{ key: "", value: "All Incidents" }, ...array];
+    return array;
   }
   const groupsList = useCallback(groupsRemapComboBox, [groups]);
 
@@ -246,6 +246,10 @@ const ReportFilters = ({
               setParams({ groupId: e.key });
             }}
             selectedKey={getParam("groupId")}
+            optionalItems={[
+              { key: "", value: "All" },
+              { key: "none", value: "Not Added to Any Incident" },
+            ]}
           />
         </div>
       </div>

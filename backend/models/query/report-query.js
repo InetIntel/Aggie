@@ -58,6 +58,7 @@ ReportQuery.prototype.toMongooseFilter = function () {
     veracity: this.veracity,
     aitagnames: this.aitagnames,
   }
+  if (this.groupId === "none") filter._group = { $eq: null }
   if (this.escalated === 'unescalated') filter.escalated = false;
   if (this.escalated === 'escalated') filter.escalated = true;
 
