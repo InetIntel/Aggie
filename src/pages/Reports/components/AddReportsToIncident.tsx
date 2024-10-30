@@ -96,8 +96,8 @@ const AddReportsToIncidents = ({
     <Dialog open={isOpen} onClose={onClose} className='relative z-50'>
       <div className='fixed inset-0 bg-black/30' aria-hidden='true' />
       <div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
-        <Dialog.Panel className='bg-gray-50 rounded-xl border border-slate-200 shadow-xl min-w-24 h-[90vh] min-h-12 p-3 grid grid-cols-2 gap-y-1 gap-x-4 w-full	grid-rows-[auto_1fr]'>
-          <div className='col-span-2 flex justify-between '>
+        <Dialog.Panel className='bg-gray-50 rounded-xl border border-slate-200 shadow-xl min-w-24 h-[90vh] min-h-12 p-3 grid grid-cols-5 gap-y-1 gap-x-4 w-full	grid-rows-[auto_1fr]'>
+          <div className='col-span-full flex justify-between '>
             <div className='flex-1'>
               <AggieButton variant='secondary' onClick={onClose}>
                 Cancel
@@ -118,7 +118,7 @@ const AddReportsToIncidents = ({
             </div>
           </div>
 
-          <div className='overflow-y-auto flex flex-col gap-1 h-full'>
+          <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-2'>
             <h2 className='font-medium text-lg mb-1'>Selected Reports:</h2>
             <div className='flex gap-1 items-center'>
               {/* <AggieCheck
@@ -180,7 +180,7 @@ const AddReportsToIncidents = ({
             </div>
           </div>
 
-          <div className='flex flex-col h-full overflow-y-auto'>
+          <div className='flex flex-col h-full overflow-y-auto col-span-3'>
             <h2 className='font-medium text-lg mb-1'>Select an Incident:</h2>
 
             <IncidentsFilters

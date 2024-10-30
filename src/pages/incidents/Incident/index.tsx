@@ -1,11 +1,10 @@
 // i need to refactor this...
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useIncidentMutations } from "../useIncidentMutations";
 
-import { addComment, getGroup, getGroupReports } from "../../../api/groups";
-import { getSession } from "../../../api/session";
+import { getGroup, getGroupReports } from "../../../api/groups";
 import { Group } from "../../../api/groups/types";
 
 import AxiosErrorCard from "../../../components/AxiosErrorCard";
@@ -27,11 +26,11 @@ import {
   faClose,
   faCaretDown,
   faFile,
-  faPlus,
   faFilePen,
   faXmark,
+  faExternalLinkSquare,
 } from "@fortawesome/free-solid-svg-icons";
-import { faDotCircle } from "@fortawesome/free-regular-svg-icons";
+import { faDotCircle, faFileLines } from "@fortawesome/free-regular-svg-icons";
 import AggieSwitch from "../../../components/AggieSwitch";
 import { useUpdateQueryData } from "../../../hooks/useUpdateQueryData";
 import CommentTimeline from "./CommentTimeline";
@@ -50,8 +49,7 @@ const Incident = () => {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { searchParams, getAllParams, setParams, getParam } =
-    useQueryParams<ReportQueryState>();
+  const { searchParams, getAllParams } = useQueryParams<ReportQueryState>();
   const { doUpdate, doSetEscalate, doSetClosed } = useIncidentMutations();
   const { setIrrelevance } = useReportMutations({
     key: ["groups", "reports", { groupId: id }],
@@ -233,14 +231,22 @@ const Incident = () => {
         <CommentTimeline group={group} isLoading={isLoading} />
       </main>
       <aside className='flex flex-col gap-1 h-[90vh] sticky top-0 px-4 '>
-        <PlaceholderDiv
-          as='h2'
-          width='7em'
-          loading={isLoading}
-          className='text-xl font-medium'
-        >
-          <span className=''>({group?._reports.length})</span> reports attached
-        </PlaceholderDiv>
+        <div className='flex justify-between items-center'>
+          <PlaceholderDiv
+            as='h2'
+            width='7em'
+            loading={isLoading}
+            className='text-xl font-medium'
+          >
+            <FontAwesomeIcon icon={faFileLines} size='sm' />{" "}
+            {group?._reports?.length}{" "}
+            {group?._reports?.length === 1 ? "report" : "reports"} added
+          </PlaceholderDiv>
+          <Link to={`/rpt?groupId=${id}`}>
+            <FontAwesomeIcon icon={faExternalLinkSquare} size='sm' />
+          </Link>
+        </div>
+
         <ReportFilters
           reportCount={groupReports && groupReports.total}
           headerElement={

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getUsers } from "../api/users";
 import type { User } from "../api/users/types";
 
@@ -11,6 +11,7 @@ interface IProps {
   className?: string;
 }
 const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery(["users"], getUsers, {
     enabled: true,
     staleTime: 50000,
@@ -23,6 +24,13 @@ const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
   }
 
   const user = useMemo(() => getUser(data), [data, id]);
+
+  function onUserClick(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) return;
+    navigate("/settings/user/" + user?._id);
+  }
 
   if (isLoading || loading)
     return (
@@ -43,12 +51,13 @@ const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
       </span>
     );
   return (
-    <Link
-      to={"/settings/user/" + user?._id}
+    <button
+      onClick={onUserClick}
+      type='button'
       className={`text-blue-600 hover:underline hover:bg-slate-200 ${className}`}
     >
       {user?.displayName || user?.username}
-    </Link>
+    </button>
   );
 };
 

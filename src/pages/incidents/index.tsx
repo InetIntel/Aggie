@@ -50,7 +50,7 @@ const Incidents = () => {
         isQuery={!!searchParams.size}
         clearAll={clearAllParams}
       />
-      <div className='border border-slate-300 rounded-lg bg-white'>
+      <div className='border border-slate-300 rounded-lg bg-white z-0'>
         {!!data && !!data.total ? (
           data.results.map((incident) => (
             <IncidentListItem key={incident._id} item={incident} />

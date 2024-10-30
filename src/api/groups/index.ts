@@ -40,7 +40,9 @@ export const getAllGroups = async (
   options = { ...defaultAllGroups, ...options };
   const params = new URLSearchParams(options);
   const { data } = await axios.get<
-    Pick<Group, "title" | "_id">[] | Groups | undefined
+    | Pick<Group, "title" | "_id" | "idnum" | "escalated" | "closed">[]
+    | Groups
+    | undefined
   >("/api/group/all?" + params.toString());
 
   return data;

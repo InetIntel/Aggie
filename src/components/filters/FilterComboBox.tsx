@@ -3,26 +3,30 @@ import { useCallback, useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose, faCheck } from "@fortawesome/free-solid-svg-icons";
 import FilterDropdown from "./FilterDropdown";
-interface Item {
+interface Item<T> {
   key: string;
   value: string;
+  data?: T;
+  searchstring?: string;
 }
 
-interface IProps {
+interface IProps<T> {
   label: string;
-  list: Item[];
-  optionalItems?: Item[];
-  onChange: (selectedItem: Item) => void;
+  list: Item<T>[];
+  optionalItems?: Item<T>[];
+  onChange: (selectedItem: Item<T>) => void;
   selectedKey?: string;
+  itemElement?: (a: Item<T>) => React.ReactNode;
 }
 
-const FilterComboBox = ({
+const FilterComboBox = <T extends {}>({
   label,
   list,
   onChange,
   selectedKey,
   optionalItems = [],
-}: IProps) => {
+  itemElement = (a) => <span>{a.value}</span>,
+}: IProps<T>) => {
   const [filteredList, setFilteredList] = useState(list);
   const [rawSearch, setRawSearch] = useState("");
 
@@ -36,9 +40,13 @@ const FilterComboBox = ({
       setFilteredList(list);
       return;
     }
-    const filtered = list.filter((i) =>
-      i.value.toLowerCase().includes(query.trim().toLowerCase())
-    );
+    const filtered = list.filter((i) => {
+      if (!!i.searchstring)
+        return i.searchstring
+          .toLowerCase()
+          .includes(query.trim().toLowerCase());
+      return i.value.toLowerCase().includes(query.trim().toLowerCase());
+    });
     setFilteredList(filtered);
   }
   const doSearchInput = useCallback(debounce(onSearch, 150), [filteredList]);
@@ -48,7 +56,7 @@ const FilterComboBox = ({
     setFilteredList(list);
   }
 
-  function onSelectItem(item: Item) {
+  function onSelectItem(item: Item<T>) {
     onChange(item);
     clearSearch();
   }
@@ -129,7 +137,7 @@ const FilterComboBox = ({
                   close();
                 }}
               >
-                <span>{item.value}</span>
+                {itemElement(item)}
                 {selectedKey === item.key && (
                   <FontAwesomeIcon icon={faCheck} className='text-slate-600' />
                 )}

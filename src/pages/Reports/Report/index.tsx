@@ -117,7 +117,7 @@ const Report = () => {
     );
   if (!report || !id) return <> error loading page</>;
   return (
-    <article className='pt-4 pr-2 sticky top-0 overflow-y-auto min-h-[70vh] max-h-[93vh]  '>
+    <article className='pt-4 sticky top-0 overflow-y-auto min-h-[70vh] max-h-[93vh]  '>
       <AddReportsToIncidents
         selection={report ? [report] : undefined}
         isOpen={addReportModal}
@@ -125,7 +125,7 @@ const Report = () => {
         onClose={() => setAddReportModal(false)}
         addRemove={() => setAddReportModal(false)}
       />
-      <nav className='sticky top-0 pl-3 pr-2 py-2 flex justify-between items-center rounded-lg text-xs border border-slate-300 mb-2 shadow-md bg-white'>
+      <nav className='sticky mx-1 top-0 z-10 pl-3 pr-2 py-2 flex justify-between items-center rounded-lg text-xs border border-slate-300 mb-2 shadow-md bg-white'>
         <div className='flex   '>Actions</div>
         <div className='flex gap-1'>
           <AggieButton
@@ -222,7 +222,7 @@ const Report = () => {
           </div>
         </div>
       </nav>
-      <div className='flex flex-col gap-1 my-2'>
+      <div className='flex flex-col gap-1 my-2 mx-3'>
         <div className=''>
           <p className='font-medium text-sm '>Source</p>
           <p className=' '>{getSourceFromId(report._sources)}</p>
@@ -282,7 +282,10 @@ const Report = () => {
         </div>
       </div>
 
-      <SocialMediaPost report={report} showMedia />
+      <div className='mx-3'>
+        {" "}
+        <SocialMediaPost report={report} showMedia />
+      </div>
     </article>
   );
 };

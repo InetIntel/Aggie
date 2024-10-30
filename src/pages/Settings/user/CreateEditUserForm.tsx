@@ -68,6 +68,7 @@ const CreateEditUserForm = ({ user, onClose }: IProps) => {
     onSuccess: () => {
       onClose();
       queryClient.invalidateQueries(["users"]);
+      if (user) queryClient.invalidateQueries(["users", user._id]);
     },
   });
 
@@ -88,6 +89,7 @@ const CreateEditUserForm = ({ user, onClose }: IProps) => {
     : ({
         username: user.username,
         role: user.role,
+        displayName: user.displayName,
         email: user.email,
       } as editSchema);
   return (

@@ -16,8 +16,6 @@ import AggieButton from "../../components/AggieButton";
 
 import { faMinus } from "@fortawesome/free-solid-svg-icons";
 import MultiSelectActions from "./components/MultiSelectActions";
-import { report } from "process";
-import AddReportsToIncidents from "./components/AddReportsToIncident";
 
 interface IProps {}
 
@@ -27,30 +25,26 @@ const AllReportsList = ({}: IProps) => {
   const { searchParams, getAllParams, setParams, getParam } =
     useQueryParams<ReportQueryState>();
 
-  const reportsQuery = useQuery(
-    ["reports"],
-    () => getReports(getAllParams(searchParams)),
-    {
-      refetchInterval: 120000,
-    }
-  );
+  const {
+    data: reports,
+    refetch,
+    isLoading,
+  } = useQuery(["reports"], () => getReports(getAllParams(searchParams)), {
+    refetchInterval: 120000,
+  });
   useEffect(() => {
     // refetch on filter change
     multiSelect.set([]);
+    // apparanty not the way its supposed to be done but i cant do it another way
+    refetch();
     window.scrollTo({
       top: 0,
       behavior: "smooth",
     });
   }, [searchParams]);
 
-  // useEffect(() => {
-  //   if (reportsStatus === "success") {
-  //     window.scrollTo(0, 0);
-  //   }
-  // }, [reportsStatus]);
-
   const multiSelect = useMultiSelect({
-    allItems: reportsQuery.data?.results,
+    allItems: reports?.results,
     mapFn: (i) => i._id,
   });
 
@@ -62,7 +56,7 @@ const AllReportsList = ({}: IProps) => {
     <>
       <div className='px-1 py-2 bg-gray-50/75 backdrop-blur-sm sticky top-0 z-10 '>
         <ReportsFilters
-          reportCount={reportsQuery.data && reportsQuery.data.total}
+          reportCount={reports && reports.total}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton
@@ -77,7 +71,7 @@ const AllReportsList = ({}: IProps) => {
                 active={multiSelect.isActive}
                 onClick={() => {
                   multiSelect.toggleActive();
-                  multiSelect.addRemoveAll(reportsQuery.data?.results);
+                  multiSelect.addRemoveAll(reports?.results);
                 }}
               />
             )
@@ -93,9 +87,7 @@ const AllReportsList = ({}: IProps) => {
               <AggieCheck
                 active={multiSelect.any()}
                 icon={!multiSelect.all() ? faMinus : undefined}
-                onClick={() =>
-                  multiSelect.addRemoveAll(reportsQuery.data?.results)
-                }
+                onClick={() => multiSelect.addRemoveAll(reports?.results)}
               />
               <p>
                 Mark {multiSelect.selection.length} report{"(s)"} as:
@@ -113,8 +105,8 @@ const AllReportsList = ({}: IProps) => {
       </div>
 
       <div className='flex flex-col border border-slate-300 rounded-lg bg-white'>
-        {!!reportsQuery.data?.results && reportsQuery.data?.total > 0 ? (
-          reportsQuery.data?.results.map((report) => (
+        {!!reports?.results && reports?.total > 0 ? (
+          reports?.results.map((report) => (
             <div
               onClick={() => onReportItemClick(report._id, report.read)}
               className='cursor-pointer group focus-theme'
@@ -132,9 +124,7 @@ const AllReportsList = ({}: IProps) => {
           ))
         ) : (
           <div className='w-full bg-white py-12 grid place-items-center font-medium'>
-            <p>
-              {reportsQuery.isLoading ? "Loading data..." : "No Results Found"}
-            </p>
+            <p>{isLoading ? "Loading data..." : "No Results Found"}</p>
           </div>
         )}
       </div>
@@ -142,17 +132,13 @@ const AllReportsList = ({}: IProps) => {
         <div className='w-fit text-sm'>
           <Pagination
             currentPage={Number(getParam("page")) || 0}
-            totalCount={reportsQuery.data?.total || 0}
+            totalCount={reports?.total || 0}
             onPageChange={(num) => setParams({ page: num })}
             size={4}
           />
         </div>
         <small className={"text-center font-medium w-full mt-2"}>
-          {formatPageCount(
-            Number(getParam("page")),
-            50,
-            reportsQuery.data?.total
-          )}
+          {formatPageCount(Number(getParam("page")), 50, reports?.total)}
         </small>
       </div>
     </>
