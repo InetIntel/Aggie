@@ -1,5 +1,5 @@
 function parseJunkipediaPostMetadata(raw) {
-    console.log(raw);
+    console.log("JUNKIPEDIA POST GET");
     const { attributes } = raw;
     const {engagement_data, published, id, channel_id, image_text, thumbnail_url, search_data_fields } = attributes
     const {

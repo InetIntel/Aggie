@@ -14,7 +14,8 @@ const credentialsTypes = [
   'twitter',
   'crowdtangle',
   'telegram',
-  'junkipedia'
+  'junkipedia',
+  'rss'
 ];
 
 // validates secrete based on their type
