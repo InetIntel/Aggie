@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { GeneratedTags, Report } from "../api/reports/types";
-import { isBoolean } from "lodash";
+import { isBoolean, startCase } from "lodash";
 import GeneratedTag from "./GeneratedTag";
 
 import { useMutation } from "@tanstack/react-query";
@@ -37,7 +37,10 @@ const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
   if (!tagsList) return <></>;
 
   const booleanTagsList = tagsList
-    .filter(([key, value]) => isBoolean(value) && value)
+    .filter(
+      ([key, value]) =>
+        isBoolean(value) && value && !key.includes("contentType")
+    )
     .slice(0, showCount);
   const moreTagsLength = tagsList.length - booleanTagsList.length;
   const defaultFormValues = tagsList.reduce(
@@ -48,20 +51,12 @@ const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
     <>
       {booleanTagsList?.map(([key, value]) => (
         <GeneratedTag
-          name={key.replaceAll("_", " ")}
+          name={startCase(key).replaceAll("_", " ")}
           key={key.replaceAll("_", " ")}
         >
-          <span className='block '>
-            {key.replaceAll("_", " ")}
-            {isBoolean(value) ? (
-              <span className='rounded-full px-2 bg-purple-600 text-white'>
-                {`${value}`}
-              </span>
-            ) : (
-              <span className='block font-medium'>{value}</span>
-            )}
+          <span className='block  text-sm max-w-md '>
+            {`${key}_rationale` in tags && tags[`${key}_rationale`]}
           </span>
-          <span className='block mb-1 text-xs italic'>{value}</span>
         </GeneratedTag>
       ))}
       {moreTagsLength > 0 && (
@@ -84,17 +79,17 @@ const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
             {tagsList.map(([key, value]) => (
               <div key={key} className='py-1 flex justify-between items-center'>
                 <div>
-                  <span className='block  text-sm font-medium'>
-                    {key.replaceAll("_", " ")}{" "}
+                  <span className='block '>
+                    {startCase(key).replaceAll("_", " ")}
                     {isBoolean(value) ? (
-                      <span className='rounded-full px-2 bg-purple-600 text-white text-xs'>
+                      <span className='rounded-full px-2 bg-purple-600 text-white'>
                         {`${value}`}
                       </span>
                     ) : (
                       <span className='block font-medium'>{value}</span>
                     )}
                   </span>
-                  <span className='block mb-1 text-xs italic max-w-prose'>
+                  <span className='block mb-1 text-sm italic max-w-prose'>
                     {`${key}_rationale` in tags && tags[`${key}_rationale`]}
                   </span>
                 </div>
@@ -132,7 +127,7 @@ const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
                         ) : (
                           <span className='block font-medium'>{value}</span>
                         )}
-                        {key.replaceAll("_", " ")}{" "}
+                        {startCase(key).replaceAll("_", " ")}{" "}
                       </span>
                       <span className='block mb-1 text-xs italic max-w-prose'>
                         {`${key}_rationale` in tags && tags[`${key}_rationale`]}

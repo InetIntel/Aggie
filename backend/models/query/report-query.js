@@ -106,7 +106,7 @@ ReportQuery.prototype.toMongooseFilter = function () {
   }
 
   // default filter open
-  filter.irrelevant = { $in: ["false", "maybe"] };
+  filter.irrelevant = { $ne: "true" };
   if (this.irrelevant === 'all') delete filter.irrelevant
   if (this.irrelevant === 'true') filter.irrelevant = "true";
 

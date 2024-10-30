@@ -29,7 +29,6 @@ let schema = new Schema({
   checkedOutBy: { type: Schema.ObjectId, ref: 'User', index: true },
   checkedOutAt: { type: Date, index: true },
   commentTo: { type: Schema.ObjectId, ref: 'Report', index: true },
-  originalPost: { type: String },
   notes: { type: String },
   escalated: { type: Boolean, default: false, required: true, index: true },
   content_lang: { type: String },
@@ -193,7 +192,7 @@ schema.methods.clearSMTCTags = function (callback) {
   }
   cb();
 }
-schema.plugin(AutoIncrement, { inc_field: 'reportId' });
+// schema.plugin(AutoIncrement, { inc_field: 'reportId' });
 const Report = mongoose.model('Report', schema);
 
 SMTCTag.schema.on('tag:removed', function (id) {
@@ -230,7 +229,7 @@ Report.queryReports = function (query, page, callback) {
   if (query.veracity === 'confirmed false') filter.veracity = 'Confirmed False';
   if (query.veracity === 'unconfirmed') filter.veracity = 'Unconfirmed';
 
-  console.log(JSON.stringify(filter))
+  // console.log(JSON.stringify(filter))
 
   // if (!!query.keywords) {
   //   const keywordsToFilter = ["content", "author"]
