@@ -46,6 +46,44 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
         );
     }
   }
+  function renderPost(type: typeof contentType) {
+    switch (type) {
+      case "twitter":
+      case "twitter:quote":
+      case "twitter:quoteRetweet":
+      case "twitter:retweet":
+        return <TwitterPost report={report} />;
+      case "RSS":
+        return <RSSPost report={report} />;
+      case "truthsocial":
+        return <TruthSocialPost report={report} />;
+      case "youtube":
+        return <YoutubePost report={report} />;
+
+      default:
+        return (
+          <>
+            <div className='whitespace-pre-wrap mb-1 break-all '>
+              <Linkify
+                options={{
+                  target: "_blank",
+                  className: "underline text-blue-600 hover:bg-slate-100 ",
+                }}
+              >
+                {formatText(report.content)}
+              </Linkify>
+            </div>
+            {showMedia && (
+              <MediaPreview
+                mediaUrl={report.metadata.mediaUrl}
+                media={report._media[0]}
+                report={report}
+              />
+            )}
+          </>
+        );
+    }
+  }
   const TwitterReply = (props: { report: Report }) => {
     const { report } = props;
 
@@ -84,32 +122,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
           </div>
         </p>
       </div>
-
-      {contentType.includes("twitter") && <TwitterPost report={report} />}
-      {contentType === "youtube" && <YoutubePost report={report} />}
-      {contentType === "truthsocial" && <TruthSocialPost report={report} />}
-      {contentType === "RSS" && <RSSPost report={report} />}
-      {contentType === "default" && (
-        <>
-          <div className='whitespace-pre-wrap mb-1 break-all '>
-            <Linkify
-              options={{
-                target: "_blank",
-                className: "underline text-blue-600 hover:bg-slate-100 ",
-              }}
-            >
-              {formatText(report.content)}
-            </Linkify>
-          </div>
-          {showMedia && (
-            <MediaPreview
-              mediaUrl={report.metadata.mediaUrl}
-              media={report._media[0]}
-              report={report}
-            />
-          )}
-        </>
-      )}
+      {renderPost(contentType)}
 
       <div className='flex justify-between'>
         <div className='flex gap-3 text-sm text-slate-500 font-medium mt-1 items-center'>
