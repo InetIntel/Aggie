@@ -72,7 +72,10 @@ const ReportFilters = ({
         <div className='flex gap-1'>
           <Formik
             initialValues={{ keywords: getParam("keywords") }}
-            onSubmit={(e) => setParams(e)}
+            onSubmit={(e) => {
+              setParams(e);
+              (document.activeElement as HTMLElement)?.blur();
+            }}
           >
             {({ resetForm, values }) => (
               <Form className='flex gap-2'>

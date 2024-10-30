@@ -64,7 +64,9 @@ const FlaggedReportsList = ({}: IProps) => {
         <div className='bg-white rounded-lg border border-slate-300 grid place-items-center w-full mt-3'>
           <Formik
             initialValues={{ keywords: getParam("keywords") }}
-            onSubmit={(e) => setParams(e)}
+            onSubmit={(e) => {
+              setParams(e);
+            }}
           >
             {({ resetForm, values }) => (
               <Form className='flex gap-2 flex-col text-center my-4'>
