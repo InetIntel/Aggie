@@ -57,8 +57,10 @@ let schema = new mongoose.Schema({
   }, { timestamps: true })]
 });
 
+schema.plugin(AutoIncrement, { inc_field: 'idnum' });
+
 // index for full text search
-schema.index({ title: 'text', locationName: "text", notes: "text" })
+schema.index({ title: 'text', locationName: "text", notes: "text", idnum: "text" })
 
 schema.pre('save', function (next) {
   if (this.isNew) this.storedAt = new Date();
@@ -154,7 +156,6 @@ schema.methods.clearSMTCTags = function (callback) {
   cb();
 };
 
-schema.plugin(AutoIncrement, { inc_field: 'idnum' });
 var Group = mongoose.model('Group', schema);
 
 /* We need to be able to find Groups by smtcTag Id

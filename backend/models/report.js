@@ -15,7 +15,7 @@ let schema = new Schema({
   storedAt: { type: Date, index: true },
   content: { type: String },
   author: { type: String },
-  veracity: { type: String, default: 'Unconfirmed', enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'] },
+  veracity: { type: String, default: 'Unconfirmed', enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'], index: true },
   url: String,
   metadata: Schema.Types.Mixed,
   smtcTags: { type: [{ type: SchemaTypes.ObjectId, ref: 'SMTCTag' }], default: [] },
@@ -33,7 +33,7 @@ let schema = new Schema({
   notes: { type: String },
   escalated: { type: Boolean, default: false, required: true, index: true },
   content_lang: { type: String },
-  irrelevant: { type: String, default: 'maybe', required: false, enum: ['false', 'true', 'maybe'] },
+  irrelevant: { type: String, default: 'maybe', required: false, enum: ['false', 'true', 'maybe'], index: true },
   aitags: {
     type: Map,
     of: SchemaTypes.Mixed,
@@ -50,8 +50,10 @@ let schema = new Schema({
 
 // schema.index({ 'metadata.ct_tag': 1 }, { background: true });
 // Add fulltext index to the `content` and `author` field.
-// this increases RAM useage, lets keep an eye out for this
+
 schema.index({ author: 'text', content: 'text' });
+
+schema.index({ irrelevant: 1 });
 schema.path('_group').set(function (_group) {
   this._prevGroup = this._group;
   return _group;

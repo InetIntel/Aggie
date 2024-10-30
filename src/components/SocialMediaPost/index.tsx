@@ -15,6 +15,7 @@ import YoutubePost from "./YoutubePost";
 import SocialMediaAuthor from "./SocialMediaAuthor";
 import TruthSocialPost from "./TruthSocialPost";
 import SocialMediaIcon from "./SocialMediaIcon";
+import RSSPost from "./RSSPost";
 
 interface IProps {
   report: Report;
@@ -22,7 +23,29 @@ interface IProps {
 }
 const SocialMediaPost = ({ report, showMedia }: IProps) => {
   const contentType = parseContentType(report);
-
+  function renderAuthor(type: typeof contentType) {
+    switch (type) {
+      case "RSS":
+        const website = new URL(report.url);
+        return (
+          <SocialMediaAuthor
+            username={website.host}
+            createdAt={report.authoredAt}
+            url={report.metadata.accountUrl}
+          />
+        );
+      default:
+        return (
+          <>
+            <SocialMediaAuthor
+              username={report.metadata.accountHandle}
+              createdAt={report.authoredAt}
+              url={report.metadata.accountUrl}
+            />
+          </>
+        );
+    }
+  }
   const TwitterReply = (props: { report: Report }) => {
     const { report } = props;
 
@@ -46,13 +69,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
       {report._media[0] === "twitter" && <TwitterReply report={report} />}
       <div className='flex justify-between mb-2'>
         {/* <TagsList values={report.smtcTags} /> */}
-        <div className=' font-medium  '>
-          <SocialMediaAuthor
-            username={report.metadata.accountHandle}
-            createdAt={report.authoredAt}
-            url={report.metadata.accountUrl}
-          />
-        </div>
+        <div className=' font-medium  '>{renderAuthor(contentType)}</div>
         <p className='flex items-center gap-2 h-fit pr-1'>
           <a
             target='_blank'
@@ -71,6 +88,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
       {contentType.includes("twitter") && <TwitterPost report={report} />}
       {contentType === "youtube" && <YoutubePost report={report} />}
       {contentType === "truthsocial" && <TruthSocialPost report={report} />}
+      {contentType === "RSS" && <RSSPost report={report} />}
       {contentType === "default" && (
         <>
           <div className='whitespace-pre-wrap mb-1 break-all '>

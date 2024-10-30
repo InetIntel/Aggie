@@ -23,7 +23,15 @@ interface IProps {
 
 const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const contentType = parseContentType(report);
-
+  function renderAuthor(type: typeof contentType) {
+    switch (type) {
+      case "RSS":
+        const website = new URL(report.url);
+        return <>{website.host}</>;
+      default:
+        return <>{report.author}</>;
+    }
+  }
   function renderText(type: typeof contentType) {
     switch (type) {
       case "twitter:quoteRetweet": {
@@ -120,7 +128,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
             <span className='mr-2 text-slate-600 text-xs'>
               <SocialMediaIcon mediaKey={report._media[0]} />
             </span>
-            {report.author}
+            {renderAuthor(contentType)}
           </h1>
 
           {report.irrelevant && report.irrelevant === "true" && (
