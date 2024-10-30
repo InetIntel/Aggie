@@ -78,8 +78,12 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           )}
         </PlaceholderDiv>
         <PlaceholderDiv as='p' width='7em' loading={isLoading}>
-          <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
-          {group?.creator?.username}
+          {group?.creator && (
+            <>
+              <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
+              <UserToken id={group?.creator?._id} />
+            </>
+          )}
         </PlaceholderDiv>
       </div>
       <div className='border-t border-slate-300 flex gap-2 items-center py-2'>

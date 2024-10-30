@@ -9,7 +9,12 @@ import FilterComboBox from "../../../components/filters/FilterComboBox";
 import FilterListbox from "../../../components/filters/FilterListBox";
 import { Field, Form, Formik } from "formik";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faXmarkSquare } from "@fortawesome/free-solid-svg-icons";
+import {
+  faExclamationTriangle,
+  faMinusCircle,
+  faSearch,
+  faXmarkSquare,
+} from "@fortawesome/free-solid-svg-icons";
 import AggieButton from "../../../components/AggieButton";
 import Pagination from "../../../components/Pagination";
 import { getAllGroups } from "../../../api/groups";
@@ -43,6 +48,10 @@ const ReportFilters = ({ reportCount, headerElement }: IReportFilters) => {
     const array = query?.map((group) => ({
       key: group._id,
       value: group.title,
+      data: group,
+      searchstring: `${group.title} #${group.idnum} ${
+        group.closed ? "closed" : ""
+      } ${group.escalated ? "escalated" : ""}`,
     }));
     if (!array) return [];
     return [{ key: "", value: "All Incidents" }, ...array];
@@ -133,6 +142,23 @@ const ReportFilters = ({ reportCount, headerElement }: IReportFilters) => {
           <FilterComboBox
             label='Incidents'
             list={groupsList(groups)}
+            itemElement={(i) => (
+              <div className='flex gap-1 flex-wrap max-w-prose items-center'>
+                {i.value}
+                {i.data?.escalated && (
+                  <FontAwesomeIcon
+                    icon={faExclamationTriangle}
+                    className='text-red-400'
+                  />
+                )}{" "}
+                {i.data?.closed && (
+                  <FontAwesomeIcon
+                    icon={faMinusCircle}
+                    className='text-purple-400'
+                  />
+                )}
+              </div>
+            )}
             onChange={(e) => {
               setParams({ groupId: e.key });
             }}

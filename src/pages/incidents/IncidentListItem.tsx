@@ -34,6 +34,7 @@ import {
   faFileLines,
   faMessage,
 } from "@fortawesome/free-regular-svg-icons";
+import UserToken from "../../components/UserToken";
 
 interface IProps {
   item: Group;
@@ -135,7 +136,7 @@ const IncidentListItem = ({ item }: IProps) => {
             <p>
               {" "}
               <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
-              {item.creator?.username}
+              {item.creator && <UserToken id={item.creator._id} />}
             </p>
           </div>
         </header>
@@ -155,13 +156,7 @@ const IncidentListItem = ({ item }: IProps) => {
           </p>
           {item.assignedTo && item.assignedTo.length > 0 ? (
             item.assignedTo.map((user) => (
-              <p
-                key={user._id}
-                onClick={(e) => onUserClick(e, user._id)}
-                className='text-blue-600 hover:underline w-fit font-medium'
-              >
-                {user.username ? user.username : "Deleted user"}
-              </p>
+              <UserToken id={user._id} key={user._id} />
             ))
           ) : (
             <AggieButton

@@ -160,7 +160,11 @@ const ReportListItem = ({
         <div className='flex flex-col '>
           {!!report._group && !!incident ? (
             <div
-              className='rounded-lg text-slate-500 bg-slate-50 px-2 py-1 flex-grow border border-slate-300 hover:cursor-pointer hover:bg-white'
+              className={`rounded-lg ${
+                incident?.closed
+                  ? "bg-purple-50 text-purple-700"
+                  : "bg-slate-50 text-slate-700"
+              }  px-2 py-1 flex-grow border border-slate-300 hover:cursor-pointer hover:bg-white`}
               onClick={(e) => onAttachedReportClick(e, incident._id)}
             >
               <p className='font-medium flex justify-between'>
@@ -169,13 +173,13 @@ const ReportListItem = ({
                   {incident?.escalated && (
                     <FontAwesomeIcon
                       icon={faExclamationTriangle}
-                      className='text-red-600'
+                      className='text-red-500'
                     />
                   )}{" "}
                   {incident?.closed && (
                     <FontAwesomeIcon
                       icon={faMinusCircle}
-                      className='text-purple-600'
+                      className='text-purple-500'
                     />
                   )}
                 </span>{" "}

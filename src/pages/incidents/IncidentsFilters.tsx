@@ -15,6 +15,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch, faXmarkSquare } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
+import { getSession } from "../../api/session";
 
 interface IIncidentFilters {
   isQuery: boolean;
@@ -30,13 +31,19 @@ const IncidentsFilters = ({
   clearAll,
   isQuery,
 }: IIncidentFilters) => {
-  const usersQuery = useQuery(["users"], getUsers);
-
-  function usersRemapComboBox(query: typeof usersQuery) {
-    if (!query.data) return [];
-    const array = query.data.map((user) => ({
+  const { data: users } = useQuery(["users"], getUsers);
+  const { data: session } = useQuery(["session"], getSession, {
+    staleTime: 10000,
+  });
+  function usersRemapComboBox(query: typeof users) {
+    if (!query) return [];
+    const array = query.map((user) => ({
       key: user._id,
       value: user.username,
+      data: user,
+      searchstring: user.displayName
+        ? `${user.displayName} ${user.username}`
+        : undefined,
     }));
     return array;
   }
@@ -122,20 +129,55 @@ const IncidentsFilters = ({
 
           <FilterComboBox
             label='Creator'
-            list={usersRemapComboBox(usersQuery)}
+            list={usersRemapComboBox(users)}
+            itemElement={(i) => (
+              <div>
+                {i.data?.displayName ? (
+                  <>
+                    <p className='font-medium'>{i.data?.displayName}</p>
+                    <p className=' text-xs text-slate-700'>
+                      {i.data?.username}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className='font-medium'>{i.data?.username}</p>
+                  </>
+                )}
+              </div>
+            )}
             onChange={(e) => {
               set({ creator: e.key });
             }}
             selectedKey={get("creator")}
           />
           <FilterComboBox
-            label='Assignee'
-            list={usersRemapComboBox(usersQuery)}
+            label='Assigned To'
+            list={usersRemapComboBox(users)}
+            itemElement={(i) => (
+              <div>
+                {i.data?.displayName ? (
+                  <>
+                    <p className='font-medium'>{i.data?.displayName}</p>
+                    <p className=' text-xs text-slate-700'>
+                      {i.data?.username}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className='font-medium'>{i.data?.username}</p>
+                  </>
+                )}
+              </div>
+            )}
             onChange={(e) => {
               set({ assignedTo: e.key });
             }}
             selectedKey={get("assignedTo")}
-            optionalItems={[{ key: "none", value: "Not Assigned" }]}
+            optionalItems={[
+              { key: "none", value: "Not Assigned" },
+              { key: session?._id || "", value: "Assigned to Me" },
+            ]}
           />
         </div>
       </div>
