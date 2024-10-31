@@ -108,7 +108,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
       <div className='flex justify-between mb-2'>
         {/* <TagsList values={report.smtcTags} /> */}
         <div className=' font-medium  '>{renderAuthor(contentType)}</div>
-        <p className='flex items-center gap-2 h-fit pr-1'>
+        <div className='flex items-center gap-2 h-fit pr-1'>
           <a
             target='_blank'
             href={report.url}
@@ -117,10 +117,10 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
             <span>Open Post</span>
             <FontAwesomeIcon icon={faExternalLink} />
           </a>
-          <div className='text-slate-600'>
+          <p className='text-slate-600'>
             <SocialMediaIcon mediaKey={report._media[0]} />
-          </div>
-        </p>
+          </p>
+        </div>
       </div>
       {renderPost(contentType)}
 

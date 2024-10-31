@@ -118,25 +118,14 @@ const AddReportsToIncidents = ({
             </div>
           </div>
 
-          <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-2'>
-            <h2 className='font-medium text-lg mb-1'>Selected Reports:</h2>
+          <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-2 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3'>
+            <h2 className='font-medium text-lg mb-1'>
+              <span className='bg-slate-100 rounded-lg px-2 py-1  text-slate-700'>
+                {selection?.length || 0}
+              </span>{" "}
+              Selected Reports
+            </h2>
             <div className='flex gap-1 items-center'>
-              {/* <AggieCheck
-                active={multiSelect.isActive}
-                icon={!multiSelect.all() ? faMinus : undefined}
-                onClick={() => {
-                  if (multiSelect.isActive && multiSelect.any()) {
-                    multiSelect.setActive(false);
-                    multiSelect.set([]);
-                  } else if (!multiSelect.isActive && !multiSelect.any()) {
-                    multiSelect.setActive(true);
-                    multiSelect.addRemoveAll(selection);
-                  } else {
-                    multiSelect.addRemoveAll(selection);
-                  }
-                }}
-              /> */}
-
               {multiSelect.isActive && (
                 <>
                   <AggieButton

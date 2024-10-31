@@ -243,7 +243,7 @@ exports.reports_group_update = (req, res) => {
     if (reports.length === 0) return res.sendStatus(200);
     let remaining = reports.length;
     reports.forEach((report) => {
-      report.read = true;
+      //  report.read = true;
       report._group = req.body.group._id;
       report.save((err) => {
         if (err) {
@@ -263,6 +263,11 @@ exports.reports_group_update = (req, res) => {
               if (!res.headersSent) return res.status(err.status).send(err.message)
               return;
             }
+            if (--remaining === 0) {
+              eventRouter.publish('groups:update', { ids: [req.body.group._id], update: { _reports: group._reports } }).then(() => {
+                return res.sendStatus(200)
+              });
+            }
           })
         })
         writelog.writeReport(req, report, 'addToGroup');
@@ -276,7 +281,55 @@ exports.reports_group_update = (req, res) => {
     });
   });
 }
+// remove selected reports from one group
+exports.reports_group_remove = (req, res) => {
+  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+  Report.find({ _id: { $in: req.body.ids } }, (err, reports) => {
+    if (err) return res.status(err.status).send(err.message);
+    if (reports.length === 0) return res.sendStatus(200);
+    let remaining = reports.length;
 
+
+    reports.forEach((report) => {
+      report._group = undefined;
+      report.save((err) => {
+        if (err) {
+          if (!res.headersSent) return res.status(err.status).send(err.message)
+          return;
+        }
+        Group.findById(req.body.group._id, (err, group) => {
+          if (err) {
+            if (!res.headersSent) {
+              return res.status(err.status).send(err.message);
+            }
+            return;
+          }
+          group._reports = group._reports.filter(i => i._id !== report._id);
+          group.save((err) => {
+            if (err) {
+              if (!res.headersSent) return res.status(err.status).send(err.message)
+              return;
+
+            }
+            if (--remaining === 0) {
+              eventRouter.publish('groups:update', { ids: [req.body.group._id], update: { _reports: group._reports } }).then(() => {
+                return res.sendStatus(200)
+              });
+            }
+
+          })
+        })
+        writelog.writeReport(req, report, 'removeFromGroup');
+        if (--remaining === 0) {
+          eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id } }).then(() => {
+            return res.sendStatus(200)
+          });
+
+        };
+      });
+    });
+  });
+}
 // Update Notes
 exports.reports_notes_update = (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);

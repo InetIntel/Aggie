@@ -27,6 +27,7 @@ interface IReportFilters {
   headerElement?: React.ReactElement;
   searchPlaceholder?: string;
   activeSearch?: string;
+  fromGroup?: string;
 }
 
 const ReportFilters = ({
@@ -34,6 +35,7 @@ const ReportFilters = ({
   headerElement,
   searchPlaceholder,
   activeSearch,
+  fromGroup,
 }: IReportFilters) => {
   const { searchParams, getParam, setParams, clearAllParams } =
     useQueryParams<ReportQueryState>();
@@ -86,7 +88,7 @@ const ReportFilters = ({
                       className='focus-theme px-2 py-1 border border-slate-300 bg-white rounded-lg min-w-[20rem]'
                       placeholder={searchPlaceholder || "Keyword Search"}
                     />
-                    <div className='absolute hidden group-focus-within:block py-1 w-[32em]'>
+                    <div className='absolute hidden group-focus-within:block py-1 w-[32em] z-10'>
                       <div
                         className={`flex rounded-lg border border-slate-300 bg-white shadow-md overflow-hidden ${
                           !!activeSearch ? "flex-col-reverse" : "flex-col "
@@ -137,7 +139,9 @@ const ReportFilters = ({
                           onClick={() => {
                             if (!!activeSearch) return;
                             navigate(
-                              `/rpt/search?keywords=${!values.keywords}`
+                              `/rpt/search?keywords=${values.keywords}${
+                                !!fromGroup ? "&groupId=" + fromGroup : ""
+                              }`
                             );
                           }}
                         >
@@ -222,35 +226,37 @@ const ReportFilters = ({
             }}
             selectedKey={getParam("sourceId")}
           />
-          <FilterComboBox
-            label='Incidents'
-            list={groupsList(groups)}
-            itemElement={(i) => (
-              <div className='flex gap-1 flex-wrap max-w-prose items-center'>
-                {i.value}
-                {i.data?.escalated && (
-                  <FontAwesomeIcon
-                    icon={faExclamationTriangle}
-                    className='text-red-400'
-                  />
-                )}{" "}
-                {i.data?.closed && (
-                  <FontAwesomeIcon
-                    icon={faMinusCircle}
-                    className='text-purple-400'
-                  />
-                )}
-              </div>
-            )}
-            onChange={(e) => {
-              setParams({ groupId: e.key });
-            }}
-            selectedKey={getParam("groupId")}
-            optionalItems={[
-              { key: "", value: "All" },
-              { key: "none", value: "Not Added to Any Incident" },
-            ]}
-          />
+          {!fromGroup && (
+            <FilterComboBox
+              label='Incidents'
+              list={groupsList(groups)}
+              itemElement={(i) => (
+                <div className='flex gap-1 flex-wrap max-w-prose items-center'>
+                  {i.value}
+                  {i.data?.escalated && (
+                    <FontAwesomeIcon
+                      icon={faExclamationTriangle}
+                      className='text-red-400'
+                    />
+                  )}{" "}
+                  {i.data?.closed && (
+                    <FontAwesomeIcon
+                      icon={faMinusCircle}
+                      className='text-purple-400'
+                    />
+                  )}
+                </div>
+              )}
+              onChange={(e) => {
+                setParams({ groupId: e.key });
+              }}
+              selectedKey={getParam("groupId")}
+              optionalItems={[
+                { key: "", value: "All" },
+                { key: "none", value: "Not Added to Any Incident" },
+              ]}
+            />
+          )}
         </div>
       </div>
     </>

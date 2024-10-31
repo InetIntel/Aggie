@@ -260,6 +260,7 @@ const Incident = () => {
 
         <ReportFilters
           reportCount={groupReports && groupReports.total}
+          fromGroup={id}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton
