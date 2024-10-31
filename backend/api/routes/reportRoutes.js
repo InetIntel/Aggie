@@ -41,7 +41,7 @@ router.patch('/_irrelevance', User.can('edit data'), reportController.reports_ir
 // Add reports to group
 router.patch('/_group', User.can('edit data'), reportController.reports_group_update);
 // remove reports from group
-router.patch('/_group', User.can('edit data'), reportController.reports_group_remove);
+router.patch('/_group-rm', User.can('edit data'), reportController.reports_group_remove);
 
 // Update reports notes
 router.patch('/_notes', User.can('edit data'), reportController.reports_notes_update);

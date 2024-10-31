@@ -89,7 +89,7 @@ exports.group_update = (req, res, next) => {
         res.sendStatus(404);
       } else {
         writelog.writeGroup(req, group, 'editGroup');
-        eventRouter.publish('groups:update', group).then(() => {
+        eventRouter.publish('groups:update', { ids: group._id, update: group }).then(() => {
           res.status(200).send(group);
         });
       }
@@ -191,7 +191,11 @@ exports.group_escalated_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'escalatedGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { escalated: group.escalated } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -233,7 +237,11 @@ exports.group_title_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'titleGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { title: group.title } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -255,13 +263,17 @@ exports.group_locationName_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'locationNameGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { locationName: group.locationName } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
 };
 
-// Update group notes
+// Update group closed
 exports.group_closed_update = (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
   Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
@@ -277,7 +289,11 @@ exports.group_closed_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'notesGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { closed: group.closed } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -299,7 +315,11 @@ exports.group_veracity_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'veracityGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { veracity: group.veracity } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -321,7 +341,11 @@ exports.group_notes_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'notesGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { note: group.notes } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -342,9 +366,13 @@ exports.group_comment_add = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        console.log(group.comments)
         writelog.writeReport(req, group, 'commentAddGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -368,7 +396,11 @@ exports.group_comment_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'commentEditGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -391,7 +423,11 @@ exports.group_comment_remove = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'commentRemoveGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
