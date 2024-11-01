@@ -15,6 +15,7 @@ import YoutubePost from "./YoutubePost";
 import SocialMediaAuthor from "./SocialMediaAuthor";
 import TruthSocialPost from "./TruthSocialPost";
 import SocialMediaIcon from "./SocialMediaIcon";
+import RSSPost from "./RSSPost";
 
 interface IProps {
   report: Report;
@@ -22,7 +23,67 @@ interface IProps {
 }
 const SocialMediaPost = ({ report, showMedia }: IProps) => {
   const contentType = parseContentType(report);
+  function renderAuthor(type: typeof contentType) {
+    switch (type) {
+      case "RSS":
+        const website = new URL(report.url);
+        return (
+          <SocialMediaAuthor
+            username={website.host}
+            createdAt={report.authoredAt}
+            url={report.metadata.accountUrl}
+          />
+        );
+      default:
+        return (
+          <>
+            <SocialMediaAuthor
+              username={report.metadata.accountHandle}
+              createdAt={report.authoredAt}
+              url={report.metadata.accountUrl}
+            />
+          </>
+        );
+    }
+  }
+  function renderPost(type: typeof contentType) {
+    switch (type) {
+      case "twitter":
+      case "twitter:quote":
+      case "twitter:quoteRetweet":
+      case "twitter:retweet":
+        return <TwitterPost report={report} />;
+      case "RSS":
+        return <RSSPost report={report} />;
+      case "truthsocial":
+        return <TruthSocialPost report={report} />;
+      case "youtube":
+        return <YoutubePost report={report} />;
 
+      default:
+        return (
+          <>
+            <div className='whitespace-pre-wrap mb-1 break-all '>
+              <Linkify
+                options={{
+                  target: "_blank",
+                  className: "underline text-blue-600 hover:bg-slate-100 ",
+                }}
+              >
+                {formatText(report.content)}
+              </Linkify>
+            </div>
+            {showMedia && (
+              <MediaPreview
+                mediaUrl={report.metadata.mediaUrl}
+                media={report._media[0]}
+                report={report}
+              />
+            )}
+          </>
+        );
+    }
+  }
   const TwitterReply = (props: { report: Report }) => {
     const { report } = props;
 
@@ -46,14 +107,8 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
       {report._media[0] === "twitter" && <TwitterReply report={report} />}
       <div className='flex justify-between mb-2'>
         {/* <TagsList values={report.smtcTags} /> */}
-        <div className=' font-medium  '>
-          <SocialMediaAuthor
-            username={report.metadata.accountHandle}
-            createdAt={report.authoredAt}
-            url={report.metadata.accountUrl}
-          />
-        </div>
-        <p className='flex items-center gap-2 h-fit pr-1'>
+        <div className=' font-medium  '>{renderAuthor(contentType)}</div>
+        <div className='flex items-center gap-2 h-fit pr-1'>
           <a
             target='_blank'
             href={report.url}
@@ -62,36 +117,12 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
             <span>Open Post</span>
             <FontAwesomeIcon icon={faExternalLink} />
           </a>
-          <div className='text-slate-600'>
+          <p className='text-slate-600'>
             <SocialMediaIcon mediaKey={report._media[0]} />
-          </div>
-        </p>
+          </p>
+        </div>
       </div>
-
-      {contentType.includes("twitter") && <TwitterPost report={report} />}
-      {contentType === "youtube" && <YoutubePost report={report} />}
-      {contentType === "truthsocial" && <TruthSocialPost report={report} />}
-      {contentType === "default" && (
-        <>
-          <div className='whitespace-pre-wrap mb-1 break-all '>
-            <Linkify
-              options={{
-                target: "_blank",
-                className: "underline text-blue-600 hover:bg-slate-100 ",
-              }}
-            >
-              {formatText(report.content)}
-            </Linkify>
-          </div>
-          {showMedia && (
-            <MediaPreview
-              mediaUrl={report.metadata.mediaUrl}
-              media={report._media[0]}
-              report={report}
-            />
-          )}
-        </>
-      )}
+      {renderPost(contentType)}
 
       <div className='flex justify-between'>
         <div className='flex gap-3 text-sm text-slate-500 font-medium mt-1 items-center'>

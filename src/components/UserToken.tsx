@@ -31,7 +31,7 @@ const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
     if (!user) return;
     navigate("/settings/user/" + user?._id);
   }
-
+  const preferredName = user?.displayName || user?.username;
   if (isLoading || loading)
     return (
       <span className='h-[1em] w-12 rounded-lg bg-slate-200 animate-pulse inline-block'></span>
@@ -43,20 +43,15 @@ const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
         {"[Deleted User]"}
       </span>
     );
-  if (disabled)
-    return (
-      <span className={`${className}`}>
-        {" "}
-        {user?.displayName || user?.username}
-      </span>
-    );
+  if (disabled) return <span className={`${className}`}> {preferredName}</span>;
   return (
     <button
       onClick={onUserClick}
       type='button'
+      title={`open ${preferredName}'s profile`}
       className={`text-blue-600 hover:underline hover:bg-slate-200 ${className}`}
     >
-      {user?.displayName || user?.username}
+      {preferredName}
     </button>
   );
 };

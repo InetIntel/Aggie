@@ -131,7 +131,7 @@ const IncidentsFilters = ({
             label='Creator'
             list={usersRemapComboBox(users)}
             itemElement={(i) => (
-              <div>
+              <div className='text-left'>
                 {i.data?.displayName ? (
                   <>
                     <p className='font-medium'>{i.data?.displayName}</p>
@@ -155,7 +155,7 @@ const IncidentsFilters = ({
             label='Assigned To'
             list={usersRemapComboBox(users)}
             itemElement={(i) => (
-              <div>
+              <div className='text-left'>
                 {i.data?.displayName ? (
                   <>
                     <p className='font-medium'>{i.data?.displayName}</p>

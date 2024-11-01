@@ -10,15 +10,14 @@ import { Report } from "../../api/reports/types";
 
 export function parseContentType(report: Report) {
   if (!report._media) return "default";
-  if (report._media[0] === "truthsocial") return "truthsocial";
-  if (report._media[0] === "youtube") return "youtube";
+
   if (report._media[0] === "twitter") {
     // some goofy coding practices going on here
     const type = tweetType(report);
     return type;
   }
 
-  return "default";
+  return report._media[0];
 }
 
 export type ContentType = ReturnType<typeof parseContentType>;

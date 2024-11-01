@@ -20,16 +20,26 @@ import Pagination from "../../../components/Pagination";
 import { getAllGroups } from "../../../api/groups";
 import { useCallback } from "react";
 import FilterRadioGroup from "../../../components/filters/FilterRadioGroup";
+import { Link, useNavigate } from "react-router-dom";
 
 interface IReportFilters {
   reportCount?: number;
   headerElement?: React.ReactElement;
+  searchPlaceholder?: string;
+  activeSearch?: string;
+  fromGroup?: string;
 }
 
-const ReportFilters = ({ reportCount, headerElement }: IReportFilters) => {
+const ReportFilters = ({
+  reportCount,
+  headerElement,
+  searchPlaceholder,
+  activeSearch,
+  fromGroup,
+}: IReportFilters) => {
   const { searchParams, getParam, setParams, clearAllParams } =
     useQueryParams<ReportQueryState>();
-
+  const navigate = useNavigate();
   const { data: sources } = useQuery(["sources"], getSources);
   function sourcesRemapComboBox(query: typeof sources) {
     if (!query) return [];
@@ -54,7 +64,7 @@ const ReportFilters = ({ reportCount, headerElement }: IReportFilters) => {
       } ${group.escalated ? "escalated" : ""}`,
     }));
     if (!array) return [];
-    return [{ key: "", value: "All Incidents" }, ...array];
+    return array;
   }
   const groupsList = useCallback(groupsRemapComboBox, [groups]);
 
@@ -64,23 +74,100 @@ const ReportFilters = ({ reportCount, headerElement }: IReportFilters) => {
         <div className='flex gap-1'>
           <Formik
             initialValues={{ keywords: getParam("keywords") }}
-            onSubmit={(e) => setParams(e)}
+            onSubmit={(e) => {
+              setParams(e);
+              (document.activeElement as HTMLElement)?.blur();
+            }}
           >
-            {({ resetForm }) => (
+            {({ resetForm, values }) => (
               <Form className='flex gap-2'>
                 <div className='flex items-center focus-within-theme rounded-lg'>
-                  <Field
-                    name='keywords'
-                    className='focus-theme px-2 py-1 border-y border-l border-slate-300 bg-white rounded-l-lg min-w-[20rem]'
-                    placeholder='Search Keywords'
-                  />
-                  <AggieButton
-                    type='submit'
-                    className='px-4 py-1 h-full hover:bg-white bg-slate-100 rounded-r-lg border  border-slate-300'
-                    title='search'
-                  >
-                    <FontAwesomeIcon icon={faSearch} />
-                  </AggieButton>
+                  <div className='group relative'>
+                    <Field
+                      name='keywords'
+                      className='focus-theme px-2 py-1 border border-slate-300 bg-white rounded-lg min-w-[20rem]'
+                      placeholder={searchPlaceholder || "Keyword Search"}
+                    />
+                    <div className='absolute hidden group-focus-within:block py-1 w-[32em] z-10'>
+                      <div
+                        className={`flex rounded-lg border border-slate-300 bg-white shadow-md overflow-hidden ${
+                          !!activeSearch ? "flex-col-reverse" : "flex-col "
+                        }`}
+                      >
+                        <AggieButton
+                          type={!activeSearch ? "submit" : "button"}
+                          className={`px-4 py-2 h-full w-full hover:bg-slate-50 text-left border-l-4   ${
+                            !activeSearch
+                              ? "border-green-600 "
+                              : "border-transparent "
+                          }`}
+                          title='search'
+                          disabled={!values.keywords}
+                          onClick={() => {
+                            if (!activeSearch) return;
+                            navigate(`/rpt?keywords=${!values.keywords}`);
+                          }}
+                        >
+                          <div className='font-medium text-sm'>
+                            {!activeSearch ? (
+                              <p>
+                                Search for{" "}
+                                {!!values.keywords
+                                  ? `"${values.keywords}"`
+                                  : "Keywords"}{" "}
+                              </p>
+                            ) : (
+                              <p>Search for Keywords</p>
+                            )}
+
+                            <p className='text-slate-600 max-w-lg text-wrap'>
+                              search for exact words and phrases, like "Fulton
+                              County".
+                            </p>
+                          </div>
+                          {!activeSearch && <FontAwesomeIcon icon={faSearch} />}{" "}
+                        </AggieButton>
+                        <AggieButton
+                          type={!!activeSearch ? "submit" : "button"}
+                          className={`px-4 py-2 h-full w-full hover:bg-purple-100 bg-purple-50 text-left border-l-4   ${
+                            !!activeSearch
+                              ? "border-green-600 "
+                              : "border-transparent "
+                          }`}
+                          title='search'
+                          disabled={!values.keywords}
+                          onClick={() => {
+                            if (!!activeSearch) return;
+                            navigate(
+                              `/rpt/search?keywords=${values.keywords}${
+                                !!fromGroup ? "&groupId=" + fromGroup : ""
+                              }`
+                            );
+                          }}
+                        >
+                          <div className='font-medium text-sm'>
+                            {!!activeSearch ? (
+                              <p>
+                                Search concepts related to{" "}
+                                {!!values.keywords
+                                  ? `"${values.keywords}"`
+                                  : "Keywords"}{" "}
+                              </p>
+                            ) : (
+                              <p>Advanced Contextual Search</p>
+                            )}
+                            <p className='text-slate-600 max-w-lg text-wrap'>
+                              find concepts and ideas that are similar but not
+                              exactly the same to the search term
+                            </p>
+                          </div>
+                          {!!activeSearch && (
+                            <FontAwesomeIcon icon={faSearch} />
+                          )}
+                        </AggieButton>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {!!searchParams.size && (
@@ -139,31 +226,37 @@ const ReportFilters = ({ reportCount, headerElement }: IReportFilters) => {
             }}
             selectedKey={getParam("sourceId")}
           />
-          <FilterComboBox
-            label='Incidents'
-            list={groupsList(groups)}
-            itemElement={(i) => (
-              <div className='flex gap-1 flex-wrap max-w-prose items-center'>
-                {i.value}
-                {i.data?.escalated && (
-                  <FontAwesomeIcon
-                    icon={faExclamationTriangle}
-                    className='text-red-400'
-                  />
-                )}{" "}
-                {i.data?.closed && (
-                  <FontAwesomeIcon
-                    icon={faMinusCircle}
-                    className='text-purple-400'
-                  />
-                )}
-              </div>
-            )}
-            onChange={(e) => {
-              setParams({ groupId: e.key });
-            }}
-            selectedKey={getParam("groupId")}
-          />
+          {!fromGroup && (
+            <FilterComboBox
+              label='Incidents'
+              list={groupsList(groups)}
+              itemElement={(i) => (
+                <div className='flex gap-1 flex-wrap max-w-prose items-center'>
+                  {i.value}
+                  {i.data?.escalated && (
+                    <FontAwesomeIcon
+                      icon={faExclamationTriangle}
+                      className='text-red-400'
+                    />
+                  )}{" "}
+                  {i.data?.closed && (
+                    <FontAwesomeIcon
+                      icon={faMinusCircle}
+                      className='text-purple-400'
+                    />
+                  )}
+                </div>
+              )}
+              onChange={(e) => {
+                setParams({ groupId: e.key });
+              }}
+              selectedKey={getParam("groupId")}
+              optionalItems={[
+                { key: "", value: "All" },
+                { key: "none", value: "Not Added to Any Incident" },
+              ]}
+            />
+          )}
         </div>
       </div>
     </>

@@ -29,6 +29,7 @@ import {
   faFilePen,
   faXmark,
   faExternalLinkSquare,
+  faExternalLinkSquareAlt,
 } from "@fortawesome/free-solid-svg-icons";
 import { faDotCircle, faFileLines } from "@fortawesome/free-regular-svg-icons";
 import AggieSwitch from "../../../components/AggieSwitch";
@@ -242,13 +243,24 @@ const Incident = () => {
             {group?._reports?.length}{" "}
             {group?._reports?.length === 1 ? "report" : "reports"} added
           </PlaceholderDiv>
-          <Link to={`/rpt?groupId=${id}`}>
-            <FontAwesomeIcon icon={faExternalLinkSquare} size='sm' />
+          <Link
+            to={`/rpt?groupId=${id}`}
+            className='text-sm text-blue-600 hover:underline'
+          >
+            <p>
+              Open List in All Reports Page
+              <FontAwesomeIcon
+                icon={faExternalLinkSquareAlt}
+                size='sm'
+                className='ml-1'
+              />
+            </p>
           </Link>
         </div>
 
         <ReportFilters
           reportCount={groupReports && groupReports.total}
+          fromGroup={id}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton

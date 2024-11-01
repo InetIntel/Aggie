@@ -168,7 +168,7 @@ const ReportListItem = ({
               onClick={(e) => onAttachedReportClick(e, incident._id)}
             >
               <p className='font-medium flex justify-between'>
-                <span>
+                <span className='line-clamp-3'>
                   {incident?.title}{" "}
                   {incident?.escalated && (
                     <FontAwesomeIcon
@@ -185,7 +185,7 @@ const ReportListItem = ({
                 </span>{" "}
                 <span>#{incident?.idnum}</span>
               </p>
-              <p>({incident._reports.length}) total Reports</p>
+              <p>{incident._reports.length} Reports</p>
             </div>
           ) : (
             <AggieButton

@@ -74,14 +74,6 @@ const IncidentListItem = ({ item }: IProps) => {
 
   return (
     <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-600 border-b border-slate-300 '>
-      {/* <div className='absolute top-0 left-0 bottom-0 right-[15%] z-10'>
-        <button
-          onClick={onOpenIncidentPage}
-          title={`open incident ${item.title}`}
-          type='button'
-          className='w-full h-full hover:bg-slate-300/15 pointer-events-auto'
-        ></button>
-      </div> */}
       <div
         className='col-span-5 grid grid-cols-subgrid hover:bg-slate-300/15 pl-3 py-3 pr-1'
         onClick={onOpenIncidentPage}
@@ -100,12 +92,12 @@ const IncidentListItem = ({ item }: IProps) => {
             )}
             <TagsList values={item.smtcTags} />
           </div>
-          <h2 className=' text-black flex gap-2 items-center font-medium'>
+          <h2 className=' text-black items-center font-medium'>
             <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
-              {item.title}
+              {item.title}{" "}
             </span>
             {item.escalated && (
-              <span className='px-1 bg-orange-700 text-white font-medium text-sm flex gap-1 items-center no-underline'>
+              <span className='px-1 bg-orange-700  text-white font-medium text-sm inline-flex gap-1 items-center no-underline w-fit'>
                 <FontAwesomeIcon icon={faWarning} />
                 Escalated
               </span>
@@ -133,7 +125,7 @@ const IncidentListItem = ({ item }: IProps) => {
                 </>
               )}
             </p>
-            <p>
+            <p className='text-xs overflow-hidden max-w-full flex gap-1 items-baseline text-ellipsis mr-1'>
               {" "}
               <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
               {item.creator && <UserToken id={item.creator._id} />}

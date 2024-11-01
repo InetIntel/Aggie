@@ -122,17 +122,20 @@ export const setReportsToGroup = async (params: setReportsToGroupParams) => {
   return data;
 };
 
-//TODO: deprecate. replaced by setReportsToGroup
-export const setSelectedGroup = async (
-  reportIds: string[],
-  groupId: hasId | null
+interface removeReportsFromGroupParams {
+  reportIds: string[];
+  groupId: hasId | null;
+}
+export const removeReportsFromGroup = async (
+  params: removeReportsFromGroupParams
 ) => {
-  const { data } = await axios.patch("/api/report/_group", {
-    ids: reportIds,
-    group: groupId,
+  const { data } = await axios.patch<null>("/api/report/_group-rm", {
+    ids: params.reportIds,
+    group: params.groupId,
   });
   return data;
 };
+
 /**
  * todo: get rid of tagId? i dont see why this needs to be separated
  * @param queryState
@@ -174,8 +177,8 @@ export async function setAITagsFeedback(params: IAITagsFeedback) {
     ...params.report,
     aitags_feedback: [
       ...(params.report.aitags_feedback || []),
-      params.aitags_feedback
-    ]
+      params.aitags_feedback,
+    ],
   };
   console.log(combine);
   const data = await editReport(combine);

@@ -12,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useNavigate } from "react-router-dom";
 import { Groups, Group } from "../../../api/groups/types";
 import TagsList from "../../../components/Tags/TagsList";
+import UserToken from "../../../components/UserToken";
 import VeracityToken from "../../../components/VeracityToken";
 
 interface IProps {
@@ -96,7 +97,7 @@ const NestedIncidentsList = ({
                   <p className=''>
                     {" "}
                     <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
-                    {item.creator?.username}
+                    {item.creator && <UserToken id={item.creator._id} />}
                   </p>
                 </div>
               </header>
@@ -114,15 +115,7 @@ const NestedIncidentsList = ({
                   </p>
                   {item.assignedTo &&
                     item.assignedTo.length > 0 &&
-                    item.assignedTo.map((user) => (
-                      <p
-                        key={user._id}
-                        onClick={(e) => onUserClick(e, user._id)}
-                        className='text-blue-600 hover:underline w-fit font-medium'
-                      >
-                        {user.username ? user.username : "Deleted user"}
-                      </p>
-                    ))}
+                    item.assignedTo.map((user) => <UserToken id={user._id} />)}
                 </div>
               </footer>
             </article>

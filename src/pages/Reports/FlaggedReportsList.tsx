@@ -14,9 +14,11 @@ import Pagination from "../../components/Pagination";
 import AggieCheck from "../../components/AggieCheck";
 import AggieButton from "../../components/AggieButton";
 
-import { faMinus } from "@fortawesome/free-solid-svg-icons";
+import { faMinus, faSearch } from "@fortawesome/free-solid-svg-icons";
 import MultiSelectActions from "./components/MultiSelectActions";
 import { getSearch, SearchQueryState } from "../../api/search";
+import { Field, Form, Formik } from "formik";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 interface IProps {}
 
@@ -30,12 +32,13 @@ const FlaggedReportsList = ({}: IProps) => {
   const reportsQuery = useQuery({
     queryKey: ["search"],
     queryFn: () => getSearch(getAllParams(searchParams)),
-    enabled: searchParams.size > 0,
+    enabled: !!getParam("keywords"),
   });
 
   const { data: reports } = reportsQuery;
   useEffect(() => {
     // refetch on filter change
+    if (!getParam("keywords")) return;
     reportsQuery.refetch();
     multiSelect.set([]);
     window.scrollTo({
@@ -50,14 +53,64 @@ const FlaggedReportsList = ({}: IProps) => {
   });
 
   function onReportItemClick(id: string, isRead: boolean) {
-    navigate({ pathname: `/rpt/search/${id}`, search: searchParams.toString() });
+    navigate({
+      pathname: `/rpt/search/${id}`,
+      search: searchParams.toString(),
+    });
   }
+  if (!getParam("keywords"))
+    return (
+      <>
+        <div className='bg-white rounded-lg border border-slate-300 grid place-items-center w-full mt-3'>
+          <Formik
+            initialValues={{ keywords: getParam("keywords") }}
+            onSubmit={(e) => {
+              setParams(e);
+            }}
+          >
+            {({ resetForm, values }) => (
+              <Form className='flex gap-2 flex-col text-center my-4'>
+                <h1 className='text-xl font-medium'>
+                  {" "}
+                  Advanced Contextual Search
+                </h1>
+                <p className='text-slate-700 mb-2 max-w-md'>
+                  {" "}
+                  find concepts and ideas that are similar, but not exactly the
+                  same to the search term
+                </p>
 
+                <div className='flex items-center focus-within-theme rounded-lg'>
+                  <Field
+                    name='keywords'
+                    className='focus-theme px-2 py-1 border border-slate-300 bg-white rounded-lg min-w-[20rem] w-full'
+                    placeholder={"what do you want to search for?"}
+                  />
+                </div>
+                <div>
+                  <AggieButton
+                    type='submit'
+                    variant='secondary'
+                    title='search'
+                    disabled={!values.keywords}
+                  >
+                    Search!
+                    <FontAwesomeIcon icon={faSearch} />
+                  </AggieButton>
+                </div>
+              </Form>
+            )}
+          </Formik>
+        </div>
+      </>
+    );
   return (
     <>
       <div className='px-1 py-2 bg-gray-50/75 backdrop-blur-sm sticky top-0 z-10 '>
         <ReportsFilters
           reportCount={reports && reports.total}
+          searchPlaceholder='contextual search'
+          activeSearch='contextual'
           headerElement={
             <AggieButton
               variant='secondary'

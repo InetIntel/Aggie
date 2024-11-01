@@ -15,7 +15,7 @@ let schema = new Schema({
   storedAt: { type: Date, index: true },
   content: { type: String },
   author: { type: String },
-  veracity: { type: String, default: 'Unconfirmed', enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'] },
+  veracity: { type: String, default: 'Unconfirmed', enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'], index: true },
   url: { type: String },
   guid: { type: String, index: true, unique: true },
   metadata: Schema.Types.Mixed,
@@ -30,11 +30,10 @@ let schema = new Schema({
   checkedOutBy: { type: Schema.ObjectId, ref: 'User', index: true },
   checkedOutAt: { type: Date, index: true },
   commentTo: { type: Schema.ObjectId, ref: 'Report', index: true },
-  originalPost: { type: String },
   notes: { type: String },
   escalated: { type: Boolean, default: false, required: true, index: true },
   content_lang: { type: String },
-  irrelevant: { type: String, default: 'maybe', required: false, enum: ['false', 'true', 'maybe'] },
+  irrelevant: { type: String, default: 'maybe', required: false, enum: ['false', 'true', 'maybe'], index: true },
   aitags: {
     type: Map,
     of: SchemaTypes.Mixed,
@@ -51,8 +50,10 @@ let schema = new Schema({
 
 // schema.index({ 'metadata.ct_tag': 1 }, { background: true });
 // Add fulltext index to the `content` and `author` field.
-// this increases RAM useage, lets keep an eye out for this
+
 schema.index({ author: 'text', content: 'text' });
+
+schema.index({ irrelevant: 1 });
 schema.path('_group').set(function (_group) {
   this._prevGroup = this._group;
   return _group;
@@ -192,7 +193,7 @@ schema.methods.clearSMTCTags = function (callback) {
   }
   cb();
 }
-schema.plugin(AutoIncrement, { inc_field: 'reportId' });
+// schema.plugin(AutoIncrement, { inc_field: 'reportId' });
 const Report = mongoose.model('Report', schema);
 
 SMTCTag.schema.on('tag:removed', function (id) {
@@ -229,7 +230,7 @@ Report.queryReports = function (query, page, callback) {
   if (query.veracity === 'confirmed false') filter.veracity = 'Confirmed False';
   if (query.veracity === 'unconfirmed') filter.veracity = 'Unconfirmed';
 
-  console.log(JSON.stringify(filter))
+  // console.log(JSON.stringify(filter))
 
   // if (!!query.keywords) {
   //   const keywordsToFilter = ["content", "author"]

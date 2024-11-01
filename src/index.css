@@ -63,3 +63,10 @@ code {
 .truthsocial a {
   @apply text-blue-600 underline;
 }
+/* rss special css*/
+.rsspost figure {
+  max-width: fit-content;
+}
+.rsspost iframe {
+  max-width: 100%;
+}
