@@ -92,6 +92,17 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   });
   type IJunkipediaSchema = Yup.InferType<typeof JunkipediaSchema>;
 
+  const RssSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    // sourceKeywords: Yup.string().required(
+    //   "Keywords are required to create a Junkipedia source"
+    // ),
+    lists: Yup.string().required(
+      "Lists are required to create a Junkipedia source"
+    ),
+  });
+  type IRssSchema = Yup.InferType<typeof RssSchema>;
+
   const JunkipediaForm = (
     <FormikWithSchema
       initialValues={{
@@ -126,34 +137,30 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     </FormikWithSchema>
   );
 
-  const TelegramSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
-    credentials: Yup.string().required(
-      "A credential is required to create a source"
-    ),
-  });
-  type ITelegramSchema = Yup.InferType<typeof TelegramSchema>;
 
-  const TelegramForm = (
+  const RSSForm = (
     <FormikWithSchema
       initialValues={{
         nickname: source?.nickname || "",
         media: source?.media || "",
+        regex: source?.regex || "",
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
-        url: "https://www.telegram.com/",
+        url: "",
       }}
-      schema={TelegramSchema}
-      onSubmit={(values: ITelegramSchema) => {
+      schema={RssSchema}
+      onSubmit={(values: IRssSchema) => {
         onSubmit(values);
       }}
       loading={isLoading}
       onClose={onClose}
     >
       <FormikInput name='nickname' label='Credential Name' />
+      <FormikInput name='lists' label='Lists' />
+      <FormikInput name='regex' label='regex' />
       <FormikDropdown
         list={
           credentialsList?.map((i) => {
@@ -165,6 +172,45 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       />
     </FormikWithSchema>
   );
+  // const TelegramSchema = Yup.object().shape({
+  //   nickname: Yup.string().required("Source name is a required field"),
+  //   credentials: Yup.string().required(
+  //     "A credential is required to create a source"
+  //   ),
+  // });
+  // type ITelegramSchema = Yup.InferType<typeof TelegramSchema>;
+
+  // const TelegramForm = (
+  //   <FormikWithSchema
+  //     initialValues={{
+  //       nickname: source?.nickname || "",
+  //       media: source?.media || "",
+  //       keywords: source?.keywords || "",
+  //       lists: source?.lists || "",
+  //       tags: source?.tags || "",
+  //       credentials: source?.credentials._id || defaultCredential?._id,
+  //       sourceURL: source?.url || "",
+  //       url: "https://www.telegram.com/",
+  //     }}
+  //     schema={TelegramSchema}
+  //     onSubmit={(values: ITelegramSchema) => {
+  //       onSubmit(values);
+  //     }}
+  //     loading={isLoading}
+  //     onClose={onClose}
+  //   >
+  //     <FormikInput name='nickname' label='Credential Name' />
+  //     <FormikDropdown
+  //       list={
+  //         credentialsList?.map((i) => {
+  //           return { _id: i._id, label: i.name };
+  //         }) || [{ _id: "", label: "loading" }]
+  //       }
+  //       label={"API Credentials"}
+  //       name={"credentials"}
+  //     />
+  //   </FormikWithSchema>
+  // );
   return (
     <>
       <label className='text-slate-600'>Credential Type</label>
@@ -201,7 +247,8 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         </Listbox.Options>
       </Listbox>
       {credentialType === "junkipedia" && JunkipediaForm}
-      {credentialType === "telegram" && TelegramForm}
+      {credentialType === "rss" && RSSForm}
+      {/* {credentialType === "telegram" && TelegramForm} */}
     </>
   );
 };

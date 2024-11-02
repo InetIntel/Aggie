@@ -21,6 +21,7 @@ export interface Source extends hasId {
     username: string;
   };
   keywords?: string;
+  regex?: string;
   lists?: string;
   __v: number;
   lastReportDate?: string;

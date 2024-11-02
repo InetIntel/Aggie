@@ -100,6 +100,7 @@
     "reparse": "^0.1.2",
     "request": "^2.88.2",
     "request-promise": "^4.2.6",
+    "rss-parser": "^3.13.0",
     "rwlock": "^5.0.0",
     "sanitize-html": "^2.13.0",
     "single-line-log": "^1.1.2",
