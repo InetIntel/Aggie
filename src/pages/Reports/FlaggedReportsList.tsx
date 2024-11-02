@@ -58,7 +58,7 @@ const FlaggedReportsList = ({}: IProps) => {
       search: searchParams.toString(),
     });
   }
-  if (!getParam("keywords"))
+  if (!reportsQuery.data)
     return (
       <>
         <div className='bg-white rounded-lg border border-slate-300 grid place-items-center w-full mt-3'>

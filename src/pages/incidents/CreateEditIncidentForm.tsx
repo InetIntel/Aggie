@@ -62,6 +62,10 @@ const CreateEditIncidentForm = ({
           <FormikSwitch name='closed' label='Closed' />
         </div>
         <FormikInput name='title' label='Incident Title' />
+        <p className='text-sm text-slate-700'>
+          Ideally, titles should be written as a<i>question</i> that can be
+          answered with a true/false
+        </p>
         <FormikDropdown
           name={"veracity"}
           list={VERACITY_OPTIONS.map((i) => {
@@ -90,7 +94,7 @@ const CreateEditIncidentForm = ({
             as='textarea'
             name='notes'
             className='focus-theme px-3 py-2 border border-slate-300 bg-slate-50 rounded w-full min-h-36'
-            placeholder='Write description here...'
+            placeholder='Write useful information for Report trackers to know to help them understand this incident'
           />
         </label>
       </FormikWithSchema>
