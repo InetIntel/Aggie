@@ -376,7 +376,7 @@ const Incident = () => {
               </div>
             ))
           ) : (
-            <div className='grid place-items-center py-8 border border-slate-300 bg-white rounded-lg'>
+            <div className='grid place-items-center py-8 bg-white rounded-lg'>
               <p className='font-medium text-center px-3'>No Reports Found</p>
             </div>
           )}

@@ -123,8 +123,8 @@ const Report = () => {
         onClose={() => setAddReportModal(false)}
         addRemove={() => setAddReportModal(false)}
       />
-      <nav className='sticky top-0 pl-3 pr-2 py-2 flex justify-between items-center rounded-lg text-xs border border-slate-300 mb-2 shadow-md bg-white'>
-        <div className='flex   '>Actions</div>
+      <nav className='sticky top-0 pl-3 pr-2 py-2 flex justify-between items-center rounded-lg text-xs border border-slate-300 mb-2 shadow-md bg-white z-10'>
+        <div className='flex text-xxs  '></div>
         <div className='flex gap-1'>
           <AggieButton
             variant={report.read ? "light:lime" : "light:amber"}
