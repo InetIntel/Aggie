@@ -37,6 +37,7 @@ exports.user_create = (req, res) => {
     User.register(
       {
         username: req.body.username,
+        displayName: req.body.displayName,
         email: req.body.email,
         role: req.body.role,
       },
