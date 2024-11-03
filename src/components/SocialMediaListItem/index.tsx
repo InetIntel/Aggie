@@ -3,6 +3,7 @@ import {
   faExclamationTriangle,
   faRetweet,
   faDotCircle,
+  faImages,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Report } from "../../api/reports/types";
@@ -15,6 +16,7 @@ import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet } from "../SocialMediaPost/TwitterPost";
 import { parseYoutube } from "../SocialMediaPost/YoutubePost";
 import TagsList from "../Tags/TagsList";
+
 interface IProps {
   report: Report;
   header?: React.ReactNode;
@@ -23,100 +25,7 @@ interface IProps {
 
 const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const contentType = parseContentType(report);
-  function renderAuthor(type: typeof contentType) {
-    switch (type) {
-      case "RSS":
-        const website = new URL(report.url);
-        return <>{website.host}</>;
-      default:
-        return <>{report.author}</>;
-    }
-  }
-  function renderText(type: typeof contentType) {
-    switch (type) {
-      case "twitter:quoteRetweet": {
-        const rawPostData = (report.metadata.rawAPIResponse.attributes as any)
-          ?.post_data;
-        const data = parseQuoteRetweet(rawPostData);
-
-        return (
-          <>
-            <div className='grid place-items-center text-slate-600'>
-              <FontAwesomeIcon icon={faRetweet} />
-            </div>
-            <div className=' max-h-[10em] text-black'>
-              <p className='font-medium text-sm'>{data.author?.name}</p>
-              <p className='text-black line-clamp-2 mb-1'>
-                {formatText(data.content)}
-              </p>
-
-              <div className='border border-slate-300 rounded-lg py-2 px-3 '>
-                <p className='font-medium text-sm'>
-                  {data.innerPost.author?.name}
-                </p>
-                <p className='line-clamp-2'>
-                  {formatText(data.innerPost.content)}
-                </p>
-              </div>
-            </div>
-          </>
-        );
-      }
-      case "twitter:retweet":
-        return (
-          <>
-            <div className='grid place-items-center text-slate-600'>
-              <FontAwesomeIcon icon={faRetweet} />
-            </div>
-            <p className=' text-black max-h-[10em] line-clamp-4'>
-              {formatText(report.content)}
-            </p>
-          </>
-        );
-      case "twitter:quote": {
-        const rawPostData = (report.metadata.rawAPIResponse.attributes as any)
-          ?.post_data;
-        const data = parseQuoteRetweet(rawPostData);
-
-        return (
-          <>
-            <div className=' max-h-[10em] text-black'>
-              <p className='text-black line-clamp-2 mb-1'>
-                {formatText(report.content)}
-              </p>
-
-              <div className='border border-slate-300 rounded-lg py-2 px-3 '>
-                <p className='font-medium text-sm'>{data.author?.name}</p>
-                <p className='line-clamp-2'>{formatText(data.content)}</p>
-              </div>
-            </div>
-          </>
-        );
-      }
-      case "truthsocial":
-        return (
-          <p
-            className='truthsocial text-black line-clamp-4'
-            dangerouslySetInnerHTML={{
-              __html: sanitize(report.content),
-            }}
-          ></p>
-        );
-      case "youtube":
-        const { title, description } = parseYoutube(report);
-        return (
-          <p className=' text-black max-h-[10em] line-clamp-4'>
-            <span className=''>{title} </span>
-          </p>
-        );
-      default:
-        return (
-          <p className=' text-black max-h-[10em] line-clamp-4'>
-            {formatText(report.content)}
-          </p>
-        );
-    }
-  }
+  const { imagePreview, imagesCount } = renderImage(contentType, report);
 
   return (
     <>
@@ -128,7 +37,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
             <span className='mr-2 text-slate-600 text-xs'>
               <SocialMediaIcon mediaKey={report._media[0]} />
             </span>
-            {renderAuthor(contentType)}
+            {renderAuthor(contentType, report)}
           </h1>
 
           {report.irrelevant && report.irrelevant === "true" && (
@@ -163,9 +72,150 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           </div>
         )}
       </header>
-      <div className='flex gap-2 max-w-prose'>{renderText(contentType)}</div>
+      <div className='flex gap-1 justify-between'>
+        <div className='flex gap-2 flex-1 max-w-prose'>
+          {renderText(contentType, report)}
+        </div>
+        {imagePreview && (
+          <div className='w-24 h-24 flex-0 justify-self-end relative'>
+            <img
+              loading='lazy'
+              src={imagePreview ? imagePreview?.url : ""}
+              className='w-full rounded h-full object-cover bg-slate-100 border border-slate-200 '
+              alt='image preview'
+            />
+            <p className='absolute bottom-1 right-1 px-1 rounded-sm bg-black/75 text-xs text-white'>
+              <FontAwesomeIcon icon={faImages} /> {imagesCount}
+            </p>
+          </div>
+        )}
+      </div>
     </>
   );
 };
 
 export default SocialMediaListItem;
+
+function twitterParsing(report: Report) {
+  const rawPostData = (report.metadata.rawAPIResponse.attributes as any)
+    ?.post_data;
+  const data = parseQuoteRetweet(rawPostData);
+
+  return data;
+}
+
+function renderAuthor(
+  type: ReturnType<typeof parseContentType>,
+  report: Report
+) {
+  switch (type) {
+    case "RSS":
+      const website = new URL(report.url);
+      return <>{website.host}</>;
+    default:
+      return <>{report.author}</>;
+  }
+}
+function renderImage(
+  type: ReturnType<typeof parseContentType>,
+  report: Report
+) {
+  if (type.includes("twitter")) {
+    const { imagePreview, imagesCount } = twitterParsing(report);
+    return { imagePreview, imagesCount };
+  }
+  const imagePreview = report.metadata?.mediaUrl;
+  const imagesCount = imagePreview ? 1 : 0;
+  return { imagePreview, imagesCount };
+}
+function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
+  switch (type) {
+    case "twitter:quoteRetweet": {
+      const data = twitterParsing(report);
+
+      return (
+        <>
+          <div className='grid place-items-center text-slate-600'>
+            <FontAwesomeIcon icon={faRetweet} />
+          </div>
+          <div className=' max-h-[10em] text-black'>
+            <p className='font-medium text-sm'>{data.author?.name}</p>
+            <p className='text-black line-clamp-2 mb-1'>
+              {formatText(data.content)}
+            </p>
+
+            <div className='border border-slate-300 rounded-lg py-2 px-3 '>
+              <p className='font-medium text-sm'>
+                {data.innerPost.author?.name}
+              </p>
+              <p className='line-clamp-2'>
+                {formatText(data.innerPost.content)}
+              </p>
+            </div>
+          </div>
+        </>
+      );
+    }
+    case "twitter:retweet":
+      twitterParsing(report);
+
+      return (
+        <>
+          <div className='grid place-items-center text-slate-600'>
+            <FontAwesomeIcon icon={faRetweet} />
+          </div>
+          <p className=' text-black max-h-[10em] line-clamp-4'>
+            {formatText(report.content)}
+          </p>
+        </>
+      );
+    case "twitter:quote": {
+      const data = twitterParsing(report);
+
+      return (
+        <>
+          <div className=' max-h-[10em] text-black'>
+            <p className='text-black line-clamp-2 mb-1'>
+              {formatText(report.content)}
+            </p>
+
+            <div className='border border-slate-300 rounded-lg py-2 px-3 '>
+              <p className='font-medium text-sm'>{data.author?.name}</p>
+              <p className='line-clamp-2'>{formatText(data.content)}</p>
+            </div>
+          </div>
+        </>
+      );
+    }
+    case "twitter":
+      twitterParsing(report);
+      return (
+        <p className=' text-black max-h-[10em] line-clamp-4'>
+          {formatText(report.content)}
+        </p>
+      );
+
+    case "truthsocial":
+      return (
+        <p
+          className='truthsocial text-black line-clamp-4'
+          dangerouslySetInnerHTML={{
+            __html: sanitize(report.content),
+          }}
+        ></p>
+      );
+    case "youtube":
+      const { title, description } = parseYoutube(report);
+      return (
+        <p className=' text-black max-h-[10em] line-clamp-4'>
+          <span className=''>{title} </span>
+        </p>
+      );
+    default:
+      return (
+        <p className=' text-black max-h-[10em] line-clamp-4'>
+          {formatText(report.content)}
+        </p>
+      );
+  }
+}

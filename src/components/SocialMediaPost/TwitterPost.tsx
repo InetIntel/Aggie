@@ -178,8 +178,21 @@ export function parseQuoteRetweet(post_data: any) {
   const retweetResult = post_data?.retweeted_status_result?.result;
   const quotedResult = post_data?.api_data?.quoted_status_result?.result;
   const result = retweetResult || quotedResult;
+  const data = dataFromInnerPost(result);
 
-  return dataFromInnerPost(result);
+  const imagePreview =
+    data.images?.find((i) => i) ||
+    data.innerPost?.images?.find((i: ReturnType<typeof tweetImages>) => i);
+
+  function getImagesCount(d: typeof data) {
+    let a = 0;
+    if (d.images?.length) a += d.images?.length;
+    if (d.innerPost?.images?.length) a += d.innerPost.images?.length;
+    return a;
+  }
+  const imagesCount = getImagesCount(data);
+
+  return { ...data, imagesCount, imagePreview };
 }
 
 function dataFromInnerPost(result: any) {
