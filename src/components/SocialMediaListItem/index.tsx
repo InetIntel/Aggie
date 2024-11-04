@@ -54,16 +54,22 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
               Relevant
             </AggieToken>
           )}
-          {report.red_flag && (
-            <AggieToken
-              variant='dark:red'
-              icon={faExclamationTriangle}
-              className='text-xs'
-            >
-              Red Flag
-            </AggieToken>
+
+          {(!report.irrelevant || report.irrelevant !== "true") && (
+            <>
+              {report.red_flag && (
+                <AggieToken
+                  variant='dark:red'
+                  icon={faExclamationTriangle}
+                  className='text-xs'
+                >
+                  Red Flag
+                </AggieToken>
+              )}
+              <GeneratedTagsList tags={report.aitags} report={report} />
+            </>
           )}
-          <GeneratedTagsList tags={report.aitags} report={report} />
+
           <TagsList values={report.smtcTags} />
         </div>
         {header || (
@@ -210,6 +216,18 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
         <p className=' text-black max-h-[10em] line-clamp-4'>
           <span className=''>{title} </span>
         </p>
+      );
+    case "RSS":
+      const rawData = report?.metadata?.rawAPIResponse as any;
+      return (
+        <div>
+          {rawData?.title && (
+            <p className='text-black font-medium'>{rawData?.title}</p>
+          )}
+          <p className=' text-black max-h-[10em] line-clamp-2'>
+            {formatText(report.content)}
+          </p>
+        </div>
       );
     default:
       return (

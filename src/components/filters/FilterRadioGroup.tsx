@@ -1,7 +1,7 @@
 import { RadioGroup } from "@headlessui/react";
 
 interface IProps {
-  options: Record<string, string>;
+  options: Record<string, React.ReactNode>;
   value: string;
   defaultValue?: string;
   onChange: (value: string) => void;

@@ -47,6 +47,8 @@ const MultiSelectActions = ({
       reports: selection.map((i) => i._id).join(":"),
     });
 
+    if (queryKey.includes("batch")) params.append("key", "batch");
+
     navigate({ pathname: "/incidents/new", search: params.toString() });
   }
 
