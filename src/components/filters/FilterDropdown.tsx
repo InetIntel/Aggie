@@ -27,6 +27,7 @@ interface IProps {
   onReset?: () => void;
   headerChild?: React.ReactNode;
   panelClassName?: string;
+  onOpenChange?: (i: boolean) => void;
 }
 
 const FilterDropdown = ({
@@ -36,14 +37,21 @@ const FilterDropdown = ({
   onReset = () => {},
   headerChild,
   panelClassName,
+  onOpenChange,
 }: IProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const nodeId = useFloatingNodeId();
 
+  function setOpenState(i: boolean) {
+    if (onOpenChange) onOpenChange(i);
+
+    setIsOpen(i);
+  }
+
   const { refs, floatingStyles, context } = useFloating({
     nodeId,
     open: isOpen,
-    onOpenChange: setIsOpen,
+    onOpenChange: setOpenState,
     middleware: [flip(), shift(), offset(1)],
   });
 
@@ -57,7 +65,7 @@ const FilterDropdown = ({
     dismiss,
   ]);
   function close() {
-    setIsOpen(false);
+    setOpenState(false);
   }
   return (
     <div className='relative'>
@@ -97,7 +105,8 @@ const FilterDropdown = ({
                         className='px-1 -mr-1 rounded hover:bg-slate-200 absolute right-2 text-slate-600  underline '
                         onClick={() => {
                           onReset();
-                          close();
+                          // dont run "onOpenChange" when running reset to avoid weird state race condition stuff
+                          setIsOpen(false);
                         }}
                       >
                         clear

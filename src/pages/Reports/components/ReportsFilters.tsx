@@ -216,6 +216,8 @@ const ReportFilters = ({
           <FilterDateTime
             before={getParam("before")}
             onSetBefore={(d) => setParams({ before: d })}
+            after={getParam("after")}
+            onSetAfter={(d) => setParams({ after: d })}
           />
           <FilterListbox
             label='Platforms'

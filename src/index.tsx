@@ -5,6 +5,8 @@ import { AxiosError } from "axios";
 import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
 import reportWebVitals from "./reportWebVitals";
 
+import "react-day-picker/style.css";
+
 // import "bootstrap/dist/css/bootstrap.min.css";
 import "./index.css";
 
