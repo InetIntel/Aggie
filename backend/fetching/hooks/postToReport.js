@@ -13,7 +13,13 @@ module.exports = async function postToReport(post, next) {
     const sourceID = getSourceID(channelID);
 
     post._sources = [ sourceID ];
-    post._media = [ platform ];
+    if (platform === 'facebookdirect') {
+        post._media = [ 'facebook' ];
+    } else if (platform === 'instagramdirect') {
+        post._media = [ 'instagram' ];
+    } else {
+        post._media = [ platform ];
+    }
     post.tags = channel.tags;
     post.guid = post.guid || post.link || post.platformID || null;
 
