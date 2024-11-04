@@ -217,6 +217,18 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
           <span className=''>{title} </span>
         </p>
       );
+    case "RSS":
+      const rawData = report?.metadata?.rawAPIResponse as any;
+      return (
+        <div>
+          {rawData?.title && (
+            <p className='text-black font-medium'>{rawData?.title}</p>
+          )}
+          <p className=' text-black max-h-[10em] line-clamp-2'>
+            {formatText(report.content)}
+          </p>
+        </div>
+      );
     default:
       return (
         <p className=' text-black max-h-[10em] line-clamp-4'>
