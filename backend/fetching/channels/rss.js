@@ -51,23 +51,34 @@ class RSSChannel extends PollChannel {
             try {
                 // console.log("RSS FEED URLS")
                 // console.log(this.rssList)
+                console.log(`Fetching from ${rssUrl}`);
                 const rawFeed = await this.parser.parseURL(rssUrl);
                 const now = new Date();
                 var regexFilteredCount = 0;
                 for (const raw of rawFeed.items) {
                     raw.fetchedAt = now;
                     // Check whether the query parameter keywords are in the content or the title of the post using regex matching
+                    let contentSnippet = raw["content:encodedSnippet"] || raw["contentSnippet"];
+                    raw.contentSnippet = contentSnippet;
                     const regex = new RegExp(this.regexQuery, 'gi');
-                    if (this.regexQuery && !regex.test(raw.contentSnippet) && !regex.test(raw.title)) {
+                    if (this.regexQuery && !regex.test(raw.contentSnippet) && !regex.test(raw.content) && !regex.test(raw.title)) {
                         regexFilteredCount++;
                         continue;
                     }
+
+                    const guid = raw.guid || raw.link || null;
+                    if (guid == null) {
+                        console.log("No guid or link found in RSS post");
+                        console.log(raw);
+                        continue;
+                    }
+
                     const formatted_rss = this.parse(raw);
+
                     if (!formatted_rss) {
                         console.log("Could not parse RSS post");
                         continue;
                     }
-                    const guid = raw.guid || raw.link || null;
                     // Search if guid exists in mongodb
                     mongoose.connection.db.collection('reports').findOne({ 'guid': guid }, (err, post) => {
                         if (err) {
@@ -104,10 +115,10 @@ class RSSChannel extends PollChannel {
             authoredAt,
             fetchedAt: rawMessage.fetchedAt,
             author: rawMessage.creator,
-            content: rawMessage.contentSnippet,
+            content: rawMessage.contentSnippet || rawMessage.content || rawMessage.title,
             url: rawMessage.link,
             platform: "RSS",
-            platformID: rawMessage.guid,
+            platformID: rawMessage.guid || rawMessage.link || null,
             // base: rawMessage.guid || rawMessage.link || null,
             raw: rawMessage,
         }
