@@ -11,6 +11,8 @@ const downstream = require('./downstream');
 
 const AggieCrowdTangleChannel = require('./channels/crowdtangle');
 const TelegramChannel = require('./channels/telegram');
+const RSSChannel = require('./channels/rss');
+
 const { TwitterPageChannel, JunkipediaChannel } = builtin;
 
 
@@ -85,7 +87,8 @@ function createChannel(source) {
         credentials,
         media,
         tags,
-        enabled
+        enabled,
+        regex
     } = source;
 
     let options = {
@@ -140,8 +143,8 @@ function createChannel(source) {
                 apiKey: credentials.secrets.junkipediaAPIKey,
                 // Reference - https://www.junkipedia.org/apidocs#tag/Posts/paths/~1api~1v1~1posts/get
                 // TODO: Add list or channel specification
-                // interval is set to 30 minutes
-                interval: 60000,
+                // interval is set to 3 minutes
+                interval: 6000,
                 queryParams: {
                     lists: lists,
                     keyword: keywords,
@@ -150,6 +153,15 @@ function createChannel(source) {
             console.log(credentials)
             console.log(options)
             channel = new JunkipediaChannel(options);
+            break;
+        case 'rss':
+            // Lists in this case are a list of RSS feed URLs
+            options = {
+                ...options,
+                rssList: lists,
+                regex: regex,
+            };
+            channel = new RSSChannel(options);
             break;
         default:
     }

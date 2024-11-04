@@ -14,8 +14,9 @@ import Pagination from "../../components/Pagination";
 import AggieCheck from "../../components/AggieCheck";
 import AggieButton from "../../components/AggieButton";
 
-import { faMinus } from "@fortawesome/free-solid-svg-icons";
+import { faMinus, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import MultiSelectActions from "./components/MultiSelectActions";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 interface IProps {}
 
@@ -29,6 +30,7 @@ const AllReportsList = ({}: IProps) => {
     data: reports,
     refetch,
     isLoading,
+    isFetching,
   } = useQuery(["reports"], () => getReports(getAllParams(searchParams)), {
     refetchInterval: 120000,
   });
@@ -57,6 +59,9 @@ const AllReportsList = ({}: IProps) => {
       <div className='px-1 py-2 bg-gray-50/75 backdrop-blur-sm sticky top-0 z-10 '>
         <ReportsFilters
           reportCount={reports && reports.total}
+          searchPlaceholder={"Exact Keyword Search"}
+          isFetching={isFetching}
+          refetch={refetch}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton
@@ -124,7 +129,16 @@ const AllReportsList = ({}: IProps) => {
           ))
         ) : (
           <div className='w-full bg-white py-12 grid place-items-center font-medium'>
-            <p>{isLoading ? "Loading data..." : "No Results Found"}</p>
+            <p>
+              {isLoading ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} className='animate-spin' />{" "}
+                  Loading data...
+                </>
+              ) : (
+                "No Results Found"
+              )}
+            </p>
           </div>
         )}
       </div>

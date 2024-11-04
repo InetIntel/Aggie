@@ -45,7 +45,7 @@ exports.source_details = (req, res) => {
       ],
       function (err, source) {
         if (err) res.status(err.status).send(err.message);
-        else res.send(200, source);
+        else res.status(200).send(source);
       });
   });
 }

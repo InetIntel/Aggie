@@ -98,7 +98,7 @@ const FilterComboBox = <T extends {}>({
       }
     >
       {({ close }) => (
-        <div className=' flex flex-col divide-y divide-slate-200 max-h-[15em] overflow-y-auto bg-white'>
+        <div className=' flex flex-col divide-y divide-slate-200 max-h-[20em] overflow-y-auto bg-white'>
           {!rawSearch && optionalItems.length > 0 && (
             <>
               {optionalItems.map((item) => (
@@ -121,7 +121,7 @@ const FilterComboBox = <T extends {}>({
                   )}
                 </button>
               ))}
-              <div className='w-full h-1 bg-slate-100'></div>
+              <div className='w-full h-2 bg-slate-100'></div>
             </>
           )}
 

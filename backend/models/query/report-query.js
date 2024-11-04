@@ -58,6 +58,7 @@ ReportQuery.prototype.toMongooseFilter = function () {
     veracity: this.veracity,
     aitagnames: this.aitagnames,
   }
+  if (this.groupId === "none") filter._group = { $eq: null }
   if (this.escalated === 'unescalated') filter.escalated = false;
   if (this.escalated === 'escalated') filter.escalated = true;
 
@@ -106,7 +107,7 @@ ReportQuery.prototype.toMongooseFilter = function () {
   }
 
   // default filter open
-  filter.irrelevant = { $in: ["false", "maybe"] };
+  filter.irrelevant = { $ne: "true" };
   if (this.irrelevant === 'all') delete filter.irrelevant
   if (this.irrelevant === 'true') filter.irrelevant = "true";
 

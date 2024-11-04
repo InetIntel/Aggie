@@ -26,9 +26,7 @@ import {
   faPlus,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import FormikWithSchema from "../../../components/FormikWithSchema";
 import FormikMultiCombobox from "../../../components/FormikMultiCombobox";
-import TagsList from "../../../components/Tags/TagsList";
 import { getTags } from "../../../api/tags";
 import { Form, Formik } from "formik";
 
@@ -117,7 +115,7 @@ const Report = () => {
     );
   if (!report || !id) return <> error loading page</>;
   return (
-    <article className='pt-4 sticky top-0 overflow-y-auto min-h-[70vh] max-h-[93vh]  '>
+    <article className='pt-4 pr-2 sticky top-0 overflow-y-auto min-h-[70vh] max-h-[93vh]  '>
       <AddReportsToIncidents
         selection={report ? [report] : undefined}
         isOpen={addReportModal}
@@ -125,8 +123,8 @@ const Report = () => {
         onClose={() => setAddReportModal(false)}
         addRemove={() => setAddReportModal(false)}
       />
-      <nav className='sticky mx-1 top-0 z-10 pl-3 pr-2 py-2 flex justify-between items-center rounded-lg text-xs border border-slate-300 mb-2 shadow-md bg-white'>
-        <div className='flex   '>Actions</div>
+      <nav className='sticky top-0 pl-3 pr-2 py-2 flex justify-between items-center rounded-lg text-xs border border-slate-300 mb-2 shadow-md bg-white z-10'>
+        <div className='flex text-xxs  '></div>
         <div className='flex gap-1'>
           <AggieButton
             variant={report.read ? "light:lime" : "light:amber"}
@@ -222,7 +220,7 @@ const Report = () => {
           </div>
         </div>
       </nav>
-      <div className='flex flex-col gap-1 my-2 mx-3'>
+      <div className='flex flex-col gap-1 my-2'>
         <div className=''>
           <p className='font-medium text-sm '>Source</p>
           <p className=' '>{getSourceFromId(report._sources)}</p>
@@ -282,10 +280,7 @@ const Report = () => {
         </div>
       </div>
 
-      <div className='mx-3'>
-        {" "}
-        <SocialMediaPost report={report} showMedia />
-      </div>
+      <SocialMediaPost report={report} showMedia />
     </article>
   );
 };

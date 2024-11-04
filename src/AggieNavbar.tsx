@@ -7,6 +7,8 @@ import {
   faCloudArrowDown,
   faRightFromBracket,
   faBars,
+  faExternalLinkSquare,
+  faExternalLinkSquareAlt,
 } from "@fortawesome/free-solid-svg-icons";
 import { Menu } from "@headlessui/react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -17,6 +19,7 @@ import ConfirmationDialog from "./components/ConfirmationDialog";
 import { useState } from "react";
 import { logOut } from "./api/session";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import DropdownMenu from "./components/DropdownMenu";
 
 interface LinkOptions {
   to: string;
@@ -26,7 +29,7 @@ interface LinkOptions {
 const mainLinks: Record<string, LinkOptions> = {
   Reports: { to: "/rpt/batch" },
   "All Reports": { to: "/rpt", not: ["batch", "search"] },
-  Search: { to: "/rpt/search" },
+  "Contextual Search": { to: "/rpt/search" },
 
   divider1: { type: "divider", to: "" },
   Incidents: { to: "/incidents" },
@@ -66,6 +69,21 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
       queryClient.invalidateQueries(["session"]);
     },
   });
+
+  const helpfulLinks = [
+    {
+      label: "What to Track and Investigate in Aggie",
+      to: "https://docs.google.com/document/d/15rl3psnHGZYaxXS7CCIwRhqvNMMcyFr54z5I0N8Gub8/edit?usp=sharing",
+    },
+    {
+      label: "Tracking Team Guide",
+      to: "https://docs.google.com/document/d/1Krr1JaS0Wmh_SbBsnx1LKAAS42t868k2mpyPBztx3AQ/edit?usp=sharing",
+    },
+    {
+      label: "Veracity Team Guide",
+      to: "https://docs.google.com/document/d/1Q9nln1OGc5cqdw4BTE71xYhQMA3e_KE_JeEW_atq5Hk/edit?usp=sharing",
+    },
+  ];
 
   if (!isAuthenticated) return <></>;
   return (
@@ -109,13 +127,33 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
           )}
         </div>
       </div>
-      <div className='flex gap-2 '>
+      <div className='flex gap-2 items-center'>
+        <DropdownMenu
+          buttonElement={<p className='text-xs'>Helpful Links</p>}
+          panelClassName='border border-slate-300 rounded-lg z-20 bg-white w-max max-w-lg right-0 top-100'
+          className='px-2 py-2 rounded-lg hover:bg-slate-100 hover:underline'
+        >
+          {helpfulLinks.map((item, index) => (
+            <a
+              href={item.to}
+              key={index}
+              target='_blank'
+              className='hover:underline text-blue-600'
+            >
+              <p className='px-2 py-1'>
+                {item.label}{" "}
+                <FontAwesomeIcon icon={faExternalLinkSquareAlt} size='sm' />
+              </p>
+            </a>
+          ))}
+        </DropdownMenu>
+
         {session && (
           <Link
             to={"/settings/user/" + session._id}
             className='focus-theme rounded-full hover:underline  hover:bg-slate-100'
           >
-            <div className='px-3 flex gap-2 h-full  items-center border border-slate-200 rounded-full font-medium text-xs'>
+            <div className='px-3 py-1 flex gap-2 h-full  items-center border border-slate-200 rounded-full font-medium text-xs'>
               <FontAwesomeIcon icon={faUser} />
               {session.username}
             </div>

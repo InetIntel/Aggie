@@ -25,6 +25,7 @@ import {
   faLocationPin,
   faMinusCircle,
   faPlus,
+  faTrash,
   faUserEdit,
   faWarning,
 } from "@fortawesome/free-solid-svg-icons";
@@ -35,6 +36,9 @@ import {
   faMessage,
 } from "@fortawesome/free-regular-svg-icons";
 import UserToken from "../../components/UserToken";
+import { isString } from "lodash";
+import { User } from "../../api/users/types";
+import { hasId } from "../../api/common";
 
 interface IProps {
   item: Group;
@@ -71,17 +75,13 @@ const IncidentListItem = ({ item }: IProps) => {
       ids: [item._id],
     });
   }
-
+  function getUserId(user: string | hasId) {
+    if (isString(user)) {
+      return user;
+    } else return user._id;
+  }
   return (
     <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-600 border-b border-slate-300 '>
-      {/* <div className='absolute top-0 left-0 bottom-0 right-[15%] z-10'>
-        <button
-          onClick={onOpenIncidentPage}
-          title={`open incident ${item.title}`}
-          type='button'
-          className='w-full h-full hover:bg-slate-300/15 pointer-events-auto'
-        ></button>
-      </div> */}
       <div
         className='col-span-5 grid grid-cols-subgrid hover:bg-slate-300/15 pl-3 py-3 pr-1'
         onClick={onOpenIncidentPage}
@@ -98,14 +98,20 @@ const IncidentListItem = ({ item }: IProps) => {
                 Closed
               </span>
             )}
+            {!item.public && (
+              <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
+                <FontAwesomeIcon icon={faTrash} />
+                Deleted
+              </span>
+            )}
             <TagsList values={item.smtcTags} />
           </div>
-          <h2 className=' text-black flex gap-2 items-center font-medium'>
+          <h2 className=' text-black items-center font-medium'>
             <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
-              {item.title}
+              {item.title}{" "}
             </span>
             {item.escalated && (
-              <span className='px-1 bg-orange-700 text-white font-medium text-sm flex gap-1 items-center no-underline'>
+              <span className='px-1 bg-orange-700  text-white font-medium text-sm inline-flex gap-1 items-center no-underline w-fit'>
                 <FontAwesomeIcon icon={faWarning} />
                 Escalated
               </span>
@@ -133,10 +139,10 @@ const IncidentListItem = ({ item }: IProps) => {
                 </>
               )}
             </p>
-            <p>
+            <p className='text-xs overflow-hidden max-w-full flex gap-1 items-baseline text-ellipsis mr-1'>
               {" "}
               <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
-              {item.creator && <UserToken id={item.creator._id} />}
+              {item.creator && <UserToken id={getUserId(item.creator)} />}
             </p>
           </div>
         </header>
@@ -156,7 +162,7 @@ const IncidentListItem = ({ item }: IProps) => {
           </p>
           {item.assignedTo && item.assignedTo.length > 0 ? (
             item.assignedTo.map((user) => (
-              <UserToken id={user._id} key={user._id} />
+              <UserToken id={getUserId(user)} key={getUserId(user)} />
             ))
           ) : (
             <AggieButton

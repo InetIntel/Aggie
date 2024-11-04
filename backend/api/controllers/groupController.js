@@ -26,7 +26,7 @@ exports.group_create = (req, res) => {
 // lean option means only return name and id
 exports.group_all_groups = (req, res) => {
   const projection = req.query.lean === "true" ? 'title closed escalated idnum' : '';
-  Group.find({}, projection, {}, (err, groups) => {
+  Group.find({ public: true }, projection, {}, (err, groups) => {
     if (err) res.status(err.status).send(err.message);
     else res.status(200).send(groups);
   });
@@ -89,7 +89,7 @@ exports.group_update = (req, res, next) => {
         res.sendStatus(404);
       } else {
         writelog.writeGroup(req, group, 'editGroup');
-        eventRouter.publish('groups:update', group).then(() => {
+        eventRouter.publish('groups:update', { ids: group._id, update: group }).then(() => {
           res.status(200).send(group);
         });
       }
@@ -191,7 +191,11 @@ exports.group_escalated_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'escalatedGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { escalated: group.escalated } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -212,7 +216,11 @@ exports.group_assigned_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'assignedGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: group._id, update: { assignedTo: group.assignedTo } }).then(() => {
+            return res.status(200).send(group);
+          });
+        }
       });
     });
   });
@@ -233,7 +241,11 @@ exports.group_title_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'titleGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { title: group.title } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -255,13 +267,17 @@ exports.group_locationName_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'locationNameGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { locationName: group.locationName } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
 };
 
-// Update group notes
+// Update group closed
 exports.group_closed_update = (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
   Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
@@ -277,7 +293,11 @@ exports.group_closed_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'notesGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { closed: group.closed } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -299,11 +319,43 @@ exports.group_veracity_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'veracityGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { veracity: group.veracity } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
 };
+
+
+// Update group closed
+exports.group_public_update = (req, res) => {
+  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
+    if (err) return res.status(err.status).send(err.message);
+    if (groups.length === 0) return res.sendStatus(200);
+    let remaining = groups.length;
+    groups.forEach((group) => {
+      // Mark each report as escalated to catch it in model
+      group.public = req.body.public;
+      group.save((err) => {
+        if (err) {
+          if (!res.headersSent) res.status(err.status).send(err.message);
+          return;
+        }
+        writelog.writeReport(req, group, 'publicGroup');
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { public: group.public } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
+      });
+    });
+  });
+};
+
 
 // Update group notes
 exports.group_notes_update = (req, res) => {
@@ -321,7 +373,11 @@ exports.group_notes_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'notesGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { note: group.notes } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -342,9 +398,13 @@ exports.group_comment_add = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        console.log(group.comments)
         writelog.writeReport(req, group, 'commentAddGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -368,7 +428,11 @@ exports.group_comment_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'commentEditGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });
@@ -391,7 +455,11 @@ exports.group_comment_remove = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'commentRemoveGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
       });
     });
   });

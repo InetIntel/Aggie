@@ -5,6 +5,7 @@ import {
 } from "@fortawesome/free-regular-svg-icons";
 import {
   faMinusCircle,
+  faTrash,
   faUserEdit,
   faWarning,
 } from "@fortawesome/free-solid-svg-icons";
@@ -42,6 +43,12 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
                 Closed
               </span>
             )}
+            {group && !group?.public && (
+              <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
+                <FontAwesomeIcon icon={faTrash} />
+                Deleted
+              </span>
+            )}
             <TagsList values={group?.smtcTags} />
           </div>
           <PlaceholderDiv
@@ -50,7 +57,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             loadingClass='mt-1 bg-slate-200 rounded-lg'
             width='12em'
           >
-            <h1>
+            <h1 className='max-w-prose'>
               {group?.title}{" "}
               {group?.escalated && (
                 <span className='px-1 bg-orange-700 text-white font-medium text-base inline-flex gap-1 items-center no-underline'>

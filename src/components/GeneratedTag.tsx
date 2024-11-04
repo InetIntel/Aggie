@@ -1,4 +1,5 @@
 import { FloatingPortal } from "@floating-ui/react";
+import React from "react";
 import { usePopover } from "../hooks/usePopover";
 const starIcon = (
   <svg
@@ -24,6 +25,10 @@ const GeneratedTag = ({ name, children, className }: IProps) => {
   const { isOpen, refs, getReferenceProps, getFloatingProps, floatingStyles } =
     usePopover();
 
+  function onClick(e: React.MouseEvent) {
+    e.stopPropagation();
+  }
+
   return (
     <>
       <span
@@ -32,7 +37,7 @@ const GeneratedTag = ({ name, children, className }: IProps) => {
         {...getReferenceProps()}
         className={`pl-1 pr-2 flex items-center gap-1 font-medium ${
           className ||
-          " rounded-full  bg-purple-200 hover:bg-purple-300  text-purple-900 "
+          " rounded-full bg-purple-200 hover:bg-purple-300 text-purple-900 "
         }`}
       >
         {starIcon}
@@ -44,7 +49,8 @@ const GeneratedTag = ({ name, children, className }: IProps) => {
             ref={refs.setFloating}
             style={floatingStyles}
             {...getFloatingProps()}
-            className={`max-h-[50vh] shadow-md overflow-y-auto top-full rounded-lg p-3 inline-block pointer-events-none z-10 bg-purple-50 border border-purple-400 min-w-20 w-max max-w-md `}
+            onClick={onClick}
+            className={`max-h-[50vh] shadow-md overflow-y-auto top-full rounded-lg inline-block pointer-events-none z-10 bg-purple-50 border border-purple-400 min-w-20 w-max max-w-md `}
           >
             {children}
           </div>

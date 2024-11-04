@@ -1,5 +1,5 @@
 import { useQueryParams } from "../../../hooks/useQueryParams";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
@@ -30,18 +30,25 @@ const NewIncident = () => {
 
   const { searchParams, getParam } = useQueryParams<NewIncidentQueryState>();
 
-  const { isLoading, mutate, status } = useMutation({
+  const doCreateNewGroup = useMutation({
     mutationFn: newGroup,
     onMutate: () => {
       setShowDialog(true);
     },
     onSuccess: (data) => {
-      if (searchParams.size === 0) navigate(-1);
-      if (data)
-        addReportsMutation.mutate({
-          reportIds: paramToArray(getParam("reports")),
-          groupId: data,
-        });
+      if (!data) {
+        navigate(-1);
+        return;
+      }
+      if (!getParam("reports")) {
+        navigate(`/incidents/${data._id}`);
+        return;
+      }
+
+      doAddReports.mutate({
+        reportIds: paramToArray(getParam("reports")),
+        groupId: data,
+      });
     },
   });
 
@@ -53,7 +60,7 @@ const NewIncident = () => {
     setReportsData(selectedReports);
   }, [searchParams]);
 
-  const addReportsMutation = useMutation({
+  const doAddReports = useMutation({
     mutationFn: setReportsToGroup,
     onSuccess: () => {
       navigate(-1);
@@ -96,9 +103,9 @@ const NewIncident = () => {
       </header>
       <div>
         <CreateEditIncidentForm
-          onSubmit={(values) => mutate(values)}
+          onSubmit={(values) => doCreateNewGroup.mutate(values)}
           onCancel={() => navigate(-1)}
-          isLoading={isLoading}
+          isLoading={doCreateNewGroup.isLoading}
         />
       </div>
       {getParam("reports") && (
@@ -124,13 +131,14 @@ const NewIncident = () => {
         <div className='fixed inset-0 bg-black/30' aria-hidden='true' />
         <div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
           <Dialog.Panel className='bg-white rounded-xl border border-slate-200 shadow-xl min-w-24 min-h-12 p-4 flex flex-col gap-2'>
-            {mutationIndicator(status, {
+            <p>Creating incident... Please don't close the page!</p>
+            {mutationIndicator(doCreateNewGroup.status, {
               loading: "creating Incident...",
               success: "Incident created!",
             })}
 
             {searchParams.size > 0 &&
-              mutationIndicator(addReportsMutation.status, {
+              mutationIndicator(doAddReports.status, {
                 loading: "adding Reports...",
                 success: "Reports Added!",
               })}

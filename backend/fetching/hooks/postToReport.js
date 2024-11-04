@@ -4,8 +4,6 @@ const { getSourceID, getChannel } = require('../sourceToChannel');
 const { parseJunkipediaPostMetadata } = require('../util');
 
 module.exports = async function postToReport(post, next) {
-    console.log(post);
-    console.log('postToReport');
     const {
         channel: channelID,
         platform,
@@ -15,12 +13,41 @@ module.exports = async function postToReport(post, next) {
     const sourceID = getSourceID(channelID);
 
     post._sources = [ sourceID ];
-    post._media = [ platform ];
+    if (platform === 'facebookdirect') {
+        post._media = [ 'facebook' ];
+    } else if (platform === 'instagramdirect') {
+        post._media = [ 'instagram' ];
+    } else {
+        post._media = [ platform ];
+    }
     post.tags = channel.tags;
+    post.guid = post.guid || post.link || post.platformID || null;
+
 
     let metadata;
-    metadata = parseJunkipediaPostMetadata(raw);
-    metadata.testingFlagForPotentialDeletion = true
+    if (platform === 'RSS') {
+        // What do we want here?
+        metadata = {
+            // title: raw.title || null,
+            // description: raw.description || null,
+            // link: raw.link || null,
+            // image: raw.image || null,
+            // date: raw.date || null,
+
+
+            // junkipediaId: id || null,
+            // channelId: channel_id || null,
+            // accountHandle: channel_name || null,
+            // accountUrl: channel_url_external || null,
+            // mediaUrl: thumbnail_url || null,
+            // // TODO: This may need to be adapted. Also, figure out difference between engagement_data and engagement_fields
+            // actualStatistics: engagement_data || null,
+            rawAPIResponse: raw,
+        } 
+        // post.guid = post.guid || post.link || null;
+    } else {
+        metadata = parseJunkipediaPostMetadata(raw);
+    };
     // switch (platform) {
     //     case 'facebook':
     //     case 'instagram': {

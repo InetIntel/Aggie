@@ -38,8 +38,10 @@ router.patch('/_escalated', User.can('edit data'), reportController.reports_esca
 // Update reports escalation
 router.patch('/_irrelevance', User.can('edit data'), reportController.reports_irrelevant_update);
 
-// Add reports group
+// Add reports to group
 router.patch('/_group', User.can('edit data'), reportController.reports_group_update);
+// remove reports from group
+router.patch('/_group-rm', User.can('edit data'), reportController.reports_group_remove);
 
 // Update reports notes
 router.patch('/_notes', User.can('edit data'), reportController.reports_notes_update);

@@ -29,7 +29,7 @@ const SocialMediaAuthor = ({ name, username, pfp, createdAt, url }: IProps) => {
       title={`open ${username}'s account`}
       className=' hover:bg-slate-100 block group p-1 pr-6 -m-1 hover:text-blue-600 relative rounded-lg'
     >
-      <h1>
+      <div>
         <h2 className='font-medium group-hover:underline'>
           {name || username}
         </h2>
@@ -40,7 +40,7 @@ const SocialMediaAuthor = ({ name, username, pfp, createdAt, url }: IProps) => {
         <span className='opacity-0 absolute top-1 right-1 group-hover:opacity-100'>
           <FontAwesomeIcon icon={faExternalLink} size='xs' />
         </span>
-      </h1>
+      </div>
     </a>
   );
 };

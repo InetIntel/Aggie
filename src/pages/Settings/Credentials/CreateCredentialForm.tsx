@@ -84,6 +84,29 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
     </FormikWithSchema>
   );
 
+  // junkpedia credential
+  // could be cleaner but idk how to work the type inferencing with yup
+  const rssSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required")
+  });
+  type IRssSchema = Yup.InferType<typeof rssSchema>;
+
+  const rssForm = (
+    <FormikWithSchema
+      schema={rssSchema}
+      onSubmit={(values: IRssSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "rss",
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Credential Name' />
+    </FormikWithSchema>
+  );
   // const twitterSchema = Yup.object().shape({
   //   name: Yup.string().required("Credentials name required"),
   //   consumerKey: Yup.string().required("Consumer key required."),
@@ -133,7 +156,8 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
         </Listbox.Options>
       </Listbox>
       {credentialType === "junkipedia" && junkipediaForm}
-      {credentialType === "telegram" && telegramForm}
+      {credentialType === "rss" && rssForm}
+      {/* {credentialType === "telegram" && telegramForm} */}
     </>
   );
 };

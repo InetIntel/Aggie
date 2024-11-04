@@ -47,7 +47,9 @@ const RerouteToLogin = () => {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
-    const searchParam = new URLSearchParams([["to", location.pathname]]);
+    const searchParam = new URLSearchParams([
+      ["to", location.pathname + location.search],
+    ]);
     navigate({ pathname: "/login", search: searchParam.toString() });
   }, []);
   return <>Rerouting to login...</>;

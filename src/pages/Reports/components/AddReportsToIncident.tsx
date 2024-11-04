@@ -20,7 +20,13 @@ import MultiSelectListItem from "../../../components/MultiSelectListItem";
 import SocialMediaListItem from "../../../components/SocialMediaListItem";
 import { useMultiSelect } from "../../../hooks/useMultiSelect";
 import AggieCheck from "../../../components/AggieCheck";
-import { faMinus, faMinusCircle } from "@fortawesome/free-solid-svg-icons";
+import {
+  faFileCirclePlus,
+  faFileEdit,
+  faMinus,
+  faMinusCircle,
+} from "@fortawesome/free-solid-svg-icons";
+import { Link, useNavigate } from "react-router-dom";
 
 interface IAddReportsToIncidents {
   isOpen: boolean;
@@ -41,7 +47,7 @@ const AddReportsToIncidents = ({
   const [selectedIncident, setSelectedIncident] = useState<Group>();
   const queryClient = useQueryClient();
   const queryData = useUpdateQueryData();
-
+  const navigate = useNavigate();
   const {
     searchParams,
     query,
@@ -91,6 +97,17 @@ const AddReportsToIncidents = ({
       groupId: selectedIncident,
     });
   }
+
+  function onNewIncidentFromReports() {
+    if (!selection || selection.length === 0) return;
+
+    const params = new URLSearchParams({
+      reports: selection.map((i) => i._id).join(":"),
+    });
+
+    navigate({ pathname: "/incidents/new", search: params.toString() });
+  }
+
   if (!isOpen) return <></>;
   return (
     <Dialog open={isOpen} onClose={onClose} className='relative z-50'>
@@ -105,7 +122,15 @@ const AddReportsToIncidents = ({
             </div>
 
             <p className='font-medium text-lg'>Add Reports to Incident</p>
-            <div className='flex-1 flex justify-end'>
+            <div className='flex-1 flex justify-end gap-1'>
+              <AggieButton
+                variant='transparent'
+                icon={faFileCirclePlus}
+                onClick={onNewIncidentFromReports}
+                className='hover:bg-slate-50 hover:underline text-blue-600 text-sm'
+              >
+                Create New Incident from Reports
+              </AggieButton>
               <AggieButton
                 variant='primary'
                 onClick={onAddIncident}
@@ -118,25 +143,14 @@ const AddReportsToIncidents = ({
             </div>
           </div>
 
-          <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-2'>
-            <h2 className='font-medium text-lg mb-1'>Selected Reports:</h2>
+          <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-2 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3'>
+            <h2 className='font-medium text-lg mb-1'>
+              <span className='bg-slate-100 rounded-lg px-2 py-1  text-slate-700'>
+                {selection?.length || 0}
+              </span>{" "}
+              Selected Reports
+            </h2>
             <div className='flex gap-1 items-center'>
-              {/* <AggieCheck
-                active={multiSelect.isActive}
-                icon={!multiSelect.all() ? faMinus : undefined}
-                onClick={() => {
-                  if (multiSelect.isActive && multiSelect.any()) {
-                    multiSelect.setActive(false);
-                    multiSelect.set([]);
-                  } else if (!multiSelect.isActive && !multiSelect.any()) {
-                    multiSelect.setActive(true);
-                    multiSelect.addRemoveAll(selection);
-                  } else {
-                    multiSelect.addRemoveAll(selection);
-                  }
-                }}
-              /> */}
-
               {multiSelect.isActive && (
                 <>
                   <AggieButton

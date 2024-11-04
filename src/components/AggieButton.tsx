@@ -1,6 +1,7 @@
 import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { forwardRef } from "react";
 
 const defaultCSS =
   "disabled:pointer-events-none disabled:opacity-50 inline-flex gap-1 items-center text-nowrap focus-theme font-medium";
@@ -29,35 +30,37 @@ interface IProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   stopPropagation?: boolean;
 }
 
-const AggieButton = ({
-  className,
-  override = false,
-  loading = false,
-  variant,
-  padding,
-  icon,
-  children,
-  ...props
-}: IProps) => {
-  return (
-    <button
-      className={
-        override
-          ? className
-          : `${defaultCSS} ${padding ? padding : "px-2 py-1"} ${className} ${
-              variant ? VariantCSS[variant] : ""
-            }`
-      }
-      {...props}
-    >
-      {loading ? (
-        <FontAwesomeIcon icon={faSpinner} className={"animate-spin"} />
-      ) : (
-        !!icon && <FontAwesomeIcon icon={icon} />
-      )}
-      {children}
-    </button>
-  );
-};
+const AggieButton = forwardRef(
+  ({
+    className,
+    override = false,
+    loading = false,
+    variant,
+    padding,
+    icon,
+    children,
+    ...props
+  }: IProps) => {
+    return (
+      <button
+        className={
+          override
+            ? className
+            : `${defaultCSS} ${padding ? padding : "px-2 py-1"} ${className} ${
+                variant ? VariantCSS[variant] : ""
+              }`
+        }
+        {...props}
+      >
+        {loading ? (
+          <FontAwesomeIcon icon={faSpinner} className={"animate-spin"} />
+        ) : (
+          !!icon && <FontAwesomeIcon icon={icon} />
+        )}
+        {children}
+      </button>
+    );
+  }
+);
 
 export default AggieButton;

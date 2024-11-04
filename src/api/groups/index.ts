@@ -197,6 +197,17 @@ export const setSelectedLocationName = async (
   return data;
 };
 
+interface SetPublicParams extends Selected {
+  public: boolean;
+}
+export const setSelectedPublic = async (params: SetPublicParams) => {
+  const { data } = await axios.patch("/api/group/_public", {
+    ids: params.ids,
+    public: params.public,
+  });
+  return data;
+};
+
 /**
  * todo: get rid of tagId? i dont see why this needs to be separated
  * @param queryState
