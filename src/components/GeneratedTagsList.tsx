@@ -31,7 +31,7 @@ const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
   if (!tags) return <></>;
 
   const tagsList = Object.entries(tags).filter(
-    ([key, value]) => !key.includes("rationale")
+    ([key, value]) => !key.includes("rationale") && !key.includes("confidence")
   );
 
   if (!tagsList) return <></>;
