@@ -39,7 +39,7 @@ const AllReportsList = ({}: IProps) => {
     multiSelect.set([]);
     // apparanty not the way its supposed to be done but i cant do it another way
     refetch();
-    window.scrollTo({
+    document.getElementById("main_view")?.scrollTo({
       top: 0,
       behavior: "smooth",
     });

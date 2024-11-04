@@ -238,7 +238,7 @@ function LinkCard(post_data: any) {
     url: card.find((i) => i.key === "card_url")?.value?.string_value,
   };
 }
-function tweetImages(post_data: any) {
+export function tweetImages(post_data: any) {
   const media = post_data?.entities?.media as unknown[];
   if (!media || media.length === 0) return undefined;
   const result = media.map((item: any) => {

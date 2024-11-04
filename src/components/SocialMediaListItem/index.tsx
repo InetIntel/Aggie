@@ -6,6 +6,7 @@ import {
   faImages,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { isString } from "lodash";
 import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
 import AggieToken from "../AggieToken";
@@ -13,7 +14,7 @@ import DateTime from "../DateTime";
 import GeneratedTagsList from "../GeneratedTagsList";
 import { parseContentType, sanitize } from "../SocialMediaPost/reportParser";
 import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
-import { parseQuoteRetweet } from "../SocialMediaPost/TwitterPost";
+import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
 import { parseYoutube } from "../SocialMediaPost/YoutubePost";
 import TagsList from "../Tags/TagsList";
 
@@ -27,6 +28,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const contentType = parseContentType(report);
   const { imagePreview, imagesCount } = renderImage(contentType, report);
 
+  const imageUrl = isString(imagePreview) ? imagePreview : imagePreview?.url;
   return (
     <>
       <header className='flex justify-between mb-2 relative'>
@@ -86,7 +88,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <div className='w-24 h-24 flex-0 justify-self-end relative'>
             <img
               loading='lazy'
-              src={imagePreview ? imagePreview?.url : ""}
+              src={imagePreview ? imageUrl : ""}
               className='w-full rounded h-full object-cover bg-slate-100 border border-slate-200 '
               alt='image preview'
             />
@@ -105,6 +107,7 @@ export default SocialMediaListItem;
 function twitterParsing(report: Report) {
   const rawPostData = (report.metadata.rawAPIResponse.attributes as any)
     ?.post_data;
+
   const data = parseQuoteRetweet(rawPostData);
 
   return data;
@@ -127,6 +130,14 @@ function renderImage(
   report: Report
 ) {
   if (type.includes("twitter")) {
+    const results = tweetImages(
+      (report.metadata.rawAPIResponse.attributes as any)?.post_data
+    );
+    if (results && results.length > 0) {
+      const imagePreview = results[0].url;
+      console.log(results);
+      return { imagePreview, imagesCount: 1 };
+    }
     const { imagePreview, imagesCount } = twitterParsing(report);
     return { imagePreview, imagesCount };
   }

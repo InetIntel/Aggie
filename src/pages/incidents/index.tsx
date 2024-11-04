@@ -34,6 +34,10 @@ const Incidents = () => {
   useEffect(() => {
     // refetch on filter change
     refetch();
+    document.getElementById("main_view")?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }, [searchParams]);
 
   interface GroupUpdateEvent extends SocketEvent {
