@@ -1,15 +1,17 @@
 // Saves each Report to the Aggie database
-
+const chalk = require('chalk');
 const aiprediction = require('../../models/aiprediction')
 module.exports = async function saveToDatabase(report, next) {
 
     const imageUrls = getImagePostUrl(report);
+    console.log(`${chalk.blue("[TRUEMEDIA]")} ${imageUrls}`)
+
     if (imageUrls && imageUrls.length > 0) {
         for (const url of imageUrls) {
             await aiprediction.create({ url: url })
 
         }
-        console.log("[truemedia] new truemedia document created")
+        console.log(`${chalk.blue("[TRUEMEDIA]")} new post added to aiprediction`)
     }
 
     await next();
