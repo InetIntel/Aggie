@@ -23,5 +23,6 @@ process.on('uncaughtException', function (err) {
 _fork('API', '/backend/api');
 _fork('FETCH', '/backend/fetching');
 _fork('ANALYTICS', '/backend/analytics');
-
+// truemedia polling
+_fork('TRUEMEDIA', '/backend/truemedia');
 module.exports = processManager;

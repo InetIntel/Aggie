@@ -6,6 +6,7 @@ import {
   faImages,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { isString } from "lodash";
 import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
 import AggieToken from "../AggieToken";
@@ -80,7 +81,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <div className='w-24 h-24 flex-0 justify-self-end relative'>
             <img
               loading='lazy'
-              src={imagePreview ? imagePreview?.url : ""}
+              src={imagePreview ? showImage(imagePreview) : ""}
               className='w-full rounded h-full object-cover bg-slate-100 border border-slate-200 '
               alt='image preview'
             />
@@ -96,6 +97,11 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
 
 export default SocialMediaListItem;
 
+function showImage(image: any) {
+  if (isString(image)) return image;
+
+  return image.url;
+}
 function twitterParsing(report: Report) {
   const rawPostData = (report.metadata.rawAPIResponse.attributes as any)
     ?.post_data;
@@ -124,7 +130,7 @@ function renderImage(
     const { imagePreview, imagesCount } = twitterParsing(report);
     return { imagePreview, imagesCount };
   }
-  const imagePreview = report.metadata?.mediaUrl;
+  const imagePreview = report.metadata.mediaUrl;
   const imagesCount = imagePreview ? 1 : 0;
   return { imagePreview, imagesCount };
 }
