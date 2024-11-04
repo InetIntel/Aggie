@@ -13,6 +13,7 @@ import AggieButton from "../../components/AggieButton";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faCircleMinus,
   faSearch,
   faWarning,
   faXmarkSquare,
@@ -20,6 +21,7 @@ import {
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import { getSession } from "../../api/session";
+import { faCircleDot } from "@fortawesome/free-regular-svg-icons";
 
 interface IIncidentFilters {
   isQuery: boolean;
@@ -108,8 +110,24 @@ const IncidentsFilters = ({
         <div className='flex gap-2'>
           <FilterRadioGroup
             options={{
-              false: "Open",
-              true: "Closed",
+              false: (
+                <span>
+                  <FontAwesomeIcon
+                    icon={faCircleDot}
+                    className='text-green-700'
+                  />{" "}
+                  Open
+                </span>
+              ),
+              true: (
+                <span>
+                  <FontAwesomeIcon
+                    icon={faCircleMinus}
+                    className='text-purple-700'
+                  />{" "}
+                  Closed
+                </span>
+              ),
               all: "All",
             }}
             value={get("closed")}
