@@ -16,6 +16,7 @@ import SocialMediaAuthor from "./SocialMediaAuthor";
 import TruthSocialPost from "./TruthSocialPost";
 import SocialMediaIcon from "./SocialMediaIcon";
 import RSSPost from "./RSSPost";
+import TwitterKWSearchPost from "./TwitterKWSearchPost";
 
 interface IProps {
   report: Report;
@@ -53,6 +54,8 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
       case "twitter:quoteRetweet":
       case "twitter:retweet":
         return <TwitterPost report={report} />;
+      case "twitter:keywordSearch":
+        return <TwitterKWSearchPost report={report} />;
       case "RSS":
         return <RSSPost report={report} />;
       case "truthsocial":

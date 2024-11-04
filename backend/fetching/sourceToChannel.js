@@ -123,8 +123,15 @@ function createChannel(source) {
                     consumerSecret: credentials.secrets.consumerSecret,
                 },
                 queryParams: {
-                    query: keywords // TODO rename to something better
+                    query: regex, // TODO rename to something better
+                    max_results: 10,
+                    "tweet.fields": "attachments,author_id,context_annotations,conversation_id,created_at,entities,geo,id,in_reply_to_user_id,lang,possibly_sensitive,public_metrics,referenced_tweets,reply_settings,source,text,withheld,edit_history_tweet_ids,edit_controls",
+                    "expansions": "attachments.media_keys,author_id,geo.place_id,in_reply_to_user_id,referenced_tweets.id,entities.mentions.username,referenced_tweets.id.author_id,edit_history_tweet_ids",
+                    "media.fields": "duration_ms,height,media_key,preview_image_url,public_metrics,type,url,width",
+                    "place.fields": "contained_within,country,country_code,full_name,geo,id,name,place_type",
+                    "user.fields": "location,profile_image_url,description,created_at,id,name,username,public_metrics,url",
                 },
+                interval: 120000,
             }
             console.log("twitter options")
             console.log(options)

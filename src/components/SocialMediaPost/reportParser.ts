@@ -27,6 +27,7 @@ export const isQuoteRetweet = (report: Report) =>
     ?.quoted_status_result?.result;
 
 export const tweetType = (report: Report) => {
+  if (report.metadata.rawAPIResponse.tweetID) return "twitter:keywordSearch";
   const post_data = (report.metadata.rawAPIResponse.attributes as any)
     ?.post_data;
 
