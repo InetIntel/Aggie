@@ -30,6 +30,7 @@ const AllReportsList = ({}: IProps) => {
     data: reports,
     refetch,
     isLoading,
+    isFetching,
   } = useQuery(["reports"], () => getReports(getAllParams(searchParams)), {
     refetchInterval: 120000,
   });
@@ -59,6 +60,8 @@ const AllReportsList = ({}: IProps) => {
         <ReportsFilters
           reportCount={reports && reports.total}
           searchPlaceholder={"Exact Keyword Search"}
+          isFetching={isFetching}
+          refetch={refetch}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton

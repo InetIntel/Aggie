@@ -121,7 +121,7 @@ const FilterComboBox = <T extends {}>({
                   )}
                 </button>
               ))}
-              <div className='w-full h-4 bg-slate-100'></div>
+              <div className='w-full h-2 bg-slate-100'></div>
             </>
           )}
 

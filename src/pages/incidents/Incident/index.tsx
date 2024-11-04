@@ -98,9 +98,12 @@ const Incident = () => {
       });
     },
   });
-  const { data: groupReports, refetch: groupRefetch } = useQuery(
-    ["groups", "reports", { groupId: id }],
-    () => getGroupReports({ ...getAllParams(searchParams), groupId: id })
+  const {
+    data: groupReports,
+    refetch: groupRefetch,
+    isFetching: groupIsFetching,
+  } = useQuery(["groups", "reports", { groupId: id }], () =>
+    getGroupReports({ ...getAllParams(searchParams), groupId: id })
   );
 
   const multiSelect = useMultiSelect({
@@ -297,6 +300,8 @@ const Incident = () => {
         <ReportFilters
           reportCount={groupReports && groupReports.total}
           fromGroup={id}
+          refetch={groupRefetch}
+          isFetching={groupIsFetching}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton

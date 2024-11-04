@@ -10,15 +10,16 @@ import { Link } from "react-router-dom";
 import IncidentsFilters from "./IncidentsFilters";
 import IncidentListItem from "./IncidentListItem";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faRefresh } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
+import AggieButton from "../../components/AggieButton";
 
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
     useQueryParams<GroupQueryState>();
 
-  const { data, refetch, isLoading } = useQuery(
+  const { data, refetch, isLoading, isFetching } = useQuery(
     ["groups"],
     () => getGroups(getAllParams(searchParams)),
     {
@@ -34,7 +35,18 @@ const Incidents = () => {
   return (
     <section className='max-w-screen-xl mx-auto px-4 pb-10'>
       <header className='my-4 flex justify-between items-center'>
-        <h1 className='text-3xl font-medium'>Incidents</h1>
+        <div className='flex gap-2 items-baseline'>
+          <h1 className='text-3xl font-medium'>Incidents</h1>
+          <AggieButton
+            icon={faRefresh}
+            variant='transparent'
+            className='text-slate-700'
+            title='refresh page'
+            loading={isFetching}
+            disabled={isFetching}
+            onClick={() => refetch()}
+          ></AggieButton>
+        </div>
         <Link
           to='new'
           className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 hover:bg-green-700 text-slate-100 rounded-lg font-medium'
