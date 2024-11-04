@@ -53,6 +53,10 @@ import AddReportsToIncidents from "../../Reports/components/AddReportsToIncident
 import { useReportMutations } from "../../Reports/useReportMutations";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
 import { updateByIds } from "../../../utils/immutable";
+import {
+  SocketEvent,
+  useSocketSubscribe,
+} from "../../../hooks/WebsocketProvider";
 
 const Incident = () => {
   const { id } = useParams();
@@ -127,6 +131,28 @@ const Incident = () => {
 
     navigate({ pathname: "/incidents/new", search: params.toString() });
   }
+
+  interface GroupUpdateEvent extends SocketEvent {
+    data: {
+      ids: string[];
+      update: Record<string, any>;
+    };
+  }
+  const handleSocketUpdate = (message: GroupUpdateEvent) => {
+    if (message.event !== "groups:update") return;
+    console.log("sockets", message);
+
+    // update single report
+    if (id && message.data.ids.includes(id)) {
+      queryData.update<Report>(["group", id], (data) => {
+        return message.data.update;
+      });
+      if ("_reports" in message.data.update) {
+        groupRefetch();
+      }
+    }
+  };
+  useSocketSubscribe("groups:update", handleSocketUpdate);
 
   if (isError) {
     return <AxiosErrorCard error={groupError} />;

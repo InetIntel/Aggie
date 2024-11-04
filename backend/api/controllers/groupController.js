@@ -216,7 +216,11 @@ exports.group_assigned_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'assignedGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: group._id, update: { assignedTo: group.assignedTo } }).then(() => {
+            return res.status(200).send(group);
+          });
+        }
       });
     });
   });
@@ -343,7 +347,7 @@ exports.group_public_update = (req, res) => {
         }
         writelog.writeReport(req, group, 'publicGroup');
         if (--remaining === 0) {
-          eventRouter.publish('groups:update', { ids: req.body.ids, update: { closed: group.closed } }).then(() => {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { public: group.public } }).then(() => {
             return res.sendStatus(200)
           });
         }

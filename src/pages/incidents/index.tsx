@@ -4,7 +4,7 @@ import { useQueryParams } from "../../hooks/useQueryParams";
 import _ from "lodash";
 
 import { getGroups } from "../../api/groups";
-import type { GroupQueryState } from "../../api/groups/types";
+import type { Group, GroupQueryState, Groups } from "../../api/groups/types";
 
 import { Link } from "react-router-dom";
 import IncidentsFilters from "./IncidentsFilters";
@@ -14,11 +14,15 @@ import { faPlus, faRefresh } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import AggieButton from "../../components/AggieButton";
+import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
+import { Report } from "../../api/reports/types";
+import { updateByIds } from "../../utils/immutable";
+import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
 
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
     useQueryParams<GroupQueryState>();
-
+  const queryData = useUpdateQueryData();
   const { data, refetch, isLoading, isFetching } = useQuery(
     ["groups"],
     () => getGroups(getAllParams(searchParams)),
@@ -31,6 +35,29 @@ const Incidents = () => {
     // refetch on filter change
     refetch();
   }, [searchParams]);
+
+  interface GroupUpdateEvent extends SocketEvent {
+    data: {
+      ids: string[];
+      update: Record<string, any>;
+    };
+  }
+  const handleSocketUpdate = (message: GroupUpdateEvent) => {
+    if (message.event !== "groups:update") return;
+    console.log("sockets", message);
+
+    queryData.update<Groups>(["groups"], (data) => {
+      const updateData = updateByIds(
+        message.data.ids,
+        data.results,
+        message.data.update
+      );
+      return {
+        results: updateData,
+      };
+    });
+  };
+  useSocketSubscribe("groups:update", handleSocketUpdate);
 
   return (
     <section className='max-w-screen-xl mx-auto px-4 pb-10'>

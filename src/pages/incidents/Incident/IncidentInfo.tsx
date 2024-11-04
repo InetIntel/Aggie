@@ -43,7 +43,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
                 Closed
               </span>
             )}
-            {!group?.public && (
+            {group && !group?.public && (
               <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
                 <FontAwesomeIcon icon={faTrash} />
                 Deleted
