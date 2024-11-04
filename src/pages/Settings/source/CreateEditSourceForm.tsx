@@ -16,15 +16,6 @@ import { faChevronDown, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { CredentialOption, CREDENTIAL_OPTIONS } from "../../../api/common";
 
-// const twitterFormSchema = Yup.object().shape({
-//     sourceNickname: Yup.string().required("Source name is a required field"),
-//     sourceKeywords: Yup.string().required(
-//       "Keywords are required to create a Twitter source"
-//     ),
-//     sourceCredentials: Yup.string().required(
-//       "A credential is required to create a source"
-//     ),
-//   });
 
 //   const CrowdTangleFormSchema = Yup.object().shape({
 //     sourceNickname: Yup.string().required("Source name is a required field"),
@@ -92,6 +83,8 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   });
   type IJunkipediaSchema = Yup.InferType<typeof JunkipediaSchema>;
 
+
+
   const RssSchema = Yup.object().shape({
     nickname: Yup.string().required("Source name is a required field"),
     // sourceKeywords: Yup.string().required(
@@ -122,7 +115,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Credential Name' />
+      <FormikInput name='nickname' label='Source Name' />
       <FormikInput name='lists' label='Lists' />
 
       <FormikDropdown
@@ -158,7 +151,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Credential Name' />
+      <FormikInput name='nickname' label='Source Name' />
       <FormikInput name='lists' label='Lists' />
       <FormikInput name='regex' label='regex' />
       <FormikDropdown
@@ -172,6 +165,57 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       />
     </FormikWithSchema>
   );
+
+
+
+  const twitterSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    // regex: Yup.string().required(
+    //   "Query is required to create a Twitter source"
+    // ),
+    credentials: Yup.string().required(
+      "A credential is required to create a source"
+    ),
+  });
+  type ITwitterSchema = Yup.InferType<typeof twitterSchema>;
+
+  const TwitterForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "https://www.x.com/",
+      }}
+      schema={twitterSchema}
+      onSubmit={(values: ITwitterSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Credential Name' />
+
+      <FormikInput name='regex' label='regex' />
+      {/* <FormikInput name='lists' label='Lists' /> */}
+
+      <FormikDropdown
+        list={
+          credentialsList?.map((i) => {
+            return { _id: i._id, label: i.name };
+          }) || [{ _id: "", label: "loading" }]
+        }
+        label={"API Credentials"}
+        name={"credentials"}
+      />
+    </FormikWithSchema>
+  );
+
   // const TelegramSchema = Yup.object().shape({
   //   nickname: Yup.string().required("Source name is a required field"),
   //   credentials: Yup.string().required(
@@ -248,6 +292,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       </Listbox>
       {credentialType === "junkipedia" && JunkipediaForm}
       {credentialType === "rss" && RSSForm}
+      {credentialType === "twitter" && TwitterForm}
       {/* {credentialType === "telegram" && TelegramForm} */}
     </>
   );
