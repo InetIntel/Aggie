@@ -10,8 +10,8 @@ import { setAITagsFeedback } from "../api/reports";
 import AIFeedbackScale from "./AIFeedback/AIFeedbackScale";
 import AggieDialog from "./AggieDialog";
 import AggieButton from "./AggieButton";
-import { faFilePen } from "@fortawesome/free-solid-svg-icons";
 import { Formik, Form } from "formik";
+import GeneratedTagDescription from "./GeneratedTagDescription";
 
 interface IProps {
   report: Report;
@@ -54,7 +54,7 @@ const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
           name={startCase(key).replaceAll("_", " ")}
           key={key.replaceAll("_", " ")}
         >
-          <span className='block  text-sm max-w-md '>
+          <span className='block p-3 text-sm max-w-md '>
             {`${key}_rationale` in tags && tags[`${key}_rationale`]}
           </span>
         </GeneratedTag>
@@ -64,36 +64,25 @@ const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
           name={`+${moreTagsLength}`}
           className='rounded-full hover:bg-purple-100  text-purple-900 border border-purple-400'
         >
-          <div className='divide-y divide-purple-400'>
-            <div className='flex justify-between items-center text-sm'>
-              <h2 className='font-medium'>Generated Tags</h2>
-              <AggieButton
+          <div className='flex gap-2 flex-col py-2'>
+            <div className='flex gap-2 px-2 justify-between items-center text-sm'>
+              <h2 className='font-medium'>All Generated Tags</h2>
+              {/* <AggieButton
                 variant='secondary'
                 onClick={() => setFeedbackOpen(true)}
                 className='rounded-full  text-xs'
                 icon={faFilePen}
               >
                 Submit Feedback
-              </AggieButton>
+              </AggieButton> */}
             </div>
             {tagsList.map(([key, value]) => (
-              <div key={key} className='py-1 flex justify-between items-center'>
-                <div>
-                  <span className='block '>
-                    {startCase(key).replaceAll("_", " ")}
-                    {isBoolean(value) ? (
-                      <span className='rounded-full px-2 bg-purple-600 text-white'>
-                        {`${value}`}
-                      </span>
-                    ) : (
-                      <span className='block font-medium'>{value}</span>
-                    )}
-                  </span>
-                  <span className='block mb-1 text-sm italic max-w-prose'>
-                    {`${key}_rationale` in tags && tags[`${key}_rationale`]}
-                  </span>
-                </div>
-              </div>
+              <GeneratedTagDescription
+                k={key}
+                key={key}
+                v={value}
+                tags={tags}
+              />
             ))}
           </div>
         </GeneratedTag>
