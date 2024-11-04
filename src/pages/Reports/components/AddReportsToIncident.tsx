@@ -104,7 +104,8 @@ const AddReportsToIncidents = ({
     const params = new URLSearchParams({
       reports: selection.map((i) => i._id).join(":"),
     });
-
+    if (queryKey.includes("batch")) params.append("key", "batch");
+    console.log(queryKey);
     navigate({ pathname: "/incidents/new", search: params.toString() });
   }
 

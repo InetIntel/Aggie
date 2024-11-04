@@ -203,7 +203,7 @@ const ReportListItem = ({
         <AddReportsToIncidents
           selection={[report]}
           isOpen={openAttachModal}
-          queryKey={["reports"]}
+          queryKey={[isBatchMode ? "batch" : "reports"]}
           onClose={() => setOpenAttachModal(false)}
           addRemove={() => setOpenAttachModal(false)}
         />

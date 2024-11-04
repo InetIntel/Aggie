@@ -20,6 +20,7 @@ import CreateEditIncidentForm from "../CreateEditIncidentForm";
 
 interface NewIncidentQueryState {
   reports?: string;
+  key?: string;
 }
 
 const NewIncident = () => {
@@ -53,7 +54,8 @@ const NewIncident = () => {
   });
 
   useEffect(() => {
-    const data = queryClient.getQueryData<Reports>(["reports"]);
+    const key = getParam("key") || "reports";
+    const data = queryClient.getQueryData<Reports>([key]);
     if (!data) return;
     const ids = paramToArray(getParam("reports"));
     const selectedReports = data.results.filter((i) => ids.includes(i._id));
