@@ -85,6 +85,7 @@ module.exports = async function postToReport(post, next) {
                 }
     
                 metadata = {
+                    isKeywordSearchTwitter: true,
                     tweetID: id,
                     accountHandle: user.username,
                     accountUrl: user.url,
