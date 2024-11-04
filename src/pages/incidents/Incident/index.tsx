@@ -36,6 +36,8 @@ import {
   faExternalLinkSquare,
   faExternalLinkSquareAlt,
   faTrash,
+  faFileArchive,
+  faFileCircleMinus,
 } from "@fortawesome/free-solid-svg-icons";
 import { faDotCircle, faFileLines } from "@fortawesome/free-regular-svg-icons";
 import AggieSwitch from "../../../components/AggieSwitch";
@@ -57,6 +59,7 @@ import {
   SocketEvent,
   useSocketSubscribe,
 } from "../../../hooks/WebsocketProvider";
+import { removeReportsFromGroup } from "../../../api/reports";
 
 const Incident = () => {
   const { id } = useParams();
@@ -65,6 +68,14 @@ const Incident = () => {
   const { searchParams, getAllParams } = useQueryParams<ReportQueryState>();
   const { doUpdate, doSetEscalate, doSetClosed } = useIncidentMutations();
   const [deleteModal, setDeleteModal] = useState(false);
+
+  const [removeReports, setRemoveReports] = useState(false);
+  const doRemoveReportFromGroup = useMutation(removeReportsFromGroup, {
+    onSuccess: () => {
+      queryClient.invalidateQueries(["group"]);
+      queryClient.invalidateQueries(["groups", "reports"]);
+    },
+  });
 
   const { setIrrelevance } = useReportMutations({
     key: ["groups", "reports", { groupId: id }],
@@ -422,6 +433,13 @@ const Incident = () => {
                     <FontAwesomeIcon icon={faFile} />
                     Move to a New Incident
                   </AggieButton>
+                  <AggieButton
+                    className='px-3 py-2 hover:bg-slate-200 text-red-800'
+                    onClick={() => setRemoveReports(true)}
+                  >
+                    <FontAwesomeIcon icon={faFileCircleMinus} />
+                    Remove Reports from Incident
+                  </AggieButton>
                 </DropdownMenu>
               </div>
             </>
@@ -520,6 +538,30 @@ const Incident = () => {
           you sure?
         </p>
       </ConfirmationDialog>
+
+      <ConfirmationDialog
+        isOpen={removeReports}
+        variant='danger'
+        disabled={doRemoveReportFromGroup.isLoading}
+        className='w-full max-w-lg text-center'
+        title={`Remove these reports from the incident?`}
+        confirmText={"Remove"}
+        onClose={() => setRemoveReports(false)}
+        onConfirm={() =>
+          id &&
+          doRemoveReportFromGroup.mutate(
+            {
+              reportIds: multiSelect.selection.map((i) => i._id),
+              groupId: { _id: id },
+            },
+            {
+              onSuccess: () => {
+                setRemoveReports(false);
+              },
+            }
+          )
+        }
+      ></ConfirmationDialog>
     </section>
   );
 };

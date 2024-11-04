@@ -12,7 +12,11 @@ import FilterRadioGroup from "../../components/filters/FilterRadioGroup";
 import AggieButton from "../../components/AggieButton";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faXmarkSquare } from "@fortawesome/free-solid-svg-icons";
+import {
+  faSearch,
+  faWarning,
+  faXmarkSquare,
+} from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import { getSession } from "../../api/session";
@@ -112,6 +116,16 @@ const IncidentsFilters = ({
             defaultValue={"false"}
             onChange={(e) => set({ closed: e === "false" ? undefined : e })}
           />
+          {!get("escalated") && (
+            <AggieButton
+              variant='secondary'
+              icon={faWarning}
+              className='text-xs text-red-700'
+              onClick={() => set({ escalated: true })}
+            >
+              Show Only Escalated
+            </AggieButton>
+          )}
         </div>
         <div className='flex items-center gap-1'>
           <FilterListbox
