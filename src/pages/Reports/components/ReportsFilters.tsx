@@ -22,6 +22,7 @@ import { getAllGroups } from "../../../api/groups";
 import { useCallback } from "react";
 import FilterRadioGroup from "../../../components/filters/FilterRadioGroup";
 import { Link, useNavigate } from "react-router-dom";
+import FilterDateTime from "../../../components/filters/FilterDateTime";
 
 interface IReportFilters {
   reportCount?: number;
@@ -225,6 +226,12 @@ const ReportFilters = ({
           />
         </div>
         <div className='flex items-center gap-1'>
+          <FilterDateTime
+            before={getParam("before")}
+            onSetBefore={(d) => setParams({ before: d })}
+            after={getParam("after")}
+            onSetAfter={(d) => setParams({ after: d })}
+          />
           <FilterListbox
             label='Platforms'
             options={[...MEDIA_OPTIONS]}

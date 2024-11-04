@@ -70,3 +70,9 @@ code {
 .rsspost iframe {
   max-width: 100%;
 }
+
+/*  date picker styling **/
+.rdp-root {
+  --rdp-day-width: 2em;
+  --rdp-day-height: 2em;
+}
