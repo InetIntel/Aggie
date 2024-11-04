@@ -28,21 +28,21 @@ let schema = new mongoose.Schema({
   updatedAt: Date,
   storedAt: { type: Date, index: true },
   tags: { type: [String], default: [] },
-  assignedTo: { type: [mongoose.Schema.ObjectId], ref: 'User' },
+  assignedTo: { type: [mongoose.Schema.ObjectId], ref: 'User', index: 1 },
   smtcTags: {
     type: [{ type: SchemaTypes.ObjectId, ref: 'SMTCTag' }],
     default: [],
   },
-  creator: { type: mongoose.Schema.ObjectId, ref: 'User' },
+  creator: { type: mongoose.Schema.ObjectId, ref: 'User', index: 1 },
   status: { type: String, default: 'new', required: true },
   veracity: {
     type: String,
     default: 'Unconfirmed',
     enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'],
   },
-  escalated: { type: Boolean, default: false, required: true },
-  closed: { type: Boolean, default: false, required: true },
-  public: { type: Boolean, default: false, required: true },
+  escalated: { type: Boolean, default: false, required: true, index: 1 },
+  closed: { type: Boolean, default: false, required: true, index: 1 },
+  public: { type: Boolean, default: true, required: true, index: 1 },
   publicDescription: String,
   _reports: {
     type: [{ type: SchemaTypes.ObjectId, ref: 'Report' }],
@@ -98,6 +98,9 @@ schema.methods.setEscalated = function (escalated) {
 };
 schema.methods.setAssigned = function (assignedTo) {
   this.assignedTo = assignedTo;
+};
+schema.methods.setPublic = function (pub) {
+  this.public = pub;
 };
 schema.methods.addSMTCTag = function (smtcTagId, callback) {
   // TODO: Use Functional Programming
@@ -203,6 +206,9 @@ Group.queryGroups = function (query, page, options, callback) {
     filter.storedAt = filter.storedAt || {};
     filter.storedAt.$gte = query.since;
   }
+
+  // hide not public
+  filter.public = true;
 
   // find empty assignedTo objects
   if (query.assignedTo === 'none') {

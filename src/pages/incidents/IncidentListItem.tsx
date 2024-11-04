@@ -25,6 +25,7 @@ import {
   faLocationPin,
   faMinusCircle,
   faPlus,
+  faTrash,
   faUserEdit,
   faWarning,
 } from "@fortawesome/free-solid-svg-icons";
@@ -88,6 +89,12 @@ const IncidentListItem = ({ item }: IProps) => {
               <span className='px-1 bg-purple-200 text-purple-700 font-medium flex gap-1 items-center'>
                 <FontAwesomeIcon icon={faMinusCircle} />
                 Closed
+              </span>
+            )}
+            {!item.public && (
+              <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
+                <FontAwesomeIcon icon={faTrash} />
+                Deleted
               </span>
             )}
             <TagsList values={item.smtcTags} />
