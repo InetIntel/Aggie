@@ -29,7 +29,8 @@ class RSSChannel extends PollChannel {
         });
         // Reformats the RSS feed URLs to include '/feed' at the end and to remove any trailing '/'
         this.rssList = options.rssList.split(' ').map(url => {
-            let formattedUrl = url.endsWith('/feed') ? url : `${url.replace(/\/$/, '')}/feed`;
+            let formattedUrl = url;
+            // let formattedUrl = url.endsWith('/feed') ? url : `${url.replace(/\/$/, '')}/feed`;
             if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
             formattedUrl = `https://${formattedUrl}`;
             }

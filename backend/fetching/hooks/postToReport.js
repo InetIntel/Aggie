@@ -11,9 +11,9 @@ module.exports = async function postToReport(post, next) {
     } = post;
     const channel = getChannel(channelID);
     const sourceID = getSourceID(channelID);
-
+    console.log(post)
     let isKeywordSearchTwitter = false;
-    if (platform == 'twitter') {
+    if (platform == 'twitter' && raw && raw.post) {
         isKeywordSearchTwitter = true;
     } 
 

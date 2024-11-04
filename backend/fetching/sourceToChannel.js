@@ -131,7 +131,8 @@ function createChannel(source) {
                     "place.fields": "contained_within,country,country_code,full_name,geo,id,name,place_type",
                     "user.fields": "location,profile_image_url,description,created_at,id,name,username,public_metrics,url",
                 },
-                interval: 120000,
+                // Every 5 minutes pull 10
+                interval: 300000,
             }
             console.log("twitter options")
             console.log(options)
@@ -151,7 +152,7 @@ function createChannel(source) {
                 // Reference - https://www.junkipedia.org/apidocs#tag/Posts/paths/~1api~1v1~1posts/get
                 // TODO: Add list or channel specification
                 // interval is set to 3 minutes
-                interval: 60000,
+                interval: 6000,
                 queryParams: {
                     lists: lists,
                     keyword: keywords,
