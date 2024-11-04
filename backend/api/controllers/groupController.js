@@ -26,7 +26,7 @@ exports.group_create = (req, res) => {
 // lean option means only return name and id
 exports.group_all_groups = (req, res) => {
   const projection = req.query.lean === "true" ? 'title closed escalated idnum' : '';
-  Group.find({}, projection, {}, (err, groups) => {
+  Group.find({ public: true }, projection, {}, (err, groups) => {
     if (err) res.status(err.status).send(err.message);
     else res.status(200).send(groups);
   });
