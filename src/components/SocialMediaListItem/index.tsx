@@ -54,16 +54,22 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
               Relevant
             </AggieToken>
           )}
-          {report.red_flag && (
-            <AggieToken
-              variant='dark:red'
-              icon={faExclamationTriangle}
-              className='text-xs'
-            >
-              Red Flag
-            </AggieToken>
+
+          {(!report.irrelevant || report.irrelevant !== "true") && (
+            <>
+              {report.red_flag && (
+                <AggieToken
+                  variant='dark:red'
+                  icon={faExclamationTriangle}
+                  className='text-xs'
+                >
+                  Red Flag
+                </AggieToken>
+              )}
+              <GeneratedTagsList tags={report.aitags} report={report} />
+            </>
           )}
-          <GeneratedTagsList tags={report.aitags} report={report} />
+
           <TagsList values={report.smtcTags} />
         </div>
         {header || (
