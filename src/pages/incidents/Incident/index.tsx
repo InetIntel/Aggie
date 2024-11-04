@@ -1,11 +1,16 @@
 // i need to refactor this...
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useIncidentMutations } from "../useIncidentMutations";
 
-import { getGroup, getGroupReports } from "../../../api/groups";
-import { Group } from "../../../api/groups/types";
+import {
+  deleteGroup,
+  getGroup,
+  getGroupReports,
+  setSelectedPublic,
+} from "../../../api/groups";
+import { Group, Groups } from "../../../api/groups/types";
 
 import AxiosErrorCard from "../../../components/AxiosErrorCard";
 
@@ -30,6 +35,7 @@ import {
   faXmark,
   faExternalLinkSquare,
   faExternalLinkSquareAlt,
+  faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { faDotCircle, faFileLines } from "@fortawesome/free-regular-svg-icons";
 import AggieSwitch from "../../../components/AggieSwitch";
@@ -45,6 +51,12 @@ import AggieCheck from "../../../components/AggieCheck";
 import AggieDialog from "../../../components/AggieDialog";
 import AddReportsToIncidents from "../../Reports/components/AddReportsToIncident";
 import { useReportMutations } from "../../Reports/useReportMutations";
+import ConfirmationDialog from "../../../components/ConfirmationDialog";
+import { updateByIds } from "../../../utils/immutable";
+import {
+  SocketEvent,
+  useSocketSubscribe,
+} from "../../../hooks/WebsocketProvider";
 
 const Incident = () => {
   const { id } = useParams();
@@ -52,6 +64,8 @@ const Incident = () => {
   const navigate = useNavigate();
   const { searchParams, getAllParams } = useQueryParams<ReportQueryState>();
   const { doUpdate, doSetEscalate, doSetClosed } = useIncidentMutations();
+  const [deleteModal, setDeleteModal] = useState(false);
+
   const { setIrrelevance } = useReportMutations({
     key: ["groups", "reports", { groupId: id }],
   });
@@ -69,9 +83,31 @@ const Incident = () => {
     onSuccess: (data) => {},
   });
 
-  const { data: groupReports, refetch: groupRefetch } = useQuery(
-    ["groups", "reports", { groupId: id }],
-    () => getGroupReports({ ...getAllParams(searchParams), groupId: id })
+  const doDelete = useMutation(setSelectedPublic, {
+    onSuccess: (_, params) => {
+      queryData.update<Groups>(["groups"], (data) => {
+        if (!params.ids) return {};
+        return {
+          results: updateByIds(params.ids, data.results, {
+            public: params.public,
+          }),
+        };
+      });
+      if (!id) return;
+
+      queryData.update<Group>(["group", id], (data) => {
+        return {
+          public: params.public,
+        };
+      });
+    },
+  });
+  const {
+    data: groupReports,
+    refetch: groupRefetch,
+    isFetching: groupIsFetching,
+  } = useQuery(["groups", "reports", { groupId: id }], () =>
+    getGroupReports({ ...getAllParams(searchParams), groupId: id })
   );
 
   const multiSelect = useMultiSelect({
@@ -95,6 +131,28 @@ const Incident = () => {
 
     navigate({ pathname: "/incidents/new", search: params.toString() });
   }
+
+  interface GroupUpdateEvent extends SocketEvent {
+    data: {
+      ids: string[];
+      update: Record<string, any>;
+    };
+  }
+  const handleSocketUpdate = (message: GroupUpdateEvent) => {
+    if (message.event !== "groups:update") return;
+    console.log("sockets", message);
+
+    // update single report
+    if (id && message.data.ids.includes(id)) {
+      queryData.update<Report>(["group", id], (data) => {
+        return message.data.update;
+      });
+      if ("_reports" in message.data.update) {
+        groupRefetch();
+      }
+    }
+  };
+  useSocketSubscribe("groups:update", handleSocketUpdate);
 
   if (isError) {
     return <AxiosErrorCard error={groupError} />;
@@ -220,6 +278,13 @@ const Incident = () => {
                   Close Incident
                 </AggieButton>
               )}
+              <AggieButton
+                className={`w-full px-2 py-1 hover:bg-red-100 text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+                onClick={() => setDeleteModal(true)}
+              >
+                <FontAwesomeIcon icon={faTrash} />
+                Permanently Delete Incident
+              </AggieButton>
             </DropdownMenu>
           </div>
         </div>
@@ -261,6 +326,8 @@ const Incident = () => {
         <ReportFilters
           reportCount={groupReports && groupReports.total}
           fromGroup={id}
+          refetch={groupRefetch}
+          isFetching={groupIsFetching}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton
@@ -428,6 +495,31 @@ const Incident = () => {
           isLoading={doUpdate.isLoading}
         />
       </AggieDialog>
+      <ConfirmationDialog
+        isOpen={deleteModal}
+        onClose={() => setDeleteModal(false)}
+        onConfirm={() =>
+          doDelete.mutate(
+            { ids: !!group ? [group?._id] : [], public: false },
+            {
+              onSuccess: () => {
+                setDeleteModal(false);
+              },
+            }
+          )
+        }
+        disabled={doDelete.isLoading}
+        title='Delete?'
+        variant='warning'
+        className='max-w-md w-full'
+        confirmText={"Delete incident permanently?"}
+        icon={faTrash}
+      >
+        <p className='px-4 py-2 max-w-md'>
+          This will permanently delete the incident {`"${group?.title}"`}. Are
+          you sure?
+        </p>
+      </ConfirmationDialog>
     </section>
   );
 };

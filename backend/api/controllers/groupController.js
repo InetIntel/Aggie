@@ -26,7 +26,7 @@ exports.group_create = (req, res) => {
 // lean option means only return name and id
 exports.group_all_groups = (req, res) => {
   const projection = req.query.lean === "true" ? 'title closed escalated idnum' : '';
-  Group.find({}, projection, {}, (err, groups) => {
+  Group.find({ public: true }, projection, {}, (err, groups) => {
     if (err) res.status(err.status).send(err.message);
     else res.status(200).send(groups);
   });
@@ -216,7 +216,11 @@ exports.group_assigned_update = (req, res) => {
           return;
         }
         writelog.writeReport(req, group, 'assignedGroup');
-        if (--remaining === 0) return res.sendStatus(200);
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: group._id, update: { assignedTo: group.assignedTo } }).then(() => {
+            return res.status(200).send(group);
+          });
+        }
       });
     });
   });
@@ -324,6 +328,34 @@ exports.group_veracity_update = (req, res) => {
     });
   });
 };
+
+
+// Update group closed
+exports.group_public_update = (req, res) => {
+  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
+    if (err) return res.status(err.status).send(err.message);
+    if (groups.length === 0) return res.sendStatus(200);
+    let remaining = groups.length;
+    groups.forEach((group) => {
+      // Mark each report as escalated to catch it in model
+      group.public = req.body.public;
+      group.save((err) => {
+        if (err) {
+          if (!res.headersSent) res.status(err.status).send(err.message);
+          return;
+        }
+        writelog.writeReport(req, group, 'publicGroup');
+        if (--remaining === 0) {
+          eventRouter.publish('groups:update', { ids: req.body.ids, update: { public: group.public } }).then(() => {
+            return res.sendStatus(200)
+          });
+        }
+      });
+    });
+  });
+};
+
 
 // Update group notes
 exports.group_notes_update = (req, res) => {

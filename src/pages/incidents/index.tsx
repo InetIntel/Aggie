@@ -4,21 +4,26 @@ import { useQueryParams } from "../../hooks/useQueryParams";
 import _ from "lodash";
 
 import { getGroups } from "../../api/groups";
-import type { GroupQueryState } from "../../api/groups/types";
+import type { Group, GroupQueryState, Groups } from "../../api/groups/types";
 
 import { Link } from "react-router-dom";
 import IncidentsFilters from "./IncidentsFilters";
 import IncidentListItem from "./IncidentListItem";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faRefresh } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
+import AggieButton from "../../components/AggieButton";
+import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
+import { Report } from "../../api/reports/types";
+import { updateByIds } from "../../utils/immutable";
+import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
 
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
     useQueryParams<GroupQueryState>();
-
-  const { data, refetch, isLoading } = useQuery(
+  const queryData = useUpdateQueryData();
+  const { data, refetch, isLoading, isFetching } = useQuery(
     ["groups"],
     () => getGroups(getAllParams(searchParams)),
     {
@@ -31,10 +36,44 @@ const Incidents = () => {
     refetch();
   }, [searchParams]);
 
+  interface GroupUpdateEvent extends SocketEvent {
+    data: {
+      ids: string[];
+      update: Record<string, any>;
+    };
+  }
+  const handleSocketUpdate = (message: GroupUpdateEvent) => {
+    if (message.event !== "groups:update") return;
+    console.log("sockets", message);
+
+    queryData.update<Groups>(["groups"], (data) => {
+      const updateData = updateByIds(
+        message.data.ids,
+        data.results,
+        message.data.update
+      );
+      return {
+        results: updateData,
+      };
+    });
+  };
+  useSocketSubscribe("groups:update", handleSocketUpdate);
+
   return (
     <section className='max-w-screen-xl mx-auto px-4 pb-10'>
       <header className='my-4 flex justify-between items-center'>
-        <h1 className='text-3xl font-medium'>Incidents</h1>
+        <div className='flex gap-2 items-baseline'>
+          <h1 className='text-3xl font-medium'>Incidents</h1>
+          <AggieButton
+            icon={faRefresh}
+            variant='transparent'
+            className='text-slate-700'
+            title='refresh page'
+            loading={isFetching}
+            disabled={isFetching}
+            onClick={() => refetch()}
+          ></AggieButton>
+        </div>
         <Link
           to='new'
           className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 hover:bg-green-700 text-slate-100 rounded-lg font-medium'

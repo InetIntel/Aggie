@@ -12,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faExclamationTriangle,
   faMinusCircle,
+  faRefresh,
   faSearch,
   faXmarkSquare,
 } from "@fortawesome/free-solid-svg-icons";
@@ -29,6 +30,8 @@ interface IReportFilters {
   searchPlaceholder?: string;
   activeSearch?: string;
   fromGroup?: string;
+  refetch: () => void;
+  isFetching: boolean;
 }
 
 const ReportFilters = ({
@@ -37,6 +40,8 @@ const ReportFilters = ({
   searchPlaceholder,
   activeSearch,
   fromGroup,
+  refetch,
+  isFetching,
 }: IReportFilters) => {
   const { searchParams, getParam, setParams, clearAllParams } =
     useQueryParams<ReportQueryState>();
@@ -170,7 +175,15 @@ const ReportFilters = ({
                     </div>
                   </div>
                 </div>
-
+                <AggieButton
+                  icon={faRefresh}
+                  variant='transparent'
+                  className='text-slate-700'
+                  title='refresh page'
+                  loading={isFetching}
+                  disabled={isFetching}
+                  onClick={() => refetch()}
+                ></AggieButton>
                 {!!searchParams.size && (
                   <AggieButton
                     className='hover:underline hover:bg-slate-100 px-2 py-1 text-sm rounded'

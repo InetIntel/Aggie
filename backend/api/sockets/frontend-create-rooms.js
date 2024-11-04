@@ -56,9 +56,9 @@ module.exports = (httpServer) => {
   EventRouter.on('sources:delete', handleEvent('sources'));
   EventRouter.on('sources:update', handleEvent('sources'));
 
-  EventRouter.on('groups:create', handleEvent('groups'));
-  EventRouter.on('groups:delete', handleEvent('groups'));
-  EventRouter.on('groups:update', handleEvent('groups'));
+  EventRouter.on('groups:create', handleEvent('reports'));
+  EventRouter.on('groups:delete', handleEvent('reports'));
+  EventRouter.on('groups:update', handleEvent('reports'));
 
   EventRouter.on('reports:update', handleEvent('reports'));
   EventRouter.on('reports:create', handleEvent('reports'));

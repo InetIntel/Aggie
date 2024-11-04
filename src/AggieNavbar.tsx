@@ -71,8 +71,16 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
 
   const helpfulLinks = [
     {
-      label: "What Topics Should I look out for?",
-      to: " https://docs.google.com/document/d/15rl3psnHGZYaxXS7CCIwRhqvNMMcyFr54z5I0N8Gub8/edit?usp=sharing",
+      label: "What to Track and Investigate in Aggie",
+      to: "https://docs.google.com/document/d/15rl3psnHGZYaxXS7CCIwRhqvNMMcyFr54z5I0N8Gub8/edit?usp=sharing",
+    },
+    {
+      label: "Tracking Team Guide",
+      to: "https://docs.google.com/document/d/1Krr1JaS0Wmh_SbBsnx1LKAAS42t868k2mpyPBztx3AQ/edit?usp=sharing",
+    },
+    {
+      label: "Veracity Team Guide",
+      to: "https://docs.google.com/document/d/1Q9nln1OGc5cqdw4BTE71xYhQMA3e_KE_JeEW_atq5Hk/edit?usp=sharing",
     },
   ];
 
@@ -124,9 +132,10 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
           panelClassName='border border-slate-300 rounded-lg z-20 bg-white w-max max-w-lg right-0 top-100'
           className='px-2 py-2 rounded-lg hover:bg-slate-100 hover:underline'
         >
-          {helpfulLinks.map((item) => (
+          {helpfulLinks.map((item, index) => (
             <a
               href={item.to}
+              key={index}
               target='_blank'
               className='hover:underline text-blue-600'
             >

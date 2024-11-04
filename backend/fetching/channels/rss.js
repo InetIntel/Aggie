@@ -35,6 +35,7 @@ class RSSChannel extends PollChannel {
             }
             return formattedUrl;
         });
+        this.interval = options.interval || RSSChannel.INTERVAL;
         this.regexQuery = options.regex || null;
         // Last fetched is a dictionary of the last time each RSS feed was fetched
         // Loop through rss feed and initialize each to 0

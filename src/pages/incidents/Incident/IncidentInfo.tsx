@@ -5,6 +5,7 @@ import {
 } from "@fortawesome/free-regular-svg-icons";
 import {
   faMinusCircle,
+  faTrash,
   faUserEdit,
   faWarning,
 } from "@fortawesome/free-solid-svg-icons";
@@ -40,6 +41,12 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
               <span className='px-1 bg-purple-200 text-purple-700 font-medium inline-flex gap-1 items-center'>
                 <FontAwesomeIcon icon={faMinusCircle} />
                 Closed
+              </span>
+            )}
+            {group && !group?.public && (
+              <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
+                <FontAwesomeIcon icon={faTrash} />
+                Deleted
               </span>
             )}
             <TagsList values={group?.smtcTags} />

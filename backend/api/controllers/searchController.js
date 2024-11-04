@@ -55,9 +55,7 @@ exports.search_reports = async (req, res) => {
           //console.log("reports length", reports.results.length);
           //console.log("reports[0].aitags", JSON.parse(JSON.stringify(reports.results[0].aitags))["misinformation"]);
           
-          const filteredReports = reports.results.filter(report => 
-            Object.keys(JSON.parse(JSON.stringify(report.aitags))).some(tag => tags.includes(tag) && JSON.parse(JSON.stringify(report.aitags))[tag] === true)
-          );
+          const filteredReports = reports.results;
           console.log("filteredReports length", filteredReports.length);
           console.log("reports length", reports.results.length);
           return res.send({ total: filteredReports.length, results: filteredReports });

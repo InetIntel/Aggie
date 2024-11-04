@@ -42,6 +42,10 @@ router.patch('/_notes', User.can('edit data'), groupController.group_notes_updat
 
 // Route to change closed
 router.patch('/_closed', User.can('edit data'), groupController.group_closed_update);
+
+// Route to change closed
+router.patch('/_public', User.can('edit data'), groupController.group_public_update);
+
 // Route to set assign
 router.patch('/_assignedto', User.can('edit data'), groupController.group_assigned_update);
 // Route to change locationName

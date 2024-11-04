@@ -111,6 +111,8 @@ const FlaggedReportsList = ({}: IProps) => {
           reportCount={reports && reports.total}
           searchPlaceholder='contextual search'
           activeSearch='contextual'
+          isFetching={reportsQuery.isFetching}
+          refetch={reportsQuery.refetch}
           headerElement={
             <AggieButton
               variant='secondary'

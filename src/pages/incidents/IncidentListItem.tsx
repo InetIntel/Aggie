@@ -25,6 +25,7 @@ import {
   faLocationPin,
   faMinusCircle,
   faPlus,
+  faTrash,
   faUserEdit,
   faWarning,
 } from "@fortawesome/free-solid-svg-icons";
@@ -35,6 +36,9 @@ import {
   faMessage,
 } from "@fortawesome/free-regular-svg-icons";
 import UserToken from "../../components/UserToken";
+import { isString } from "lodash";
+import { User } from "../../api/users/types";
+import { hasId } from "../../api/common";
 
 interface IProps {
   item: Group;
@@ -71,7 +75,11 @@ const IncidentListItem = ({ item }: IProps) => {
       ids: [item._id],
     });
   }
-
+  function getUserId(user: string | hasId) {
+    if (isString(user)) {
+      return user;
+    } else return user._id;
+  }
   return (
     <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-600 border-b border-slate-300 '>
       <div
@@ -88,6 +96,12 @@ const IncidentListItem = ({ item }: IProps) => {
               <span className='px-1 bg-purple-200 text-purple-700 font-medium flex gap-1 items-center'>
                 <FontAwesomeIcon icon={faMinusCircle} />
                 Closed
+              </span>
+            )}
+            {!item.public && (
+              <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
+                <FontAwesomeIcon icon={faTrash} />
+                Deleted
               </span>
             )}
             <TagsList values={item.smtcTags} />
@@ -128,7 +142,7 @@ const IncidentListItem = ({ item }: IProps) => {
             <p className='text-xs overflow-hidden max-w-full flex gap-1 items-baseline text-ellipsis mr-1'>
               {" "}
               <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
-              {item.creator && <UserToken id={item.creator._id} />}
+              {item.creator && <UserToken id={getUserId(item.creator)} />}
             </p>
           </div>
         </header>
@@ -148,7 +162,7 @@ const IncidentListItem = ({ item }: IProps) => {
           </p>
           {item.assignedTo && item.assignedTo.length > 0 ? (
             item.assignedTo.map((user) => (
-              <UserToken id={user._id} key={user._id} />
+              <UserToken id={getUserId(user)} key={getUserId(user)} />
             ))
           ) : (
             <AggieButton

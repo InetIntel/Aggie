@@ -7,17 +7,22 @@ const validator = require('validator');
 
 exports.user_users = (req, res) => {
   User.find({}, function (err, users) {
-    if (err) res.status(err.status).send(err.message);
-    else res.status(200).send(users);
+    if (err) {
+
+      return res.status(err.status).send(err.message);
+    }
+    else {
+      return res.status(200).send(users);
+    }
   });
 };
 
 // Get a User by id
 exports.user_detail = (req, res) => {
   User.findById(req.params._id, '-password', function (err, user) {
-    if (err) res.status(err.status).send(err.message);
-    else if (!user) res.sendStatus(404);
-    else res.status(200).send(user);
+    if (err) { return res.status(err.status).send(err.message); }
+    else if (!user) { return res.sendStatus(404); }
+    else { return res.status(200).send(user); }
   });
 };
 
