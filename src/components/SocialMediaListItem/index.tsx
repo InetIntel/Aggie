@@ -130,6 +130,12 @@ function renderImage(
     const { imagePreview, imagesCount } = twitterParsing(report);
     return { imagePreview, imagesCount };
   }
+  if (type.includes("youtube")) {
+    const imagePreview = (report.metadata?.rawAPIResponse?.attributes as any)
+      ?.thumbnail_url;
+    const imagesCount = imagePreview ? 1 : 0;
+    return { imagePreview, imagesCount };
+  }
   const imagePreview = report.metadata?.mediaUrl;
   const imagesCount = imagePreview ? 1 : 0;
   return { imagePreview, imagesCount };
