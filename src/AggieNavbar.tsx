@@ -33,7 +33,7 @@ const mainLinks: Record<string, LinkOptions> = {
 
   divider1: { type: "divider", to: "" },
   Incidents: { to: "/incidents" },
-  Images: { to: "/images" },
+  // Images: { to: "/images" },
 };
 
 const menuLinks = {
