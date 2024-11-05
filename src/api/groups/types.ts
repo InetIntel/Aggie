@@ -1,4 +1,4 @@
-import { VeracityOptions, hasId } from "../common";
+import { VeracityOptions, hasId, GroupSortBy } from "../common";
 import { User } from "../users/types";
 
 interface AssignedToUser extends hasId {
@@ -63,6 +63,7 @@ export interface GroupQueryState {
   idnum?: string | number;
   locationName?: string;
   page?: string | number;
+  sortBy?: GroupSortBy;
 }
 
 export interface GroupComment extends EditableGroupComment {

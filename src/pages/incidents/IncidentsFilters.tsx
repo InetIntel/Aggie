@@ -2,7 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { IuseQueryParams, useQueryParams } from "../../hooks/useQueryParams";
 
 import { getUsers } from "../../api/users";
-import { VERACITY_OPTIONS, ESCALATED_OPTIONS } from "../../api/common";
+import {
+  VERACITY_OPTIONS,
+  ESCALATED_OPTIONS,
+  GROUP_SORTBY,
+  GroupSortBy,
+} from "../../api/common";
 import type { GroupQueryState } from "../../api/groups/types";
 
 import { Field, Form, Formik } from "formik";
@@ -219,6 +224,12 @@ const IncidentsFilters = ({
               { key: "none", value: "Not Assigned" },
               { key: session?._id || "", value: "Assigned to Me" },
             ]}
+          />
+          <FilterListbox
+            label='Sort By'
+            options={[...GROUP_SORTBY]}
+            value={get("sortBy")}
+            onChange={(e) => setParams({ sortBy: e as GroupSortBy })}
           />
         </div>
       </div>
