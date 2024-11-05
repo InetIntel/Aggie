@@ -34,6 +34,8 @@ const BatchReportList = ({}: IProps) => {
     getBatch,
     {
       enabled: !!getParam("batch"),
+      staleTime: 43 * (60 * 1000), // 40 mins
+      cacheTime: 45 * (60 * 1000), // 45 mins
     }
   );
 
@@ -61,7 +63,7 @@ const BatchReportList = ({}: IProps) => {
     cancelCurrentBatch.mutate(undefined, {
       onSuccess: () => {
         setParams({ batch: undefined });
-        navigate({ pathname: "/r", search: searchParams.toString() });
+        navigate({ pathname: "/rpt/batch", search: searchParams.toString() });
       },
     });
   }

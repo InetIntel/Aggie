@@ -179,7 +179,7 @@ const AppRouter = () => {
         />
       </div>
       <FetchIndicator className='sticky top-0 z-20 ' />
-      <div className='h-full overflow-y-auto'>
+      <div id='main_view' className='h-full overflow-y-auto'>
         {isLoggedIn ? (
           <PrivateRoutes
             sessionData={userData}

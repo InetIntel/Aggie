@@ -15,7 +15,6 @@ import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import AggieButton from "../../components/AggieButton";
 import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
-import { Report } from "../../api/reports/types";
 import { updateByIds } from "../../utils/immutable";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
 
@@ -34,6 +33,10 @@ const Incidents = () => {
   useEffect(() => {
     // refetch on filter change
     refetch();
+    document.getElementById("main_view")?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }, [searchParams]);
 
   interface GroupUpdateEvent extends SocketEvent {

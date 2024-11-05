@@ -10,9 +10,9 @@ type VeracityKeyMap<T> = {
 };
 
 const VeracityColor: VeracityKeyMap<string> = {
-  Unconfirmed: "text-gray-500 bg-slate-200",
-  "Confirmed True": "bg-lime-200 text-lime-700 ",
-  "Confirmed False": "bg-red-200 text-red-700 ",
+  Unconfirmed: "text-gray-500 bg-slate-100",
+  "Confirmed True": "bg-lime-100 text-lime-700 ",
+  "Confirmed False": "bg-red-100 text-red-700 ",
 };
 
 const VeracityText: VeracityKeyMap<string> = {

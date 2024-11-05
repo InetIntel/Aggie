@@ -30,6 +30,8 @@ interface IProps {
   isChecked: boolean;
   isSelectMode: boolean;
   onCheckChange: () => void;
+  onOpenReportAttachModal?: () => void;
+  setSelection?: (i: Report) => void;
 }
 
 const ReportListItem = ({
@@ -203,7 +205,7 @@ const ReportListItem = ({
         <AddReportsToIncidents
           selection={[report]}
           isOpen={openAttachModal}
-          queryKey={["reports"]}
+          queryKey={[isBatchMode ? "batch" : "reports"]}
           onClose={() => setOpenAttachModal(false)}
           addRemove={() => setOpenAttachModal(false)}
         />

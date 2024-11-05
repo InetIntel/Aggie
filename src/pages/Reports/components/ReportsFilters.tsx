@@ -102,7 +102,7 @@ const ReportFilters = ({
                       >
                         <AggieButton
                           type={!activeSearch ? "submit" : "button"}
-                          className={`px-4 py-2 h-full w-full hover:bg-slate-50 text-left border-l-4   ${
+                          className={`px-4 py-2 h-full w-full hover:bg-slate-50 text-left border-l-4 justify-between ${
                             !activeSearch
                               ? "border-green-600 "
                               : "border-transparent "
@@ -135,7 +135,7 @@ const ReportFilters = ({
                         </AggieButton>
                         <AggieButton
                           type={!!activeSearch ? "submit" : "button"}
-                          className={`px-4 py-2 h-full w-full hover:bg-purple-100 bg-purple-50 text-left border-l-4   ${
+                          className={`px-4 py-2 h-full w-full hover:bg-purple-100 bg-purple-50 text-left border-l-4 justify-between  ${
                             !!activeSearch
                               ? "border-green-600 "
                               : "border-transparent "
@@ -163,8 +163,8 @@ const ReportFilters = ({
                               <p>Advanced Contextual Search</p>
                             )}
                             <p className='text-slate-600 max-w-lg text-wrap'>
-                              find concepts and ideas that are similar but not
-                              exactly the same to the search term
+                              search through concepts related to the purple AI
+                              generated tags
                             </p>
                           </div>
                           {!!activeSearch && (

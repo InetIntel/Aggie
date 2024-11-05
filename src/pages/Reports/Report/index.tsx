@@ -57,6 +57,7 @@ const Report = () => {
     const params = new URLSearchParams({
       reports: [id].toString(),
     });
+    if (isBatchMode) params.append("key", "batch");
 
     navigate("/incidents/new?" + params.toString());
   }
@@ -119,7 +120,7 @@ const Report = () => {
       <AddReportsToIncidents
         selection={report ? [report] : undefined}
         isOpen={addReportModal}
-        queryKey={["reports"]}
+        queryKey={[isBatchMode ? "batch" : "reports"]}
         onClose={() => setAddReportModal(false)}
         addRemove={() => setAddReportModal(false)}
       />

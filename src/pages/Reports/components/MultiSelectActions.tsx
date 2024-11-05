@@ -15,9 +15,13 @@ import {
   faCaretDown,
   faFile,
   faSpinner,
+  faFileArchive,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Report } from "../../../api/reports/types";
+import { useMutation } from "@tanstack/react-query";
+import { removeReportsFromGroup } from "../../../api/reports";
+import ConfirmationDialog from "../../../components/ConfirmationDialog";
 
 interface IProps {
   disabled: boolean;
@@ -42,6 +46,8 @@ const MultiSelectActions = ({
     const params = new URLSearchParams({
       reports: selection.map((i) => i._id).join(":"),
     });
+
+    if (queryKey.includes("batch")) params.append("key", "batch");
 
     navigate({ pathname: "/incidents/new", search: params.toString() });
   }

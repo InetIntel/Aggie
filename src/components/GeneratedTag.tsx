@@ -6,7 +6,7 @@ const starIcon = (
     width='16'
     height='16'
     fill='none'
-    className='text-purple-600'
+    className='text-purple-500'
     xmlns='http://www.w3.org/2000/svg'
   >
     <path
@@ -35,9 +35,9 @@ const GeneratedTag = ({ name, children, className }: IProps) => {
         key={name}
         ref={refs.setReference}
         {...getReferenceProps()}
-        className={`pl-1 pr-2 flex items-center gap-1 font-medium ${
+        className={`pl-1 pr-2 flex items-center gap-1 font-medium text-xs py-0.5 ${
           className ||
-          " rounded-full bg-purple-200 hover:bg-purple-300 text-purple-900 "
+          " rounded-full bg-purple-100 hover:bg-purple-200 text-purple-600 "
         }`}
       >
         {starIcon}

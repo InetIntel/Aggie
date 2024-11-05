@@ -13,11 +13,11 @@ interface IProps {
   report: Report;
 }
 const TwitterPost = ({ report }: IProps) => {
-  const rawPostData = (report.metadata.rawAPIResponse.attributes as any)
+  const rawPostData = (report.metadata.rawAPIResponse.post as any)
     ?.post_data;
 
   const type = tweetType(report);
-  const innerData = parseQuoteRetweet(rawPostData);
+  // const innerData = parseQuoteRetweet(rawPostData);
 
   interface basetweetProps {
     content: string;
@@ -39,7 +39,7 @@ const TwitterPost = ({ report }: IProps) => {
             {formatText(content)}
           </Linkify>
         </div>
-        {RenderImages(images)}
+        {/* {RenderImages(images)} */}
         {RenderCard(cardData)}
       </>
     );
@@ -126,7 +126,7 @@ const TwitterPost = ({ report }: IProps) => {
 
   return (
     <>
-      {(type === "twitter:retweet" || type === "twitter:quoteRetweet") && (
+      {/* {(type === "twitter:retweet" || type === "twitter:quoteRetweet") && (
         <>
           <p className='text-sm text-slate-600'>
             <FontAwesomeIcon icon={faRetweet} /> Retweeted:
@@ -144,7 +144,7 @@ const TwitterPost = ({ report }: IProps) => {
           />
           <QuoteRetweetContent {...innerData} />
         </>
-      )}
+      )} */}
       {type === "twitter" && (
         <BaseTweet
           content={report.content}
@@ -238,7 +238,7 @@ function LinkCard(post_data: any) {
     url: card.find((i) => i.key === "card_url")?.value?.string_value,
   };
 }
-export function tweetImages(post_data: any) {
+function tweetImages(post_data: any) {
   const media = post_data?.entities?.media as unknown[];
   if (!media || media.length === 0) return undefined;
   const result = media.map((item: any) => {

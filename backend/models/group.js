@@ -43,6 +43,9 @@ let schema = new mongoose.Schema({
   escalated: { type: Boolean, default: false, required: true, index: 1 },
   closed: { type: Boolean, default: false, required: true, index: 1 },
   public: { type: Boolean, default: true, required: true, index: 1 },
+  reportsLength: { type: Number, default: 0, required: true, index: 1 },
+  commentsLength: { type: Number, default: 0, required: true, index: 1 },
+
   publicDescription: String,
   _reports: {
     type: [{ type: SchemaTypes.ObjectId, ref: 'Report' }],
@@ -63,6 +66,13 @@ schema.plugin(AutoIncrement, { inc_field: 'idnum' });
 schema.index({ title: 'text', locationName: "text", notes: "text", idnum: "text" })
 
 schema.pre('save', function (next) {
+
+  if (this._reports?.length !== this.reportsLength) {
+    this.reportsLength = this._reports.length
+  }
+  if (this.comments?.length !== this.commentsLength) {
+    this.commentsLength = this.comments.length
+  }
   if (this.isNew) this.storedAt = new Date();
   this.updatedAt = new Date();
   if (!_.includes(Group.statusOptions, this.status)) {
@@ -235,10 +245,26 @@ Group.queryGroups = function (query, page, options, callback) {
   if (query.public === 'private') filter.public = false;
 
   // Search for substrings
+  // if query has hashtag number, search group id eg, "#10"
   if (query.title) {
-    // filter.title = new RegExp(query.title, 'i');
-    filter.$text = { $search: query.title }
-    delete filter.title;
+    if (query.title.startsWith("#")) {
+      const getFirst = query.title.split(" ").find(i => i)
+      const numberString = getFirst.replace("#", "").trim()
+      const number = _.toSafeInteger(numberString);
+      if (number > 0) {
+        delete filter.title;
+        filter.idnum = number
+
+      } else {
+        filter.$text = { $search: query.title }
+        delete filter.title;
+      }
+    } else {
+      // filter.title = new RegExp(query.title, 'i');
+      filter.$text = { $search: query.title }
+      delete filter.title;
+    }
+
   }
   else delete filter.title;
   if (query.locationName)
@@ -252,7 +278,7 @@ Group.queryGroups = function (query, page, options, callback) {
   }
   // Re-set search timestamp
   query.since = new Date();
-
+  console.log(JSON.stringify(filter))
   // Just use filters when no keywords are provided
   Group.findPage(filter, page, options, callback);
 };

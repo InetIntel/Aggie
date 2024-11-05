@@ -11,6 +11,10 @@ module.exports = async function postToReport(post, next) {
     } = post;
     const channel = getChannel(channelID);
     const sourceID = getSourceID(channelID);
+    let isKeywordSearchTwitter = false;
+    if (platform == 'twitter' && raw && raw.post) {
+        isKeywordSearchTwitter = true;
+    } 
 
     post._sources = [ sourceID ];
     if (platform === 'facebookdirect') {
@@ -21,7 +25,7 @@ module.exports = async function postToReport(post, next) {
         post._media = [ platform ];
     }
     post.tags = channel.tags;
-    post.guid = post.guid || post.link || post.platformID || null;
+    post.guid = post.guid || post.link || post.platformID || post.id || null;
 
 
     let metadata;
@@ -45,6 +49,54 @@ module.exports = async function postToReport(post, next) {
             rawAPIResponse: raw,
         } 
         // post.guid = post.guid || post.link || null;
+    } else if (isKeywordSearchTwitter) {
+        const { post, user } = raw;
+                const {
+                    id,
+                    public_metrics: post_public_metrics,
+                    referenced_tweets = [],
+                } = post;
+    
+                const isRetweet = referenced_tweets.findIndex((t) => t.type === 'retweeted') !== -1;
+                
+                const {
+                    retweet_count,
+                    like_count,
+                    reply_count,
+                    impression_count
+                } = post_public_metrics;
+    
+                const {
+                    public_metrics: user_public_metrics
+                } = user;
+    
+                const {
+                    followers_count,
+                    following_count,
+                    verified,
+                } = user_public_metrics;
+
+                actualStatistics = {
+                    view_count: impression_count ? impression_count : 0,
+                    reply_count: reply_count ? reply_count : 0,
+                    retweet_count: retweet_count ? retweet_count : 0,
+                    like_count: like_count ? like_count : 0,
+                }
+    
+                metadata = {
+                    isKeywordSearchTwitter: true,
+                    tweetID: id,
+                    accountHandle: user.username,
+                    accountUrl: user.url,
+                    mediaUrl: null,
+                    verified: verified ? verified : false,
+                    actualStatistics:  actualStatistics,
+                    followerCount: followers_count ? followers_count : 0,
+                    followingCount: following_count ? following_count: 0,
+                    retweetCount: retweet_count ? retweet_count : 0,
+                    likeCount: like_count ? like_count : 0,
+                    rawAPIResponse: raw,
+                }
     } else {
         metadata = parseJunkipediaPostMetadata(raw);
     };

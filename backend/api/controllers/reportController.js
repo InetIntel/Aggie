@@ -1,6 +1,9 @@
 // Handles CRUD requests for reports.
 'use strict';
 
+const database = require('../../database');
+const mongoose = database.mongoose;
+
 var Report = require('../../models/report');
 var batch = require('../../models/batch');
 var ReportQuery = require('../../models/query/report-query');
@@ -304,7 +307,8 @@ exports.reports_group_remove = (req, res) => {
             }
             return;
           }
-          group._reports = group._reports.filter(i => i._id !== report._id);
+          group._reports = group._reports.filter(i => i.equals(report._id));
+
           group.save((err) => {
             if (err) {
               if (!res.headersSent) return res.status(err.status).send(err.message)

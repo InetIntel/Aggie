@@ -49,7 +49,7 @@ const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
       onClick={onUserClick}
       type='button'
       title={`open ${preferredName}'s profile`}
-      className={`text-blue-600 hover:underline hover:bg-slate-200 ${className}`}
+      className={`text-blue-500 hover:underline hover:bg-slate-200 ${className}`}
     >
       {preferredName}
     </button>

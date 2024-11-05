@@ -104,7 +104,8 @@ const AddReportsToIncidents = ({
     const params = new URLSearchParams({
       reports: selection.map((i) => i._id).join(":"),
     });
-
+    if (queryKey.includes("batch")) params.append("key", "batch");
+    console.log(queryKey);
     navigate({ pathname: "/incidents/new", search: params.toString() });
   }
 
@@ -194,7 +195,7 @@ const AddReportsToIncidents = ({
             </div>
           </div>
 
-          <div className='flex flex-col h-full overflow-y-auto col-span-3'>
+          <div className='flex flex-col h-full overflow-y-auto col-span-3 overflow-x-hidden w-full'>
             <h2 className='font-medium text-lg mb-1'>Select an Incident:</h2>
 
             <IncidentsFilters

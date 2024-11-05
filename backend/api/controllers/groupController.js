@@ -35,12 +35,23 @@ exports.group_all_groups = (req, res) => {
 exports.group_groups = (req, res) => {
   // Read query string parameters
   const groupData = parseQueryData(req.query);
+  const defaultSort = '-storedAt'
+  const sortByKey = req.query?.sortBy || ""
+
+  const sortTable = {
+    'mostReports': '-reportsLength',
+    'leastReports': 'reportsLength',
+    'mostComments': '-commentsLength',
+    'leastComments': 'commentsLength',
+  }
+  const sortBy = sortByKey in sortTable ? sortTable[sortByKey] : defaultSort
+
   // Use paginated find
   Group.queryGroups(
     groupData,
     req.query.page,
     {
-      sort: '-storedAt',
+      sort: sortBy,
       populate: [
         { path: 'creator', select: 'username' },
         { path: 'assignedTo', select: 'username' },

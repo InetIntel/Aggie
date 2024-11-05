@@ -41,7 +41,7 @@ const FlaggedReportsList = ({}: IProps) => {
     if (!getParam("keywords")) return;
     reportsQuery.refetch();
     multiSelect.set([]);
-    window.scrollTo({
+    document.getElementById("main_view")?.scrollTo({
       top: 0,
       behavior: "smooth",
     });
