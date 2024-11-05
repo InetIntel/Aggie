@@ -135,7 +135,7 @@ const IncidentsFilters = ({
                 <span>
                   <FontAwesomeIcon
                     icon={faCircleMinus}
-                    className='text-purple-700'
+                    className='text-purple-500'
                   />{" "}
                   Closed
                 </span>
@@ -152,7 +152,7 @@ const IncidentsFilters = ({
             <AggieButton
               variant='secondary'
               icon={faWarning}
-              className='text-xs text-red-700'
+              className='text-xs text-orange-700'
               onClick={() => setParams({ escalated: true })}
             >
               Show Only Escalated

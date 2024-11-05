@@ -17,6 +17,7 @@ import AggieSwitch from "../../components/AggieSwitch";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faCircleMinus,
   faCommentAlt,
   faEdit,
   faEllipsis,
@@ -81,7 +82,7 @@ const IncidentListItem = ({ item }: IProps) => {
     } else return user._id;
   }
   return (
-    <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-600 border-b border-slate-300 '>
+    <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-500 border-b border-slate-300 '>
       <div
         className='col-span-5 grid grid-cols-subgrid hover:bg-slate-300/15 pl-3 py-3 pr-1'
         onClick={onOpenIncidentPage}
@@ -93,8 +94,11 @@ const IncidentListItem = ({ item }: IProps) => {
             <p className='font-medium'>#{item.idnum}</p>
             <VeracityToken value={item.veracity} />
             {item.closed && (
-              <span className='px-1 bg-purple-200 text-purple-700 font-medium flex gap-1 items-center'>
-                <FontAwesomeIcon icon={faMinusCircle} />
+              <span className='px-1 bg-purple-100 text-purple-700 font-medium flex gap-1 items-center'>
+                <FontAwesomeIcon
+                  icon={faCircleMinus}
+                  className='text-purple-500'
+                />
                 Closed
               </span>
             )}
@@ -106,12 +110,12 @@ const IncidentListItem = ({ item }: IProps) => {
             )}
             <TagsList values={item.smtcTags} />
           </div>
-          <h2 className=' text-black items-center font-medium'>
+          <h2 className=' text-black items-center font-medium my-1'>
             <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
               {item.title}{" "}
             </span>
             {item.escalated && (
-              <span className='px-1 bg-orange-700  text-white font-medium text-sm inline-flex gap-1 items-center no-underline w-fit'>
+              <span className='px-1 bg-orange-700/90  text-white font-medium text-sm inline-flex gap-1 items-center no-underline w-fit'>
                 <FontAwesomeIcon icon={faWarning} />
                 Escalated
               </span>
@@ -147,13 +151,13 @@ const IncidentListItem = ({ item }: IProps) => {
           </div>
         </header>
         <div className='hidden lg:block col-span-2 '>
-          <p className='px-2 py-1 text-slate-700 bg-slate-50 h-[6em] overflow-y-auto border border-slate-200 rounded whitespace-pre-line'>
+          <p className='px-2 py-1 text-slate-700 bg-slate-50 h-[6em] overflow-y-auto border border-slate-100 rounded whitespace-pre-line'>
             {item.notes && item.notes}
           </p>
         </div>
       </div>
 
-      <footer className='col-span-1 flex justify-end gap-2 pr-3 py-3  '>
+      <footer className='col-span-1 flex justify-end gap-2 pr-3 py-3 font-medium '>
         <div className='text-end flex flex-col items-end '>
           <p className=''>
             {item.assignedTo && item.assignedTo.length > 0
@@ -178,7 +182,7 @@ const IncidentListItem = ({ item }: IProps) => {
         </div>
         <DropdownMenu
           variant='secondary'
-          className='px-2 py-1 hover:bg-slate-200 rounded h-full z-10 pointer-events-auto'
+          className='px-2 py-1 hover:bg-slate-200 rounded h-full z-10 pointer-events-auto text-slate-600'
           panelClassName='right-0 pointer-events-auto text-base'
           buttonElement={
             <div className=''>

@@ -54,15 +54,15 @@ const NestedIncidentsList = ({
 
                   <VeracityToken value={item.veracity} />
                   {item.closed && (
-                    <span className='px-1 bg-purple-200 text-purple-700 font-medium flex gap-1 items-center'>
+                    <span className='px-1 bg-purple-100 text-purple-600 font-medium flex gap-1 items-center'>
                       <FontAwesomeIcon icon={faMinusCircle} />
                       Closed
                     </span>
                   )}
                   <TagsList values={item.smtcTags} />
                 </div>
-                <h2 className=' text-black gap-2 items-center font-medium'>
-                  <span className='text-base group-hover:text-blue-600 group-hover:underline'>
+                <h2 className=' text-black gap-2 items-center font-medium my-0.5'>
+                  <span className='text-base  group-hover:text-blue-600 group-hover:underline'>
                     {item.title}
                   </span>
                   {item.escalated && (
@@ -102,7 +102,7 @@ const NestedIncidentsList = ({
                 </div>
               </header>
               <div className='hidden lg:block col-span-2 text-xs '>
-                <p className='px-2 py-1 bg-slate-100 h-[6em] text-slate-700 overflow-y-auto border border-slate-200 rounded whitespace-pre-line'>
+                <p className='px-2 py-1 bg-slate-50 h-[6em] text-slate-700 overflow-y-auto border border-slate-100 rounded whitespace-pre-line'>
                   {item.notes && item.notes}
                 </p>
               </div>

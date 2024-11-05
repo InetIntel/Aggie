@@ -30,6 +30,8 @@ interface IProps {
   isChecked: boolean;
   isSelectMode: boolean;
   onCheckChange: () => void;
+  onOpenReportAttachModal?: () => void;
+  setSelection?: (i: Report) => void;
 }
 
 const ReportListItem = ({
