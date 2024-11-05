@@ -52,7 +52,7 @@ const FilterDropdown = ({
     nodeId,
     open: isOpen,
     onOpenChange: setOpenState,
-    middleware: [flip(), shift(), offset(1)],
+    middleware: [flip(), shift({ padding: 5 }), offset(1)],
   });
 
   const click = useClick(context);
@@ -86,39 +86,37 @@ const FilterDropdown = ({
       </button>
       <FloatingNode id={nodeId}>
         {isOpen && (
-          <FloatingPortal>
-            <div
-              className={`absolute mt-1 right-0 rounded-lg border border-slate-300  bg-slate-100 overflow-hidden min-w-[12em] drop-shadow-lg z-10 text-sm  ${
-                panelClassName || "w-fit max-w-md"
-              }`}
-              style={floatingStyles}
-              ref={refs.setFloating}
-              {...getFloatingProps}
-            >
-              <>
-                <header className='py-1 px-1 border-b border-slate-300 relative'>
-                  <div className='flex justify-between mb-1 ml-1 items-center'>
-                    <h3 className='text-sm font-medium '>{label}</h3>
+          <div
+            className={`absolute mt-1 right-0 rounded-lg border border-slate-300  bg-slate-100 overflow-hidden min-w-[12em] drop-shadow-lg z-10 text-sm  ${
+              panelClassName || "w-fit max-w-md"
+            }`}
+            style={floatingStyles}
+            ref={refs.setFloating}
+            {...getFloatingProps}
+          >
+            <>
+              <header className='py-1 px-1 border-b border-slate-300 relative'>
+                <div className='flex justify-between mb-1 ml-1 items-center'>
+                  <h3 className='text-sm font-medium '>{label}</h3>
 
-                    {value && (
-                      <button
-                        className='px-1 -mr-1 rounded hover:bg-slate-200 absolute right-2 text-slate-600  underline '
-                        onClick={() => {
-                          onReset();
-                          // dont run "onOpenChange" when running reset to avoid weird state race condition stuff
-                          setIsOpen(false);
-                        }}
-                      >
-                        clear
-                      </button>
-                    )}
-                  </div>
-                  {headerChild && headerChild}
-                </header>
-                {children({ close })}
-              </>
-            </div>
-          </FloatingPortal>
+                  {value && (
+                    <button
+                      className='px-1 -mr-1 rounded hover:bg-slate-200 absolute right-2 text-slate-600  underline '
+                      onClick={() => {
+                        onReset();
+                        // dont run "onOpenChange" when running reset to avoid weird state race condition stuff
+                        setIsOpen(false);
+                      }}
+                    >
+                      clear
+                    </button>
+                  )}
+                </div>
+                {headerChild && headerChild}
+              </header>
+              {children({ close })}
+            </>
+          </div>
         )}
       </FloatingNode>
     </div>

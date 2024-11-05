@@ -195,7 +195,7 @@ const AddReportsToIncidents = ({
             </div>
           </div>
 
-          <div className='flex flex-col h-full overflow-y-auto col-span-3'>
+          <div className='flex flex-col h-full overflow-y-auto col-span-3 overflow-x-hidden'>
             <h2 className='font-medium text-lg mb-1'>Select an Incident:</h2>
 
             <IncidentsFilters
