@@ -131,8 +131,8 @@ function createChannel(source) {
                     "place.fields": "contained_within,country,country_code,full_name,geo,id,name,place_type",
                     "user.fields": "location,profile_image_url,description,created_at,id,name,username,public_metrics,url",
                 },
-                // Every 5 minutes pull 10
-                interval: 300000,
+                // Every 20 minutes pull 10
+                interval: 1200000,
             }
             console.log("twitter options")
             console.log(options)
