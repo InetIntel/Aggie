@@ -29,7 +29,7 @@ module.exports = (httpServer) => {
   };
 
   const onConnection = (ns) => async (socket) => {
-    console.log('****** Adding incoming socket to ns', ns);
+    console.log('[CLIENTSOCKET added]', ns);
 
     socket.emit('message', `Connected to ns ${ns}`);
   };
@@ -40,7 +40,7 @@ module.exports = (httpServer) => {
   ns['reports'].on('connection', onConnection('reports'));
 
   const handleEvent = (nsName) => async (eventName, data) => {
-    console.log('Received event', eventName, 'with data', data);
+    //console.log('Received event', eventName, 'with data', data);
 
     ns[nsName].emit(eventName, {
       event: eventName,
