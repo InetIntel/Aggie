@@ -34,8 +34,8 @@ const BatchReportList = ({}: IProps) => {
     getBatch,
     {
       enabled: !!getParam("batch"),
-      staleTime: 13 * (60 * 1000), // 10 mins
-      cacheTime: 15 * (60 * 1000), // 15 mins
+      staleTime: 43 * (60 * 1000), // 40 mins
+      cacheTime: 45 * (60 * 1000), // 45 mins
     }
   );
 
