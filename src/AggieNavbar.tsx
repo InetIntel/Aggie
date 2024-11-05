@@ -88,6 +88,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
   return (
     <nav className='w-full bg-white flex justify-between items-center px-4 border-b border-gray-200 py-2'>
       <div className='flex gap-2 items-center '>
+        <img src="images/watchthevote_monocrome.png" alt="Logo" className="h-20 ml-2" />
         <div>
           <svg
             fill='none'
