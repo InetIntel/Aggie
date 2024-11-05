@@ -53,7 +53,14 @@ const IncidentsFilters = ({
     }));
     return array;
   }
+  function setParams(values: GroupQueryState) {
+    if ("title" in values) {
+      set({ ...values, closed: "all" });
+      return;
+    }
 
+    set(values);
+  }
   function onSearch() {}
 
   return (
@@ -62,14 +69,14 @@ const IncidentsFilters = ({
         <div className='flex gap-1 max-w-[25em] w-full'>
           <Formik
             initialValues={{ title: get("title") }}
-            onSubmit={(e) => set(e)}
+            onSubmit={(e) => setParams(e)}
           >
             {({ resetForm }) => (
               <Form className='flex w-full'>
                 <Field
                   name='title'
                   className='px-2 py-1 border border-r-0 border-slate-300 bg-white rounded-l-lg w-full'
-                  placeholder='search for title, location, description'
+                  placeholder='search title, location, description, id (with #)'
                 />
                 <button
                   type='submit'
@@ -101,7 +108,7 @@ const IncidentsFilters = ({
           <Pagination
             currentPage={Number(get("page")) || 0}
             totalCount={totalCount || 0}
-            onPageChange={(num) => set({ page: num })}
+            onPageChange={(num) => setParams({ page: num })}
             size={0}
           />
         </div>
@@ -132,14 +139,16 @@ const IncidentsFilters = ({
             }}
             value={get("closed")}
             defaultValue={"false"}
-            onChange={(e) => set({ closed: e === "false" ? undefined : e })}
+            onChange={(e) =>
+              setParams({ closed: e === "false" ? undefined : e })
+            }
           />
           {!get("escalated") && (
             <AggieButton
               variant='secondary'
               icon={faWarning}
               className='text-xs text-red-700'
-              onClick={() => set({ escalated: true })}
+              onClick={() => setParams({ escalated: true })}
             >
               Show Only Escalated
             </AggieButton>
@@ -150,13 +159,13 @@ const IncidentsFilters = ({
             label='Veracity'
             options={[...VERACITY_OPTIONS]}
             value={get("veracity")}
-            onChange={(e) => set({ veracity: e })}
+            onChange={(e) => setParams({ veracity: e })}
           />
           <FilterListbox
             label='Escalated'
             options={[...ESCALATED_OPTIONS]}
             value={get("escalated")}
-            onChange={(e) => set({ escalated: e })}
+            onChange={(e) => setParams({ escalated: e })}
           />
 
           <FilterComboBox
@@ -179,7 +188,7 @@ const IncidentsFilters = ({
               </div>
             )}
             onChange={(e) => {
-              set({ creator: e.key });
+              setParams({ creator: e.key });
             }}
             selectedKey={get("creator")}
           />
@@ -203,7 +212,7 @@ const IncidentsFilters = ({
               </div>
             )}
             onChange={(e) => {
-              set({ assignedTo: e.key });
+              setParams({ assignedTo: e.key });
             }}
             selectedKey={get("assignedTo")}
             optionalItems={[

@@ -61,7 +61,7 @@ const NestedIncidentsList = ({
                   )}
                   <TagsList values={item.smtcTags} />
                 </div>
-                <h2 className=' text-slate-700 gap-2 items-center font-medium'>
+                <h2 className=' text-black gap-2 items-center font-medium'>
                   <span className='text-base group-hover:text-blue-600 group-hover:underline'>
                     {item.title}
                   </span>
@@ -102,7 +102,7 @@ const NestedIncidentsList = ({
                 </div>
               </header>
               <div className='hidden lg:block col-span-2 text-xs '>
-                <p className='px-2 py-1 bg-slate-100 h-[6em] overflow-y-auto border border-slate-200 rounded whitespace-pre-line'>
+                <p className='px-2 py-1 bg-slate-100 h-[6em] text-slate-700 overflow-y-auto border border-slate-200 rounded whitespace-pre-line'>
                   {item.notes && item.notes}
                 </p>
               </div>
