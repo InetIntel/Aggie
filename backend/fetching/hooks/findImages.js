@@ -26,6 +26,14 @@ function getImagePostUrl(report) {
 
     let urlList = []
     if (report._media[0] === "twitter") {
+        if (report.metadata?.isKeywordSearchTwitter = true) {
+            const media_keys = report.metadata.rawAPIResponse?.post?.attachments?.media_keys
+            const hasImage = !!media_keys && media_keys.length > 0;
+
+            if (hasImage) return [report.url]
+            else return []
+        }
+
         const twitterUrl = "https://x.com/i/status/"
         const rawPostData = report.metadata.rawAPIResponse.attributes?.post_data
         // check top level
