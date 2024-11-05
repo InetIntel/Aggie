@@ -51,8 +51,15 @@ const FilterDropdown = ({
   const { refs, floatingStyles, context } = useFloating({
     nodeId,
     open: isOpen,
+    placement: "bottom-end",
+
     onOpenChange: setOpenState,
-    middleware: [flip(), shift({ padding: 5 }), offset(1)],
+    middleware: [
+      offset(1),
+      flip({ fallbackAxisSideDirection: "start", crossAxis: false }),
+
+      shift({ padding: 5 }),
+    ],
   });
 
   const click = useClick(context);

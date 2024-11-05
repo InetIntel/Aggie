@@ -70,7 +70,7 @@ const IncidentsFilters = ({
 
   return (
     <>
-      <div className='flex justify-between mb-2 '>
+      <div className='flex justify-between mb-2 overflow-x-hidden '>
         <div className='flex gap-1 max-w-[25em] w-full'>
           <Formik
             initialValues={{ title: get("title") }}
