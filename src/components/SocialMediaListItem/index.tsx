@@ -88,7 +88,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <div className='w-24 h-24 flex-0 justify-self-end relative'>
             <img
               loading='lazy'
-              src={imagePreview ? showImage(imagePreview) : ""}
+              src={imagePreview ? imageUrl : ""}
               className='w-full rounded h-full object-cover bg-slate-100 border border-slate-200 '
               alt='image preview'
             />
@@ -104,11 +104,6 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
 
 export default SocialMediaListItem;
 
-function showImage(image: any) {
-  if (isString(image)) return image;
-
-  return image.url;
-}
 function twitterParsing(report: Report) {
   const rawPostData = (report.metadata.rawAPIResponse.attributes as any)
     ?.post_data;
