@@ -43,8 +43,12 @@ const ReportFilters = ({
   refetch,
   isFetching,
 }: IReportFilters) => {
-  const { searchParams, getParam, setParams, clearAllParams } =
-    useQueryParams<ReportQueryState>();
+  const {
+    searchParams,
+    getParam,
+    setParams: setParamsQuery,
+    clearAllParams,
+  } = useQueryParams<ReportQueryState>();
   const navigate = useNavigate();
   const { data: sources } = useQuery(["sources"], getSources);
   function sourcesRemapComboBox(query: typeof sources) {
@@ -72,6 +76,15 @@ const ReportFilters = ({
     if (!array) return [];
     return array;
   }
+
+  function setParams(values: ReportQueryState) {
+    if (!("page" in values)) {
+      values = { ...values, page: undefined };
+    }
+    console.log(values);
+    setParamsQuery(values);
+  }
+
   const groupsList = useCallback(groupsRemapComboBox, [groups]);
 
   return (

@@ -60,10 +60,11 @@ const IncidentsFilters = ({
   }
   function setParams(values: GroupQueryState) {
     if ("title" in values) {
-      set({ ...values, closed: "all" });
-      return;
+      values = { ...values, closed: "all" };
     }
-
+    if (!("page" in values)) {
+      values = { ...values, page: undefined };
+    }
     set(values);
   }
   function onSearch() {}

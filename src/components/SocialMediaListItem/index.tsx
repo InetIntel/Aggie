@@ -135,7 +135,6 @@ function renderImage(
     );
     if (results && results.length > 0) {
       const imagePreview = results[0].url;
-      console.log(results);
       return { imagePreview, imagesCount: 1 };
     }
     const { imagePreview, imagesCount } = twitterParsing(report);
