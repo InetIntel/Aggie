@@ -26,7 +26,7 @@ function getImagePostUrl(report) {
 
     let urlList = []
     if (report._media[0] === "twitter") {
-        if (report.metadata?.isKeywordSearchTwitter = true) {
+        if (report.metadata?.isKeywordSearchTwitter) {
             const media_keys = report.metadata.rawAPIResponse?.post?.attachments?.media_keys
             const hasImage = !!media_keys && media_keys.length > 0;
 
