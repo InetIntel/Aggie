@@ -1,6 +1,11 @@
 // Saves each Report to the Aggie database
 const chalk = require('chalk');
 const aiprediction = require('../../models/aiprediction')
+
+var database = require('../../database');
+var mongoose = database.mongoose;
+
+
 module.exports = async function saveToDatabase(report, next) {
 
     const imageUrls = getImagePostUrl(report);
@@ -8,7 +13,7 @@ module.exports = async function saveToDatabase(report, next) {
 
     if (imageUrls && imageUrls.length > 0) {
         for (const url of imageUrls) {
-            await aiprediction.create({ url: url })
+            await aiprediction.create({ url: url, reportId: new mongoose.Types.ObjectId(report._id), id: report.guid }).catch((e) => console.error(e))
 
         }
         console.log(`${chalk.blue("[TRUEMEDIA]")} new post added to aiprediction`)
@@ -25,14 +30,14 @@ function getImagePostUrl(report) {
         const rawPostData = report.metadata.rawAPIResponse.attributes?.post_data
         // check top level
         const media = rawPostData?.entities?.media
-        if (media && media.length === 0) urlList.push(twitterUrl + rawPostData?.id)
+        if (media && media.length !== 0) urlList.push(twitterUrl + rawPostData?.id)
 
         const retweetResult = rawPostData?.retweeted_status_result?.result;
         const quotedResult = rawPostData?.api_data?.quoted_status_result?.result;
         // check quote retweet
         const result = retweetResult || quotedResult;
-        getTwitterUrlwithImage(result, urlList);
-        return urlList
+        const arr = getTwitterUrlwithImage(result);
+        return [...urlList, ...arr]
     }
     if (report._media[0] === "instagram" || report._media[0] === "tiktok") {
 
@@ -41,23 +46,27 @@ function getImagePostUrl(report) {
     if (report._media[0] === "truthsocial") {
         const rawPostData = report.metadata.rawAPIResponse.attributes?.post_data
         const media = rawPostData.media_attachments
-        if (media && media.length === 0) return [report.url]
+        if (media && media.length !== 0) return [report.url]
     }
     if (report._media[0] === "facebook") {
         const rawPostData = report.metadata.rawAPIResponse.attributes?.post_data
         const media = rawPostData.media
-        if (media && media.length === 0) return [report.url]
+        if (media && media.length !== 0) return [report.url]
     }
     return urlList;
 
 }
 
-function getTwitterUrlwithImage(result, array) {
+function getTwitterUrlwithImage(result) {
+    let arr = []
+
     const media = result?.entities?.media
-    if (media && media.length === 0) array.push(twitterUrl + result?.rest_id)
+
+    if (media && media.length !== 0) arr.push(twitterUrl + result?.rest_id)
     // retweets can be quote tweets
     const innerQuoteResult = result?.quoted_status_result?.result;
-    const innerPost = !!innerQuoteResult
-        ? getTwitterUrlwithImage(innerQuoteResult, array)
-        : undefined;
+    if (!innerQuoteResult) return arr;
+
+    const innerPost = getTwitterUrlwithImage(innerQuoteResult)
+    return [...arr, ...innerPost]
 }
