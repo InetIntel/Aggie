@@ -27,7 +27,9 @@ module.exports = async function tagReportsAI(report, next) {
     report.aitagnames = tagNames;
     report.red_flag = Boolean(data["red_flag"]);
   } catch (error) {
-    console.error("Error fetching AI tags:", error);
+    // this takes up alot of space
+    //console.error("Error fetching AI tags:", error);
+    console.error("Error fetching AI tags for: ", report._id)
   }
   finally {
     console.log(report);

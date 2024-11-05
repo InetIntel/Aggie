@@ -36,6 +36,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AllReportsList from "./pages/Reports/AllReportsList";
 import BatchReportList from "./pages/Reports/BatchReportsList";
 import FlaggedReportsList from "./pages/Reports/FlaggedReportsList";
+import ImagesPage from "./pages/ImagesPage";
 
 // im currently working on this
 //TODO: Also BIG TODO is to ensure EVERY API call has a way of surfacing an error message. I want readble UI alerts but at least console.errors.
@@ -98,6 +99,7 @@ const PrivateRoutes = ({ sessionData, setGlobalAlert }: IPrivateRouteProps) => {
       >
         <Route path=':id' element={<Report />}></Route>
       </Route>
+
       <Route
         path='/rpt/search'
         element={
@@ -108,6 +110,8 @@ const PrivateRoutes = ({ sessionData, setGlobalAlert }: IPrivateRouteProps) => {
       >
         <Route path=':id' element={<Report />}></Route>
       </Route>
+      <Route path='/images' element={<ImagesPage />} />
+
       <Route path='/incidents' element={<Incidents />} />
       <Route path='/incidents/:id' element={<Incident />} />
       <Route path='/incidents/new' element={<NewIncident />} />

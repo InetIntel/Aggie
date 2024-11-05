@@ -24,12 +24,13 @@ const errorListener = require('./fetching/listeners/error');
 const postToReport = require('./fetching/hooks/postToReport');
 const saveToDatabase = require('./fetching/hooks/saveToDatabase');
 const tagReportsAI = require('./fetching/hooks/tagReportsAI'); // Import the new hook
+const findImages = require('./fetching/hooks/findImages'); // Import the new hook
 
 // Extend global error class
 require('./error');
 
 // handle uncaught errors
-process.on('uncaughtException', function(err) {
+process.on('uncaughtException', function (err) {
     console.error(err);
 });
 
@@ -37,6 +38,7 @@ process.on('uncaughtException', function(err) {
 downstream.use(postToReport);
 downstream.use(tagReportsAI); // Add the new hook here
 downstream.use(saveToDatabase);
+downstream.use(findImages);
 
 // Register the error listener
 downstream.on('error', errorListener);
