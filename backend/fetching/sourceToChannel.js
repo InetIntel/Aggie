@@ -116,6 +116,9 @@ function createChannel(source) {
             channel = new AggieCrowdTangleChannel(options);
             break;
         case 'twitter':
+            retweet_remove_list = " -is:retweet -from:2750775076"
+            // retweet_remove_list = "";
+            // retweet_remove_list = " -retweets_of:3932768472 -retweets_of:4239551 -retweets_of:826891982559641604"
             options = {
                 ...options,
                 credentials: {
@@ -123,16 +126,16 @@ function createChannel(source) {
                     consumerSecret: credentials.secrets.consumerSecret,
                 },
                 queryParams: {
-                    query: regex, // TODO rename to something better
-                    max_results: 10,
+                    query: regex + retweet_remove_list, // TODO rename to something better
+                    max_results: 100,
                     "tweet.fields": "attachments,author_id,context_annotations,conversation_id,created_at,entities,geo,id,in_reply_to_user_id,lang,possibly_sensitive,public_metrics,referenced_tweets,reply_settings,source,text,withheld,edit_history_tweet_ids,edit_controls",
                     "expansions": "attachments.media_keys,author_id,geo.place_id,in_reply_to_user_id,referenced_tweets.id,entities.mentions.username,referenced_tweets.id.author_id,edit_history_tweet_ids",
                     "media.fields": "duration_ms,height,media_key,preview_image_url,public_metrics,type,url,width",
                     "place.fields": "contained_within,country,country_code,full_name,geo,id,name,place_type",
                     "user.fields": "location,profile_image_url,description,created_at,id,name,username,public_metrics,url",
                 },
-                // Every 20 minutes pull 10
-                interval: 1200000,
+                // Every 1 minute pull 100
+                interval: 60000,
             }
             console.log("twitter options")
             console.log(options)
@@ -146,6 +149,22 @@ function createChannel(source) {
             channel = new TelegramChannel(options);
             break;
         case 'junkipedia':
+            // Special case of 
+
+            let queryParams = {};
+            if (lists == '4813') {
+                queryParams = {
+                    "search_terms": '4813',
+                    keyword: keywords,
+                    sort_order: "desc"
+                }
+            } else {
+                queryParams = {
+                    lists: lists,
+                    keyword: keywords,
+                    // sort_order: "desc"
+                }
+            }
             options = {
                 ...options,
                 apiKey: credentials.secrets.junkipediaAPIKey,
@@ -153,10 +172,7 @@ function createChannel(source) {
                 // TODO: Add list or channel specification
                 // interval is set to 3 minutes
                 interval: 6000,
-                queryParams: {
-                    lists: lists,
-                    keyword: keywords,
-                }
+                queryParams: queryParams,
             }
             console.log(credentials)
             console.log(options)
