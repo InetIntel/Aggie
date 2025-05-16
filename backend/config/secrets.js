@@ -42,7 +42,6 @@ _.defaults(_configuration.logger.fetching, { filename: 'logs/fetching.log' });
 mkdirp.sync(path.dirname(_configuration.logger.master.filename));
 mkdirp.sync(path.dirname(_configuration.logger.api.filename));
 mkdirp.sync(path.dirname(_configuration.logger.fetching.filename));
-mkdirp.sync(path.dirname(_configuration.logger.analytics.filename));
 
 // return configuration
 module.exports.get = function (options) {
