@@ -1,6 +1,0 @@
-{
-  "globals": {
-    "chai": false,
-    "inject": false
-  }
-}
