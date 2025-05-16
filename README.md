@@ -12,10 +12,6 @@ Relevant reports can be grouped into _groups_ for further monitoring and follow-
 
 Reports are fully searchable and filterable via a fast web interface.
 
-Report queries can be saved and tracked over time via a series of visual analytics.
-
-Aggie is built for scalability and can handle hundreds of incoming reports per second. The backend fetching and analytics systems feature a modular design well-suited to parallelism and multi-core architectures.
-
 Users can be assigned to _admin_, _manager_, _monitor_, and _viewer_ roles, each with appropriate permissions.
 
 Aggie is built using React and Express.js, commonly used and popular web frameworks.

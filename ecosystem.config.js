@@ -16,7 +16,7 @@ module.exports = {
       ref: 'origin/production',
       repo: 'git@github.com:TID-Lab/aggie.git',
       path: '/home/ubuntu/aggie',
-      'post-deploy': 'ln -s {../shared/,./}config/secrets.json; npm install; npm run serve',
+      'post-deploy': 'npm install; npm run serve',
     },
   },
 };

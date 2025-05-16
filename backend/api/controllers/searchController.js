@@ -5,7 +5,6 @@ var Report = require("../../models/report");
 var batch = require("../../models/batch");
 var ReportQuery = require("../../models/query/report-query");
 var _ = require("lodash");
-var writelog = require("../../writeLog");
 var tags = require("../../shared/tags");
 const Group = require("../../models/group");
 const eventRouter = require("../sockets/event-router");
@@ -50,11 +49,6 @@ exports.search_reports = async (req, res) => {
       Report.queryReports(query, req.query.page, (err, reports) => {
         if (err) return res.status(err.status).send(err.message);
         else {
-          writelog.writeReport(req, reports, "filter", query);
-          //log reports length
-          //console.log("reports length", reports.results.length);
-          //console.log("reports[0].aitags", JSON.parse(JSON.stringify(reports.results[0].aitags))["misinformation"]);
-          
           const filteredReports = reports.results;
           console.log("filteredReports length", filteredReports.length);
           console.log("reports length", reports.results.length);

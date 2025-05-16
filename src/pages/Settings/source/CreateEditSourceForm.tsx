@@ -216,45 +216,6 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     </FormikWithSchema>
   );
 
-  // const TelegramSchema = Yup.object().shape({
-  //   nickname: Yup.string().required("Source name is a required field"),
-  //   credentials: Yup.string().required(
-  //     "A credential is required to create a source"
-  //   ),
-  // });
-  // type ITelegramSchema = Yup.InferType<typeof TelegramSchema>;
-
-  // const TelegramForm = (
-  //   <FormikWithSchema
-  //     initialValues={{
-  //       nickname: source?.nickname || "",
-  //       media: source?.media || "",
-  //       keywords: source?.keywords || "",
-  //       lists: source?.lists || "",
-  //       tags: source?.tags || "",
-  //       credentials: source?.credentials._id || defaultCredential?._id,
-  //       sourceURL: source?.url || "",
-  //       url: "https://www.telegram.com/",
-  //     }}
-  //     schema={TelegramSchema}
-  //     onSubmit={(values: ITelegramSchema) => {
-  //       onSubmit(values);
-  //     }}
-  //     loading={isLoading}
-  //     onClose={onClose}
-  //   >
-  //     <FormikInput name='nickname' label='Credential Name' />
-  //     <FormikDropdown
-  //       list={
-  //         credentialsList?.map((i) => {
-  //           return { _id: i._id, label: i.name };
-  //         }) || [{ _id: "", label: "loading" }]
-  //       }
-  //       label={"API Credentials"}
-  //       name={"credentials"}
-  //     />
-  //   </FormikWithSchema>
-  // );
   return (
     <>
       <label className='text-slate-600'>Credential Type</label>
@@ -293,7 +254,6 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       {credentialType === "junkipedia" && JunkipediaForm}
       {credentialType === "rss" && RSSForm}
       {credentialType === "twitter" && TwitterForm}
-      {/* {credentialType === "telegram" && TelegramForm} */}
     </>
   );
 };

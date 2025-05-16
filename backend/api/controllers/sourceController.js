@@ -3,8 +3,6 @@
 
 var Source = require('../../models/source');
 var _ = require('lodash');
-var writelog = require('../../writeLog');
-
 
 // Create a new Source
 exports.source_create = (req, res) => {
@@ -14,7 +12,7 @@ exports.source_create = (req, res) => {
     if (err) {
       return res.status(err.status).send(err.message);
     }
-    writelog.writeSource(req, source, 'createSource');
+    
     res.send(200, source);
   });
 }
@@ -66,7 +64,7 @@ exports.source_update = (req, res, next) => {
       if (err) res.status(err.status).send(err.message);
       else if (!numberAffected) res.sendStatus(404);
       else {
-        writelog.writeSource(req, source, 'enable/disable/editSource');
+        
         res.sendStatus(200);
       }
     });
@@ -89,7 +87,7 @@ exports.source_delete = (req, res, next) => {
     if (!source) return res.sendStatus(404);
     source.remove((err) => {
       if (err) return res.status(err.status).send(err.message);
-      writelog.writeSource(req, source, 'deleteSource');
+      
       res.sendStatus(200);
     });
   });
@@ -108,7 +106,7 @@ exports.source_delete_all = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeSource(req, source, 'deleteSource');
+        
         if (--remaining === 0) return res.sendStatus(200);
       });
     });
@@ -128,7 +126,6 @@ exports.source_update_all = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeSource(req, source, 'deleteSource');
         if (--remaining === 0) return res.sendStatus(200);
       });
     });
