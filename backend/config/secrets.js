@@ -22,7 +22,7 @@ var _configuration = nconf.get();
 _.defaults(_configuration, { api_request_timeout: 60, logger: {} });
 _.defaults(_configuration.logger, {
   SES: {}, file: {}, master: {}, api: {},
-  fetching: {}, analytics: {}
+  fetching: {}
 });
 _.defaults(_configuration.logger.SES, { level: 'error', silent: false });
 _.defaults(_configuration.logger.file, {
@@ -37,7 +37,6 @@ _.defaults(_configuration.logger.api, {
   log_responses: false
 });
 _.defaults(_configuration.logger.fetching, { filename: 'logs/fetching.log' });
-_.defaults(_configuration.logger.analytics, { filename: 'logs/analytics.log' });
 
 // ensure directories exist
 mkdirp.sync(path.dirname(_configuration.logger.master.filename));

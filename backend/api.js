@@ -216,13 +216,6 @@ socketHandler.addListeners(
   })
 );
 
-socketHandler.addListeners(
-  'stats',
-  childProcess.setupEventProxy({
-    emitter: './analytics/stats-master',
-    emitterModule: 'analytics',
-  })
-);
 
 // Defer local listeners until inter-process listeners have been set up to avoid binding conflicts
 setTimeout(function () {

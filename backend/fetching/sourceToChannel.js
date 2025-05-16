@@ -9,8 +9,6 @@ const Credentials = require('../models/credentials'); // registers the Credentia
 const config = require('../config/secrets');
 const downstream = require('./downstream');
 
-const AggieCrowdTangleChannel = require('./channels/crowdtangle');
-const TelegramChannel = require('./channels/telegram');
 const RSSChannel = require('./channels/rss');
 
 const { TwitterPageChannel, JunkipediaChannel } = builtin;
