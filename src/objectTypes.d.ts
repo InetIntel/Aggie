@@ -38,7 +38,7 @@ interface ReportQuery {
   before: string | null;
   status: string | null;
   page: number | null;
-  list: string | CTList | null;
+  list: string | null;
 }
 //TODO: deprecate
 interface ReportQueryState_old {
@@ -282,10 +282,7 @@ interface LoginData {
   username: string;
   password: string;
 }
-
-interface CTList {
-  lists: any;
-}
+ 
 
 interface VisualizationAuthor {
   _id: string;
