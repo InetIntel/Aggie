@@ -233,8 +233,6 @@ setTimeout(function () {
 
 }, 500);
 
-// Add CRON job for updating CrowdTangle List
-//app.use(require('./cron/ct-list-update'));
 
 // get git version
 var version;
