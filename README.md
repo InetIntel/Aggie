@@ -18,10 +18,6 @@ Relevant reports can be grouped into _groups_ for further monitoring and follow-
 
 Reports are fully searchable and filterable via a fast web interface.
 
-Report queries can be saved and tracked over time via a series of visual analytics.
-
-Aggie is built for scalability and can handle hundreds of incoming reports per second. The backend fetching and analytics systems feature a modular design well-suited to parallelism and multi-core architectures.
-
 Users can be assigned to _admin_, _manager_, _monitor_, and _viewer_ roles, each with appropriate permissions.
 
 Aggie is built using React and Express.js, commonly used and popular web frameworks.
@@ -72,9 +68,6 @@ Extensive documentation about using the application can be found in [ReadTheDocs
    - In your terminal, navigate to your main projects folder (e.g. Documents).
    - Use this command: `git clone https://github.com/TID-Lab/aggie.git`.
    - `cd aggie`
-1. Copy `backend/config/secrets.json.example` to `backend/config/secrets.json`.
-
-   - ask current developers for a copy of the secrets.json
 
 1. Copy `.env.example` to `.env `.
 
@@ -129,17 +122,9 @@ resolve conflicts with the main `develop` branch by merging the latest into the 
 
 TODO: create proper maintenance
 
-<del> 1. To run migrations run `npx migrate`.
-
-## Project Configuration
-
-You can adjust the settings in the `config/secrets.json` file to configure the application.
-
 ### Tests
 
 TODO: tests are broken at the moment. this is a work in progress
-
-<del>Set `config.adminParty=true` if you want to run tests.
 
 ### Social Media and Feeds
 
@@ -152,17 +137,6 @@ changes to many social media APIs means we need new ways of obtaining data from 
 1. <del>Follow [these instructions](https://developer.twitter.com/en/docs/basics/authentication/oauth-1-0a/obtaining-user-access-tokens) to generate tokens to use the Twitter API.
 1. <del>Go to Settings > Configuration and edit the Twitter settings. Remember to toggle the switch on, once you have saved the settings.
 
-#### CrowdTangle
-
-1. <del>Create a dashboard on CrowdTangle and generate the dashboard token.
-1. <del>Add your CT API token to `config/secrets.json`.
-1. <del>Run `npm run update-ct-lists` to fetch data.
-   - This will update `config/crowdtangle_list.json`.
-   - This also happens automatically every night at midnight while Aggie is running.
-
-Note: <del>To have git ignore changes, run `git update-index --skip-worktree config/crowdtangle_list.json`
-
-<del>
 
 #### WhatsApp
 
@@ -212,29 +186,9 @@ The current build does not have email support
 
 - This is also changed during runtime based on user choice.
 
-### Logging
-
-Set various logging options in `logger` section.
-
-- `console` section is for console logging. For various options, see [winston](see https://github.com/winstonjs/winston#transports)
-- `file` section is for file logging. For various options, see [winston](see https://github.com/winstonjs/winston#transports)
-- `SES` section is for email notifications.
-  - Set appropriate AWS key and secret values.
-  - Set `to` and `from` email ids. Make sure `from` has been authorised in your Amazon SES configuration.
-- `Slack` section is for Slack messages.
-  - Set the webhook URL to send logs to a specific Slack channel
-- **DO NOT** set `level` to _debug_. Recommended value is _error_.
-
-Only the `console` and `file` transports are enabled by default. Transports can be disabled using the `"disabled"` field included in each section in the `config/secrets.json` file.
-
 ### <del>Remote access
 
 <del>See the first part of the Tableau docs in [BI Connector setup](docs/content/tableau/bi-connector-setup.md).
-
-### <del>Data visualization using Tableau
-
-<del>Setting up and viewing Tableau visualizations in Aggie requires installing Tableau's MongoDB BI Connector on the server that acts as a bridge between Tableau and MongoDB.
-To set up the BI Connector, follow these steps: [BI Connector setup](docs/content/tableau/bi-connector-setup.md).
 
 ## Architecture
 
@@ -246,7 +200,6 @@ The backend is a Node.js/Express app responsible for fetching and analyzing data
 
 - API module
 - Fetching module
-- Analytics module
 
 See README files in the `lib` subdirectories for more info on each module.
 

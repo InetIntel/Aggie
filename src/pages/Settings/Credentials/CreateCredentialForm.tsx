@@ -57,34 +57,6 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
     </FormikWithSchema>
   );
 
-  
-
-  // telegram credential
-  const telegramSchema = Yup.object().shape({
-    name: Yup.string().required("Credentials name required"),
-    botAPIToken: Yup.string().required("API Token required"),
-  });
-  type ITelegramSchema = Yup.InferType<typeof junkipediaSchema>;
-  const telegramForm = (
-    <FormikWithSchema
-      schema={telegramSchema}
-      onSubmit={(values: ITelegramSchema) => {
-        doCreateCredential.mutate({
-          credentials: {},
-          name: values.name,
-          type: "telegram",
-          secrets: {
-            botAPIToken: values.botAPIToken,
-          },
-        });
-      }}
-      loading={doCreateCredential.isLoading}
-      onClose={onClose}
-    >
-      <FormikInput name='name' label='Credential Name' />
-      <FormikInput name='botAPIToken' label='Telegram bot API Token' />
-    </FormikWithSchema>
-  );
 
   // rss credential
   // could be cleaner but idk how to work the type inferencing with yup
@@ -188,7 +160,6 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       {credentialType === "junkipedia" && junkipediaForm}
       {credentialType === "rss" && rssForm}
       {credentialType === "twitter" && twitterForm}
-      {/* {credentialType === "telegram" && telegramForm} */}
     </>
   );
 };

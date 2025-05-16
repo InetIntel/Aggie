@@ -13,7 +13,6 @@ const validator = require('validator');
 const credentialsTypes = [
   'twitter',
   'crowdtangle',
-  'telegram',
   'junkipedia',
   'rss'
 ];
@@ -39,8 +38,6 @@ const secretsValidator = function(secrets) {
       && isValidString(secrets.accessToken)
       && isValidString(secrets.accessTokenSecret)
     );
-  case 'telegram':
-    return isValidString(secrets.botAPIToken); // bot API token
   default:
   }
 };

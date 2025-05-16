@@ -4,7 +4,7 @@ Manual End-to-end Testing
 Prerequisites
 -------------
 
-1. Use default `secrets.json`, but set `adminParty` to false
+1. Set `adminParty` to false
 2. Run Aggie with `npm start`
 
 Internationalization
@@ -17,11 +17,6 @@ angular.element(document.querySelector('html')).injector().get('$translate').use
 ```
 
 [all constant string should appear in `__ALL_CAPS`]
-
-User Activity Logging
----------------------
-
-1. Do all of the below with `api.log_user_activity: true` in `config/secrets.json`.
 
 Logging in
 ----------
@@ -108,9 +103,8 @@ Experimental feature
 See experiment.md
 
 Prerequisites:
-1. Set secrets.json variables: `"experimental": true`, and `"experimentFile": "test/end_to_end/fixtures/experiment_reports.json"`
-2. Set fetching off
-3. Stop Aggie
+1. Set fetching off
+2. Stop Aggie
 Start "experiment"
 1. Start Aggie
 1. Set fetching on

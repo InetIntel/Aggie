@@ -8,7 +8,6 @@ var Report = require('../../models/report');
 var batch = require('../../models/batch');
 var ReportQuery = require('../../models/query/report-query');
 var _ = require('lodash');
-var writelog = require('../../writeLog');
 var tags = require('../../shared/tags');
 const Group = require("../../models/group");
 const eventRouter = require('../sockets/event-router');
@@ -34,7 +33,7 @@ exports.report_reports = (req, res) => {
     Report.queryReports(query, req.query.page, (err, reports) => {
       if (err) return res.status(err.status).send(err.message);
       else {
-        writelog.writeReport(req, reports, 'filter', query);
+        
         return res.send(reports);
       }
     });
@@ -52,7 +51,7 @@ exports.report_batch = (req, res) => {
   batch.load(req.user._id, (err, reports) => {
     if (err) res.status(err.status).send(err.message);
     else {
-      writelog.writeBatch(req, 'loadBatch', reports);
+      
       res.status(200).send({ results: reports, total: reports.length });
     }
   });
@@ -64,7 +63,7 @@ exports.report_batch_new = (req, res) => {
   batch.checkout(req.user._id, query, (err, reports) => {
     if (err) res.status(err.status).send(err.message);
     else {
-      writelog.writeBatch(req, 'getNewBatch', reports);
+      
       res.status(200).send({ results: reports, total: reports.length });
     }
   });
@@ -75,7 +74,7 @@ exports.report_batch_cancel = (req, res) => {
   batch.cancel(req.user._id, (err) => {
     if (err) res.status(err.status).send(err.message);
     else {
-      writelog.writeBatch(req, 'cancelBatch');
+      
       res.sendStatus(200);
     }
   });
@@ -87,7 +86,7 @@ exports.report_details = (req, res) => {
     if (err) res.status(err.status).send(err.message);
     else if (!report) res.sendStatus(404);
     else {
-      writelog.writeReport(req, report, 'viewReport');
+      
       res.status(200).send(report);
     }
   });
@@ -101,7 +100,7 @@ exports.report_comments = (req, res) => {
   Report.queryReports(query, page, (err, reports) => {
     if (err) res.status(err.status).send(err.message);
     else {
-      writelog.writeReport(req, reports, 'filter', query);
+      
       res.status(200).send(reports);
     }
   });
@@ -135,7 +134,7 @@ router.delete('/api/report/_all', User.can('edit data'), (req, res) => {
   Report.remove((err) {
     if (err) res.status(err.status).send(err.message);
     else {
-      writelog.writeReport(req, {}, 'deleteAllReports');
+      
       res.sendStatus(200);
     }
   });
@@ -156,7 +155,7 @@ exports.reports_veracity_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'changeVeracityReport');
+        
         if (--remaining === 0) return res.sendStatus(200);
       });
     });
@@ -178,7 +177,7 @@ exports.reports_read_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'markAsRead');
+        
         if (--remaining === 0) {
           eventRouter.publish('reports:update', { ids: req.body.ids, update: { read: req.body.read } }).then(() => {
             return res.sendStatus(200)
@@ -205,7 +204,7 @@ exports.reports_escalated_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'escalatedReport');
+        
         if (--remaining === 0) return res.sendStatus(200);
       });
     });
@@ -226,7 +225,7 @@ exports.reports_irrelevant_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'irreleventReport');
+        
         if (--remaining === 0) {
           eventRouter.publish('reports:update', { ids: req.body.ids, update: { irrelevant: req.body.irrelevance } }).then(() => {
             return res.sendStatus(200)
@@ -273,7 +272,7 @@ exports.reports_group_update = (req, res) => {
             }
           })
         })
-        writelog.writeReport(req, report, 'addToGroup');
+        
         if (--remaining === 0) {
           eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id } }).then(() => {
             return res.sendStatus(200)
@@ -323,7 +322,7 @@ exports.reports_group_remove = (req, res) => {
 
           })
         })
-        writelog.writeReport(req, report, 'removeFromGroup');
+        
         if (--remaining === 0) {
           eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id } }).then(() => {
             return res.sendStatus(200)
@@ -348,7 +347,7 @@ exports.reports_notes_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'updateNotes');
+        
         if (--remaining === 0) return res.sendStatus(200);
       });
     });
@@ -369,7 +368,7 @@ exports.reports_tags_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'updateTags');
+        
         if (--remaining === 0) {
           eventRouter.publish('reports:update', { ids: req.body.ids, update: { smtcTags: req.body.tags } }).then(() => {
             return res.sendStatus(200)
@@ -396,7 +395,7 @@ exports.reports_tags_add = (req, res) => {
         }
         report.save((err) => {
           if (err) return res.status(err.status).send(err.message);
-          writelog.writeReport(req, report, 'addTagToReport');
+          
           if (--remaining === 0) return res.sendStatus(200);
         });
       });
@@ -419,7 +418,7 @@ exports.reports_tags_remove = (req, res) => {
         }
         report.save((err) => {
           if (err) return res.status(err.status).send(err.message);
-          writelog.writeReport(req, report, 'removeTagFromReport');
+          
           if (--remaining === 0) return res.sendStatus(200);
         });
       });
@@ -441,7 +440,7 @@ exports.reports_tags_clear = (req, res) => {
             if (!res.headersSent) res.status(err.status).send(err.message)
             return;
           }
-          writelog.writeReport(req, report, 'clearTagsFromReport');
+          
           if (--remaining === 0) return res.sendStatus(200);
         });
       });
