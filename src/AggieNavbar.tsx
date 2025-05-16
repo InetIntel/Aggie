@@ -89,11 +89,11 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
   return (
     <nav className='w-full bg-white flex justify-between items-center px-4 border-b border-gray-200 py-2'>
       <div className='flex gap-2 items-center '>
-        <img
+        {/* <img
           src='/images/watchthevote_monocrome.png'
           alt='Logo'
           className='h-12 w-auto ml-2'
-        />
+        /> */}
         <div>
           <svg
             fill='none'
@@ -112,16 +112,14 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
               <Link
                 key={name}
                 to={path.to}
-                className={`px-2 focus-theme hover:bg-gray-100 rounded-lg text-[#416B34] hover:text-[#416B34] ${
-                  isActive(path.to, path.not) ? "" : ""
-                }`}
+                className={`px-2 focus-theme hover:bg-gray-100 rounded-lg text-[#416B34] hover:text-[#416B34] ${isActive(path.to, path.not) ? "" : ""
+                  }`}
               >
                 <p
-                  className={`py-1 border-b-2  ${
-                    isActive(path.to, path.not)
+                  className={`py-1 border-b-2  ${isActive(path.to, path.not)
                       ? " border-[#416B34]"
                       : "border-transparent"
-                  }`}
+                    }`}
                 >
                   <span>{name}</span>
                 </p>
