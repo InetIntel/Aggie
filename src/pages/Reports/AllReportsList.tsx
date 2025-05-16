@@ -18,9 +18,9 @@ import { faMinus, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import MultiSelectActions from "./components/MultiSelectActions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
-interface IProps {}
+interface IProps { }
 
-const AllReportsList = ({}: IProps) => {
+const AllReportsList = ({ }: IProps) => {
   const { id: currentPageId } = useParams();
   const navigate = useNavigate();
   const { searchParams, getAllParams, setParams, getParam } =
@@ -50,7 +50,7 @@ const AllReportsList = ({}: IProps) => {
     mapFn: (i) => i._id,
   });
 
-  function onReportItemClick(id: string, isRead: boolean) {
+  function onReportItemClick(id: string) {
     navigate({ pathname: `${id}`, search: searchParams.toString() });
   }
 
@@ -83,9 +83,8 @@ const AllReportsList = ({}: IProps) => {
           }
         />
         <div
-          className={`px-1 flex gap-2 text-xs font-medium items-center ${
-            multiSelect.isActive ? "mt-2" : ""
-          }`}
+          className={`px-1 flex gap-2 text-xs font-medium items-center ${multiSelect.isActive ? "mt-2" : ""
+            }`}
         >
           {multiSelect.isActive && (
             <>
@@ -113,7 +112,7 @@ const AllReportsList = ({}: IProps) => {
         {!!reports?.results && reports?.total > 0 ? (
           reports?.results.map((report) => (
             <div
-              onClick={() => onReportItemClick(report._id, report.read)}
+              onClick={() => onReportItemClick(report._id)}
               className='cursor-pointer group focus-theme'
               key={report._id}
               tabIndex={0}

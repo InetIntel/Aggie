@@ -1,5 +1,5 @@
 import { useQueryParams } from "../../../hooks/useQueryParams";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
@@ -18,10 +18,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import CreateEditIncidentForm from "../CreateEditIncidentForm";
 
-interface NewIncidentQueryState {
-  reports?: string;
-  key?: string;
-}
+
 
 const NewIncident = () => {
   const navigate = useNavigate();
@@ -29,6 +26,11 @@ const NewIncident = () => {
   const [reportsData, setReportsData] = useState<Report[]>([]);
   const [showDialog, setShowDialog] = useState(false);
 
+
+  interface NewIncidentQueryState {
+    reports?: string;
+    key?: string;
+  }
   const { searchParams, getParam } = useQueryParams<NewIncidentQueryState>();
 
   const doCreateNewGroup = useMutation({

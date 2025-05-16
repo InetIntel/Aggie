@@ -1,6 +1,5 @@
 import { omitBy, isNil } from "lodash";
-import { useEffect, useState } from "react";
-import { IuseQueryParams } from "./useQueryParams";
+import {  useState } from "react";
 
 /**
  *  same as useQueryParams but uses internal useState instead of URLSearchParams.

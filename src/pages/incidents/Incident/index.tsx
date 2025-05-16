@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useIncidentMutations } from "../useIncidentMutations";
 
 import {
-  deleteGroup,
   getGroup,
   getGroupReports,
   setSelectedPublic,
@@ -33,13 +32,12 @@ import {
   faFile,
   faFilePen,
   faXmark,
-  faExternalLinkSquare,
   faExternalLinkSquareAlt,
   faTrash,
-  faFileArchive,
   faFileCircleMinus,
 } from "@fortawesome/free-solid-svg-icons";
 import { faDotCircle, faFileLines } from "@fortawesome/free-regular-svg-icons";
+
 import AggieSwitch from "../../../components/AggieSwitch";
 import { useUpdateQueryData } from "../../../hooks/useUpdateQueryData";
 import CommentTimeline from "./CommentTimeline";
@@ -54,6 +52,7 @@ import AggieDialog from "../../../components/AggieDialog";
 import AddReportsToIncidents from "../../Reports/components/AddReportsToIncident";
 import { useReportMutations } from "../../Reports/useReportMutations";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
+
 import { updateByIds } from "../../../utils/immutable";
 import {
   SocketEvent,
@@ -91,7 +90,7 @@ const Incident = () => {
     data: group,
     error: groupError,
   } = useQuery(["group", id], () => getGroup(id), {
-    onSuccess: (data) => {},
+    onSuccess: (data) => { },
   });
 
   const doDelete = useMutation(setSelectedPublic, {
@@ -151,11 +150,10 @@ const Incident = () => {
   }
   const handleSocketUpdate = (message: GroupUpdateEvent) => {
     if (message.event !== "groups:update") return;
-    console.log("sockets", message);
 
     // update single report
     if (id && message.data.ids.includes(id)) {
-      queryData.update<Report>(["group", id], (data) => {
+      queryData.update<Report>(["group", id], (_) => {
         return message.data.update;
       });
       if ("_reports" in message.data.update) {
@@ -360,9 +358,8 @@ const Incident = () => {
           }
         />
         <div
-          className={`px-1 flex gap-2 text-xs font-medium items-center ${
-            multiSelect.isActive ? "mt-2" : ""
-          }`}
+          className={`px-1 flex gap-2 text-xs font-medium items-center ${multiSelect.isActive ? "mt-2" : ""
+            }`}
         >
           {multiSelect.isActive && (
             <>

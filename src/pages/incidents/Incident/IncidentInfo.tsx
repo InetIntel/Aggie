@@ -1,7 +1,6 @@
 import {
   faCompass,
   faFileLines,
-  faMessage,
 } from "@fortawesome/free-regular-svg-icons";
 import {
   faMinusCircle,

@@ -4,17 +4,24 @@ import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
 import type { Report, Reports as IReports } from "../../api/reports/types";
 import { updateByIds } from "../../utils/immutable";
 
-const Reports = ({ children }: { children: React.ReactNode }) => {
+interface IProps {
+  children: React.ReactNode
+}
+
+const Reports = ({ children }: IProps) => {
   const queryData = useUpdateQueryData();
   const location = useLocation();
   const { id: pageId } = useParams();
   const outlet = useOutlet();
+
   interface ReportUpdateEvent extends SocketEvent {
     data: {
       ids: string[];
       update: Record<string, any>;
     };
   }
+
+  // update local data on websocket update
   const handleSocketUpdate = (message: ReportUpdateEvent) => {
     if (message.event !== "reports:update") return;
     console.log("sockets", message);
@@ -37,6 +44,7 @@ const Reports = ({ children }: { children: React.ReactNode }) => {
     }
   };
   useSocketSubscribe("reports:update", handleSocketUpdate);
+
   return (
     <section className='max-w-screen-2xl mx-auto px-4 grid grid-cols-3 gap-3'>
       <main className='col-span-2 '>{children}</main>

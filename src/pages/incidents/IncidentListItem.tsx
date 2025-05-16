@@ -18,12 +18,8 @@ import AggieSwitch from "../../components/AggieSwitch";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCircleMinus,
-  faCommentAlt,
   faEdit,
   faEllipsis,
-  faFile,
-  faFileAlt,
-  faLocationPin,
   faMinusCircle,
   faPlus,
   faTrash,
@@ -38,7 +34,6 @@ import {
 } from "@fortawesome/free-regular-svg-icons";
 import UserToken from "../../components/UserToken";
 import { isString } from "lodash";
-import { User } from "../../api/users/types";
 import { hasId } from "../../api/common";
 
 interface IProps {
