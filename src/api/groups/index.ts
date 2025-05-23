@@ -87,12 +87,15 @@ export const getGroupReports = async (searchState: ReportQueryState = {}) => {
 interface Selected {
   ids: string[];
 }
+
 interface SelectedOne {
   id: string;
 }
+
 interface SetVeracityParams extends Selected {
   veracity: VeracityOptions | string;
 }
+
 export const setSelectedVeracity = async (params: SetVeracityParams) => {
   const { data } = await axios.patch("/api/group/_veracity", {
     ids: params.ids,
