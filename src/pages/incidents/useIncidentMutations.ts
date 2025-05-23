@@ -20,6 +20,7 @@ export const useIncidentMutations = (
   options: typeof defaultOptions = defaultOptions
 ) => {
   const queryData = useUpdateQueryData();
+  
   const { data: users } = useQuery({
     queryKey: ["users"],
     queryFn: getUsers,

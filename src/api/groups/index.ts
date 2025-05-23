@@ -11,7 +11,7 @@ import {
 import type { Reports } from "../reports/types";
 import { hasId, VeracityOptions } from "../common";
 import { omitBy, isNil } from "lodash";
-import { ReportQueryState } from "../../objectTypes";
+import { ReportQueryState } from "../reports/types";
 import { urlFromReportsQuery } from "../reports";
 
 export const getGroups = async (
