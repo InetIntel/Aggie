@@ -35,7 +35,7 @@ Extensive documentation about using the application can be found in [ReadTheDocs
 
 ### Software Requirements
 
-1. **node.js** (v18.20 LTS)
+1. **node.js** (v22 LTS)
    1. Use [Fast Node Manager](https://github.com/Schniz/fnm).
       - fast node manager (FNM) allows multiple versions of node.js to be used on your system and manages the versions within each project.
       - this is the 2025 recommended node manager
