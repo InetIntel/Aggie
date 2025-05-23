@@ -22,7 +22,7 @@ const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
     useQueryParams<GroupQueryState>();
   const queryData = useUpdateQueryData();
-  
+
   const { data, refetch, isLoading, isFetching } = useQuery(
     ["groups"],
     () => getGroups(getAllParams(searchParams)),
@@ -46,6 +46,7 @@ const Incidents = () => {
       update: Record<string, any>;
     };
   }
+
   const handleSocketUpdate = (message: GroupUpdateEvent) => {
     if (message.event !== "groups:update") return;
     console.log("sockets", message);

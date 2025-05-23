@@ -42,9 +42,11 @@ const IncidentsFilters = ({
   isQuery,
 }: IProps) => {
   const { data: users } = useQuery(["users"], getUsers);
+
   const { data: session } = useQuery(["session"], getSession, {
     staleTime: 10000,
   });
+
   function usersRemapComboBox(query: typeof users) {
     if (!query) return [];
     const array = query.map((user) => ({
