@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Navigate,
   Route,
@@ -33,7 +33,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import AllReportsList from "./pages/Reports/AllReportsList";
 import BatchReportList from "./pages/Reports/BatchReportsList";
 import FlaggedReportsList from "./pages/Reports/FlaggedReportsList";
-import ImagesPage from "./pages/ImagesPage";
 
 const RerouteToLogin = () => {
   const location = useLocation();
@@ -100,7 +99,6 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
       >
         <Route path=':id' element={<Report />}></Route>
       </Route>
-      <Route path='/images' element={<ImagesPage />} />
 
       <Route path='/incidents' element={<Incidents />} />
       <Route path='/incidents/:id' element={<Incident />} />

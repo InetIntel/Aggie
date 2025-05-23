@@ -98,14 +98,13 @@ const FilterComboBox = <T extends {}>({
       }
     >
       {({ close }) => (
-        <div className=' flex flex-col divide-y divide-slate-200 max-h-[20em] overflow-y-auto bg-white'>
+        <div className=' flex flex-col divide-y divide-slate-200 max-h-[20em] overflow-y-auto bg-white text-start'>
           {!rawSearch && optionalItems.length > 0 && (
             <>
               {optionalItems.map((item) => (
                 <button
-                  className={`px-2 py-1 flex justify-between items-center hover:bg-slate-50 text-nowrap gap-1 ${
-                    selectedKey === item.key ? "bg-slate-100" : ""
-                  }`}
+                  className={`px-2 py-1 flex justify-between items-center hover:bg-slate-50 gap-1 ${selectedKey === item.key ? "bg-slate-100" : ""
+                    }`}
                   key={item.key}
                   onClick={() => {
                     onSelectItem(item);
@@ -128,9 +127,8 @@ const FilterComboBox = <T extends {}>({
           {filteredList && filteredList.length > 0 ? (
             filteredList.map((item) => (
               <button
-                className={`px-2 py-1 flex justify-between items-center hover:bg-slate-50 text-nowrap gap-1 ${
-                  selectedKey === item.key ? "bg-slate-100" : ""
-                }`}
+                className={`px-2 py-1 flex justify-between items-center hover:bg-slate-50 gap-1 ${selectedKey === item.key ? "bg-slate-100" : ""
+                  }`}
                 key={item.key}
                 onClick={() => {
                   onSelectItem(item);

@@ -69,9 +69,8 @@ const ReportFilters = ({
       key: group._id,
       value: group.title,
       data: group,
-      searchstring: `${group.title} #${group.idnum} ${
-        group.closed ? "closed" : ""
-      } ${group.escalated ? "escalated" : ""}`,
+      searchstring: `${group.title} #${group.idnum} ${group.closed ? "closed" : ""
+        } ${group.escalated ? "escalated" : ""}`,
     }));
     if (!array) return [];
     return array;
@@ -109,17 +108,15 @@ const ReportFilters = ({
                     />
                     <div className='absolute hidden group-focus-within:block py-1 w-[32em] z-10'>
                       <div
-                        className={`flex rounded-lg border border-slate-300 bg-white shadow-md overflow-hidden ${
-                          !!activeSearch ? "flex-col-reverse" : "flex-col "
-                        }`}
+                        className={`flex rounded-lg border border-slate-300 bg-white shadow-md overflow-hidden ${!!activeSearch ? "flex-col-reverse" : "flex-col "
+                          }`}
                       >
                         <AggieButton
                           type={!activeSearch ? "submit" : "button"}
-                          className={`px-4 py-2 h-full w-full hover:bg-slate-50 text-left border-l-4 justify-between ${
-                            !activeSearch
-                              ? "border-green-600 "
-                              : "border-transparent "
-                          }`}
+                          className={`px-4 py-2 h-full w-full hover:bg-slate-50 text-left border-l-4 justify-between ${!activeSearch
+                            ? "border-green-600 "
+                            : "border-transparent "
+                            }`}
                           title='search'
                           disabled={!values.keywords}
                           onClick={() => {
@@ -148,18 +145,16 @@ const ReportFilters = ({
                         </AggieButton>
                         <AggieButton
                           type={!!activeSearch ? "submit" : "button"}
-                          className={`px-4 py-2 h-full w-full hover:bg-purple-100 bg-purple-50 text-left border-l-4 justify-between  ${
-                            !!activeSearch
-                              ? "border-green-600 "
-                              : "border-transparent "
-                          }`}
+                          className={`px-4 py-2 h-full w-full hover:bg-purple-100 bg-purple-50 text-left border-l-4 justify-between  ${!!activeSearch
+                            ? "border-green-600 "
+                            : "border-transparent "
+                            }`}
                           title='search'
                           disabled={!values.keywords}
                           onClick={() => {
                             if (!!activeSearch) return;
                             navigate(
-                              `/rpt/search?keywords=${values.keywords}${
-                                !!fromGroup ? "&groupId=" + fromGroup : ""
+                              `/rpt/search?keywords=${values.keywords}${!!fromGroup ? "&groupId=" + fromGroup : ""
                               }`
                             );
                           }}
@@ -264,7 +259,7 @@ const ReportFilters = ({
               label='Incidents'
               list={groupsList(groups)}
               itemElement={(i) => (
-                <div className='flex gap-1 flex-wrap max-w-prose items-center'>
+                <div className='inline-flex gap-1 flex-wrap max-w-prose text-start items-center'>
                   {i.value}
                   {i.data?.escalated && (
                     <FontAwesomeIcon
