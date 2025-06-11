@@ -2,20 +2,12 @@
 // Represents a set of credentials that you want to keep protected.
 'use strict';
 
+const credentialsTypes = require('../config/models/credentialsConfigs');
 const database = require('../database');
 const mongoose = database.mongoose;
 const Schema = mongoose.Schema;
 const validator = require('validator');
 
-
-// The types of credentials that are possible.
-// Add more as you see fit.
-const credentialsTypes = [
-  'twitter',
-  'crowdtangle',
-  'junkipedia',
-  'rss'
-];
 
 // validates secrete based on their type
 const secretsValidator = function(secrets) {

@@ -8,6 +8,7 @@ var database = require('../database');
 var mongoose = database.mongoose;
 var validator = require('validator');
 var _ = require('lodash');
+var sourceMediaValues = require('../config/models/sourceConfigs')
 require('../error');
 
 var EVENTS_TO_RETURN = 50;
@@ -25,10 +26,9 @@ var urlValidator = function (url) {
   )
 }
 
-var mediaValues = ['facebook', 'instagram', 'comments', 'elmo', 'twitter', 'rss', 'dummy', 'smsgh', 'whatsapp', 'junkipedia', 'dummy-pull', 'dummy-fast'];
 
 var sourceSchema = new mongoose.Schema({
-  media: { type: String, enum: mediaValues },
+  media: { type: String, enum: sourceMediaValues },
   nickname: { type: String, required: true, validate: lengthValidator, index: true },
   resource_id: String,
   url: { type: String, validate: urlValidator },
@@ -38,7 +38,7 @@ var sourceSchema = new mongoose.Schema({
   enabled: { type: Boolean, default: true },
   events: { type: Array, default: [] },
   unreadErrorCount: { type: Number, default: 0 },
-  lastReportDate: { type: Date, index: true },
+  lastReportDate: { type: Date, index: true, default: Date.now},
   lastReportDateSavedSearch: { type: Date, index: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   tags: { type: [String], default: [] },
@@ -143,6 +143,6 @@ Source.countAllErrors = function (callback) {
 };
 
 Source.getMediaValues = function () {
-  return mediaValues;
+  return sourceMediaValues;
 };
 module.exports = Source;
