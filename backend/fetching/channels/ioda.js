@@ -1,0 +1,312 @@
+const { PollChannel } = require('downstream');
+const { default: SocialMediaPost } = require('downstream/build/builtin/post');
+const { mongoose } = require('../../database');
+const REGION_CODES = require('../../config/fetching/channels/iodaMappings');
+const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
+const extractCleanSVGFromPage = require('../utils/iodaUtils');
+
+
+
+
+/**
+ * A Channel that polls the Ioda Outages of configured country code.
+ */
+class IODAChannel extends PollChannel {
+
+    // This is ms so 300000 ms = 300 seconds = 5 minutes
+    static INTERVAL = 300000;
+  
+    
+    constructor(options) {
+        super({...options,
+            namespace: options.namespace || `ioda-${options.countryCode}`,
+        });
+
+        this.options = options;
+
+        // Default supports 3 query types: region, AS-region, AS-country
+        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country']
+
+        this.metadataUrl = `${API_BASE_URLS.IODA}${API_ROUTES.IODA.ENTITY_QUERY}`;
+
+        this.countryCode = options.countryCode || null;
+
+        this.regionCodes = {};
+
+        this.interval = options.interval || IODAChannel.INTERVAL;
+
+        // Fetch time range from 2H ago (or an earlier timestamp if specified) till now
+        this.fetchToTimestamp = Math.floor(Date.now() / 1000); 
+
+        this.fetchFromTimestamp = options.lastTimestamp
+            ? Math.min(
+                this.fetchToTimestamp - 2 * 60 * 60, 
+                Math.floor(options.lastTimestamp.getTime() / 1000) 
+              )
+            : this.fetchToTimestamp - 2 * 60 * 60
+        
+        
+    }   
+
+    async initMetadata(){
+        if(!Object.keys(this.regionCodes).length) {
+
+            // Fetch latest region code - region name mapping metadata
+            if (!this.metadataUrl || !this.countryCode) {
+                console.error('\tInvalid metadata fetching url, use default mappings.');
+                this.regionCodes = REGION_CODES;
+            } else {
+                const metadataUrl = new URL(this.metadataUrl);
+                metadataUrl.searchParams.append('entityType', 'region');
+                metadataUrl.searchParams.append('relatedTo', `country/${this.countryCode}`);
+
+                const res = await fetch(metadataUrl);
+                const data = await res.json();
+                this.regionCodes = this.parseMetadata(data);
+            }
+            console.log('[Fetching-channel-IODA] Success - Updated metadata.');
+        } else {
+            console.log('[Fetching-channel-IODA] Skipped - Skipped metadata update, mapping existed.');
+        }
+    }
+
+    async start() {
+
+        await this.initMetadata();
+        return super.start();
+    }
+
+    async fetch() {
+        const outages = [];
+
+        for (const queryType of this.queryTypes) {
+            try {
+                // Construct query url
+                const url = new URL(API_ROUTES.IODA.OUTAGE_EVENTS, API_BASE_URLS.IODA);
+
+                if (queryType === 'region') {
+                    url.searchParams.append('entityType', 'region');
+                    url.searchParams.append('relatedTo', `country/${this.countryCode}`);
+                } else if (queryType === 'geoasn-region') {
+                    url.searchParams.append('entityType', 'geoasn');
+                    url.searchParams.append('relatedTo', `region`);
+                } else if (queryType === 'geoasn-country') {
+                    url.searchParams.append('entityType', 'geoasn');
+                    url.searchParams.append('relatedTo', `country/${this.countryCode}`);
+                }
+
+                url.searchParams.append('from', this.fetchFromTimestamp);
+                url.searchParams.append('until', this.fetchToTimestamp);
+
+                // Fetch data
+                const res = await fetch(url);
+
+                if (!res.ok) {
+                    throw new Error(`Failed fetching data: ${url} - ${res.status}.`);
+                } 
+
+                const rawFeed = await res.json();
+
+                const fetchedAt =  new Date(rawFeed.responseTime) || new Date(Date.now());
+
+                const events = rawFeed.data || [];
+
+                // Declare regex rule to exclude AS-region reports unrelated to the queried country
+                let regexRegion = null;
+                if (queryType === 'geoasn-region') {
+                    regexRegion = /(\d+)-(\d+)/;
+                }
+                
+                let newReportCount = 0;
+                let existedReportCount = 0;
+                let irrelevantRegionReportCount = 0;
+                const linkedPageCache = {};
+
+                const collection = mongoose.connection.db.collection('reports');
+
+                // Parse and transform each event 
+                for (const event of events) {
+
+                    // Exclude irrelevant region event
+                    if (regexRegion) {
+                            const match = event.location && event.location.match(regexRegion);
+                            if (!match || (match && !REGION_CODES[match[2]])) {
+                                irrelevantRegionReportCount += 1;
+                                continue;
+                            };
+                    }
+
+                    const formattedEvent = this.parseEvent(event, queryType);
+
+                    if (!formattedEvent) {
+                        console.error(`\tFailed parsing formattedEvent: ${event}.`);
+                        return;
+                    }
+                    
+                    formattedEvent.fetchedAt = fetchedAt;
+
+                    // De-duplicate fetched report for downstream tasks
+                    try {
+
+                        const existingReport = await collection.findOne({ guid: formattedEvent.platformID });
+
+                        if (existingReport) {
+
+                            existedReportCount += 1;
+
+                        } else {
+
+                            // Fetch and de-duplicate image as svg string
+                            if (linkedPageCache[formattedEvent.url]) {
+                                formattedEvent.raw['image'] = linkedPageCache[formattedEvent.url]
+                            } else {
+
+                                try {
+                                    const cleanSVG = await extractCleanSVGFromPage(formattedEvent.url);
+                                    formattedEvent.raw['image'] = cleanSVG;
+                                    linkedPageCache[formattedEvent.url] = cleanSVG;
+                                } catch (err) {
+                                    console.error(`Error extracting SVG for URL ${formattedEvent.url}:`, err);
+                                    continue; 
+                                }
+
+                            }
+
+                            // Add new report to downstream hooks
+                            outages.push(formattedEvent);
+                            this.enqueue(formattedEvent);
+                            newReportCount += 1;
+
+                        }
+                    } catch (err) {
+                        console.error(`Error processing report for guid ${guid}:`, err);
+                    }
+
+
+                }
+
+                console.log(`[Fetching-channel-IODA] Success - Parsed and formatted data from url: ${url}, total records: ${events.length}, new records: ${newReportCount}, existed records: ${existedReportCount}, irrelevant region records: ${irrelevantRegionReportCount}.`);
+
+            } catch (e) {
+                console.error(`[Fetching-channel-IODA] Failed - Failed parsing and formating data: ${this.options.media} - ${queryType}.`);
+            }
+        }
+
+        const updatedTimestamp = new Date(this.fetchToTimestamp * 1000);
+        if (typeof this.options?.onFetch === 'function') {
+            await this.options.onFetch(updatedTimestamp);
+        }
+
+        return outages;
+    }
+
+    /**
+     * Parse the fetched metadata to region code - region name mapping relationship.
+     */
+    parseMetadata(rawData) {
+        if (!rawData.data || rawData.data.length === 0) {
+            return REGION_CODES;
+        }
+
+        const regionCodes = {}
+        
+        rawData.data.forEach(region => {
+            regionCodes[region.code] = region.name;
+        });
+
+        return regionCodes;
+
+    }
+
+    /**
+     * Parse the fetched event data to SocialMediaPost.
+     */
+    parseEvent(event, queryType) {
+
+        // Extract event timing
+        const eventStartedAtSeconds = event.start;
+        const eventDurationAtSeconds = event.duration;
+        const eventEndedAtSeconds = eventStartedAtSeconds + eventDurationAtSeconds;
+
+        const eventStartedAt = new Date(eventStartedAtSeconds * 1000).toISOString();
+        const eventEndedAt = new Date(eventEndedAtSeconds * 1000).toISOString();
+        const eventDuration = this.formatDuration(eventDurationAtSeconds);
+
+        // Construct content
+        const dataSource = DATA_SOURCES.IODA[event.datasource];
+        const content = `DataSource: ${dataSource}
+        Score: ${event.score}
+        Started: ${eventStartedAt}
+        Ended: ${eventEndedAt}
+        Outage duration ${eventDuration}`;
+
+        // Render dashboard within a 24H time range (ending at current time)
+        const urlFromTime = this.fetchFromTimestamp - 24 * 60 * 60;
+        const urlToTime = this.fetchToTimestamp;
+        const linkedPage = `${API_LINKED_PAGE_URLS.IODA.BASE}/${event.location}?from=${urlFromTime}&until=${urlToTime}`;
+        
+        const guid = `${queryType}-${event.start}-${event.duration}-${event.location}-${event.datasource}`;
+        if (!guid) {
+            console.error(`\tNo guid or link found in Ioda response: ${event}`);
+            return;
+        }
+
+        // Extract entity
+        let entityLevel = null;
+        let entityScope = null;
+        let entityName = null;
+        const match = (queryType !== 'region') ? event.location_name.match(/^(.+?) -- (.+)$/) : null;
+
+        if (!match) {
+            entityLevel = 'Region';
+            entityScope = event.location_name;
+            entityName = `${entityLevel} - ${entityScope}`;
+        } else {
+            entityLevel = 'AS';
+            entityScope = match[2];
+            entityName = `${match[1]} - ${match[2]}`;
+        }
+
+        return  new SocialMediaPost({
+            authoredAt: eventStartedAt,
+            fetchedAt: null,
+            author: entityName,
+            content: content,
+            url: linkedPage,
+            platform: this.options.media || "Ioda",
+            platformID: guid,
+            raw: {
+                'rawEvent': event,
+                'entityLevel': entityLevel,
+                'entityScope': entityScope,
+                'entityName': entityName,
+                'dataSource': dataSource,
+                'score': event.score,
+                'started': eventStartedAt,
+                'ended': eventEndedAt,
+                'duration': eventDuration,
+                'image': null, // Store image as svg string
+            }
+        });
+
+    }
+
+    /**
+     * Format the eventDurationAtSeconds to HH:MM:SS format string
+     */
+    formatDuration(seconds) {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+
+        return [
+            hrs.toString().padStart(2, '0'),
+            mins.toString().padStart(2, '0'),
+            secs.toString().padStart(2, '0'),
+        ].join(':');
+    }
+}
+
+
+
+module.exports = IODAChannel;

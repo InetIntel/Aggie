@@ -36,9 +36,7 @@ process.on('uncaughtException', function (err) {
 
 // Use hooks
 downstream.use(postToReport);
-downstream.use(tagReportsAI); // Add the new hook here
 downstream.use(saveToDatabase);
-downstream.use(findImages);
 
 // Register the error listener
 downstream.on('error', errorListener);
