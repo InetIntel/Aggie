@@ -107,7 +107,7 @@ class IODAChannel extends PollChannel {
 
                 const rawFeed = await res.json();
 
-                const fetchedAt =  new Date(rawFeed.responseTime) || new Date(Date.now());
+                const fetchedAt =  new Date(rawFeed.metadata.responseTime) || new Date(Date.now());
 
                 const events = rawFeed.data || [];
 
