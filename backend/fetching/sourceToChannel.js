@@ -11,7 +11,7 @@ const downstream = require('./downstream');
 
 const RSSChannel = require('./channels/rss');
 const IODAChannel = require('./channels/ioda');
-
+const CloudflareChannel = require('./channels/cloudflare');
 
 
 const { TwitterPageChannel, JunkipediaChannel } = builtin;
@@ -196,6 +196,14 @@ function createChannel(source) {
             };
             channel = new IODAChannel(options);
             break;
+        case 'cloudflare':
+            options = {
+                ...options,
+                media: media,
+                countryCode: keywords,
+                credentials: credentials,
+            }
+            channel = new CloudflareChannel(options);
         default:
     }
 
