@@ -8,6 +8,7 @@ const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { mongoose } = require('../../database');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
+const { decryptSecretsObject } = require('../utils/decryption');
 
 
 /**
@@ -17,7 +18,8 @@ class CloudflareChannel extends PollChannel {
 
     // This is ms so 100000 ms = 100 seconds
     static INTERVAL = 100000;
-  
+    static LIMIT = 20;
+
     constructor(options) {
 
         super({...options,
@@ -29,8 +31,12 @@ class CloudflareChannel extends PollChannel {
         this.countryCode = options.countryCode || null;
 
         this.credentials = options.credentials || null;
+        this.decryptedSecrets = this.credentials?.secrets
+            ? decryptSecretsObject(this.credentials.secrets)
+            : {};
 
         this.interval = options.interval || CloudflareChannel.INTERVAL;
+
 
         // Fetch time range from 2H ago (or an earlier timestamp if specified) till now
         const fetchToUTCTime = new Date(Date.now());
@@ -40,6 +46,7 @@ class CloudflareChannel extends PollChannel {
 
         this.fetchToTimestamp = fetchToUTCTime.toISOString().split('.')[0] + 'Z'; 
         this.fetchFromTimestamp = fetchFromUTCTime.toISOString().split('.')[0] + 'Z';  
+        this.fetchResultLimit = options.fetchResultLimit || CloudflareChannel.LIMIT;
        
     }
 
@@ -51,10 +58,11 @@ class CloudflareChannel extends PollChannel {
         const url = new URL(API_ROUTES.CLOUDFLARE.TRAFFIC_ANOMALIES, API_BASE_URLS.CLOUDFLARE);
         url.searchParams.append("dateStart", this.fetchFromTimestamp);
         url.searchParams.append("dateEnd", this.fetchToTimestamp);
+        url.searchParams.append("limit", this.fetchResultLimit);
 
         try {
             // Fetch data
-            const apiToken = this.credentials?.secrets?.cloudflareApiToken || null;
+            const apiToken = this.decryptedSecrets.cloudflareApiToken || null;
 
             if (!apiToken || apiToken.secrets) {
                 throw new Error(`Failed getting credential for the source ${this.options.namespace}.`);
@@ -173,9 +181,6 @@ class CloudflareChannel extends PollChannel {
         let linkedPage = null;
         let image = null;
 
-        console.log('startDate: ', startDate, typeof(startDate));
-        console.log('eventStartedAt: ', eventStartedAt, typeof(eventStartedAt));
-        console.log('eventStartDate: ', eventStartDate, typeof(eventStartDate));
         if (matchesLocation) {
             entityLevel = 'Country';
             entityScope = event.locationDetails.name;

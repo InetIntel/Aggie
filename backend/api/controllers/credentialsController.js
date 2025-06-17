@@ -3,11 +3,18 @@
 
 const Credentials = require('../../models/credentials');
 const Source = require('../../models/source');
+const { encryptSecrectsObject } = require('../utils/encryption');
 
   // Create new credentials
 exports.credential_create = async (req, res) => {
   try {
-      const credentials = await Credentials.create(req.body);
+      
+      const data = {...req.body};
+      if(data.secrets && typeof data.secrets === 'object') {
+          data.secrets = encryptSecrectsObject(data.secrets);
+      }
+     
+      const credentials = await Credentials.create(data);
       credentials.stripSecrets();
       res.send(200, credentials);
   } catch (err) {
