@@ -9,7 +9,7 @@ const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { mongoose } = require('../../database');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
 const { decryptSecretsObject } = require('../utils/decryption');
-
+require('dotenv').config();
 
 /**
  * A Channel that polls the RSS feed of a list of URLs.
@@ -17,7 +17,7 @@ const { decryptSecretsObject } = require('../utils/decryption');
 class CloudflareChannel extends PollChannel {
 
     // This is ms so 100000 ms = 100 seconds
-    static INTERVAL = 100000;
+    static INTERVAL = process.env.API_FETCH_INTERVAL || 300000;
     static LIMIT = 20;
 
     constructor(options) {
@@ -124,6 +124,18 @@ class CloudflareChannel extends PollChannel {
                     const existingReport = await collection.findOne({ guid: formattedEvent.platformID });
 
                     if (existingReport) {
+
+                        await collection.updateOne(
+                            { guid: formattedEvent.platformID },
+                            {
+                                // update existing report if fields updated (such as endDate confirmed)
+                                $set: {
+                                    content: formattedEvent.content,
+                                    url: formattedEvent.url,
+                                    'metadata.rawAPIResponse': formattedEvent.raw,
+                                }
+                            }
+                        );
 
                         existedReportCount += 1;
 
