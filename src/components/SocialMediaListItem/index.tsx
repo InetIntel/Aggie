@@ -117,12 +117,19 @@ function renderAuthor(
   type: ReturnType<typeof parseContentType>,
   report: Report
 ) {
-  switch (type) {
-    case "RSS":
-      const website = new URL(report.url);
-      return <>{website.host}</>;
+  switch (report._media[0]) {
+    case "IODA":
+      let signal = report.metadata.rawAPIResponse.datasource;
+      if (signal === "bgp") {
+        return <>IODA-BGP</>;
+      } else if (signal === "merit-nt") {
+        return <>IODA-Telescope</>;
+      } else if (signal === "ping-slash24") {
+        return <>IODA-Active Probing</>;
+      }
+      return <>{report._media[0]}</>;
     default:
-      return <>{report.author}</>;
+      return <>{report._media[0]}</>;
   }
 }
 function renderImage(

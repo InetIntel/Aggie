@@ -20,8 +20,7 @@ const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
   RSS: faRss,
   facebook: faFacebook,
   truthsocial: faQuestionCircle,
-  // elmo: faQuestionCircle,
-  // "SMS GH": faQuestionCircle,
+  IODA: faQuestionCircle,
 };
 
 const SocialMediaIcon = ({
@@ -30,6 +29,17 @@ const SocialMediaIcon = ({
   mediaKey: MediaOptions | undefined;
 }) => {
   if (!!mediaKey && mediaKey in mediaIcons) {
+    if (mediaKey == "IODA") {
+      return <img src="https://ioda.inetintel.cc.gatech.edu/icon-32-new.png"
+        alt="IODA-icon"
+        style={{
+          boxSizing: "content-box",
+          display: "inline-block",
+          height: "1.125em",
+          overflow: "visible",
+          verticalAlign: "-0.125em"
+        }} />;
+    }
     //@ts-ignore
     return <FontAwesomeIcon icon={mediaIcons[mediaKey]} />;
   }

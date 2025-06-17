@@ -14,11 +14,10 @@ export const MEDIA_OPTIONS = [
   "tiktok",
   "instagram",
   "RSS",
-  // "elmo",
-  // "SMS GH",
   "truthsocial",
   "youtube",
   "facebook",
+  "IODA",
 ] as const;
 export type MediaOptions = (typeof MEDIA_OPTIONS)[number];
 
