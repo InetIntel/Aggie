@@ -162,18 +162,27 @@ class CloudflareChannel extends PollChannel {
      * Parse the fetched event data to SocialMediaPost.
      */
     parseEvent(event, matchesLocation) {
-          
-        const startDate = new Date(event.startDate);
-        const endDate = new Date(event.endDate);
         
+        // construct start date
+        const startDate = new Date(event.startDate);
         const eventStartedAt = startDate.toISOString();
-        const eventEndedAt = endDate.toISOString();
-        const eventDuration = this.formatDuration(
-            Math.floor((endDate - startDate) / 1000)
-        ); 
-
         const eventStartDate = eventStartedAt.slice(0, 10);
-        const eventEndDate = eventEndedAt.slice(0, 10);
+
+        // construct end date
+        let endDate = null;
+        let eventEndedAt = 'unknown';
+        let eventDuration = 'unknown';
+        let eventEndDate = this.fetchToTimestamp;
+
+        if (event.endDate) {
+            endDate = new Date(event.endDate);    
+            eventEndedAt = endDate.toISOString();
+            eventDuration = this.formatDuration(
+                Math.floor((endDate - startDate) / 1000)
+            );
+            eventEndDate = eventEndedAt.slice(0, 10); 
+        }
+       
 
         let entityLevel = null;
         let entityScope = null;
