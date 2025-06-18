@@ -8,7 +8,8 @@ const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { mongoose } = require('../../database');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
-
+const { decryptSecretsObject } = require('../utils/decryption');
+require('dotenv').config();
 
 /**
  * A Channel that polls the RSS feed of a list of URLs.
@@ -16,8 +17,9 @@ const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = requir
 class CloudflareChannel extends PollChannel {
 
     // This is ms so 100000 ms = 100 seconds
-    static INTERVAL = 100000;
-  
+    static INTERVAL = process.env.API_FETCH_INTERVAL || 300000;
+    static LIMIT = 20;
+
     constructor(options) {
 
         super({...options,
@@ -29,8 +31,12 @@ class CloudflareChannel extends PollChannel {
         this.countryCode = options.countryCode || null;
 
         this.credentials = options.credentials || null;
+        this.decryptedSecrets = this.credentials?.secrets
+            ? decryptSecretsObject(this.credentials.secrets)
+            : {};
 
         this.interval = options.interval || CloudflareChannel.INTERVAL;
+
 
         // Fetch time range from 2H ago (or an earlier timestamp if specified) till now
         const fetchToUTCTime = new Date(Date.now());
@@ -40,6 +46,7 @@ class CloudflareChannel extends PollChannel {
 
         this.fetchToTimestamp = fetchToUTCTime.toISOString().split('.')[0] + 'Z'; 
         this.fetchFromTimestamp = fetchFromUTCTime.toISOString().split('.')[0] + 'Z';  
+        this.fetchResultLimit = options.fetchResultLimit || CloudflareChannel.LIMIT;
        
     }
 
@@ -51,10 +58,11 @@ class CloudflareChannel extends PollChannel {
         const url = new URL(API_ROUTES.CLOUDFLARE.TRAFFIC_ANOMALIES, API_BASE_URLS.CLOUDFLARE);
         url.searchParams.append("dateStart", this.fetchFromTimestamp);
         url.searchParams.append("dateEnd", this.fetchToTimestamp);
+        url.searchParams.append("limit", this.fetchResultLimit);
 
         try {
             // Fetch data
-            const apiToken = this.credentials?.secrets?.cloudflareApiToken || null;
+            const apiToken = this.decryptedSecrets.cloudflareApiToken || null;
 
             if (!apiToken || apiToken.secrets) {
                 throw new Error(`Failed getting credential for the source ${this.options.namespace}.`);
@@ -117,6 +125,18 @@ class CloudflareChannel extends PollChannel {
 
                     if (existingReport) {
 
+                        await collection.updateOne(
+                            { guid: formattedEvent.platformID },
+                            {
+                                // update existing report if fields updated (such as endDate confirmed)
+                                $set: {
+                                    content: formattedEvent.content,
+                                    url: formattedEvent.url,
+                                    'metadata.rawAPIResponse': formattedEvent.raw,
+                                }
+                            }
+                        );
+
                         existedReportCount += 1;
 
                     } else {
@@ -154,18 +174,27 @@ class CloudflareChannel extends PollChannel {
      * Parse the fetched event data to SocialMediaPost.
      */
     parseEvent(event, matchesLocation) {
-          
-        const startDate = new Date(event.startDate);
-        const endDate = new Date(event.endDate);
         
+        // construct start date
+        const startDate = new Date(event.startDate);
         const eventStartedAt = startDate.toISOString();
-        const eventEndedAt = endDate.toISOString();
-        const eventDuration = this.formatDuration(
-            Math.floor((endDate - startDate) / 1000)
-        ); 
-
         const eventStartDate = eventStartedAt.slice(0, 10);
-        const eventEndDate = eventEndedAt.slice(0, 10);
+
+        // construct end date
+        let endDate = null;
+        let eventEndedAt = 'unknown';
+        let eventDuration = 'unknown';
+        let eventEndDate = this.fetchToTimestamp;
+
+        if (event.endDate) {
+            endDate = new Date(event.endDate);    
+            eventEndedAt = endDate.toISOString();
+            eventDuration = this.formatDuration(
+                Math.floor((endDate - startDate) / 1000)
+            );
+            eventEndDate = eventEndedAt.slice(0, 10); 
+        }
+       
 
         let entityLevel = null;
         let entityScope = null;
@@ -173,9 +202,6 @@ class CloudflareChannel extends PollChannel {
         let linkedPage = null;
         let image = null;
 
-        console.log('startDate: ', startDate, typeof(startDate));
-        console.log('eventStartedAt: ', eventStartedAt, typeof(eventStartedAt));
-        console.log('eventStartDate: ', eventStartDate, typeof(eventStartDate));
         if (matchesLocation) {
             entityLevel = 'Country';
             entityScope = event.locationDetails.name;

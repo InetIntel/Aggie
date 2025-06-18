@@ -4,7 +4,7 @@ const { mongoose } = require('../../database');
 const REGION_CODES = require('../../config/fetching/channels/iodaMappings');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
 const extractCleanSVGFromPage = require('../utils/iodaUtils');
-
+require('dotenv').config();
 
 
 
@@ -14,7 +14,7 @@ const extractCleanSVGFromPage = require('../utils/iodaUtils');
 class IODAChannel extends PollChannel {
 
     // This is ms so 300000 ms = 300 seconds = 5 minutes
-    static INTERVAL = 300000;
+    static INTERVAL = process.env.API_FETCH_INTERVAL || 300000;
   
     
     constructor(options) {
@@ -151,6 +151,18 @@ class IODAChannel extends PollChannel {
                         const existingReport = await collection.findOne({ guid: formattedEvent.platformID });
 
                         if (existingReport) {
+
+                            await collection.updateOne(
+                                { guid: formattedEvent.platformID },
+                                {
+                                    // update existing report if fields updated (such as endDate confirmed)
+                                    $set: {
+                                        content: formattedEvent.content,
+                                        url: formattedEvent.url,
+                                        'metadata.rawAPIResponse': formattedEvent.raw,
+                                    }
+                                }
+                            );
 
                             existedReportCount += 1;
 
