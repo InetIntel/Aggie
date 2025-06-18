@@ -48,6 +48,20 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
         );
     }
   }
+  function renderUrl(type: typeof contentType) {
+    switch (type) {
+      case "IODA":
+        return (
+          "https://ioda.inetintel.cc.gatech.edu/country/IR?from="
+          + `${report?.metadata?.rawAPIResponse?.start - 21600}&until=`
+          + `${report?.metadata?.rawAPIResponse?.start
+            + report?.metadata?.rawAPIResponse?.duration
+            + 21600}`
+        )
+      default:
+        return report.url;
+    }
+  }
   function renderPost(type: typeof contentType) {
     switch (type) {
       case "twitter":
@@ -117,7 +131,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
         <div className='flex items-center gap-2 h-fit pr-1'>
           <a
             target='_blank'
-            href={report.url}
+            href={renderUrl(contentType)}
             className='ml-1 px-2 py-1 rounded-full border border-slate-200 font-medium text-xs inline-flex gap-1 items-center bg-slate-100 hover:bg-white text-nowrap'
           >
             <span>Open Post</span>
