@@ -3,7 +3,7 @@
 'use strict';
 
 var config = require('../../config/secrets');
-
+const settingsHandler = require('../settings-handler');
   // Enable/disable global fetching
 exports.setting_update_fetch = (req, res, app) => {
   var fetching = null;
@@ -21,7 +21,7 @@ exports.setting_update_fetch = (req, res, app) => {
   config.updateFetching(fetching, (err) => {
     if (err) return res.sendStatus(500);
     res.sendStatus(200);
-    app.emit(fetching ? 'fetching:start' : 'fetching:stop');
+    settingsHandler.emit(fetching ? 'fetching:start' : 'fetching:stop');
   });
 }
 
