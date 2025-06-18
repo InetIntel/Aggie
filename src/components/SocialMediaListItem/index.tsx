@@ -252,6 +252,19 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
           </p>
         </div>
       );
+    case "IODA":
+      const rawLocation = report?.metadata?.rawAPIResponse?.location_name;
+      const rawStart = report?.metadata?.rawAPIResponse?.start;
+      const start = new Date(rawStart * 1000); // Convert to milliseconds
+      const startUtc = start.toISOString().replace('T', ' ').replace(':00.000Z', '');
+      const rawDuration = report?.metadata?.rawAPIResponse?.duration;
+      const end = new Date((rawStart + rawDuration) * 1000);
+      const endUtc = end.toISOString().replace('T', ' ').replace(':00.000Z', '');
+      if (startUtc.substring(0, 10) === endUtc.substring(0, 10))
+        return <p>location: {rawLocation}<br />{startUtc} to {endUtc.substring(11)} UTC</p>
+      return (
+        <p>location: {rawLocation}<br />{startUtc} to {endUtc} UTC</p>
+      );
     default:
       return (
         <p className=' text-black max-h-[10em] line-clamp-4'>
