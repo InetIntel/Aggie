@@ -6,7 +6,10 @@ interface IProps {
 }
 const IODAEvent = ({ report }: IProps) => {
   const rawData = report?.metadata?.rawAPIResponse;
-  const content = report.content;
+  const start = report?.authoredAt.replace('T', ' ').replace(':00.000Z', '');
+  const end = new Date((rawData?.start + rawData?.duration) * 1000);
+  const endUtc = end.toISOString().replace('T', ' ').replace(':00.000Z', '');
+
   const rawSignal = rawData?.datasource;
   let signal = "unknown";
   if (rawSignal === "bgp") {
@@ -16,14 +19,14 @@ const IODAEvent = ({ report }: IProps) => {
   } else if (rawSignal === "merit-nt") {
     signal = "Telescope";
   }
+
   return (
     <>
       <h2 className='font-medium'>{rawData?.location_name}</h2>
-      <p className=' mb-1'>signal triggered: {signal}</p>
-      <div
-        className='whitespace-pre-line mb-1 rsspost'
-        dangerouslySetInnerHTML={{ __html: content }}
-      ></div>
+      <p className=' mb-1'>
+        signal triggered: {signal}<br />
+        {start} - {endUtc} UTC
+      </p>
     </>
   );
 };

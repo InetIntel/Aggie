@@ -270,7 +270,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
           {startUtc} to {
             (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
             endUtc.substring(11) : endUtc
-          } UTC
+          }
         </p>
       );
     case "cloudflare":
@@ -281,7 +281,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
           entity: {report?.author}<br />
           {
             report?.authoredAt.replace('T', ' ').replace(':00.000Z', '')
-          } to {endDate} UTC
+          } to {endDate}
         </p>
       );
     default:
