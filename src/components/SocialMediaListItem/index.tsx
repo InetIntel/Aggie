@@ -128,6 +128,8 @@ function renderAuthor(
         return <>IODA-Active Probing</>;
       }
       return <>{report._media[0]}</>;
+    case "cloudflare":
+      return <>{report?.metadata?.rawAPIResponse?.dataSource}</>
     default:
       return <>{report._media[0]}</>;
   }
@@ -269,6 +271,17 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
             (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
             endUtc.substring(11) : endUtc
           } UTC
+        </p>
+      );
+    case "cloudflare":
+      const endDate = 
+        report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";
+      return (
+        <p>
+          entity: {report?.author}<br />
+          {
+            report?.authoredAt.replace('T', ' ').replace(':00.000Z', '')
+          } to {endDate} UTC
         </p>
       );
     default:

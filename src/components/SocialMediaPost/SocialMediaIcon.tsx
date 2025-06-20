@@ -6,6 +6,7 @@ import {
   faTiktok,
   faTwitter,
   faYoutube,
+  faCloudflare,
   type IconDefinition as BrandsDef,
 } from "@fortawesome/free-brands-svg-icons";
 import { faQuestionCircle } from "@fortawesome/free-regular-svg-icons";
@@ -21,6 +22,7 @@ const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
   facebook: faFacebook,
   truthsocial: faQuestionCircle,
   IODA: faQuestionCircle,
+  cloudflare: faCloudflare,
 };
 
 const SocialMediaIcon = ({

@@ -18,6 +18,7 @@ export const MEDIA_OPTIONS = [
   "youtube",
   "facebook",
   "IODA",
+  "cloudflare",
 ] as const;
 export type MediaOptions = (typeof MEDIA_OPTIONS)[number];
 
