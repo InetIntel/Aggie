@@ -220,13 +220,11 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
 
 
   const iodaSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
-    keywords: Yup.string().required(
-      "Keywords are required to create a Junkipedia source"
-    ),
+    nickname: Yup.string().required("Source Name is required"),
+    keywords: Yup.string().required("Country Code is required"),
   });
   type IodaSchema = Yup.InferType<typeof iodaSchema>;
-  const IodaForm = (
+  const iodaForm = (
     <FormikWithSchema
       initialValues={{
         nickname: source?.nickname || "",
@@ -241,6 +239,42 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       }}
       schema={iodaSchema}
       onSubmit={(values: IodaSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikDropdown
+        list={
+          [{ _id: "IR", label: "IR" }]
+        }
+        label={"Two-Letter Country Code"}
+        name={"keywords"}
+      />
+    </FormikWithSchema>
+  );
+
+  const cloudflareSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source Name is required"),
+    keywords: Yup.string().required("Country Code is required"),
+  });
+  type CloudflareSchema = Yup.InferType<typeof cloudflareSchema>;
+  const cloudflareForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "",
+      }}
+      schema={cloudflareSchema}
+      onSubmit={(values: CloudflareSchema) => {
         onSubmit(values);
       }}
       loading={isLoading}
@@ -295,7 +329,8 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       { /*{credentialType === "junkipedia" && JunkipediaForm}
       {credentialType === "rss" && RSSForm}
       {credentialType === "twitter" && TwitterForm}*/ }
-      {credentialType === "ioda" && IodaForm}
+      {credentialType === "ioda" && iodaForm}
+      {credentialType === "cloudflare" && cloudflareForm}
     </>
   );
 };
