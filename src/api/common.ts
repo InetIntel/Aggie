@@ -30,7 +30,8 @@ export type ClosedOptions = (typeof CLOSED_OPTIONS)[number];
 export const IRRELEVANCE_OPTIONS = ["true", "maybe", "false"] as const;
 export type IrrelevanceOptions = (typeof IRRELEVANCE_OPTIONS)[number];
 
-export const CREDENTIAL_OPTIONS = ["junkipedia", "rss", "twitter"] as const;
+//export const CREDENTIAL_OPTIONS = ["junkipedia", "rss", "twitter"] as const;
+export const CREDENTIAL_OPTIONS = ["ioda", "cloudflare"] as const;
 export type CredentialOption = (typeof CREDENTIAL_OPTIONS)[number];
 
 export const GROUP_SORTBY = [

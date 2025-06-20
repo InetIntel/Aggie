@@ -18,7 +18,8 @@ interface IProps {
 }
 const CreateCredentialForm = ({ onClose }: IProps) => {
   const [credentialType, setCredentialType] =
-    useState<CredentialOption>("junkipedia");
+    //useState<CredentialOption>("junkipedia");
+    useState<CredentialOption>("ioda");
 
   const queryClient = useQueryClient();
   const doCreateCredential = useMutation(newCredential, {
@@ -30,7 +31,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
 
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
-  const junkipediaSchema = Yup.object().shape({
+  /*const junkipediaSchema = Yup.object().shape({
     name: Yup.string().required("Credentials name required"),
     junkipediaAPIKey: Yup.string().required("API Token required"),
   });
@@ -115,12 +116,34 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       <FormikInput name='accessToken' label='Twitter Access Token' />
       <FormikInput name='accessTokenSecret' label='Twitter Access Token Secret' />
     </FormikWithSchema>
-  );
+  );*/
 
   // const crowdTangleSchema = Yup.object().shape({
   //   name: Yup.string().required("Credentials name required"),
   //   dashboardAPIToken: Yup.string().required("API Token required"),
   // });
+
+  const iodaSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required")
+  });
+  type IodaSchema = Yup.InferType<typeof iodaSchema>;
+
+  const iodaForm = (
+    <FormikWithSchema
+      schema={iodaSchema}
+      onSubmit={(values: IodaSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "ioda",
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Credential Name' />
+    </FormikWithSchema>
+  );
 
   return (
     <>
@@ -157,9 +180,10 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
           ))}
         </Listbox.Options>
       </Listbox>
-      {credentialType === "junkipedia" && junkipediaForm}
+      { /*{credentialType === "junkipedia" && junkipediaForm}
       {credentialType === "rss" && rssForm}
-      {credentialType === "twitter" && twitterForm}
+      {credentialType === "twitter" && twitterForm}*/ }
+      {credentialType === "ioda" && iodaForm}
     </>
   );
 };
