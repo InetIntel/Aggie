@@ -55,7 +55,7 @@ const PublicRoutes = () => {
   );
 };
 
-const defaultRoute = "/rpt/batch";
+const defaultRoute = "/rpt";
 
 interface IPrivateRouteProps {
   sessionData: Session | undefined;
