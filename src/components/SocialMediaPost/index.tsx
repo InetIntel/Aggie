@@ -154,8 +154,8 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
           />
         </div>
         <p className='text-xs text-slate-600 text-right'>
-          posted: <br />
-          <DateTime dateString={report.authoredAt} />
+          updated: <br />
+          <DateTime dateString={report.fetchedAt} />
         </p>
       </div>
     </div>
