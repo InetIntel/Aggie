@@ -145,6 +145,33 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
     </FormikWithSchema>
   );
 
+  const cloudflareSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required"),
+    cloudflareApiToken: Yup.string().required("Cloudflare API Token required."),
+  });
+  type CloudflareSchema = Yup.InferType<typeof cloudflareSchema>;
+
+  const cloudflareForm = (
+    <FormikWithSchema
+      schema={cloudflareSchema}
+      onSubmit={(values: CloudflareSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "cloudflare",
+          secrets: {
+            cloudflareApiToken: values.cloudflareApiToken,
+          },
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Credential Name' />
+      <FormikInput name='cloudflareApiToken' label='Cloudflare API Token' />
+    </FormikWithSchema>
+  );
+
   return (
     <>
       <label className='text-slate-600'>Credential Type</label>
@@ -184,6 +211,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       {credentialType === "rss" && rssForm}
       {credentialType === "twitter" && twitterForm}*/ }
       {credentialType === "ioda" && iodaForm}
+      {credentialType === "cloudflare" && cloudflareForm}
     </>
   );
 };
