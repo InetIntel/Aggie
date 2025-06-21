@@ -258,11 +258,11 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
       const rawStart = report?.metadata?.rawAPIResponse?.rawEvent?.start;
       const start = new Date(rawStart * 1000); // Convert to milliseconds
       const startUtc =
-        start.toISOString().replace('T', ' ').replace(':00.000Z', '');
+        start.toISOString().replace('T', ' ').substring(0, 16);
       const rawDuration = report?.metadata?.rawAPIResponse?.rawEvent?.duration;
       const end = new Date((rawStart + rawDuration) * 1000);
       const endUtc =
-        end.toISOString().replace('T', ' ').replace(':00.000Z', '');
+        end.toISOString().replace('T', ' ').substring(0, 16);
       return (
         <p>
           entity: {report?.author}<br />

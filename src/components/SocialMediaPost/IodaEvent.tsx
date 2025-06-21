@@ -6,8 +6,9 @@ interface IProps {
 }
 const IodaEvent = ({ report }: IProps) => {
   const rawData = report?.metadata?.rawAPIResponse;
-  const start = report?.authoredAt.replace('T', ' ').replace(':00.000Z', '');
-  const endUtc = rawData?.ended?.replace('T', ' ').replace(':00.000Z', '');
+  const start = report?.authoredAt?.replace('T', ' ').substring(0, 16);
+  const end = rawData?.ended?.replace('T', ' ').substring(0, 16);
+  console.log(rawData?.ended, end);
 
   const rawSignal = rawData?.rawEvent?.datasource;
   let signal = "unknown";
@@ -23,9 +24,9 @@ const IodaEvent = ({ report }: IProps) => {
     bgColor = "bg-[#ED9B40]";
   }
 
-  const image = rawData?.image.
+  const image = rawData?.image?.
     replace('width="726"', 'width="100%"').
-    replace('height="514"', 'height="auto"');
+    replace('height="514"', 'height="auto"') || "";
 
   return (
     <>
@@ -34,7 +35,7 @@ const IodaEvent = ({ report }: IProps) => {
         <span className={bgColor + " p-1 rounded-lg text-white text-xs"}>{signal}</span>
       </div>
       <p className='mb-1'>
-        {start} - {endUtc} UTC
+        {start} - {end} UTC
       </p>
       <div dangerouslySetInnerHTML={{ __html: image }} />
     </>
