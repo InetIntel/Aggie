@@ -21,7 +21,7 @@ const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
   RSS: faRss,
   facebook: faFacebook,
   truthsocial: faQuestionCircle,
-  IODA: faQuestionCircle,
+  ioda: faQuestionCircle,
   cloudflare: faCloudflare,
 };
 
@@ -31,7 +31,7 @@ const SocialMediaIcon = ({
   mediaKey: MediaOptions | undefined;
 }) => {
   if (!!mediaKey && mediaKey in mediaIcons) {
-    if (mediaKey == "IODA") {
+    if (mediaKey == "ioda") {
       return <img src="https://ioda.inetintel.cc.gatech.edu/icon-32-new.png"
         alt="IODA-icon"
         style={{

@@ -17,7 +17,7 @@ export const MEDIA_OPTIONS = [
   "truthsocial",
   "youtube",
   "facebook",
-  "IODA",
+  "ioda",
   "cloudflare",
 ] as const;
 export type MediaOptions = (typeof MEDIA_OPTIONS)[number];

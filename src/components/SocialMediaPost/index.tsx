@@ -17,7 +17,7 @@ import TruthSocialPost from "./TruthSocialPost";
 import SocialMediaIcon from "./SocialMediaIcon";
 import RSSPost from "./RSSPost";
 import TwitterKWSearchPost from "./TwitterKWSearchPost";
-import IODAEvent from "./IODAEvent";
+import IodaEvent from "./IodaEvent";
 import TrafficEvent from "./TrafficEvent";
 
 interface IProps {
@@ -50,18 +50,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
     }
   }
   function renderUrl(type: typeof contentType) {
-    switch (type) {
-      case "IODA":
-        return (
-          "https://ioda.inetintel.cc.gatech.edu/country/IR?from="
-          + `${report?.metadata?.rawAPIResponse?.start - 21600}&until=`
-          + `${report?.metadata?.rawAPIResponse?.start
-            + report?.metadata?.rawAPIResponse?.duration
-            + 21600}`
-        )
-      default:
-        return report.url;
-    }
+    return report.url;
   }
   function renderPost(type: typeof contentType) {
     switch (type) {
@@ -78,8 +67,8 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
         return <TruthSocialPost report={report} />;
       case "youtube":
         return <YoutubePost report={report} />;
-      case "IODA":
-        return <IODAEvent report={report} />;
+      case "ioda":
+        return <IodaEvent report={report} />;
       case "cloudflare":
         return <TrafficEvent report={report} />;
       default:

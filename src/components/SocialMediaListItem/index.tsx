@@ -118,8 +118,8 @@ function renderAuthor(
   report: Report
 ) {
   switch (report._media[0]) {
-    case "IODA":
-      let signal = report.metadata.rawAPIResponse.datasource;
+    case "ioda":
+      let signal = report?.metadata?.rawAPIResponse?.rawEvent?.datasource;
       if (signal === "bgp") {
         return <>IODA-BGP</>;
       } else if (signal === "merit-nt") {
@@ -254,19 +254,18 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
           </p>
         </div>
       );
-    case "IODA":
-      const rawLocation = report?.metadata?.rawAPIResponse?.location_name;
-      const rawStart = report?.metadata?.rawAPIResponse?.start;
+    case "ioda":
+      const rawStart = report?.metadata?.rawAPIResponse?.rawEvent?.start;
       const start = new Date(rawStart * 1000); // Convert to milliseconds
       const startUtc =
         start.toISOString().replace('T', ' ').replace(':00.000Z', '');
-      const rawDuration = report?.metadata?.rawAPIResponse?.duration;
+      const rawDuration = report?.metadata?.rawAPIResponse?.rawEvent?.duration;
       const end = new Date((rawStart + rawDuration) * 1000);
       const endUtc =
         end.toISOString().replace('T', ' ').replace(':00.000Z', '');
       return (
         <p>
-          location: {rawLocation}<br />
+          entity: {report?.author}<br />
           {startUtc} to {
             (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
             endUtc.substring(11) : endUtc
