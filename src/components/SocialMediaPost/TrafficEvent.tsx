@@ -11,7 +11,7 @@ const TrafficEvent = ({ report }: IProps) => {
   const endDate = rawData?.rawEvent?.endDate || "now";
   return (
     <>
-      <h2 className='font-medium'>{report?.author}</h2>
+      <h2 className='font-bold'>{report?.author}</h2>
       <p className=' mb-1'>
         {
           report?.authoredAt?.replace('T', ' ').replace(':00.000Z', '')

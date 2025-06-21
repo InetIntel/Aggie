@@ -12,19 +12,25 @@ const IODAEvent = ({ report }: IProps) => {
 
   const rawSignal = rawData?.datasource;
   let signal = "unknown";
+  let bgColor = "";
   if (rawSignal === "bgp") {
     signal = "BGP";
+    bgColor = "bg-[#33A02C]";
   } else if (rawSignal === "ping-slash24") {
     signal = "Active Probing";
+    bgColor = "bg-[#1F78B4]";
   } else if (rawSignal === "merit-nt") {
     signal = "Telescope";
+    bgColor = "bg-[#ED9B40]";
   }
 
   return (
     <>
-      <h2 className='font-medium'>{rawData?.location_name}</h2>
-      <p className=' mb-1'>
-        signal triggered: {signal}<br />
+      <div className='flex gap-2 items-center'>
+        <h2 className='font-bold'>{rawData?.location_name}</h2>
+        <span className={bgColor + " p-1 rounded-lg text-white text-xs"}>{signal}</span>
+      </div>
+      <p className='mb-1'>
         {start} - {endUtc} UTC
       </p>
     </>
