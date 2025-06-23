@@ -10,6 +10,9 @@ const config = require('../config/secrets');
 const downstream = require('./downstream');
 
 const RSSChannel = require('./channels/rss');
+const IODAChannel = require('./channels/ioda');
+const CloudflareChannel = require('./channels/cloudflare');
+
 
 const { TwitterPageChannel, JunkipediaChannel } = builtin;
 
@@ -91,15 +94,15 @@ function createChannel(source) {
 
     let options = {
         lastTimestamp: lastReportDate,
-        onFetch: async (lastTimestamp) => {
+        onFetch: async (updatedTimestamp) => { // update naming to avoid confusion
             return Source.updateOne(
                 { _id },
-                { lastReportDate: lastTimestamp },
+                { lastReportDate: updatedTimestamp },
             ).exec();
         }
     };
 
-    console.log(source)
+    // console.log(source)
     switch(media) {
         case 'facebook':
         case 'instagram':
@@ -185,7 +188,29 @@ function createChannel(source) {
             };
             channel = new RSSChannel(options);
             break;
+        case 'ioda':
+            options = {
+                ...options,
+                media: media,
+                countryCode: keywords,
+            };
+            channel = new IODAChannel(options);
+            break;
+        case 'cloudflare':
+            options = {
+                ...options,
+                media: media,
+                countryCode: keywords,
+                credentials: credentials,
+            }
+            channel = new CloudflareChannel(options);
         default:
+    }
+
+    if (channel) {
+        console.log(`[Fetching-createChannel] Success - Created channel: ${source.media}.`);
+    } else {
+        console.error(`[Fetching-createChannel] Failed - Creating channel: ${source.media}.`);
     }
 
     channel.enabled = enabled;
@@ -224,7 +249,7 @@ async function initChannels() {
 
     
     console.log("PREPARING ALL ENABLED CHANNELS")
-    // console.log(sources)
+
     // create & start all enabled Channels
     sources.forEach((source) => createChannel(source));
 

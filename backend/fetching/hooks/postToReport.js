@@ -1,7 +1,7 @@
 // Converts a Downstream SocialMediaPost to an Aggie Report.
 
 const { getSourceID, getChannel } = require('../sourceToChannel');
-const { parseJunkipediaPostMetadata } = require('../util');
+const { parseJunkipediaPostMetadata } = require('../utils/junkipediaUtils');
 
 module.exports = async function postToReport(post, next) {
     const {
@@ -29,27 +29,7 @@ module.exports = async function postToReport(post, next) {
 
 
     let metadata;
-    if (platform === 'RSS') {
-        // What do we want here?
-        metadata = {
-            // title: raw.title || null,
-            // description: raw.description || null,
-            // link: raw.link || null,
-            // image: raw.image || null,
-            // date: raw.date || null,
-
-
-            // junkipediaId: id || null,
-            // channelId: channel_id || null,
-            // accountHandle: channel_name || null,
-            // accountUrl: channel_url_external || null,
-            // mediaUrl: thumbnail_url || null,
-            // // TODO: This may need to be adapted. Also, figure out difference between engagement_data and engagement_fields
-            // actualStatistics: engagement_data || null,
-            rawAPIResponse: raw,
-        } 
-        // post.guid = post.guid || post.link || null;
-    } else if (isKeywordSearchTwitter) {
+    if (isKeywordSearchTwitter) {
         const { post, user } = raw;
                 const {
                     id,
@@ -97,9 +77,12 @@ module.exports = async function postToReport(post, next) {
                     likeCount: like_count ? like_count : 0,
                     rawAPIResponse: raw,
                 }
-    } else {
+    } else if (platform === 'junkipedia') {
         metadata = parseJunkipediaPostMetadata(raw);
+    } else {
+        metadata = {rawAPIResponse: raw} || null;
     };
+
     post.metadata = metadata;
 
     await next();

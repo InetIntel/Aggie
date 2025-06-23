@@ -16,11 +16,13 @@ function registerListeners() {
 
 // fetching:start
 async function onFetchingStart() {
+    console.log('[debugging-global fetching] Received event-fetching:start')
     await downstream.start((_, channel) => channel.enabled);
 }
 
 // fetching:stop
 async function onFetchingStop() {
+    console.log('[debugging-global fetching] Received event-fetching:stop')
     await downstream.stop((_, channel) => channel.enabled);
 }
 
