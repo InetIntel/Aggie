@@ -25,6 +25,7 @@ const FormikWithSchema = ({
 }: IProps) => {
   return (
     <Formik
+      enableReinitialize
       initialValues={initialValues ? initialValues : schema.getDefault()}
       validationSchema={schema}
       onSubmit={(e) => onSubmit(e)}

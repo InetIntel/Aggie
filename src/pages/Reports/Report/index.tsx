@@ -221,7 +221,7 @@ const Report = () => {
           </div>
         </div>
       </nav>
-      <div className='flex flex-col gap-1 my-2'>
+      { /*<div className='flex flex-col gap-1 my-2'>
         <div className=''>
           <p className='font-medium text-sm '>Source</p>
           <p className=' '>{getSourceFromId(report._sources)}</p>
@@ -279,7 +279,7 @@ const Report = () => {
             )}
           </Formik>
         </div>
-      </div>
+      </div>*/ }
 
       <SocialMediaPost report={report} showMedia />
     </article>

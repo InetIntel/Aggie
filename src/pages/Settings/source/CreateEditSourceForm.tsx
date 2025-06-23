@@ -30,7 +30,7 @@ interface IProps {
 }
 const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   const [credentialType, setCredentialType] =
-    useState<CredentialOption>("junkipedia");
+    useState<CredentialOption>("ioda");
 
   const queryClient = useQueryClient();
 
@@ -67,7 +67,9 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     },
   });
   const isLoading = doCreateSource.isLoading || doEditSource.isLoading;
-  // junkpedia credential
+
+
+  /*// junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
   const JunkipediaSchema = Yup.object().shape({
     nickname: Yup.string().required("Source name is a required field"),
@@ -202,7 +204,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       <FormikInput name='nickname' label='Credential Name' />
 
       <FormikInput name='regex' label='regex' />
-      {/* <FormikInput name='lists' label='Lists' /> */}
+      {// <FormikInput name='lists' label='Lists' /> }
 
       <FormikDropdown
         list={
@@ -212,6 +214,79 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         }
         label={"API Credentials"}
         name={"credentials"}
+      />
+    </FormikWithSchema>
+  );*/
+
+
+  const iodaSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source Name is required"),
+    keywords: Yup.string().required("Country Code is required"),
+  });
+  type IodaSchema = Yup.InferType<typeof iodaSchema>;
+  const iodaForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "",
+      }}
+      schema={iodaSchema}
+      onSubmit={(values: IodaSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikDropdown
+        list={
+          [{ _id: "IR", label: "IR" }]
+        }
+        label={"Two-Letter Country Code"}
+        name={"keywords"}
+      />
+    </FormikWithSchema>
+  );
+
+  const cloudflareSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source Name is required"),
+    keywords: Yup.string().required("Country Code is required"),
+  });
+  type CloudflareSchema = Yup.InferType<typeof cloudflareSchema>;
+  const cloudflareForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "",
+      }}
+      schema={cloudflareSchema}
+      onSubmit={(values: CloudflareSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikDropdown
+        list={
+          [{ _id: "IR", label: "IR" }]
+        }
+        label={"Two-Letter Country Code"}
+        name={"keywords"}
       />
     </FormikWithSchema>
   );
@@ -251,9 +326,11 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
           ))}
         </Listbox.Options>
       </Listbox>
-      {credentialType === "junkipedia" && JunkipediaForm}
+      { /*{credentialType === "junkipedia" && JunkipediaForm}
       {credentialType === "rss" && RSSForm}
-      {credentialType === "twitter" && TwitterForm}
+      {credentialType === "twitter" && TwitterForm}*/ }
+      {credentialType === "ioda" && iodaForm}
+      {credentialType === "cloudflare" && cloudflareForm}
     </>
   );
 };

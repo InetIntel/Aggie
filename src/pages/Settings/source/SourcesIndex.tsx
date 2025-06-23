@@ -11,6 +11,7 @@ import DropdownMenu from "../../../components/DropdownMenu";
 import AggieButton from "../../../components/AggieButton";
 import AggieDialog from "../../../components/AggieDialog";
 import CreateEditSourceForm from "./CreateEditSourceForm";
+import Configuration from "../Configuration";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -59,7 +60,8 @@ const SourcesIndex = (props: IProps) => {
 
   return (
     <div className='mt-3'>
-      <div className='flex justify-between items-center'>
+      <Configuration />
+      <div className='flex justify-between items-center mt-3'>
         <h1 className={"my-3 text-3xl font-medium"}>Sources</h1>
         <AggieButton
           onClick={() => setOpenCreate("new")}

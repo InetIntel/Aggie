@@ -17,6 +17,8 @@ import TruthSocialPost from "./TruthSocialPost";
 import SocialMediaIcon from "./SocialMediaIcon";
 import RSSPost from "./RSSPost";
 import TwitterKWSearchPost from "./TwitterKWSearchPost";
+import IodaEvent from "./IodaEvent";
+import TrafficEvent from "./TrafficEvent";
 
 interface IProps {
   report: Report;
@@ -62,7 +64,10 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
         return <TruthSocialPost report={report} />;
       case "youtube":
         return <YoutubePost report={report} />;
-
+      case "ioda":
+        return <IodaEvent report={report} />;
+      case "cloudflare":
+        return <TrafficEvent report={report} />;
       default:
         return (
           <>
@@ -135,8 +140,8 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
           />
         </div>
         <p className='text-xs text-slate-600 text-right'>
-          posted: <br />
-          <DateTime dateString={report.authoredAt} />
+          updated: <br />
+          <DateTime dateString={report.fetchedAt} />
         </p>
       </div>
     </div>
