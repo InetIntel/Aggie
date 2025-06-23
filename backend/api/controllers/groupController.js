@@ -3,7 +3,6 @@
 
 var Group = require('../../models/group');
 const _ = require('lodash');
-var writelog = require('../../writeLog');
 var tags = require('../../shared/tags');
 const Report = require('../../models/report');
 const eventRouter = require('../sockets/event-router');
@@ -14,7 +13,7 @@ exports.group_create = (req, res) => {
     if (err) {
       res.status(err.status).send(err.message);
     } else {
-      writelog.writeGroup(req, group, 'createGroup');
+      
 
       eventRouter.publish('groups:create', group).then(() => {
         res.status(200).send(group);
@@ -76,7 +75,7 @@ exports.group_details = (req, res) => {
         if (
           !(referer.split('/')[referer.split('/').length - 1] === 'reports')
         ) {
-          writelog.writeGroup(req, group, 'viewGroup');
+          
         }
         res.status(200).send(group);
       }
@@ -99,7 +98,7 @@ exports.group_update = (req, res, next) => {
       } else if (!numberAffected) {
         res.sendStatus(404);
       } else {
-        writelog.writeGroup(req, group, 'editGroup');
+        
         eventRouter.publish('groups:update', { ids: group._id, update: group }).then(() => {
           res.status(200).send(group);
         });
@@ -122,7 +121,7 @@ exports.group_selected_delete = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeGroup(req, group, 'deleteGroup');
+        
         if (--remaining === 0) {
           res.sendStatus(200);
         }
@@ -150,7 +149,7 @@ exports.group_tags_add = (req, res) => {
           } else if (!numberAffected) {
             res.sendStatus(404);
           } else {
-            writelog.writeGroup(req, group, 'addTagToGroup');
+            
             res.sendStatus(200);
           }
         });
@@ -177,7 +176,7 @@ exports.group_tags_remove = (req, res) => {
           } else if (!numberAffected) {
             res.sendStatus(404);
           } else {
-            writelog.writeGroup(req, group, 'removeTagFromGroup');
+            
             res.sendStatus(200);
           }
         });
@@ -201,7 +200,6 @@ exports.group_escalated_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'escalatedGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { escalated: group.escalated } }).then(() => {
             return res.sendStatus(200)
@@ -226,7 +224,6 @@ exports.group_assigned_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'assignedGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: group._id, update: { assignedTo: group.assignedTo } }).then(() => {
             return res.status(200).send(group);
@@ -251,7 +248,6 @@ exports.group_title_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'titleGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { title: group.title } }).then(() => {
             return res.sendStatus(200)
@@ -277,7 +273,6 @@ exports.group_locationName_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'locationNameGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { locationName: group.locationName } }).then(() => {
             return res.sendStatus(200)
@@ -303,7 +298,6 @@ exports.group_closed_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'notesGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { closed: group.closed } }).then(() => {
             return res.sendStatus(200)
@@ -329,7 +323,6 @@ exports.group_veracity_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'veracityGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { veracity: group.veracity } }).then(() => {
             return res.sendStatus(200)
@@ -356,7 +349,6 @@ exports.group_public_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'publicGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { public: group.public } }).then(() => {
             return res.sendStatus(200)
@@ -383,7 +375,6 @@ exports.group_notes_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'notesGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { note: group.notes } }).then(() => {
             return res.sendStatus(200)
@@ -409,7 +400,7 @@ exports.group_comment_add = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'commentAddGroup');
+        
 
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
@@ -438,7 +429,7 @@ exports.group_comment_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'commentEditGroup');
+        
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
             return res.sendStatus(200)
@@ -465,7 +456,7 @@ exports.group_comment_remove = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'commentRemoveGroup');
+        
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
             return res.sendStatus(200)
@@ -494,7 +485,7 @@ exports.group_tags_clear = (req, res) => {
           } else if (!numberAffected) {
             res.sendStatus(404);
           } else {
-            writelog.writeGroup(req, group, 'ClearTagsFromGroup');
+            
             res.sendStatus(200);
           }
         });
@@ -513,7 +504,7 @@ exports.group_delete = (req, res, next) => {
       if (err) {
         return res.status(err.status).send(err.message);
       }
-      writelog.writeGroup(req, group, 'deleteGroup');
+      
 
       eventRouter.publish('groups:delete', group).then(() => {
         res.sendStatus(200);
@@ -535,7 +526,7 @@ exports.group_all_delete = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeGroup(req, group, 'deleteGroup');
+        
         if (--remaining === 0) return res.sendStatus(200);
       });
     });

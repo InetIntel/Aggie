@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 
 /**
- *
+ * wraps tanstack queryClient with a new update function that updates data in the local cache directly
  * @returns
  */
 export function useUpdateQueryData() {

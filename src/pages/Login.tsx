@@ -16,9 +16,9 @@ const loginFormSchema = Yup.object().shape({
   loginPassword: Yup.string().required("Password required"),
 });
 
-interface IProps {}
+interface IProps { }
 
-const Login = (props: IProps) => {
+const Login = ({ }: IProps) => {
   const { getParam } = useQueryParams<{ to: string }>();
 
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ const Login = (props: IProps) => {
   const queryClient = useQueryClient();
 
   const loginQuery = useMutation(logIn, {
-    onSuccess: (data) => {
+    onSuccess: (_) => {
       // if theres a return parameter, return to that url
       if (!!getParam("to")) {
         navigate(getParam("to"));
@@ -34,7 +34,7 @@ const Login = (props: IProps) => {
       //reload website to check for session in root
       navigate(0);
     },
-    onError: (data) => {},
+    onError: (_) => { },
   });
   const [passwordVisibility, setPasswordVisibility] = useState(false);
   const formValuesToLogin = (values: FormikValues) => {
@@ -70,9 +70,8 @@ const Login = (props: IProps) => {
           </div>
         </div>
         <div
-          className={`px-2 py-2 bg-red-100 border border-red-800 text-red-700 font-medium rounded-lg ${
-            loginQuery.isError ? " " : "hidden"
-          }`}
+          className={`px-2 py-2 bg-red-100 border border-red-800 text-red-700 font-medium rounded-lg ${loginQuery.isError ? " " : "hidden"
+            }`}
         >
           <span>
             Your username and password combination was not correct, please try
@@ -82,19 +81,16 @@ const Login = (props: IProps) => {
         <Formik
           initialValues={{ loginUsername: "", loginPassword: "" }}
           validationSchema={loginFormSchema}
-          onSubmit={(values, { setSubmitting, resetForm }) => {
+          onSubmit={(values) => {
             loginQuery.mutate(formValuesToLogin(values), {
-              onSuccess: (data) => queryClient.invalidateQueries(["session"]),
+              onSuccess: (_) => queryClient.invalidateQueries(["session"]),
             });
           }}
         >
           {({
             values,
-            errors,
-            touched,
             handleChange,
             handleSubmit,
-            isSubmitting,
           }) => (
             <Form noValidate onSubmit={handleSubmit}>
               <label

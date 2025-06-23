@@ -6,7 +6,7 @@ var mailer = require('../mailer');
 var User = require('../models/user');
 var config = require('../config/secrets').get();
 const {createCipheriv, scryptSync, createDecipheriv, randomFillSync} = require('crypto');
-var _ = require('underscore');
+var _ = require('lodash');
 
 const iv = randomFillSync(new Uint8Array(16));
 const algorithm = 'aes-256-cbc';

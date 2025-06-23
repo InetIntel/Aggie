@@ -1,3 +1,5 @@
+
+
 import {
   useFloating,
   useInteractions,
@@ -9,13 +11,16 @@ import {
   offset,
 } from "@floating-ui/react";
 import { useState } from "react";
+
+const defaultOptions = {
+  offset: 3,
+};
+
+
 /***
  * abstracting away @floating-ui/react things
  * https://floating-ui.com/docs/getting-started
  */
-const defaultOptions = {
-  offset: 3,
-};
 export function usePopover(
   userOptions: Partial<typeof defaultOptions> = defaultOptions
 ) {

@@ -14,10 +14,6 @@ logs
 results
 tmp
 
-# Python
-venv/
-*.pyc
-
 npm-debug*
 node_modules
 fiddle
@@ -34,13 +30,7 @@ backend/migrations/.migrate
 .migrate
 
 public/css/styles.css
-public/angular/css/app.css
-public/angular/js/app.min.js
-public/angular/translations/locale-debug.json
-backend/translations/locale-debug.json
-backend/hate-speech-api/error.log
 
-hate-speech-api/*.log
 buildAssets
 docs/_build
 
@@ -48,10 +38,8 @@ NOTES
 
 data
 
-backend/config/secrets.json
 backend/config/cert.pem
 backend/config/key.pem
-backend/config/crowdtangle_list.json
 
 docs/_build
 

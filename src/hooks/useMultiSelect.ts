@@ -20,7 +20,7 @@ interface IOptions<T extends hasId> {
  *  wrapper for "select multiple" functionality
  *  keeps track of a string array that keeps id's of the selected object
  *
- * @param options required options
+ * @param options required options 
  * @returns
  */
 export function useMultiSelect<T extends hasId>({
@@ -88,6 +88,7 @@ export function useMultiSelect<T extends hasId>({
   function exists(obj: T) {
     return selection.some((i) => i._id === obj._id);
   }
+  /** generate a list of ids */
   function toIdList() {
     return selection.map((i) => i._id);
   }

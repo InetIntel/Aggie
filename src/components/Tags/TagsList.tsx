@@ -10,6 +10,8 @@ const TagsList = ({ values }: IProps) => {
   const { isSuccess, isLoading, data } = useQuery(["tags"], getTags, {
     staleTime: 40000,
   });
+
+
   /// lol i should refactor this
   function renderTag(id: string) {
     if (isLoading || !data) return undefined;

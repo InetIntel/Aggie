@@ -1,7 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
-import { useQueryParams } from "../../hooks/useQueryParams";
 
 import { IrrelevanceOptions } from "../../api/common";
 import {
@@ -14,7 +12,6 @@ import { updateByIds } from "../../utils/immutable";
 import type {
   Reports,
   Report,
-  ReportQueryState,
 } from "../../api/reports/types";
 
 interface IOptions {
@@ -28,10 +25,9 @@ export const useReportMutations = (
   userOptions: Partial<IOptions> = defaultOptions
 ) => {
   const queryData = useUpdateQueryData();
-  const navigate = useNavigate();
-  const { searchParams } = useQueryParams<ReportQueryState>();
 
   const options = { ...defaultOptions, ...userOptions };
+  
   // this is an exmaple of optimistic mutation
 
   const setRead = useMutation({

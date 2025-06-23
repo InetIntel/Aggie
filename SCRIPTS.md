@@ -66,32 +66,6 @@ git clone https://github.com/TID-Lab/aggie.git
 cd aggie
 nvm install && npm install
 
-cp config/secrets.json.example config/secrets.json
-# User input: Customize Aggie settings per the README instructions.
-# This includes adding your SMTP email server credentials, detectHateSpeech option etc.
-$EDITOR config/secrets.json
-
-# User input: Get CrowdTangle sources per the README instructions, if using them.
-# Otherwise stub it:
-echo "{}" > config/crowdtangle_list.json
-
-# Follow these steps for setting up hate speech API for Burmese
-python --version # check if you have python 2 installed.
-cd hate-speech-api
-npm install forever -g # install `forever` npm module.
-pip install virtualenv # install virtual environment.
-virtualenv venv # create virtual environment.
-source venv/bin/activate # activate virtual environment
-pip install -r requirements.txt # install dependencies
-# User input: Set `detectHateSpeech: true`.
-$EDITOR config/secrets.json
-# User input: Set the script to run on startup.
-crontab -e
-# Paste the following line in crontab:
-@reboot bash -c 'source $HOME/.nvm/nvm.sh; forever start -o $HOME/aggie/logs/hate-speech-out.log -e $HOME/aggie/logs/hate-speech-err.log -c python $HOME/aggie/hate-speech-api/hate_speech_clf_api.py > hate-cron.log 2>&1'
-# Reboot the machine and make sure the Hate Speech API is available on port 5000:
-curl localhost:5000
-
 # Ready! Test run:
 npm start
 # Now verify Aggie is online at your URL, then kill this process (ctrl+c) when you're done.
@@ -112,7 +86,7 @@ npx pm2 startup
 npm run serve
 npx pm2 save
 
-# If you ever modify secrets.json, restart the backend by running (in the `aggie` directory):
+# If you ever modify .env, restart the backend by running (in the `aggie` directory):
 npx pm2 restart aggie
 
 # OPTIONAL User input: Restart Aggie every 6 hours if you have high traffic. Memory leaks are in the process of being addressed.
@@ -123,7 +97,6 @@ crontab -e
 # User input: Enable log rotation.
 sudo $EDITOR /etc/logrotate.conf
 # Paste the following, changing `/home/my_user` to the location of the `aggie` folder.
-/home/my_user/aggie/logs/*.log
 /home/my_user/.pm2/logs/*.log
 /var/log/mongodb/*.log
 {

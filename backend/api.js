@@ -216,13 +216,6 @@ socketHandler.addListeners(
   })
 );
 
-socketHandler.addListeners(
-  'stats',
-  childProcess.setupEventProxy({
-    emitter: './analytics/stats-master',
-    emitterModule: 'analytics',
-  })
-);
 
 // Defer local listeners until inter-process listeners have been set up to avoid binding conflicts
 setTimeout(function () {
@@ -233,8 +226,6 @@ setTimeout(function () {
 
 }, 500);
 
-// Add CRON job for updating CrowdTangle List
-//app.use(require('./cron/ct-list-update'));
 
 // get git version
 var version;

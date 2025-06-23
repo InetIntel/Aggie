@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { IuseQueryParams, useQueryParams } from "../../hooks/useQueryParams";
 
 import { getUsers } from "../../api/users";
 import {
@@ -28,7 +27,7 @@ import { formatPageCount } from "../../utils/format";
 import { getSession } from "../../api/session";
 import { faCircleDot } from "@fortawesome/free-regular-svg-icons";
 
-interface IIncidentFilters {
+interface IProps {
   isQuery: boolean;
   get: (value: keyof GroupQueryState) => string;
   set: (values: GroupQueryState) => void;
@@ -41,11 +40,13 @@ const IncidentsFilters = ({
   set,
   clearAll,
   isQuery,
-}: IIncidentFilters) => {
+}: IProps) => {
   const { data: users } = useQuery(["users"], getUsers);
+
   const { data: session } = useQuery(["session"], getSession, {
     staleTime: 10000,
   });
+
   function usersRemapComboBox(query: typeof users) {
     if (!query) return [];
     const array = query.map((user) => ({
@@ -67,7 +68,7 @@ const IncidentsFilters = ({
     }
     set(values);
   }
-  function onSearch() {}
+  function onSearch() { }
 
   return (
     <>

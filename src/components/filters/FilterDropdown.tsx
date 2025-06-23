@@ -34,7 +34,7 @@ const FilterDropdown = ({
   label,
   children,
   value,
-  onReset = () => {},
+  onReset = () => { },
   headerChild,
   panelClassName,
   onOpenChange,
@@ -77,9 +77,8 @@ const FilterDropdown = ({
   return (
     <div className='relative'>
       <button
-        className={`focus-theme py-1 hover:bg-slate-100 hover:underline line-clamp-1 max-w-[24em] ${
-          isOpen ? "bg-slate-100" : ""
-        } rounded ${value ? "bg-slate-200 px-2" : "px-1"}`}
+        className={`focus-theme py-1 hover:bg-slate-100 hover:underline line-clamp-1 max-w-[24em] ${isOpen ? "bg-slate-100" : ""
+          } rounded ${value ? "bg-slate-200 px-2" : "px-1"}`}
         ref={refs.setReference}
         {...getReferenceProps()}
       >
@@ -94,9 +93,8 @@ const FilterDropdown = ({
       <FloatingNode id={nodeId}>
         {isOpen && (
           <div
-            className={`absolute mt-1 right-0 rounded-lg border border-slate-300  bg-slate-100 overflow-hidden min-w-[12em] drop-shadow-lg z-10 text-sm  ${
-              panelClassName || "w-fit max-w-md"
-            }`}
+            className={`absolute mt-1 right-0 rounded-lg border border-slate-300  bg-slate-100 overflow-hidden w-[20em] drop-shadow-lg z-10 text-sm  ${panelClassName || "w-fit max-w-md"
+              }`}
             style={floatingStyles}
             ref={refs.setFloating}
             {...getFloatingProps}

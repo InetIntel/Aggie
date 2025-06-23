@@ -11,7 +11,7 @@ import {
 import type { Reports } from "../reports/types";
 import { hasId, VeracityOptions } from "../common";
 import { omitBy, isNil } from "lodash";
-import { ReportQueryState } from "../../objectTypes";
+import { ReportQueryState } from "../reports/types";
 import { urlFromReportsQuery } from "../reports";
 
 export const getGroups = async (
@@ -87,12 +87,15 @@ export const getGroupReports = async (searchState: ReportQueryState = {}) => {
 interface Selected {
   ids: string[];
 }
+
 interface SelectedOne {
   id: string;
 }
+
 interface SetVeracityParams extends Selected {
   veracity: VeracityOptions | string;
 }
+
 export const setSelectedVeracity = async (params: SetVeracityParams) => {
   const { data } = await axios.patch("/api/group/_veracity", {
     ids: params.ids,
