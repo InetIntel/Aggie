@@ -201,13 +201,13 @@ class CloudflareChannel extends PollChannel {
             entityLevel = 'Country';
             entityScope = event.locationDetails.name;
             entityName = `${entityLevel} - ${entityScope}`;
-            linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${event.locationDetails.code}&dateStart=${eventStartDate}&dateEnd=${eventEndDate}`;
+            linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${event.locationDetails.code}?dateStart=${eventStartDate}&dateEnd=${eventEndDate}`;
             image = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${API_LINKED_PAGE_URLS.CLOUDFLARE.IMAGE_ROUTE}&dateStart=${eventStartDate}&dateEnd=${eventEndDate}&location=${this.countryCode}`;
         } else {
             entityLevel = 'AS';
             entityScope = event.asnDetails.location.name;
             entityName = `${event.asnDetails.name} - ${entityScope}`;
-            linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/as${event.asnDetails.asn}&dateStart=${eventStartDate}&dateEnd=${eventEndDate}`;
+            linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/as${event.asnDetails.asn}?dateStart=${eventStartDate}&dateEnd=${eventEndDate}`;
             image = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${API_LINKED_PAGE_URLS.CLOUDFLARE.IMAGE_ROUTE}&dateStart=${eventStartDate}&dateEnd=${eventEndDate}&location=as${event.asnDetails.asn}`;
         }
 
