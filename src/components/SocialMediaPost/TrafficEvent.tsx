@@ -15,7 +15,7 @@ const TrafficEvent = ({ report }: IProps) => {
       <p className=' mb-1'>
         {
           report?.authoredAt?.replace('T', ' ').substring(0, 16)
-        } - {endDate} UTC
+        } - {endDate.replace('T', ' ').substring(0, 16)} UTC
       </p>
       <img src={rawData?.image} alt='traffic trend' />
     </>

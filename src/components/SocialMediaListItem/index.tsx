@@ -280,7 +280,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
           entity: {report?.author}<br />
           {
             report?.authoredAt.replace('T', ' ').substring(0, 16)
-          } to {endDate}
+          } to {endDate.replace('T', ' ').substring(0, 16)}
         </p>
       );
     default:
