@@ -1,13 +1,9 @@
-//TODO: 
-// make code modulize -- Done
-// update lastReportDate attribute -- Done
-// add graph link
 
 
 const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { mongoose } = require('../../database');
-const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
+const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS, API_MAX_RESULTS } = require('../../config/fetching/externalApis');
 const { decryptSecretsObject } = require('../utils/decryption');
 require('dotenv').config();
 
@@ -16,9 +12,9 @@ require('dotenv').config();
  */
 class CloudflareChannel extends PollChannel {
 
-    // This is ms so 100000 ms = 100 seconds
+    
     static INTERVAL = process.env.API_FETCH_INTERVAL || 300000;
-    static LIMIT = 20;
+    static LIMIT = API_MAX_RESULTS.CLOUDFLARE || 50;
 
     constructor(options) {
 
@@ -67,7 +63,7 @@ class CloudflareChannel extends PollChannel {
             if (!apiToken || apiToken.secrets) {
                 throw new Error(`Failed getting credential for the source ${this.options.namespace}.`);
             }
-            
+ 
             const res = await fetch(url,{
                 method: 'GET',
                 headers: {
@@ -76,7 +72,6 @@ class CloudflareChannel extends PollChannel {
             });
 
             if (!res.ok) {
-
                 throw new Error(`Failed fetching traffic anomalies: ${url} - ${res.status}.`);
             } 
 

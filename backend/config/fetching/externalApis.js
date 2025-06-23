@@ -1,3 +1,8 @@
+// limit on number of records fetched from api
+const API_MAX_RESULTS = {
+    CLOUDFLARE: 50
+}
+
 const API_BASE_URLS = {
     IODA: process.env.IODA_API_BASE_URL || 'https://api.ioda.inetintel.cc.gatech.edu/v2/',
     CLOUDFLARE: process.env.GEO_API_BASE_URL || 'https://api.cloudflare.com/client/v4/radar/',
@@ -36,6 +41,7 @@ const API_LINKED_PAGE_URLS = {
 }
 
 module.exports = {
+    API_MAX_RESULTS,
     API_BASE_URLS,
     API_ROUTES,
     DATA_SOURCES,

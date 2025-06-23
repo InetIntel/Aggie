@@ -13,7 +13,7 @@ require('dotenv').config();
  */
 class IODAChannel extends PollChannel {
 
-    // This is ms so 300000 ms = 300 seconds = 5 minutes
+    
     static INTERVAL = process.env.API_FETCH_INTERVAL || 300000;
   
     
