@@ -18,7 +18,7 @@ import SourceDetails from "./pages/Settings/source/SourceDetails";
 import UsersIndex from "./pages/Settings/user/UsersIndex";
 import UserProfile from "./pages/Settings/user/UserProfile";
 import TagsIndex from "./pages/Settings/tag/TagsIndex";
-import Configuration from "./pages/Settings/Configuration";
+//import Configuration from "./pages/Settings/Configuration";
 import CredentialsIndex from "./pages/Settings/Credentials/CredentialsIndex";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -112,7 +112,7 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
           element={<UserProfile session={sessionData} />}
         />
         <Route path='tags' element={<TagsIndex />} />
-        <Route path='config' element={<Configuration />} />
+        { /*<Route path='config' element={<Configuration />} />*/ }
         <Route path='credentials' element={<CredentialsIndex />} />
       </Route>
       <Route path='/*' element={<NotFound />} />

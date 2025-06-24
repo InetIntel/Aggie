@@ -60,9 +60,8 @@ const SourcesIndex = (props: IProps) => {
 
   return (
     <div className='mt-3'>
-      <Configuration />
       <div className='flex justify-between items-center mt-3'>
-        <h1 className={"my-3 text-3xl font-medium"}>Sources</h1>
+        <h1 className='font-medium my-3 text-3xl'>Sources</h1>
         <AggieButton
           onClick={() => setOpenCreate("new")}
           variant='primary'
@@ -71,8 +70,9 @@ const SourcesIndex = (props: IProps) => {
         >
           Create New Credential
         </AggieButton>
-      </div>{" "}
-      <section className='bg-white rounded-lg border border-slate-300 overflow-hidden divide-y divide-slate-300'>
+      </div>
+      <Configuration />
+      <section className='bg-white rounded-lg border border-slate-300 overflow-hidden divide-y divide-slate-300 mt-3'>
         {data &&
           data.map((source) => (
             <article
