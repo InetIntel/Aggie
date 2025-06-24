@@ -184,7 +184,7 @@ const Incident = () => {
           <AggieButton
             variant='transparent'
             className='text-sm'
-            onClick={() => navigate("/incidents")}
+            onClick={() => navigate(-1)}
           >
             <FontAwesomeIcon icon={faArrowLeft} />
             Go Back
