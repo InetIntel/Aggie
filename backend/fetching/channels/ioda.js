@@ -36,6 +36,13 @@ class IODAChannel extends PollChannel {
         this.interval = options.interval || IODAChannel.INTERVAL;
 
         // Fetch time range from 2H ago (or an earlier timestamp if specified) till now
+        // this.lastFetchedTo =  new Date(); 
+        // if (options.lastTimestamp) {
+        //     const provided = new Date(options.lastTimestamp);
+        //     const fallback = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2h ago
+        //     this.lastFetchedTo = new Date(Math.min(provided, fallback));
+        // }
+  
         this.fetchToTimestamp = Math.floor(Date.now() / 1000); 
 
         this.fetchFromTimestamp = options.lastTimestamp
@@ -45,6 +52,7 @@ class IODAChannel extends PollChannel {
               )
             : this.fetchToTimestamp - 2 * 60 * 60
         
+
         
     }   
 
@@ -78,6 +86,11 @@ class IODAChannel extends PollChannel {
 
     async fetch() {
         const outages = [];
+        
+        // update fetchTo timestamp for each fetch
+        this.fetchToTimestamp = Math.floor(Date.now() / 1000); 
+        this.fetchFromTimestamp = Math.min(this.fetchFromTimestamp, this.fetchToTimestamp - 2 * 60 * 60);
+
 
         for (const queryType of this.queryTypes) {
             try {
@@ -204,7 +217,10 @@ class IODAChannel extends PollChannel {
             }
         }
 
-        const updatedTimestamp = new Date(this.fetchToTimestamp * 1000);
+        
+        // update latestReportDate
+        this.fetchFromTimestamp = this.fetchToTimestamp;
+        const updatedTimestamp = new Date(this.fetchFromTimestamp * 1000);
         if (typeof this.options?.onFetch === 'function') {
             await this.options.onFetch(updatedTimestamp);
         }

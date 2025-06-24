@@ -43,12 +43,20 @@ class CloudflareChannel extends PollChannel {
         this.fetchToTimestamp = fetchToUTCTime.toISOString().split('.')[0] + 'Z'; 
         this.fetchFromTimestamp = fetchFromUTCTime.toISOString().split('.')[0] + 'Z';  
         this.fetchResultLimit = options.fetchResultLimit || CloudflareChannel.LIMIT;
-       
+        
     }
 
     async fetch() {
         
         const outages = [];
+
+        const fetchToUTCTime = new Date(Date.now());
+        const fetchFromUTCTime = new Date(Math.min(Date.parse(this.fetchFromTimestamp), fetchToUTCTime - 2 * 60 * 60 * 1000))
+
+
+        this.fetchToTimestamp = fetchToUTCTime.toISOString().split('.')[0] + 'Z'; 
+        this.fetchFromTimestamp = fetchFromUTCTime.toISOString().split('.')[0] + 'Z';  
+
 
         // Construct query url
         const url = new URL(API_ROUTES.CLOUDFLARE.TRAFFIC_ANOMALIES, API_BASE_URLS.CLOUDFLARE);
@@ -155,7 +163,8 @@ class CloudflareChannel extends PollChannel {
             console.error(`[Fetching-channel-Cloudflare] Failed - Failed parsing and formating data: ${this.options.media}.`);
         }
 
-        const updatedTimestamp = new Date(this.fetchToTimestamp);
+        this.fetchFromTimestamp = this.fetchToTimestamp;
+        const updatedTimestamp = new Date(this.fetchFromTimestamp);
         if (typeof this.options?.onFetch === 'function') {
             await this.options.onFetch(updatedTimestamp);
         }
