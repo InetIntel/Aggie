@@ -15,7 +15,7 @@ import en from "javascript-time-ago/locale/en";
 import SocketProvider from "./hooks/WebsocketProvider";
 import AppRouter from "./AppRouter";
 
-axios.defaults.baseURL = process.env.REACT_APP_BASE_URL;
+axios.defaults.baseURL = process.env.PUBLIC_URL;
 
 //locale for rendering relative time react
 TimeAgo.addDefaultLocale(en);
@@ -35,7 +35,7 @@ const queryClient = new QueryClient({
     },
   },
 });
-const url = new URL(process.env.REACT_APP_BASE_URL || "");
+const url = new URL(process.env.PUBLIC_URL || "");
 const path =
   url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname; 
 ReactDOM.render(
