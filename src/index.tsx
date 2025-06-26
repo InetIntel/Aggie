@@ -35,13 +35,11 @@ const queryClient = new QueryClient({
     },
   },
 });
-const url = new URL(process.env.PUBLIC_URL || "");
-const path =
-  url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname; 
+const url = process.env.PUBLIC_URL && new URL(process.env.PUBLIC_URL).pathname;
 ReactDOM.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={path || ""}>
+      <BrowserRouter basename={url}>
         <SocketProvider>
           <AppRouter />
         </SocketProvider>
