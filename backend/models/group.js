@@ -20,6 +20,14 @@ const lengthValidator = function (str) {
   return validator.isLength(str, { min: 0, max: 42 });
 };
 
+const publicationValidator = function (arr) {
+  if (
+    arr.includes("Not Published") && arr.includes("Published")) {
+      return false;
+    }
+  return true;
+}
+
 let schema = new mongoose.Schema({
   title: { type: String, required: true },
   locationName: String,
@@ -35,10 +43,25 @@ let schema = new mongoose.Schema({
   },
   creator: { type: mongoose.Schema.ObjectId, ref: 'User', index: 1 },
   status: { type: String, default: 'new', required: true },
-  veracity: {
-    type: String,
-    default: 'Unconfirmed',
-    enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'],
+  verification_status: {
+    type: Boolean, 
+    default: false,
+    required: true,
+  },
+  confirmation_status: {
+    type: Boolean, 
+    default: false,
+    required: true,
+  },
+  publication_status: {
+    type: [String],
+    default: ['Not Published'],
+    required: true,
+    enum: ['Not Published', 'Published', 'Shared with Networks'],
+    validate: {
+      validator: publicationValidator,
+      message: 'Incident cannot be both Not Published and Published.',
+    },
   },
   escalated: { type: Boolean, default: false, required: true, index: 1 },
   closed: { type: Boolean, default: false, required: true, index: 1 },
