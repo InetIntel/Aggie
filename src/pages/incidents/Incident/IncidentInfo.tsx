@@ -35,7 +35,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             >
               Incident #{group?.idnum}
             </PlaceholderDiv>
-            <VeracityToken value={group?.veracity} />
+            { /*<VeracityToken value={group?.veracity} />*/ }
             {group?.closed && (
               <span className='px-1 bg-purple-200 text-purple-700 font-medium inline-flex gap-1 items-center'>
                 <FontAwesomeIcon icon={faMinusCircle} />

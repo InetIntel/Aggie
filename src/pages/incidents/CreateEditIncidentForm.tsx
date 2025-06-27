@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Field } from "formik";
 import * as Yup from "yup";
-import { VERACITY_OPTIONS } from "../../api/common";
 import { Group, GroupEditableData } from "../../api/groups/types";
 import { getUsers } from "../../api/users";
 
@@ -17,7 +16,6 @@ const incidentSchema = Yup.object().shape({
   locationName: Yup.string(),
   escalated: Yup.boolean(),
   closed: Yup.boolean(),
-  veracity: Yup.string(),
   assignedTo: Yup.array().of(Yup.string()).optional().default([]),
   notes: Yup.string(),
 });
@@ -45,7 +43,6 @@ const CreateEditIncidentForm = ({
           locationName: group?.locationName || "",
           escalated: group?.escalated || false,
           closed: group?.closed || false,
-          veracity: group?.veracity || "Unconfirmed",
           assignedTo: group?.assignedTo?.map((i) => i._id) || [],
           notes: group?.notes || "",
         }}
@@ -66,13 +63,6 @@ const CreateEditIncidentForm = ({
           Ideally, titles should be written as a<i>question</i> that can be
           answered with a true/false
         </p>
-        <FormikDropdown
-          name={"veracity"}
-          list={VERACITY_OPTIONS.map((i) => {
-            return { _id: i, label: i };
-          })}
-          label={"Veracity"}
-        />
         <FormikMultiCombobox
           name='assignedTo'
           unitLabel='User'

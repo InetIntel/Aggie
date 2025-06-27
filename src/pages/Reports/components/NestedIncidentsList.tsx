@@ -52,7 +52,7 @@ const NestedIncidentsList = ({
                 <div className='flex gap-1 text-xs'>
                   <p className='font-medium'>#{item.idnum}</p>
 
-                  <VeracityToken value={item.veracity} />
+                  { /*<VeracityToken value={item.veracity} />*/ }
                   {item.closed && (
                     <span className='px-1 bg-purple-100 text-purple-600 font-medium flex gap-1 items-center'>
                       <FontAwesomeIcon icon={faMinusCircle} />

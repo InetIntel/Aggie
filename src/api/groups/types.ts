@@ -1,4 +1,4 @@
-import { VeracityOptions, hasId, GroupSortBy } from "../common";
+import { hasId, GroupSortBy } from "../common";
 import { User } from "../users/types";
 
 interface AssignedToUser extends hasId {
@@ -13,7 +13,6 @@ export interface Group extends hasId {
   id?: number;
   smtcTags: string[];
   status: string;
-  veracity: VeracityOptions;
   escalated: boolean;
   closed: boolean;
   public: boolean;
@@ -38,7 +37,6 @@ export interface Groups {
 export interface GroupEditableData extends Partial<hasId> {
   title: string;
   notes: string;
-  veracity: VeracityOptions;
   closed: boolean;
   assignedTo: string[];
   locationName: string;
@@ -51,7 +49,6 @@ export interface GroupCreateData extends GroupEditableData {
 }
 
 export interface GroupQueryState {
-  veracity?: string;
   escalated?: string | boolean;
   closed?: string | boolean;
   title?: string;
