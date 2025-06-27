@@ -68,6 +68,22 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           </PlaceholderDiv>
         </div>
       </div>
+      <div className='flex gap-2'>
+        <PlaceholderDiv as='p' loading={isLoading} width='7em'
+          className='px-2 py-1 rounded-full bg-teal-200'>
+          {group?.verification_status ? "Verified" : "Unverified"}
+        </PlaceholderDiv>
+        <PlaceholderDiv as='p' loading={isLoading} width='7em'
+          className='px-2 py-1 rounded-full bg-pink-200'>
+          {group?.confirmation_status ? "Confirmed" : "Unconfirmed"}
+        </PlaceholderDiv>
+        {group?.publication_status?.map((s: String) =>
+          <PlaceholderDiv as='p' loading={isLoading} width='7em'
+            className='px-2 py-1 rounded-full bg-fuchsia-200'>
+            {s}
+          </PlaceholderDiv>
+        )}
+      </div>
       <div className='flex gap-12 my-2'>
         <PlaceholderDiv as='p' width='7em' loading={isLoading}>
           <FontAwesomeIcon icon={faFileLines} size='sm' />{" "}

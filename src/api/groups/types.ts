@@ -1,6 +1,13 @@
 import { hasId, GroupSortBy } from "../common";
 import { User } from "../users/types";
 
+export const PUBLISHED_OPTIONS = [
+  "Not Published",
+  "Published",
+  "Shared with Networks",
+] as const;
+export type PublishedOptions = (typeof PUBLISHED_OPTIONS)[number];
+
 interface AssignedToUser extends hasId {
   username: string;
 }
@@ -13,6 +20,9 @@ export interface Group extends hasId {
   id?: number;
   smtcTags: string[];
   status: string;
+  verification_status: boolean;
+  confirmation_status: boolean;
+  publication_status: PublishedOptions[];
   escalated: boolean;
   closed: boolean;
   public: boolean;
@@ -37,6 +47,9 @@ export interface Groups {
 export interface GroupEditableData extends Partial<hasId> {
   title: string;
   notes: string;
+  verification_status: boolean;
+  confirmation_status: boolean;
+  publication_status: PublishedOptions[];
   closed: boolean;
   assignedTo: string[];
   locationName: string;
