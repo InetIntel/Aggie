@@ -44,23 +44,24 @@ let schema = new mongoose.Schema({
   creator: { type: mongoose.Schema.ObjectId, ref: 'User', index: 1 },
   status: { type: String, default: 'new', required: true },
   verification_status: {
-    type: String,
-    default: 'Unverified',
-    enum: ['Unverified', 'Verified'],
+    type: Boolean, 
+    default: false,
+    required: true,
   },
   confirmation_status: {
-    type: String,
-    default: 'Unconfirmed',
-    enum: ['Unconfirmed', 'Confirmed']
+    type: Boolean, 
+    default: false,
+    required: true,
   },
   publication_status: {
     type: [String],
     default: ['Not Published'],
+    required: true,
     enum: ['Not Published', 'Published', 'Shared with Networks'],
     validate: {
       validator: publicationValidator,
       message: 'Incident cannot be both Not Published and Published.',
-    }
+    },
   },
   escalated: { type: Boolean, default: false, required: true, index: 1 },
   closed: { type: Boolean, default: false, required: true, index: 1 },
