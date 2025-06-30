@@ -74,7 +74,6 @@
     "mongoose-sequence": "^5.2.2",
     "morgan": "^1.10.0",
     "nconf": "^0.10.0",
-    "node-telegram-bot-api": "^0.53.0",
     "passport": "^0.4.1",
     "passport-jwt": "^4.0.0",
     "passport-local": "^1.0.0",
@@ -92,6 +91,7 @@
     "readline-sync": "^1.4.10",
     "recharts": "^2.1.9",
     "reparse": "^0.1.2",
+    "request": "^2.88.2",
     "rss-parser": "^3.13.0",
     "rwlock": "^5.0.0",
     "sanitize-html": "^2.13.0",
@@ -103,7 +103,6 @@
     "yup": "^0.32.11"
   },
   "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "*",
     "@fortawesome/fontawesome-common-types": "^6.1.1",
     "@types/node": "^18.19.39",
     "@types/react": "^17.0.2",

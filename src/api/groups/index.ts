@@ -9,7 +9,7 @@ import {
   EditableGroupComment,
 } from "./types";
 import type { Reports } from "../reports/types";
-import { hasId, VeracityOptions } from "../common";
+import { hasId } from "../common";
 import { omitBy, isNil } from "lodash";
 import { ReportQueryState } from "../reports/types";
 import { urlFromReportsQuery } from "../reports";
@@ -92,7 +92,7 @@ interface SelectedOne {
   id: string;
 }
 
-interface SetVeracityParams extends Selected {
+/*interface SetVeracityParams extends Selected {
   veracity: VeracityOptions | string;
 }
 
@@ -102,7 +102,7 @@ export const setSelectedVeracity = async (params: SetVeracityParams) => {
     veracity: params.veracity,
   });
   return data;
-};
+};*/
 
 interface SetEscalatedParams extends Selected {
   escalated: boolean;

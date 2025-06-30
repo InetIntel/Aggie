@@ -7,7 +7,7 @@ import { getSession } from "../../api/session";
 import type { Group } from "../../api/groups/types";
 
 import TagsList from "../../components/Tags/TagsList";
-import VeracityToken from "../../components/VeracityToken";
+//import VeracityToken from "../../components/VeracityToken";
 import AggieButton from "../../components/AggieButton";
 import ConfirmationDialog from "../../components/ConfirmationDialog";
 import CreateEditIncidentForm from "./CreateEditIncidentForm";
@@ -87,7 +87,7 @@ const IncidentListItem = ({ item }: IProps) => {
         <header className='col-span-3 flex flex-col'>
           <div className='flex gap-1 '>
             <p className='font-medium'>#{item.idnum}</p>
-            <VeracityToken value={item.veracity} />
+            { /*<VeracityToken value={item.veracity} />*/ }
             {item.closed && (
               <span className='px-1 bg-purple-100 text-purple-700 font-medium flex gap-1 items-center'>
                 <FontAwesomeIcon

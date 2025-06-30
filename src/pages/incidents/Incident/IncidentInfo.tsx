@@ -14,7 +14,7 @@ import AggieButton from "../../../components/AggieButton";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 import TagsList from "../../../components/Tags/TagsList";
 import UserToken from "../../../components/UserToken";
-import VeracityToken from "../../../components/VeracityToken";
+//import VeracityToken from "../../../components/VeracityToken";
 
 interface IProps {
   group?: Group;
@@ -35,7 +35,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             >
               Incident #{group?.idnum}
             </PlaceholderDiv>
-            <VeracityToken value={group?.veracity} />
+            { /*<VeracityToken value={group?.veracity} />*/ }
             {group?.closed && (
               <span className='px-1 bg-purple-200 text-purple-700 font-medium inline-flex gap-1 items-center'>
                 <FontAwesomeIcon icon={faMinusCircle} />
@@ -67,6 +67,22 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             </h1>
           </PlaceholderDiv>
         </div>
+      </div>
+      <div className='flex gap-2'>
+        <PlaceholderDiv as='p' loading={isLoading} width='7em'
+          className='px-2 py-1 rounded-full bg-teal-200'>
+          {group?.verification_status ? "Verified" : "Unverified"}
+        </PlaceholderDiv>
+        <PlaceholderDiv as='p' loading={isLoading} width='7em'
+          className='px-2 py-1 rounded-full bg-pink-200'>
+          {group?.confirmation_status ? "Confirmed" : "Unconfirmed"}
+        </PlaceholderDiv>
+        {group?.publication_status?.map((s: String) =>
+          <PlaceholderDiv as='p' loading={isLoading} width='7em'
+            className='px-2 py-1 rounded-full bg-fuchsia-200'>
+            {s}
+          </PlaceholderDiv>
+        )}
       </div>
       <div className='flex gap-12 my-2'>
         <PlaceholderDiv as='p' width='7em' loading={isLoading}>

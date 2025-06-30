@@ -10,7 +10,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 export const menuLinks = {
-  Config: { to: "config", icon: faCog },
+  //Config: { to: "config", icon: faCog },
   "Manage Users": { to: "users", icon: faUsersCog },
   "Manage Tags": { to: "tags", icon: faTags },
   "API Credentials": { to: "credentials", icon: faKey },
