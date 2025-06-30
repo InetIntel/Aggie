@@ -7,7 +7,7 @@ import { getSession } from "../../api/session";
 import type { Group } from "../../api/groups/types";
 
 import TagsList from "../../components/Tags/TagsList";
-import VeracityToken from "../../components/VeracityToken";
+//import VeracityToken from "../../components/VeracityToken";
 import AggieButton from "../../components/AggieButton";
 import ConfirmationDialog from "../../components/ConfirmationDialog";
 import CreateEditIncidentForm from "./CreateEditIncidentForm";

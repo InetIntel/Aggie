@@ -14,7 +14,7 @@ import AggieButton from "../../../components/AggieButton";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 import TagsList from "../../../components/Tags/TagsList";
 import UserToken from "../../../components/UserToken";
-import VeracityToken from "../../../components/VeracityToken";
+//import VeracityToken from "../../../components/VeracityToken";
 
 interface IProps {
   group?: Group;

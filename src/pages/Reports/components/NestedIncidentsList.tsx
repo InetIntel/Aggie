@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { Groups, Group } from "../../../api/groups/types";
 import TagsList from "../../../components/Tags/TagsList";
 import UserToken from "../../../components/UserToken";
-import VeracityToken from "../../../components/VeracityToken";
+//import VeracityToken from "../../../components/VeracityToken";
 
 interface IProps {
   incidents?: Groups;
