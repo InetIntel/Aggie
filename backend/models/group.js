@@ -122,9 +122,7 @@ schema.post('remove', function () {
   });
 });
 
-schema.methods.setVeracity = function (veracity) {
-  this.veracity = veracity;
-};
+
 
 schema.methods.setEscalated = function (escalated) {
   this.escalated = escalated;
@@ -250,9 +248,6 @@ Group.queryGroups = function (query, page, options, callback) {
   }
 
 
-  if (query.veracity === 'confirmed true') filter.veracity = 'Confirmed True';
-  if (query.veracity === 'confirmed false') filter.veracity = 'Confirmed False';
-  if (query.veracity === 'unconfirmed') filter.veracity = 'Unconfirmed';
 
   // default filter open
   filter.closed = false;
