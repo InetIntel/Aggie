@@ -308,30 +308,7 @@ exports.group_closed_update = (req, res) => {
   });
 };
 
-// Update group veracity
-exports.group_veracity_update = (req, res) => {
-  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (groups.length === 0) return res.sendStatus(200);
-    let remaining = groups.length;
-    groups.forEach((group) => {
-      // Mark each report as escalated to catch it in model
-      group.setVeracity(req.body.veracity);
-      group.save((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        if (--remaining === 0) {
-          eventRouter.publish('groups:update', { ids: req.body.ids, update: { veracity: group.veracity } }).then(() => {
-            return res.sendStatus(200)
-          });
-        }
-      });
-    });
-  });
-};
+
 
 
 // Update group closed

@@ -51,8 +51,6 @@ router.patch('/_assignedto', User.can('edit data'), groupController.group_assign
 // Route to change locationName
 router.patch('/_locationName', User.can('edit data'), groupController.group_locationName_update);
 
-// Route to change veracity
-router.patch('/_veracity', User.can('edit data'), groupController.group_veracity_update);
 
 //  User.can('edit data')
 router.patch('/_untag', User.can('edit data'), groupController.group_tags_remove);
