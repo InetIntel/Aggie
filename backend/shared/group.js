@@ -9,7 +9,7 @@
   };
 
   Group.filterAttributes = [
-    'title', 'locationName', 'assignedTo', 'status', 'veracity',
+    'title', 'locationName', 'assignedTo', 'status',
     'escalated', 'tags', 'public', 'storedAt', 'idnum', 'creator', "closed"
   ];
   Group.statusOptions = ['new', 'working', 'alert', 'closed'];
