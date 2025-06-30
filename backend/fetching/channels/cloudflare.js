@@ -34,11 +34,11 @@ class CloudflareChannel extends PollChannel {
         this.interval = options.interval || CloudflareChannel.INTERVAL;
 
 
-        // Fetch time range from 2H ago (or an earlier timestamp if specified) till now
+        // Fetch time range from 6H ago (or an earlier timestamp if specified) till now
         const fetchToUTCTime = new Date(Date.now());
         const fetchFromUTCTime = options.lastTimestamp
-            ? new Date(Math.min(options.lastTimestamp, fetchToUTCTime - 2 * 60 * 60 * 1000))
-            : new Date(fetchToUTCTime - 2 * 60 * 60 * 1000);
+            ? new Date(Math.min(options.lastTimestamp, fetchToUTCTime - 6 * 60 * 60 * 1000))
+            : new Date(fetchToUTCTime - 6 * 60 * 60 * 1000);
 
         this.fetchToTimestamp = fetchToUTCTime.toISOString().split('.')[0] + 'Z'; 
         this.fetchFromTimestamp = fetchFromUTCTime.toISOString().split('.')[0] + 'Z';  
@@ -51,7 +51,7 @@ class CloudflareChannel extends PollChannel {
         const outages = [];
 
         const fetchToUTCTime = new Date(Date.now());
-        const fetchFromUTCTime = new Date(Math.min(Date.parse(this.fetchFromTimestamp), fetchToUTCTime - 2 * 60 * 60 * 1000))
+        const fetchFromUTCTime = new Date(Math.min(Date.parse(this.fetchFromTimestamp), fetchToUTCTime - 6 * 60 * 60 * 1000))
 
 
         this.fetchToTimestamp = fetchToUTCTime.toISOString().split('.')[0] + 'Z'; 

@@ -273,7 +273,7 @@ class IODAChannel extends PollChannel {
         const urlToTime = this.fetchToTimestamp;
         const linkedPage = `${API_LINKED_PAGE_URLS.IODA.BASE}/${event.location}?from=${urlFromTime}&until=${urlToTime}`;
         
-        const guid = `${queryType}-${event.start}-${event.duration}-${event.location}-${event.datasource}`;
+        const guid = `${queryType}-${event.start}-${event.location}-${event.datasource}`;
         if (!guid) {
             console.error(`\tNo guid or link found in Ioda response: ${event}`);
             return;
