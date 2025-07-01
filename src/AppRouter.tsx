@@ -11,7 +11,6 @@ import { getSession } from "./api/session";
 import type { AxiosError } from "axios";
 import type { Session } from "./api/session/types";
 
-
 import Navbar from "./Navbar";
 import SourcesIndex from "./pages/Settings/source/SourcesIndex";
 import SourceDetails from "./pages/Settings/source/SourceDetails";
@@ -106,14 +105,20 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
       <Route path='/settings' element={<Settings />}>
         <Route path='sources' element={<SourcesIndex />} />
         <Route path='source/:id' element={<SourceDetails />} />
-        <Route path='users' element={<UsersIndex session={sessionData} />} />
         <Route
           path='user/:id'
           element={<UserProfile session={sessionData} />}
         />
-        <Route path='tags' element={<TagsIndex />} />
-        { /*<Route path='config' element={<Configuration />} />*/ }
-        <Route path='credentials' element={<CredentialsIndex />} />
+        { sessionData?.role === "admin" &&
+          <>
+            <Route path='users' element={<UsersIndex session={sessionData} />} />
+            <Route path='tags' element={<TagsIndex />} />
+            <Route path='credentials' element={<CredentialsIndex />} />
+          </>
+        }
+        { (sessionData?.role === "admin" || sessionData?.role === "monitor") &&
+          <Route path='tags' element={<TagsIndex />} />
+        }
       </Route>
       <Route path='/*' element={<NotFound />} />
     </Routes>
