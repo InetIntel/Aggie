@@ -108,30 +108,32 @@ const TagsIndex = (props: IProps) => {
             </article>
           ))}
       </section>
-      <AggieDialog
-        isOpen={!!editOpen}
-        onClose={() => setEditOpen("")}
-        className='px-3 py-4 w-full max-w-lg'
-        data={{
-          title: editOpen === "newTag" ? "Create New Tag" : "Edit Tag",
-        }}
-      >
-        <CreateEditTagForm
-          tag={tagfromId(editOpen)}
+      { session?.role === "admin" && <>
+        <AggieDialog
+          isOpen={!!editOpen}
           onClose={() => setEditOpen("")}
-        />
-      </AggieDialog>
-      <ConfirmationDialog
-        isOpen={!!deleteOpen}
-        variant='danger'
-        disabled={doDeleteTag.isLoading}
-        title={`Delete Tag ${tagfromId(deleteOpen)?.name} Permanently?`}
-        description={"Are you sure you want to do this?"}
-        confirmText={"Delete"}
-        className='text-center'
-        onClose={() => setDeleteOpen("")}
-        onConfirm={() => onDeleteTag(deleteOpen)}
-      ></ConfirmationDialog>
+          className='px-3 py-4 w-full max-w-lg'
+          data={{
+            title: editOpen === "newTag" ? "Create New Tag" : "Edit Tag",
+          }}
+        >
+          <CreateEditTagForm
+            tag={tagfromId(editOpen)}
+            onClose={() => setEditOpen("")}
+          />
+        </AggieDialog>
+        <ConfirmationDialog
+          isOpen={!!deleteOpen}
+          variant='danger'
+          disabled={doDeleteTag.isLoading}
+          title={`Delete Tag ${tagfromId(deleteOpen)?.name} Permanently?`}
+          description={"Are you sure you want to do this?"}
+          confirmText={"Delete"}
+          className='text-center'
+          onClose={() => setDeleteOpen("")}
+          onConfirm={() => onDeleteTag(deleteOpen)}
+        ></ConfirmationDialog>
+      </> }
     </div>
   );
 };

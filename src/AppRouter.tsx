@@ -105,6 +105,7 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
       <Route path='/settings' element={<Settings />}>
         <Route path='sources' element={<SourcesIndex />} />
         <Route path='source/:id' element={<SourceDetails />} />
+        <Route path='tags' element={<TagsIndex />} />
         <Route
           path='user/:id'
           element={<UserProfile session={sessionData} />}
@@ -112,12 +113,8 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
         { sessionData?.role === "admin" &&
           <>
             <Route path='users' element={<UsersIndex session={sessionData} />} />
-            <Route path='tags' element={<TagsIndex />} />
             <Route path='credentials' element={<CredentialsIndex />} />
           </>
-        }
-        { (sessionData?.role === "admin" || sessionData?.role === "monitor") &&
-          <Route path='tags' element={<TagsIndex />} />
         }
       </Route>
       <Route path='/*' element={<NotFound />} />

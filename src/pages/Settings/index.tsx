@@ -22,12 +22,11 @@ export function menuLinks(role: string | undefined) {
         "Manage Sources": { to: "sources", icon: faCloudArrowDown },
       };
     case "monitor":
-      return {
-        "Manage Tags": { to: "tags", icon: faTags },
-        "Manage Sources": { to: "sources", icon: faCloudArrowDown },
-      };
     case "viewer":
-      return {"Manage Sources": { to: "sources", icon: faCloudArrowDown }};
+      return {
+        "Tags": { to: "tags", icon: faTags },
+        "Sources": { to: "sources", icon: faCloudArrowDown },
+      };
     default:
       return {};
   }
