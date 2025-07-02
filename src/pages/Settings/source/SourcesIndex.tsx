@@ -64,7 +64,7 @@ const SourcesIndex = (props: IProps) => {
     <div className='mt-3'>
       <div className='flex justify-between items-center mt-3'>
         <h1 className='font-medium my-3 text-3xl'>Sources</h1>
-        { (session?.role === "admin" || session?.role === "monitor") &&
+        { session?.role === "admin" &&
           <AggieButton
             onClick={() => setOpenCreate("new")}
             variant='primary'
@@ -129,7 +129,7 @@ const SourcesIndex = (props: IProps) => {
                   </Link>
                 </p>
               </div>
-              { (session?.role === "admin" || session?.role === "monitor") &&
+              { session?.role === "admin" &&
                 <div className='flex justify-end items-center gap-2'>
                   <p className='text-xs font-medium text-slate-600'>
                     {source.enabled ? "Enabled" : "Disabled"}
@@ -180,31 +180,33 @@ const SourcesIndex = (props: IProps) => {
             </article>
           ))}
       </section>
-      <ConfirmationDialog
-        isOpen={!!deletionModal}
-        variant='danger'
-        disabled={doDeleteSource.isLoading}
-        className='w-full max-w-lg text-center'
-        title={`Delete: ${
-          data?.find((c) => c._id === deletionModal?._id)?.nickname
-        }?`}
-        confirmText={"Delete"}
-        onClose={() => setDeletionModal(undefined)}
-        onConfirm={() =>
-          !!deletionModal && doDeleteSource.mutate(deletionModal)
-        }
-      ></ConfirmationDialog>
-      <AggieDialog
-        isOpen={!!openCreate}
-        onClose={() => setOpenCreate("")}
-        data={{ title: "Create New Source" }}
-        className='p-3 w-full max-w-lg'
-      >
-        <CreateEditSourceForm
-          source={getSourceFromId(openCreate)}
+      { session?.role === "admin" && <>
+        <ConfirmationDialog
+          isOpen={!!deletionModal}
+          variant='danger'
+          disabled={doDeleteSource.isLoading}
+          className='w-full max-w-lg text-center'
+          title={`Delete: ${
+            data?.find((c) => c._id === deletionModal?._id)?.nickname
+          }?`}
+          confirmText={"Delete"}
+          onClose={() => setDeletionModal(undefined)}
+          onConfirm={() =>
+            !!deletionModal && doDeleteSource.mutate(deletionModal)
+          }
+        ></ConfirmationDialog>
+        <AggieDialog
+          isOpen={!!openCreate}
           onClose={() => setOpenCreate("")}
-        />
-      </AggieDialog>
+          data={{ title: "Create New Source" }}
+          className='p-3 w-full max-w-lg'
+        >
+          <CreateEditSourceForm
+            source={getSourceFromId(openCreate)}
+            onClose={() => setOpenCreate("")}
+          />
+        </AggieDialog>
+      </> }
     </div>
   );
 };
