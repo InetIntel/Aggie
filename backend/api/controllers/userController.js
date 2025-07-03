@@ -87,9 +87,14 @@ exports.user_update = (req, res) => {
     )
       return res.send(403);
 
-    for (var attr in req.body) {
-      user[attr] = req.body[attr];
+    const allowedFields = ['email', 'username', 'displayName'];
+
+    for (const attr of allowedFields) {
+      if (req.body[attr] !== undefined) {
+        user[attr] = req.body[attr];
+      }
     }
+
     user.save((err) => {
       err = Error.decode(err);
       if (err) res.status(err.status).send(err.message);
