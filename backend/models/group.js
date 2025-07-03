@@ -35,6 +35,8 @@ let schema = new mongoose.Schema({
   longitude: Number,
   updatedAt: Date,
   storedAt: { type: Date, index: true },
+  incidentStartedAt: {type: Date, index: true},
+  incidentEndedAt: { type: Date, index: true },
   tags: { type: [String], default: [] },
   assignedTo: { type: [mongoose.Schema.ObjectId], ref: 'User', index: 1 },
   smtcTags: {
@@ -98,6 +100,17 @@ schema.pre('save', function (next) {
   }
   if (this.isNew) this.storedAt = new Date();
   this.updatedAt = new Date();
+
+  // validate start date & end date when both provided and valid
+  const isValidDate = (d) => (d instanceof Date && !isNaN(d));
+  if (
+    isValidDate(this.incidentStartedAt) &&
+    isValidDate(this.incidentEndedAt) && 
+    this.incidentStartedAt > this.incidentEndedAt
+  ) {
+    return next(new Error.Validation('Incident start date must be before end date.'));
+  }
+
   if (!_.includes(Group.statusOptions, this.status)) {
     return next(new Error.Validation('status_error'));
   }
