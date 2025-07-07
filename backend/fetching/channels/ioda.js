@@ -4,6 +4,7 @@ const { mongoose } = require('../../database');
 const REGION_CODES = require('../../config/fetching/channels/iodaMappings');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
 const extractCleanSVGFromPage = require('../utils/iodaUtils');
+const { chromium } = require('playwright');
 require('dotenv').config();
 
 
@@ -24,8 +25,7 @@ class IODAChannel extends PollChannel {
 
         this.options = options;
 
-        // Default supports 3 query types: region, AS-region, AS-country
-        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country']
+        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country', 'asn-region', 'asn-country']        
 
         this.metadataUrl = `${API_BASE_URLS.IODA}${API_ROUTES.IODA.ENTITY_QUERY}`;
 
@@ -34,14 +34,6 @@ class IODAChannel extends PollChannel {
         this.regionCodes = {};
 
         this.interval = options.interval || IODAChannel.INTERVAL;
-
-        // Fetch time range from 2H ago (or an earlier timestamp if specified) till now
-        // this.lastFetchedTo =  new Date(); 
-        // if (options.lastTimestamp) {
-        //     const provided = new Date(options.lastTimestamp);
-        //     const fallback = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2h ago
-        //     this.lastFetchedTo = new Date(Math.min(provided, fallback));
-        // }
   
         this.fetchToTimestamp = Math.floor(Date.now() / 1000); 
 
@@ -86,7 +78,11 @@ class IODAChannel extends PollChannel {
 
     async fetch() {
         const outages = [];
+
+        // reuseable broswer for fetching SVG components on each fetch()
+        const browser = await chromium.launch({headless: true});
         
+        try{
         // update fetchTo timestamp for each fetch
         this.fetchToTimestamp = Math.floor(Date.now() / 1000); 
         this.fetchFromTimestamp = Math.min(this.fetchFromTimestamp, this.fetchToTimestamp - 2 * 60 * 60);
@@ -105,6 +101,12 @@ class IODAChannel extends PollChannel {
                     url.searchParams.append('relatedTo', `region`);
                 } else if (queryType === 'geoasn-country') {
                     url.searchParams.append('entityType', 'geoasn');
+                    url.searchParams.append('relatedTo', `country/${this.countryCode}`);
+                } else if (queryType === 'asn-region') {
+                    url.searchParams.append('entityType', 'asn');
+                    url.searchParams.append('relatedTo', `region`);
+                } else if (queryType === 'asn-country') {
+                    url.searchParams.append('entityType', 'asn');
                     url.searchParams.append('relatedTo', `country/${this.countryCode}`);
                 }
 
@@ -126,7 +128,7 @@ class IODAChannel extends PollChannel {
 
                 // Declare regex rule to exclude AS-region reports unrelated to the queried country
                 let regexRegion = null;
-                if (queryType === 'geoasn-region') {
+                if (queryType === 'geoasn-region' || queryType === 'asn-region') {
                     regexRegion = /(\d+)-(\d+)/;
                 }
                 
@@ -143,7 +145,7 @@ class IODAChannel extends PollChannel {
                     // Exclude irrelevant region event
                     if (regexRegion) {
                             const match = event.location && event.location.match(regexRegion);
-                            if (!match || (match && !REGION_CODES[match[2]])) {
+                            if (!match || (match && !this.regionCodes[match[2]])) {
                                 irrelevantRegionReportCount += 1;
                                 continue;
                             };
@@ -187,7 +189,7 @@ class IODAChannel extends PollChannel {
                             } else {
 
                                 try {
-                                    const cleanSVG = await extractCleanSVGFromPage(formattedEvent.url);
+                                    const cleanSVG = await extractCleanSVGFromPage(browser, formattedEvent.url);
                                     formattedEvent.raw['image'] = cleanSVG;
                                     linkedPageCache[formattedEvent.url] = cleanSVG;
                                 } catch (err) {
@@ -226,7 +228,12 @@ class IODAChannel extends PollChannel {
         }
 
         return outages;
+
+    } finally {
+
+        await browser.close(); // ensure closing headerless browser 
     }
+} 
 
     /**
      * Parse the fetched metadata to region code - region name mapping relationship.

@@ -1,5 +1,4 @@
 
-const { chromium } = require('playwright');
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 
@@ -7,9 +6,8 @@ const { JSDOM } = require('jsdom');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
 
-async function extractCleanSVGFromPage(linkedPageUrl) {
+async function extractCleanSVGFromPage(browser, linkedPageUrl) {
 
-    const browser = await chromium.launch({headless: true});
 
     const page = await browser.newPage();
 
@@ -23,13 +21,12 @@ async function extractCleanSVGFromPage(linkedPageUrl) {
 
         const cleanSvg = DOMPurify.sanitize(rawSvg, {USE_PROFILES: {svg: true}});
 
-        await browser.close();
-
         return cleanSvg;
 
     } catch (error) {
-        await browser.close();
-        throw new Error(`SVG extraction failed: ${error.message}`);
+        throw new Error(`SVG extraction failed for page: ${linkedPageUrl}. Error: ${error.message}`);
+    } finally {
+        await page.close();
     }
 }
 
