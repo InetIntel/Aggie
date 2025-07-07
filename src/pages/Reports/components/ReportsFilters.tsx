@@ -222,14 +222,14 @@ const ReportFilters = ({
           {headerElement}
           <FilterRadioGroup
             options={{
+              all: "All",
               false: "Relevant/Unmarked",
               true: "Irrelevant",
-              all: "All",
             }}
             value={getParam("irrelevant")}
-            defaultValue={"false"}
+            defaultValue={"all"}
             onChange={(e) =>
-              setParams({ irrelevant: e === "false" ? undefined : e })
+              setParams({ irrelevant: e === "all" ? undefined : e })
             }
           />
         </div>

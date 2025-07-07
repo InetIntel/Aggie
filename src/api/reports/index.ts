@@ -155,6 +155,9 @@ export function urlFromReportsQuery(
       url.set(key, value);
     }
   });
+  if (!("irrelevant" in queryState)) {
+    url.set("irrelevant", "all");
+  }
   if (tagIds && tagIds.length > 0) {
     if (isString(tagIds[0])) url.set("tags", tagIds.toString());
     else {
