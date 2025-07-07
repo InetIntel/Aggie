@@ -6,6 +6,8 @@ const _ = require('lodash');
 var tags = require('../../shared/tags');
 const Report = require('../../models/report');
 const eventRouter = require('../sockets/event-router');
+const { saveFile, deleteFile } = require('../utils/fileStorage');
+const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../../config/models/groupConfigs');
 
 exports.group_create = (req, res) => {
   req.body.creator = req.user;
@@ -363,86 +365,280 @@ exports.group_notes_update = (req, res) => {
 };
 
 // add group comment
-exports.group_comment_add = (req, res) => {
+exports.group_comment_add = async (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (groups.length === 0) return res.sendStatus(200);
-    let remaining = groups.length;
-    groups.forEach(async (group) => {
-      group.comments.push(req.body.comment)
 
-      group.save((err) => {
+  // parse from multipart/form-data
+  const groupIds = JSON.parse(req.body.ids);
+  const comment = JSON.parse(req.body.comment);
+  const attachments = req.files;
+  const savedPaths = [];
+
+  try {
+
+    const groups = await Group.find({_id: {$in: groupIds}});
+    if (!groups.length) { return res.status(404).send('Group not found.'); }
+
+    // Upload attachments if any
+    if (!validateAttachments(attachments)) {
+      return res.status(400).send('Bad Request. Invalid Attachments.');
+
+    } else if (attachments.length) {
+      
+      comment.attachments = [];
+
+      for (const attachment of attachments) {
+        const savedPath = await saveFile(attachment.buffer, attachment.originalname);
+
+        if (savedPath) {
+          savedPaths.push(savedPath);
+
+          comment.attachments.push({
+            fileName: attachment.originalname,
+            path: savedPath,
+            mimeType: attachment.mimetype,
+            fileSize: attachment.size,
+          });
+          console.log('deubgging-comment.attachments pushed.')
+
+        }
+      }
+    }
+
+    // save comments
+    let remaining = groups.length;
+    let eventPublished = false;
+
+    for (const group of groups) {
+      group.comments.push(comment);
+      group.save(async (err) => {
         if (err) {
+          await Promise.all(savedPaths.map(deleteFile)); // if err, remove previous uploaded files;
+
           if (!res.headersSent) res.status(err.status).send(err.message);
+
           return;
         }
-        
-
-        if (--remaining === 0) {
-          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
-            return res.sendStatus(200)
-          });
+        if (--remaining === 0 && !eventPublished ) {
+          eventPublished = true;
+          eventRouter.publish('groups:update', {
+             ids: req.body.ids, 
+             update: { comments: group.comments } 
+            }).then(() => { return res.sendStatus(200) });
         }
-      });
-    });
-  });
+      })
+    }
+
+  } catch (err) {
+    console.error('[Api-Controller-group_comment_add] Failed adding comment: ', err.message);
+    res.status(err.status || 500).send('Failed adding comment', err.message);
+  }
+
 };
 
 // Update group comment
-exports.group_comment_update = (req, res) => {
-  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (groups.length === 0) return res.sendStatus(200);
-    let remaining = groups.length;
-    groups.forEach((group) => {
-      const newData = req.body.comment
-      const commentToUpdate = group.comments.id(req.body.comment._id)
-      commentToUpdate.data = req.body.comment.data
+exports.group_comment_update = async (req, res) => {
+  if (!req.body.ids || !req.body.ids.length){
+    return res.sendStatus(200);
+  }
 
-      group.save((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        
-        if (--remaining === 0) {
-          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
-            return res.sendStatus(200)
-          });
-        }
-      });
+  let groupIds, commentPayload;
+
+  // parse from multipart/form-data
+  try {
+    groupIds = JSON.parse(req.body.ids);
+    commentPayload = JSON.parse(req.body.comment);
+  } catch (error) {
+    return res.status(400).send('Bad Request. Invalid JSON in group or comment.');
+  }
+
+  const commentId = commentPayload._id;
+  const newData = commentPayload.data;
+  const attachmentsToDelete = commentPayload.attachmentsToDelete || [];
+  const deletedPaths = [];
+  const attachmentsToUpload = req.files;
+  const savedPaths = [];
+
+  try {
+    const group = await Group.findById(groupIds[0]);
+    if (!group) { return res.status(404).send('Group not found.'); };
+
+    const comment = group.comments.id(commentId);
+    if (!comment) { return res.status(404).send('Comment not found.'); };
+
+    // Update comment content
+    comment.data = newData;
+
+    // Delete attachments from document and file system
+    comment.attachments = comment.attachments.filter((att) => {
+      const toDelete = attachmentsToDelete.includes(att._id.toString());
+      if (toDelete) {
+        deletedPaths.push(att.path);
+      }
+      return !toDelete;      
+    })
+
+    await Promise.all(deletedPaths.map(deleteFile));
+
+    // Upload new attachments
+    const totalAttachments = comment.attachments.length + attachmentsToUpload.length;
+
+    if (totalAttachments > MAX_ATTACHMENT_COUNT) {
+      return res.status(400).send(`Bad Request. Max ${MAX_ATTACHMENT_COUNT} attachments.`);
+    } else if (!validateAttachments(attachmentsToUpload)) {
+      return res.status(400).send(`Bad Request. Invalid Attachments. `);
+    } 
+
+    for (const attachment of attachmentsToUpload) {
+
+      const savedPath = await saveFile(attachment.buffer, attachment.originalname);
+
+      if (savedPath) {
+        savedPaths.push(savedPath);
+
+        comment.attachments.push({
+          fileName: attachment.originalname,
+          path: savedPath,
+          mimeType: attachment.mimetype,
+          fileSize: attachment.size,
+        });
+
+      }
+    }
+
+    await group.save();
+
+    await eventRouter.publish('groups:update', {
+       ids: req.body.ids, 
+       update: { comments: group.comments } ,
     });
-  });
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.error('[Api-Controller-group_comment_update] Failed updating comment: ', err.message);
+    res.status(err.status || 500).send('Failed updating comment', err.message);
+  }
+
 };
+// exports.group_comment_update = (req, res) => {
+//   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+//   Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
+//     if (err) return res.status(err.status).send(err.message);
+//     if (groups.length === 0) return res.sendStatus(200);
+//     let remaining = groups.length;
+//     groups.forEach((group) => {
+//       const newData = req.body.comment
+//       const commentToUpdate = group.comments.id(req.body.comment._id)
+
+//       if (!commentToUpdate) {
+//         if (--remaining === 0) {
+//           return res.status(404).send('Comment not found in group.');
+//         }
+//         return; 
+//       }
+
+//       // comment content cannot be null
+//       if (newData.data) {
+//         commentToUpdate.data = newData.data;
+//       }
+
+//       // comment attachments can be removed to null
+//       if ('attachments' in newData) {
+//         if (!validateAttachments(newData.attachments)) {
+//           return res.status(400).send(`Invalid attachments: max ${Group.MAX_ATTACHMENT_COUNT} attachments, each <= ${Group.MAX_ATTACHMENT_SIZE / 1024} kb.`);
+//         }
+
+//         commentToUpdate.attachments = newData.attachments; 
+//       }
+
+//       group.save((err) => {
+//         if (err) {
+//           if (!res.headersSent) res.status(err.status).send(err.message);
+//           return;
+//         }
+        
+//         if (--remaining === 0) {
+//           eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
+//             return res.sendStatus(200)
+//           });
+//         }
+//       });
+//     });
+//   });
+// };
+
 // remove group comment
-exports.group_comment_remove = (req, res) => {
+exports.group_comment_remove = async (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (groups.length === 0) return res.sendStatus(200);
-    let remaining = groups.length;
-    groups.forEach((group) => {
 
-      const commentToDelete = group.comments.id(req.body.comment._id).remove()
+  const {ids, commentId} = req.body;
 
+  if (!ids || !ids.length || !commentId) {
+    return res.status(400).send('Bad Request. Misgging group id or comment id.');
+  }
+  
+  try {
+    const group = await Group.findById(ids[0]);
+    if (!group) { return res.status(404).send('Group not found.'); };
 
-      group.save((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        
-        if (--remaining === 0) {
-          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
-            return res.sendStatus(200)
-          });
-        }
-      });
+    const comment = group.comments.id(commentId);
+    if (!comment) { return res.status(404).send('Comment not found.'); };
+
+    let deletedPaths = [];
+    deletedPaths = comment.attachments.map(att => att.path);
+
+    await Promise.all(deletedPaths.map(deleteFile));
+    await comment.remove();
+    await group.save();
+
+    await eventRouter.publish('groups:update', {
+       ids: req.body.ids, 
+       update: { comments: group.comments } ,
     });
-  });
-};
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.error('[Api-Controller-group_comment_remove] Failed removing comment: ', err.message);
+    res.status(err.status || 500).send('Failed removing comment', err.message);
+  }
+}
+
+// exports.group_comment_remove = (req, res) => {
+//   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+//   Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
+//     if (err) return res.status(err.status).send(err.message);
+//     if (groups.length === 0) return res.sendStatus(200);
+//     let remaining = groups.length;
+//     groups.forEach((group) => {
+
+//       const commentToDelete = group.comments.id(req.body.comment._id);
+
+//       if (!commentToDelete) {
+//         if (--remaining === 0){
+//           return res.status(404).send('Comment not found in group.');
+//         }
+//         return;
+//       }
+
+//       commentToDelete.remove();
+
+//       group.save((err) => {
+//         if (err) {
+//           if (!res.headersSent) res.status(err.status).send(err.message);
+//           return;
+//         }
+        
+//         if (--remaining === 0) {
+//           eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
+//             return res.sendStatus(200)
+//           });
+//         }
+//       });
+//     });
+//   });
+// };
 
 exports.group_tags_clear = (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
@@ -472,23 +668,45 @@ exports.group_tags_clear = (req, res) => {
 };
 
 // Delete an Group
-exports.group_delete = (req, res, next) => {
+exports.group_delete = async (req, res, next) => {
   if (req.params._id === '_all') return next();
-  Group.findById(req.params._id, (err, group) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (!group) return res.sendStatus(404);
-    group.remove((err) => {
-      if (err) {
-        return res.status(err.status).send(err.message);
-      }
+
+  try {
+    const group = await Group.findById(req.params._id);
+    if (!group) { return res.status(404).send('Group not found.'); };
+
+    const deletedPaths = group.comments.flatMap(comment => {
+      comment.attachments.map(att => att.path);
+    });
+
+    await Promise.all(deletedPaths.map(deleteFile));
+    await group.remove();
+    await eventRouter.publish('groups:delete', group);
+    
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.error('[Api-Controller-group_delete] Failed deleting group: ', err.message);
+    res.status(err.status || 500).send('Failed deleting group', err.message);
+  }
+}
+// exports.group_delete = (req, res, next) => {
+//   if (req.params._id === '_all') return next();
+//   Group.findById(req.params._id, (err, group) => {
+//     if (err) return res.status(err.status).send(err.message);
+//     if (!group) return res.sendStatus(404);
+//     group.remove((err) => {
+//       if (err) {
+//         return res.status(err.status).send(err.message);
+//       }
       
 
-      eventRouter.publish('groups:delete', group).then(() => {
-        res.sendStatus(200);
-      });
-    });
-  });
-};
+//       eventRouter.publish('groups:delete', group).then(() => {
+//         res.sendStatus(200);
+//       });
+//     });
+//   });
+// };
 
 // Delete all Groups
 exports.group_all_delete = (req, res) => {
@@ -521,3 +739,16 @@ const parseQueryData = (queryString) => {
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 };
+
+
+const validateAttachments = (attachments) => {
+    if (
+      !Array.isArray(attachments) || 
+      attachments.length > MAX_ATTACHMENT_COUNT ||
+      attachments.some( file => typeof file.size !== 'number' || file.size > MAX_ATTACHMENT_SIZE)
+    ) {
+      return false;
+    }
+
+    return true;
+}
