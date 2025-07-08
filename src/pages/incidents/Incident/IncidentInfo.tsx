@@ -141,11 +141,9 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           className='flex flex-wrap gap-x-2 gap-y-1 items-center '
         >
           {(group?.incidentStartedAt || group?.incidentEndedAt) ? (
-            <div className=''>
-              <p className='whitespace-pre-line max-w-prose text-black'>
-                {isoToYMD(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {isoToYMD(group?.incidentEndedAt)}
-              </p>
-            </div>
+            <p className='whitespace-pre-line max-w-prose text-black'>
+              {isoToYMD(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {isoToYMD(group?.incidentEndedAt)}
+            </p>
           ) : (
             <p className='italic text-slate-600'>No Date Set</p>
           )}
