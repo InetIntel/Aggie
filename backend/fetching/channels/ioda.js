@@ -5,9 +5,10 @@ const REGION_CODES = require('../../config/fetching/channels/iodaMappings');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
 const extractCleanSVGFromPage = require('../utils/iodaUtils');
 const { chromium } = require('playwright');
+const countries = require('i18n-iso-countries');
 require('dotenv').config();
 
-
+countries.registerLocale(require('i18n-iso-countries/langs/en.json'))
 
 /**
  * A Channel that polls the Ioda Outages of configured country code.
@@ -290,16 +291,23 @@ class IODAChannel extends PollChannel {
         let entityLevel = null;
         let entityScope = null;
         let entityName = null;
-        const match = (queryType !== 'region') ? event.location_name.match(/^(.+?) -- (.+)$/) : null;
-
-        if (!match) {
+        let match = null;
+        if (queryType.startsWith('geoasn')) {
+            match = event.location_name.match(/^(.+?) -- (.+)$/)
+            entityLevel = 'AS';
+            entityScope = (queryType == 'geoasn-region') 
+                ? match[2] 
+                : countries.getName(this.countryCode, "en") || this.countryCode;
+            entityName = `${match[1]} - ${entityScope}`;
+        } else if (queryType.startsWith('asn')) {
+            match = event.location_name.match(/^(AS[\w\d]+) \((.+)\)$/);
+            entityLevel = 'AS';
+            entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
+            entityName = `${match[2]} - ${entityScope}`;
+        } else {
             entityLevel = 'Region';
             entityScope = event.location_name;
             entityName = `${entityLevel} - ${entityScope}`;
-        } else {
-            entityLevel = 'AS';
-            entityScope = match[2];
-            entityName = `${match[1]} - ${match[2]}`;
         }
 
         return  new SocialMediaPost({
