@@ -3,6 +3,7 @@ import {
   faFileLines,
 } from "@fortawesome/free-regular-svg-icons";
 import {
+  faArrowRight,
   faMinusCircle,
   faTrash,
   faUserEdit,
@@ -22,6 +23,14 @@ interface IProps {
   onEdit: () => void;
 }
 const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
+  function isoToYMD (iso : string | Date) {
+    if (!iso) return "Unknown Date";
+    const date = (iso instanceof Date) ? iso : new Date(iso);
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${year}-${month}-${day}`;
+  }
   return (
     <header className='text-slate-600 border-b border-slate-300 py-2'>
       <div className='flex justify-between'>
@@ -108,28 +117,42 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           )}
         </PlaceholderDiv>
       </div>
-      <div className='border-t border-slate-300 flex gap-2 items-center py-2'>
+      <div className='border-t border-slate-300 flex gap-2 items-center pt-2'>
         <span className='whitespace-nowrap'>Assigned To:</span>
         <PlaceholderDiv
           loading={isLoading}
           className='flex flex-wrap gap-x-2 gap-y-1 items-center '
         >
-          {group?.assignedTo?.map((user) => (
-            <UserToken
-              id={user._id}
-              className='bg-white border border-slate-300 rounded-full px-2 text-sm font-medium'
-            />
-          ))}
-          <AggieButton
-            className='hover:underline text-blue-600 text-xs '
-            onClick={() => onEdit()}
-          >
-            Change
-          </AggieButton>
+          {group?.assignedTo?.length
+            ? group.assignedTo.map((user) => (
+                <UserToken
+                  id={user._id}
+                  className='bg-white border border-slate-300 rounded-full px-2 text-sm font-medium'
+                />
+              ))
+            : (<p className='italic text-slate-600'>No User Assigned</p>)
+          }
+        </PlaceholderDiv>
+      </div>
+      <div className='flex gap-2 items-center pt-2'>
+        <span className='whitespace-nowrap'>Incident Date:</span>
+        <PlaceholderDiv
+          loading={isLoading}
+          className='flex flex-wrap gap-x-2 gap-y-1 items-center '
+        >
+          {(group?.incidentStartedAt || group?.incidentEndedAt) ? (
+            <div className=''>
+              <p className='whitespace-pre-line max-w-prose text-black'>
+                {isoToYMD(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {isoToYMD(group?.incidentEndedAt)}
+              </p>
+            </div>
+          ) : (
+            <p className='italic text-slate-600'>No Date Set</p>
+          )}
         </PlaceholderDiv>
       </div>
 
-      <div className='flex gap-2'>
+      <div className='flex gap-2 pt-2'>
         <p>Description:</p>
 
         {group?.notes ? (
