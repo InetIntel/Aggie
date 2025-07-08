@@ -37,6 +37,8 @@ export interface Group extends hasId {
   notes?: string;
   locationName: string;
   comments?: GroupComment[];
+  incidentStartedAt: Date;
+  incidentEndedAt: Date;
 }
 
 export interface Groups {
@@ -55,6 +57,8 @@ export interface GroupEditableData extends Partial<hasId> {
   locationName: string;
   public: boolean;
   escalated: boolean;
+  incidentStartedAt: Date;
+  incidentEndedAt: Date;
 }
 
 export interface GroupCreateData extends GroupEditableData {

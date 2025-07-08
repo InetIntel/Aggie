@@ -5,6 +5,7 @@ import * as Yup from "yup";
 import { PUBLISHED_OPTIONS, Group, GroupEditableData } from "../../api/groups/types";
 import { getUsers } from "../../api/users";
 
+import FormikDate from "../../components/FormikDate";
 import FormikDropdown from "../../components/FormikDropdown";
 import FormikInput from "../../components/FormikInput";
 import FormikMultiCombobox from "../../components/FormikMultiCombobox";
@@ -32,6 +33,8 @@ const incidentSchema = Yup.object().shape({
     ),
   assignedTo: Yup.array().of(Yup.string()).optional().default([]),
   notes: Yup.string(),
+  incidentStartedAt: Yup.date(),
+  incidentEndedAt: Yup.date(),
 });
 
 interface IProps {
@@ -62,6 +65,8 @@ const CreateEditIncidentForm = ({
           publication_status: group?.publication_status || ["Not Published"],
           assignedTo: group?.assignedTo?.map((i) => i._id) || [],
           notes: group?.notes || "",
+          incidentStartedAt: group?.incidentStartedAt?.toString().slice(0, 10) || "",
+          incidentEndedAt: group?.incidentEndedAt?.toString().slice(0, 10) || "",
         }}
         schema={incidentSchema}
         onSubmit={(values: GroupEditableData) => {
@@ -103,6 +108,14 @@ const CreateEditIncidentForm = ({
 
         <div className=' border-b'></div>
 
+        <FormikDate
+          name='incidentStartedAt'
+          label='Incident Start Date'
+        />
+        <FormikDate
+          name='incidentEndedAt'
+          label='Incident End Date'
+        />
         <FormikInput name='locationName' label='Location' />
 
         <label>
