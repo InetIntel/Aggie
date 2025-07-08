@@ -42,6 +42,10 @@ exports.group_groups = (req, res) => {
     'leastReports': 'reportsLength',
     'mostComments': '-commentsLength',
     'leastComments': 'commentsLength',
+    'descStartDate': '-incidentStartedAt',
+    'ascStartDate': 'incidentStartedAt',
+    'descEndDate': '-incidentEndedAt',
+    'ascStartDate': 'incidentEndedAt',
   }
   const sortBy = sortByKey in sortTable ? sortTable[sortByKey] : defaultSort
 
