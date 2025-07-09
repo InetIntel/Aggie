@@ -11,7 +11,6 @@ import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
 import AggieToken from "../AggieToken";
 import DateTime from "../DateTime";
-import GeneratedTagsList from "../GeneratedTagsList";
 import { parseContentType, sanitize } from "../SocialMediaPost/reportParser";
 import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
@@ -46,30 +45,6 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
             <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
               Irrelevant
             </AggieToken>
-          )}
-          {report.irrelevant && report.irrelevant === "false" && (
-            <AggieToken
-              variant='light:green'
-              icon={faDotCircle}
-              className='text-xs'
-            >
-              Relevant
-            </AggieToken>
-          )}
-
-          {(!report.irrelevant || report.irrelevant !== "true") && (
-            <>
-              {report.red_flag && (
-                <AggieToken
-                  variant='dark:red'
-                  icon={faExclamationTriangle}
-                  className='text-xs'
-                >
-                  Red Flag
-                </AggieToken>
-              )}
-              <GeneratedTagsList tags={report.aitags} report={report} />
-            </>
           )}
 
           <TagsList values={report.smtcTags} />
