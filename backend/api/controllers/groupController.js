@@ -47,7 +47,7 @@ exports.group_groups = (req, res) => {
     'descStartDate': '-incidentStartedAt',
     'ascStartDate': 'incidentStartedAt',
     'descEndDate': '-incidentEndedAt',
-    'ascStartDate': 'incidentEndedAt',
+    'ascEndDate': 'incidentEndedAt',
   }
   const sortBy = sortByKey in sortTable ? sortTable[sortByKey] : defaultSort
 
