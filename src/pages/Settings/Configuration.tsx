@@ -32,7 +32,6 @@ const Configuration = () => {
 
   return (
     <section className='w-full'>
-      <h1 className='font-medium text-3xl my-3'> Configuration</h1>
       <div
         className={`px-4 py-3 bg-white border border-slate-300 rounded-lg flex justify-between items-center ${
           fetchSuccess && !fetchStatusMutation.isLoading ? "" : "opacity-50"

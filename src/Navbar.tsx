@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faRightFromBracket,
@@ -5,14 +7,13 @@ import {
   faExternalLinkSquareAlt,
 } from "@fortawesome/free-solid-svg-icons";
 import { Menu } from "@headlessui/react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Session } from "./api/session/types";
 import { faUser } from "@fortawesome/free-regular-svg-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { logOut } from "./api/session";
+import { Session } from "./api/session/types";
 import AggieButton from "./components/AggieButton";
 import ConfirmationDialog from "./components/ConfirmationDialog";
-import { useState } from "react";
-import { logOut } from "./api/session";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DropdownMenu from "./components/DropdownMenu";
 import { menuLinks } from "./pages/Settings";
 
@@ -22,11 +23,11 @@ interface LinkOptions {
   not?: string[];
 }
 const mainLinks: Record<string, LinkOptions> = {
-  Reports: { to: "/rpt/batch" },
-  "All Reports": { to: "/rpt", not: ["batch", "search"] },
-  "Contextual Search": { to: "/rpt/search" },
+  // Reports: { to: "/rpt/batch" },
+  "Reports": { to: "/rpt", not: ["batch", "search"] },
+  // "Contextual Search": { to: "/rpt/search" },
 
-  divider1: { type: "divider", to: "" },
+  // divider1: { type: "divider", to: "" },
   Incidents: { to: "/incidents" },
   // Images: { to: "/images" },
 };
@@ -116,7 +117,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
         </div>
       </div>
       <div className='flex gap-2 items-center'>
-        <DropdownMenu
+        { /*<DropdownMenu
           buttonElement={<p className='text-xs'>Helpful Links</p>}
           panelClassName='border border-slate-300 rounded-lg z-20 bg-white w-max max-w-lg right-0 top-100'
           className='px-2 py-2 rounded-lg hover:bg-slate-100 hover:underline'
@@ -134,7 +135,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
               </p>
             </a>
           ))}
-        </DropdownMenu>
+        </DropdownMenu>*/ }
 
         {session && (
           <Link
@@ -153,7 +154,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
             <FontAwesomeIcon icon={faBars} />
           </Menu.Button>
           <Menu.Items className='absolute top-full right-0 mt-1 shadow-md overflow-hidden rounded-lg bg-white border border-slate-200 z-30 text-sm font-medium'>
-            {Object.entries(menuLinks).map(([name, link]) => (
+            {Object.entries(menuLinks(session?.role)).map(([name, link]) => (
               <Menu.Item key={name}>
                 {({ active }) => (
                   <Link

@@ -90,7 +90,7 @@ const FormikMultiCombobox = ({
             } rounded flex items-center gap-1 font-medium text-sm  hover:underline`
           }
         >
-          Add / Remove {unitLabel}s
+          Add / Remove {unitLabel}
           <FontAwesomeIcon icon={faCog} className=' mr-1 text-slate-500' />
         </Popover.Button>
       </div>
@@ -112,7 +112,7 @@ const FormikMultiCombobox = ({
             </div>
           ))
         ) : (
-          <p className='flex'>No {unitLabel}s Added</p>
+          <p className='flex'>No {unitLabel} Added</p>
         )}
         <div className='relative'></div>
 
@@ -121,7 +121,7 @@ const FormikMultiCombobox = ({
             <>
               <div className='px-2 pb-2 border-b border-slate-300'>
                 <div className='flex justify-between items-center mb-1'>
-                  <h2> Add / Remove {unitLabel}s</h2>
+                  <h2> Add / Remove {unitLabel}</h2>
                 </div>
                 <input
                   type='text'

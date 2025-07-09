@@ -11,14 +11,13 @@ import { getSession } from "./api/session";
 import type { AxiosError } from "axios";
 import type { Session } from "./api/session/types";
 
-
 import Navbar from "./Navbar";
 import SourcesIndex from "./pages/Settings/source/SourcesIndex";
 import SourceDetails from "./pages/Settings/source/SourceDetails";
 import UsersIndex from "./pages/Settings/user/UsersIndex";
 import UserProfile from "./pages/Settings/user/UserProfile";
 import TagsIndex from "./pages/Settings/tag/TagsIndex";
-import Configuration from "./pages/Settings/Configuration";
+//import Configuration from "./pages/Settings/Configuration";
 import CredentialsIndex from "./pages/Settings/Credentials/CredentialsIndex";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -55,7 +54,7 @@ const PublicRoutes = () => {
   );
 };
 
-const defaultRoute = "/rpt/batch";
+const defaultRoute = "/rpt";
 
 interface IPrivateRouteProps {
   sessionData: Session | undefined;
@@ -106,14 +105,17 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
       <Route path='/settings' element={<Settings />}>
         <Route path='sources' element={<SourcesIndex />} />
         <Route path='source/:id' element={<SourceDetails />} />
-        <Route path='users' element={<UsersIndex session={sessionData} />} />
+        <Route path='tags' element={<TagsIndex />} />
         <Route
           path='user/:id'
           element={<UserProfile session={sessionData} />}
         />
-        <Route path='tags' element={<TagsIndex />} />
-        <Route path='config' element={<Configuration />} />
-        <Route path='credentials' element={<CredentialsIndex />} />
+        { sessionData?.role === "admin" &&
+          <>
+            <Route path='users' element={<UsersIndex session={sessionData} />} />
+            <Route path='credentials' element={<CredentialsIndex />} />
+          </>
+        }
       </Route>
       <Route path='/*' element={<NotFound />} />
     </Routes>

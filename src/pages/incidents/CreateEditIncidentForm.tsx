@@ -2,10 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Field } from "formik";
 import * as Yup from "yup";
-import { VERACITY_OPTIONS } from "../../api/common";
-import { Group, GroupEditableData } from "../../api/groups/types";
+import { PUBLISHED_OPTIONS, Group, GroupEditableData } from "../../api/groups/types";
 import { getUsers } from "../../api/users";
 
+import FormikDate from "../../components/FormikDate";
 import FormikDropdown from "../../components/FormikDropdown";
 import FormikInput from "../../components/FormikInput";
 import FormikMultiCombobox from "../../components/FormikMultiCombobox";
@@ -17,9 +17,24 @@ const incidentSchema = Yup.object().shape({
   locationName: Yup.string(),
   escalated: Yup.boolean(),
   closed: Yup.boolean(),
-  veracity: Yup.string(),
+  verification_status: Yup.boolean().required("verification status required"),
+  confirmation_status: Yup.boolean().required("confirmation status required"),
+  publication_status: Yup.array(Yup.string())
+    .required("publication status required").min(1).max(2)
+    .test(
+      "is-published",
+      "Incident cannot be both Not Published and Published",
+      (value) => {
+        if (!value) return true;
+        return !(
+          value.includes("Not Published") && value.includes("Published")
+        );
+      }
+    ),
   assignedTo: Yup.array().of(Yup.string()).optional().default([]),
   notes: Yup.string(),
+  incidentStartedAt: Yup.date(),
+  incidentEndedAt: Yup.date(),
 });
 
 interface IProps {
@@ -45,9 +60,13 @@ const CreateEditIncidentForm = ({
           locationName: group?.locationName || "",
           escalated: group?.escalated || false,
           closed: group?.closed || false,
-          veracity: group?.veracity || "Unconfirmed",
+          verification_status: group?.verification_status || false,
+          confirmation_status: group?.confirmation_status || false,
+          publication_status: group?.publication_status || ["Not Published"],
           assignedTo: group?.assignedTo?.map((i) => i._id) || [],
           notes: group?.notes || "",
+          incidentStartedAt: group?.incidentStartedAt?.toString().slice(0, 10) || "",
+          incidentEndedAt: group?.incidentEndedAt?.toString().slice(0, 10) || "",
         }}
         schema={incidentSchema}
         onSubmit={(values: GroupEditableData) => {
@@ -66,12 +85,15 @@ const CreateEditIncidentForm = ({
           Ideally, titles should be written as a<i>question</i> that can be
           answered with a true/false
         </p>
-        <FormikDropdown
-          name={"veracity"}
-          list={VERACITY_OPTIONS.map((i) => {
-            return { _id: i, label: i };
+        <FormikSwitch name='verification_status' label='Outage verified?' />
+        <FormikSwitch name='confirmation_status' label='Reason confirmed?' />
+        <FormikMultiCombobox
+          name='publication_status'
+          unitLabel='status'
+          label='Published?'
+          list={PUBLISHED_OPTIONS.map((i) => {
+            return { key: i, value: i };
           })}
-          label={"Veracity"}
         />
         <FormikMultiCombobox
           name='assignedTo'
@@ -86,6 +108,14 @@ const CreateEditIncidentForm = ({
 
         <div className=' border-b'></div>
 
+        <FormikDate
+          name='incidentStartedAt'
+          label='Incident Start Date'
+        />
+        <FormikDate
+          name='incidentEndedAt'
+          label='Incident End Date'
+        />
         <FormikInput name='locationName' label='Location' />
 
         <label>

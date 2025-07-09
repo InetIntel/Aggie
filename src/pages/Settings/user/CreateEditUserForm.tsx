@@ -103,9 +103,13 @@ const CreateEditUserForm = ({ user, onClose }: IProps) => {
         <FormikDropdown
           label='Role'
           name='role'
-          list={[...USER_ROLES].map((i) => {
-            return { _id: i, label: i };
-          })}
+          list={!!user
+            ? [{ _id: user.role, label: user.role }]
+            : [...USER_ROLES].map((i) => {
+              return { _id: i, label: i };
+              })
+          }
+          disabled={!!user}
         />
         <FormikInput label='Username' name='username' />
         <FormikInput

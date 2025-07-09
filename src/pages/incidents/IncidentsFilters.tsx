@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getUsers } from "../../api/users";
 import {
-  VERACITY_OPTIONS,
+  //VERACITY_OPTIONS,
   ESCALATED_OPTIONS,
   GROUP_SORTBY,
   GroupSortBy,
@@ -162,12 +162,12 @@ const IncidentsFilters = ({
           )}
         </div>
         <div className='flex items-center gap-1'>
-          <FilterListbox
+          { /*<FilterListbox
             label='Veracity'
             options={[...VERACITY_OPTIONS]}
             value={get("veracity")}
             onChange={(e) => setParams({ veracity: e })}
-          />
+          />*/ }
           <FilterListbox
             label='Escalated'
             options={[...ESCALATED_OPTIONS]}

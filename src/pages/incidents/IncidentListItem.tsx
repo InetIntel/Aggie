@@ -7,7 +7,7 @@ import { getSession } from "../../api/session";
 import type { Group } from "../../api/groups/types";
 
 import TagsList from "../../components/Tags/TagsList";
-import VeracityToken from "../../components/VeracityToken";
+//import VeracityToken from "../../components/VeracityToken";
 import AggieButton from "../../components/AggieButton";
 import ConfirmationDialog from "../../components/ConfirmationDialog";
 import CreateEditIncidentForm from "./CreateEditIncidentForm";
@@ -17,6 +17,7 @@ import AggieSwitch from "../../components/AggieSwitch";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faArrowRight,
   faCircleMinus,
   faEdit,
   faEllipsis,
@@ -85,25 +86,34 @@ const IncidentListItem = ({ item }: IProps) => {
         role='button'
       >
         <header className='col-span-3 flex flex-col'>
-          <div className='flex gap-1 '>
-            <p className='font-medium'>#{item.idnum}</p>
-            <VeracityToken value={item.veracity} />
-            {item.closed && (
-              <span className='px-1 bg-purple-100 text-purple-700 font-medium flex gap-1 items-center'>
-                <FontAwesomeIcon
-                  icon={faCircleMinus}
-                  className='text-purple-500'
-                />
-                Closed
-              </span>
-            )}
-            {!item.public && (
-              <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
-                <FontAwesomeIcon icon={faTrash} />
-                Deleted
-              </span>
-            )}
-            <TagsList values={item.smtcTags} />
+          <div className='flex justify-between'>
+            <div className='flex gap-1 '>
+              <p className='font-medium'>#{item.idnum}</p>
+              { /*<VeracityToken value={item.veracity} />*/ }
+              {item.closed && (
+                <span className='px-1 bg-purple-100 text-purple-700 font-medium flex gap-1 items-center'>
+                  <FontAwesomeIcon
+                    icon={faCircleMinus}
+                    className='text-purple-500'
+                  />
+                  Closed
+                </span>
+              )}
+              {!item.public && (
+                <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
+                  <FontAwesomeIcon icon={faTrash} />
+                  Deleted
+                </span>
+              )}
+              <TagsList values={item.smtcTags} />
+            </div>
+            <div className='text-xs'>
+              {(item.incidentStartedAt || item.incidentEndedAt) && <p>
+                  <span>{item.incidentStartedAt?.toString().slice(0, 10) || "Unknown Date"}</span>
+                  <span>{" "}<FontAwesomeIcon icon={faArrowRight} size="xs" />{" "}</span>
+                  <span>{item.incidentEndedAt?.toString().slice(0, 10) || "Unknown Date"}</span>
+              </p>}
+            </div>
           </div>
           <h2 className=' text-black items-center font-medium my-1'>
             <span className='text-lg group-hover:text-blue-600 group-hover:underline'>

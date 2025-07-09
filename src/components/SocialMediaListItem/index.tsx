@@ -117,12 +117,21 @@ function renderAuthor(
   type: ReturnType<typeof parseContentType>,
   report: Report
 ) {
-  switch (type) {
-    case "RSS":
-      const website = new URL(report.url);
-      return <>{website.host}</>;
+  switch (report._media[0]) {
+    case "ioda":
+      let signal = report?.metadata?.rawAPIResponse?.rawEvent?.datasource;
+      if (signal === "bgp") {
+        return <>IODA-BGP</>;
+      } else if (signal === "merit-nt") {
+        return <>IODA-Telescope</>;
+      } else if (signal === "ping-slash24") {
+        return <>IODA-Active Probing</>;
+      }
+      return <>{report._media[0]}</>;
+    case "cloudflare":
+      return <>{report?.metadata?.rawAPIResponse?.dataSource}</>
     default:
-      return <>{report.author}</>;
+      return <>{report._media[0]}</>;
   }
 }
 function renderImage(
@@ -244,6 +253,35 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
             {formatText(report.content)}
           </p>
         </div>
+      );
+    case "ioda":
+      const rawStart = report?.metadata?.rawAPIResponse?.rawEvent?.start;
+      const start = new Date(rawStart * 1000); // Convert to milliseconds
+      const startUtc =
+        start.toISOString().replace('T', ' ').substring(0, 16);
+      const rawDuration = report?.metadata?.rawAPIResponse?.rawEvent?.duration;
+      const end = new Date((rawStart + rawDuration) * 1000);
+      const endUtc =
+        end.toISOString().replace('T', ' ').substring(0, 16);
+      return (
+        <p>
+          entity: {report?.author}<br />
+          {startUtc} to {
+            (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
+            endUtc.substring(11) : endUtc
+          }
+        </p>
+      );
+    case "cloudflare":
+      const endDate = 
+        report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";
+      return (
+        <p>
+          entity: {report?.author}<br />
+          {
+            report?.authoredAt.replace('T', ' ').substring(0, 16)
+          } to {endDate.replace('T', ' ').substring(0, 16)}
+        </p>
       );
     default:
       return (

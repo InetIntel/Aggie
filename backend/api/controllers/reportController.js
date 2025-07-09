@@ -246,6 +246,27 @@ exports.reports_group_update = (req, res) => {
     let remaining = reports.length;
     reports.forEach((report) => {
       //  report.read = true;
+      let prevGroupId = null;
+      // remove report from previous group, if any
+      if(report._group) {
+        prevGroupId = report._group;
+        Group.findById(prevGroupId, (err, group) => {
+          if (err) {
+            if (!res.headersSent) {
+              return res.status(err.status).send(err.message);
+            }
+            return;
+          }
+          group._reports.pull(report._id);
+          group.save((err) => {
+            if (err) {
+              if (!res.headersSent) return res.status(err.status).send(err.message)
+              return;
+            }
+          })
+        })
+      }
+      // map report with group
       report._group = req.body.group._id;
       report.save((err) => {
         if (err) {

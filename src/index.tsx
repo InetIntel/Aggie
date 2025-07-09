@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 
-import { AxiosError } from "axios";
+import axios, { AxiosError } from "axios";
 import reportWebVitals from "./reportWebVitals";
 
 import "react-day-picker/style.css";
@@ -14,6 +14,8 @@ import TimeAgo from "javascript-time-ago";
 import en from "javascript-time-ago/locale/en";
 import SocketProvider from "./hooks/WebsocketProvider";
 import AppRouter from "./AppRouter";
+
+axios.defaults.baseURL = process.env.PUBLIC_URL;
 
 //locale for rendering relative time react
 TimeAgo.addDefaultLocale(en);
@@ -33,10 +35,11 @@ const queryClient = new QueryClient({
     },
   },
 });
+const url = process.env.PUBLIC_URL && new URL(process.env.PUBLIC_URL).pathname;
 ReactDOM.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={url}>
         <SocketProvider>
           <AppRouter />
         </SocketProvider>

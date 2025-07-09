@@ -1,7 +1,7 @@
 // this component is uh... one of the components of all time
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { Report, ReportQueryState } from "../../../api/reports/types";
 import { getGroup } from "../../../api/groups";
@@ -161,13 +161,14 @@ const ReportListItem = ({
 
         <div className='flex flex-col '>
           {!!report._group && !!incident ? (
-            <div
+            <Link
+              to={`/incidents/${incident._id}`}
               className={`rounded-lg ${
                 incident?.closed
                   ? "bg-purple-50 text-purple-700"
                   : "bg-slate-50 text-slate-700"
               }  px-2 py-1 flex-grow border border-slate-300 hover:cursor-pointer hover:bg-white`}
-              onClick={(e) => onAttachedReportClick(e, incident._id)}
+              onClick={(e) => e.stopPropagation()}
             >
               <p className='font-medium flex justify-between'>
                 <span className='line-clamp-3'>
@@ -188,7 +189,7 @@ const ReportListItem = ({
                 <span>#{incident?.idnum}</span>
               </p>
               <p>{incident._reports.length} Reports</p>
-            </div>
+            </Link>
           ) : (
             <AggieButton
               onClick={(e) => {

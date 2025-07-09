@@ -111,25 +111,27 @@ const SourceDetails = () => {
           </div>
         </div>
 
-        <div className='grid grid-cols-4'>
-          <p className='text-slate-600'>Credential</p>
-          <div className='col-span-3'>
-            <p className=' bg-slate-200 rounded-full px-2  w-fit  py-1'>
-              <Link
-                to={`/settings/credentials`}
-                className='hover:underline flex items-center gap-2'
-                title='API Key Credential'
-              >
-                <FontAwesomeIcon
-                  icon={faKey}
-                  size='xs'
-                  className='text-slate-500'
-                />
-                {data?.credentials.name}
-              </Link>
-            </p>
+        { session?.role === "admin" &&
+          <div className='grid grid-cols-4'>
+            <p className='text-slate-600'>Credential</p>
+            <div className='col-span-3'>
+              <p className=' bg-slate-200 rounded-full px-2  w-fit  py-1'>
+                <Link
+                  to={`/settings/credentials`}
+                  className='hover:underline flex items-center gap-2'
+                  title='API Key Credential'
+                >
+                  <FontAwesomeIcon
+                    icon={faKey}
+                    size='xs'
+                    className='text-slate-500'
+                  />
+                  {data?.credentials.name}
+                </Link>
+              </p>
+            </div>
           </div>
-        </div>
+        }
         <div className='grid grid-cols-4'>
           <p className='text-slate-600'>Created by</p>
           <div className='col-span-3'>
