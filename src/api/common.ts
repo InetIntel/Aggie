@@ -36,6 +36,10 @@ export const CREDENTIAL_OPTIONS = ["ioda", "cloudflare"] as const;
 export type CredentialOption = (typeof CREDENTIAL_OPTIONS)[number];
 
 export const GROUP_SORTBY = [
+  "descStartDate",
+  "ascStartDate",
+  "descEndDate",
+  "ascEndDate",
   "mostComments",
   "leastComments",
   "mostReports",
