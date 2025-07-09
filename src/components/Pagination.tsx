@@ -29,7 +29,7 @@ const Pagination = ({
   const { isOpen, refs, getReferenceProps, getFloatingProps, floatingStyles } =
     usePopover();
 
-  const totalPages = totalCount ? Math.floor(totalCount / pageSize) : 0;
+  const totalPages = totalCount ? Math.ceil(totalCount / pageSize) : 0;
 
   // light logic wrapper for whether or not to display buttons
   const NumberButton = (props: {
