@@ -15,7 +15,7 @@ async function extractCleanSVGFromPage(browser, linkedPageUrl) {
 
         await page.goto(linkedPageUrl, {waitUntil: 'networkidle'});
 
-        await page.waitForSelector('svg.highcharts-root', {timeout: 10000});
+        await page.waitForSelector('svg.highcharts-root', {timeout: 20000, state: 'attached',});
 
         const rawSvg = await page.$eval('svg.highcharts-root', el => el.outerHTML);
 
