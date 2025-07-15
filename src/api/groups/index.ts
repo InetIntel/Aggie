@@ -158,10 +158,11 @@ interface addCommentParams extends SelectedOne {
 }
 export const addComment = async (params: addCommentParams) => {
   if (!params.id) return undefined;
-  const { data } = await axios.patch("/api/group/_comment_add", {
-    ids: [params.id],
-    comment: params.comment,
-  });
+  const formData = new FormData();
+  formData.append("ids[]", params.id);
+  formData.append("comment[data]", params.comment.data);
+  formData.append("comment[author]", params.comment.author);
+  const { data } = await axios.patch("/api/group/_comment_add", formData);
   return data;
 };
 
