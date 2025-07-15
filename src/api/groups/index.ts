@@ -13,6 +13,7 @@ import { hasId } from "../common";
 import { omitBy, isNil } from "lodash";
 import { ReportQueryState } from "../reports/types";
 import { urlFromReportsQuery } from "../reports";
+import objectToFormData from "../../utils/objectToFormData";
 
 export const getGroups = async (
   searchState: GroupQueryState = {},
@@ -159,11 +160,9 @@ interface addCommentParams extends SelectedOne {
 }
 export const addComment = async (params: addCommentParams) => {
   if (!params.id) return undefined;
-  const formData = new FormData();
+  const formData = objectToFormData(params);
   formData.append("ids[]", params.id);
-  formData.append("comment[data]", params.comment.data);
-  formData.append("comment[author]", params.comment.author);
-  {params.attachments && formData.append("attachments", params.attachments)};
+  formData.delete("id");
   const { data } = await axios.patch("/api/group/_comment_add", formData);
   return data;
 };
