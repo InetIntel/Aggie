@@ -12,6 +12,7 @@ const validator = require('validator');
 const _ = require('lodash');
 const AutoIncrement = require('mongoose-sequence')(mongoose);
 const Report = require('./report');
+const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../config/models/groupConfigs');
 require('./tag');
 
 require('../error');
@@ -27,6 +28,33 @@ const publicationValidator = function (arr) {
     }
   return true;
 }
+
+const Attachment = new mongoose.Schema({
+  fileName: { type: String, required: true},
+  path: { type: String, required: true},
+  mimeType: { type: String, required: true},
+  fileSize: {
+    type: Number,
+    required: true,
+    validate: {
+      validator: (size) => size <= MAX_ATTACHMENT_SIZE,
+      message: `Attachment must be less than ${MAX_ATTACHMENT_SIZE / 1024} kb`,
+    }
+  }
+});
+
+const Comment = new mongoose.Schema({
+  data: { type: String, required: true},
+  author: { type: mongoose.Schema.ObjectId, ref: 'User', required: true },
+  attachments: {
+    type: [Attachment],
+    default: [],
+    validate: {
+      validator: (arr) => arr.length <= MAX_ATTACHMENT_COUNT, 
+      message: `Max ${MAX_ATTACHMENT_COUNT} attachments`,
+    }
+  }
+}, {timestamps: true});
 
 let schema = new mongoose.Schema({
   title: { type: String, required: true },
@@ -77,12 +105,7 @@ let schema = new mongoose.Schema({
     default: [],
   },
   notes: String,
-  comments: [new mongoose.Schema({
-
-    data: String,
-    author: { type: mongoose.Schema.ObjectId, ref: 'User' },
-
-  }, { timestamps: true })]
+  comments: [Comment]
 });
 
 schema.plugin(AutoIncrement, { inc_field: 'idnum' });

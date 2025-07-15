@@ -3,6 +3,9 @@ const express = require('express');
 const router = express.Router();
 const groupController = require('../controllers/groupController');
 const User = require('../../models/user');
+const upload = require('../middlewares/groupMiddlewares');
+const { MAX_ATTACHMENT_COUNT } = require('../../config/models/groupConfigs');
+
 
 
 // Create a new Group
@@ -59,10 +62,10 @@ router.patch('/_untag', User.can('edit data'), groupController.group_tags_remove
 router.patch('/_clearTags', groupController.group_tags_clear);
 
 // Route to add comment
-router.patch('/_comment_add', User.can('edit data'), groupController.group_comment_add);
+router.patch('/_comment_add', User.can('edit data'), upload.array('attachments', MAX_ATTACHMENT_COUNT), groupController.group_comment_add);
 
 // Route to update comment
-router.patch('/_comment_update', User.can('edit data'), groupController.group_comment_update);
+router.patch('/_comment_update', User.can('edit data'), upload.array('attachments', MAX_ATTACHMENT_COUNT), groupController.group_comment_update);
 
 // Route to remove comment
 router.patch('/_comment_remove', User.can('edit data'), groupController.group_comment_remove);
