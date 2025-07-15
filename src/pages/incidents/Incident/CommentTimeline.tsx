@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from "react";
+import { useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Formik, Field, Form, FieldProps } from "formik";
+import { Formik, Field, FieldProps, Form } from "formik";
 import * as Yup from "yup";
 
 import { addComment } from "../../../api/groups";
@@ -13,49 +13,16 @@ import { getSession } from "../../../api/session";
 
 import AggieButton from "../../../components/AggieButton";
 import DateTime from "../../../components/DateTime";
+import {
+  FilePickerManager,
+  ImageUploadButton,
+  NamePreview,
+} from "../../../components/ImageUploader";
 import UserToken from "../../../components/UserToken";
 import Comment from "./Comment";
 
-import { faDotCircle, faImage } from "@fortawesome/free-solid-svg-icons";
+import { faDotCircle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-
-const ImageUploadField: React.FC<FieldProps> = ({ field, form }) => {
-  const [preview, setPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleButtonClick = () => {
-    fileInputRef.current?.click()
-  }
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      form.setFieldValue(field.name, file);
-
-      const reader = new FileReader();
-      reader.onload = () => setPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  }, []);
-
-  return <>
-    <AggieButton
-      variant='transparent'
-      icon={faImage}
-      onClick={handleButtonClick}
-      disabled={form.isSubmitting}
-      type='button'
-    >
-      <input
-        type='file'
-        accept='application/pdf, image/jpeg, image/png'
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className='hidden'
-      />
-    </AggieButton>
-    {preview && <img src={preview} alt="Preview" />}
-  </>;
-};
 
 interface IProps {
   group?: Group;
@@ -63,13 +30,17 @@ interface IProps {
 }
 const CommentTimeline = ({ group, isLoading }: IProps) => {
   const queryClient = useQueryClient();
+  const managerRef = useRef(new FilePickerManager());
 
   const postNewComment = useMutation(addComment);
 
   const { data: session } = useQuery(["session"], getSession, {
     staleTime: 50000,
   });
-  function onPostAdd(formData: { commentdata: string, imagedata: null | File }, resetForm: () => void) {
+  function onPostAdd(
+    formData: { commentdata: string, imagedata: null | File },
+    resetForm: () => void
+  ) {
     if (!session || !group) return false;
     const post: EditableGroupComment = {
       data: formData.commentdata,
@@ -127,11 +98,13 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
             <Form>
               <div className='flex justify-between px-3 py-2'>
                 <h2 className='font-medium'>Add Comment</h2>
-                <Field
-                  name='imagedata'
-                  component={ImageUploadField}
-                />
+                <Field name='imagedata'>
+                  {({ form }: FieldProps) => (
+                    <ImageUploadButton manager={managerRef.current} form={form} />
+                  )}
+                </Field>
               </div>
+              <NamePreview manager={managerRef.current} />
               <Field
                 as='textarea'
                 name='commentdata'
