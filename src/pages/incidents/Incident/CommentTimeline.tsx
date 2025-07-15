@@ -38,20 +38,20 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
     staleTime: 50000,
   });
   function onPostAdd(
-    formData: { commentdata: string, imagedata: null | File },
+    formData: { commentdata: string, attachments: File | null },
     resetForm: () => void
   ) {
     if (!session || !group) return false;
     const post: EditableGroupComment = {
       data: formData.commentdata,
-      //image: formData.imagedata,
       author: session._id,
     };
     postNewComment.mutate(
-      { id: group._id, comment: post },
+      { id: group._id, comment: post, attachments: formData.attachments },
       {
         onSuccess: () => {
           resetForm();
+          managerRef.current.clear();
           queryClient.invalidateQueries(["group", group._id]);
         },
       }
@@ -85,20 +85,21 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
       </div>
       <div className=' bg-slate-50 border border-slate-300 rounded-lg'>
         <Formik
-          initialValues={{ commentdata: "", imagedata: null }}
+          initialValues={{ commentdata: "", attachments: null }}
           onSubmit={(e, { resetForm }) => {
+            console.log(e);
             onPostAdd(e, resetForm);
           }}
           validationSchema={Yup.object().shape({
             commentdata: Yup.string().required("Cannot Post Empty Comment!"),
-            imagedata: Yup.mixed(),
+            attachments: Yup.mixed(),
           })}
         >
           {({ resetForm, errors }) => (
             <Form>
               <div className='flex justify-between px-3 py-2'>
                 <h2 className='font-medium'>Add Comment</h2>
-                <Field name='imagedata'>
+                <Field name='attachments'>
                   {({ form }: FieldProps) => (
                     <ImageUploadButton manager={managerRef.current} form={form} />
                   )}

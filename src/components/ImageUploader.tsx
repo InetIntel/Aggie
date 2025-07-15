@@ -58,7 +58,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({ manager, f
     if (file) {
       manager.setFile(file);
       e.target.value = ''; // Allow re-selecting the same file
-      form.setFieldValue('image', file); // ensure value gets to Formik
+      form.setFieldValue('attachments', file); // ensure value gets to Formik
     }
   }, []);
 
@@ -76,6 +76,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({ manager, f
         ref={fileInputRef}
         onChange={handleFileChange}
         className='hidden'
+        multiple
       />
     </AggieButton>
   );

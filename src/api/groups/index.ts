@@ -155,6 +155,7 @@ export const setSelectedNotes = async (groupIds: string[], notes: string) => {
 
 interface addCommentParams extends SelectedOne {
   comment: EditableGroupComment;
+  attachments: File | null;
 }
 export const addComment = async (params: addCommentParams) => {
   if (!params.id) return undefined;
@@ -162,6 +163,7 @@ export const addComment = async (params: addCommentParams) => {
   formData.append("ids[]", params.id);
   formData.append("comment[data]", params.comment.data);
   formData.append("comment[author]", params.comment.author);
+  {params.attachments && formData.append("attachments", params.attachments)};
   const { data } = await axios.patch("/api/group/_comment_add", formData);
   return data;
 };
