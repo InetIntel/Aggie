@@ -1,11 +1,16 @@
 export default function objectToFormData(obj: any, form: FormData = new FormData(), prefix: string = ''): FormData {
   for (let key in obj) {
-    const formKey = prefix ? `${prefix}[${key}]` : key;
+    if (!obj.hasOwnProperty(key)) continue;
     const value = obj[key];
+    if (!value) continue;
+
+    const formKey = prefix ? `${prefix}[${key}]` : key;
 
     if (Array.isArray(value)) {
       value.forEach((element, index) => {
-        if (typeof element === 'object' && element !== null) {
+        if (element instanceof File || element instanceof Blob) {
+          form.append(formKey, element);
+        } else if (typeof element === 'object' && element !== null) {
           objectToFormData(element, form, formKey);
         } else {
           form.append(formKey, element);
