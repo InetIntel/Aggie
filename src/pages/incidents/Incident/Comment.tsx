@@ -10,12 +10,13 @@ import { getSession } from "../../../api/session";
 import AggieButton from "../../../components/AggieButton";
 import {
   FilePickerManager,
-  ImageUploadButton,
-} from "../../../components/ImageUploader";
+  FileUploadButton,
+  MAX_FILES,
+} from "../../../components/FileUploader";
 import UserToken from "../../../components/UserToken";
 import { Formik, Field, FieldProps, Form } from "formik";
 import Linkify from "linkify-react";
-import { isEqual } from "lodash";
+import { isEmpty, isEqual, difference } from "lodash";
 
 import { faComment, faCommentAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit, faEllipsisH } from "@fortawesome/free-solid-svg-icons";
@@ -33,7 +34,7 @@ const Comment = ({ data, groupId }: IProps) => {
     staleTime: 50000,
   });
   const [edit, setEdit] = useState(false);
-  const managerRef = useRef(new FilePickerManager());
+  const managerRef = useRef(new FilePickerManager(data.attachments));
 
   const doDeleteComment = useMutation(removeComment, {
     onSuccess() {
@@ -48,12 +49,12 @@ const Comment = ({ data, groupId }: IProps) => {
   function onEditSubmit(
     formData: {
       commentdata: string,
-      attachments: File | GroupCommentAttachment | null
+      attachments: (File | GroupCommentAttachment)[]
     },
     resetForm: () => void
   ) {
     const post: GroupComment =
-      isEqual(data.attachments?.[0], formData.attachments)
+      isEqual(data.attachments, formData.attachments)
       ? {
         ...data,
         data: formData.commentdata,
@@ -61,18 +62,27 @@ const Comment = ({ data, groupId }: IProps) => {
       : {
         ...data,
         data: formData.commentdata,
-        attachments: formData.attachments && [formData.attachments],
-        attachmentsToDelete:
-          (data.attachments?.[0] && '_id' in data.attachments[0])
-          ? [data.attachments[0]._id]
-          : null,
+        attachments: (
+          data.attachments
+          ? difference(formData.attachments, data.attachments)
+          : formData.attachments
+        ),
+        attachmentsToDelete: (
+          difference(formData.attachments, data.attachments).reduce(
+            (accumulator, currentValue) => (
+              ("_id" in currentValue)
+              ? accumulator.concat([String(currentValue._id)])
+              : accumulator
+            ),
+            [] as string[]
+          )
+        ),
       };
     doUpdateComment.mutate(
       { id: groupId, comment: post, },
       {
         onSuccess: () => {
           resetForm();
-          managerRef.current.clear();
           setEdit(false);
           queryClient.invalidateQueries(["group", groupId]);
         },
@@ -130,14 +140,17 @@ const Comment = ({ data, groupId }: IProps) => {
           <Formik
             initialValues={{
               commentdata: data.data,
-              attachments: (data.attachments?.[0] || null)
+              attachments: data.attachments
             }}
             onSubmit={(e, { resetForm }) => {
               onEditSubmit(e, resetForm);
             }}
             validationSchema={Yup.object().shape({
               commentdata: Yup.string().required("Cannot Post Empty Comment!"),
-              attachments: Yup.mixed(),
+              attachments: Yup.array().of(Yup.mixed()).max(
+                MAX_FILES,
+                `each comment can be attached maximum ${MAX_FILES} files`
+              ),
             })}
           >
             {({ resetForm, errors, isValid }) => (
@@ -150,10 +163,17 @@ const Comment = ({ data, groupId }: IProps) => {
                 />
                 <Field name='attachments'>
                   {({ form }: FieldProps) => <>
-                    <ImageUploadButton manager={managerRef.current} form={form} />
+                    <FileUploadButton manager={managerRef.current} form={form} />
                     {
-                      managerRef.current.getName()
-                      || form.initialValues.attachments?.fileName
+                      managerRef.current.getNames().toString()
+                      || form.values.attachments.reduce(
+                        (a: string[], e: File | GroupCommentAttachment) => (
+                          e instanceof File
+                          ? a.concat([String(e.name)])
+                          : a.concat([String(e.fileName)])
+                        ),
+                        [] as string[]
+                      ).toString()
                     }
                   </>}
                 </Field>
@@ -191,9 +211,14 @@ const Comment = ({ data, groupId }: IProps) => {
           </p>
           {
             data.attachments
-            && data.attachments.map((f: GroupCommentAttachment | File) =>
-              ('fileName' in f) ? f.fileName : f.name
-            )
+            && data.attachments.reduce(
+              (a: string[], e: File | GroupCommentAttachment) => (
+                e instanceof File
+                ? a.concat([String(e.name)])
+                : a.concat([String(e.fileName)])
+              ),
+              [] as string[]
+            ).toString()
           }
         </>
       )}

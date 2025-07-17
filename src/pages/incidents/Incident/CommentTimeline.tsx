@@ -4,6 +4,7 @@ import { Formik, Field, FieldProps, Form } from "formik";
 import * as Yup from "yup";
 
 import { addComment } from "../../../api/groups";
+import { GroupCommentAttachment } from "../../../api/groups/types";
 import {
   EditableGroupComment,
   Group,
@@ -15,8 +16,9 @@ import AggieButton from "../../../components/AggieButton";
 import DateTime from "../../../components/DateTime";
 import {
   FilePickerManager,
-  ImageUploadButton,
-} from "../../../components/ImageUploader";
+  FileUploadButton,
+  MAX_FILES,
+} from "../../../components/FileUploader";
 import UserToken from "../../../components/UserToken";
 import Comment from "./Comment";
 
@@ -37,14 +39,14 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
     staleTime: 50000,
   });
   function onPostAdd(
-    formData: { commentdata: string, attachments: File | null },
+    formData: { commentdata: string, attachments: (File | GroupCommentAttachment)[] },
     resetForm: () => void
   ) {
     if (!session || !group) return false;
     const post: EditableGroupComment = {
       data: formData.commentdata,
+      attachments: formData.attachments,
       author: session._id,
-      attachments: formData.attachments && [formData.attachments],
     };
     postNewComment.mutate(
       { id: group._id, comment: post },
@@ -85,13 +87,16 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
       </div>
       <div className=' bg-slate-50 border border-slate-300 rounded-lg'>
         <Formik
-          initialValues={{ commentdata: "", attachments: null }}
+          initialValues={{ commentdata: "", attachments: [] as File[] }}
           onSubmit={(e, { resetForm }) => {
             onPostAdd(e, resetForm);
           }}
           validationSchema={Yup.object().shape({
             commentdata: Yup.string().required("Cannot Post Empty Comment!"),
-            attachments: Yup.mixed(),
+            attachments: Yup.array().of(Yup.mixed()).max(
+              MAX_FILES,
+              `each comment can be attached maximum ${MAX_FILES} files`
+            ),
           })}
         >
           {({ resetForm, errors }) => (
@@ -100,11 +105,11 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
                 <h2 className='font-medium'>Add Comment</h2>
                 <Field name='attachments'>
                   {({ form }: FieldProps) => (
-                    <ImageUploadButton manager={managerRef.current} form={form} />
+                    <FileUploadButton manager={managerRef.current} form={form} />
                   )}
                 </Field>
               </div>
-              {managerRef.current.getName()}
+              {managerRef.current.getNames().toString()}
               <Field
                 as='textarea'
                 name='commentdata'

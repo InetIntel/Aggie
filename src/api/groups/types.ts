@@ -84,13 +84,13 @@ export interface GroupComment extends EditableGroupComment {
   createdAt: string;
   updatedAt: string;
   _id: string;
-  attachmentsToDelete?: string[] | null;
+  attachmentsToDelete?: string[];
 }
 
 export interface EditableGroupComment {
   data: string;
   author: string;
-  attachments: (GroupCommentAttachment | File)[] | null;
+  attachments: (GroupCommentAttachment | File)[];
 }
 
 export const MIME_TYPES = [
