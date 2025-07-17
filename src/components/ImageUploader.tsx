@@ -4,35 +4,44 @@ import { faImage } from "@fortawesome/free-solid-svg-icons";
 import { Formik, Field, FieldProps, Form } from "formik";
 
 import AggieButton from "./AggieButton";
+import { GroupCommentAttachment, MIME_TYPES } from "../api/groups/types";
 
 export class FilePickerManager {
-  private file: File | null = null;
-  private previewUrl: string | null = null;
+  private file: File | GroupCommentAttachment | null = null;
+  private path: string | null = null;
   private name: string | null = null;
   private listeners: Set<() => void> = new Set();
 
-  setFile(file: File) {
-    this.file = file;
-    if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
-    this.previewUrl = URL.createObjectURL(file);
-    this.name = file.name;
-    this.notify();
+  setFile(file: File | GroupCommentAttachment) {
+    if (file instanceof File) {
+      this.file = file;
+      if (this.path) URL.revokeObjectURL(this.path);
+      this.path = URL.createObjectURL(file);
+      this.name = file.name;
+      this.notify();
+    } else {
+      this.file = file;
+      if (this.path) URL.revokeObjectURL(this.path);
+      this.path = file.path;
+      this.name = file.fileName;
+      this.notify();
+    }
   }
 
   clear() {
     this.file = null;
-    if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
-    this.previewUrl = null;
+    if (this.path) URL.revokeObjectURL(this.path);
+    this.path = null;
     this.name = null;
     this.notify();
   }
 
-  getFile(): File | null {
+  getFile(): File | GroupCommentAttachment | null {
     return this.file;
   }
 
-  getPreviewUrl(): string | null {
-    return this.previewUrl;
+  getPath(): string | null {
+    return this.path;
   }
 
   getName(): string | null {
@@ -79,7 +88,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({ manager, f
     >
       <input
         type='file'
-        accept='application/pdf, image/jpeg, image/png'
+        accept={MIME_TYPES.join(", ")}
         ref={fileInputRef}
         onChange={handleFileChange}
         className='hidden'
@@ -87,37 +96,4 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({ manager, f
       />
     </AggieButton>
   );
-};
-
-export const ImagePreview: React.FC<{ manager: FilePickerManager }> = ({ manager }) => {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(manager.getPreviewUrl());
-
-  useEffect(() => {
-    const handleUpdate = () => setPreviewUrl(manager.getPreviewUrl());
-    manager.subscribe(handleUpdate);
-    return () => manager.unsubscribe(handleUpdate);
-  }, [manager]);
-
-  if (!previewUrl) return null;
-  return (
-    <img
-      src={previewUrl}
-      alt={previewUrl}
-      height='200'
-      width='200'
-    />
-  );
-};
-
-export const NamePreview: React.FC<{ manager: FilePickerManager }> = ({ manager }) => {
-  const [previewName, setPreviewName] = useState(manager.getFile()?.name);
-
-  useEffect(() => {
-    const handleUpdate = () => setPreviewName(manager.getFile()?.name);
-    manager.subscribe(handleUpdate);
-    return () => manager.unsubscribe(handleUpdate);
-  }, [manager]);
-
-  if (!previewName) return null;
-  return <p>{previewName}</p>
 };

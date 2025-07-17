@@ -1,26 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import * as Yup from "yup";
 
 import { editComment, removeComment } from "../../../api/groups";
-import { GroupComment } from "../../../api/groups/types";
+import { GroupComment, GroupCommentAttachment } from "../../../api/groups/types";
 import { getSession } from "../../../api/session";
 
 import AggieButton from "../../../components/AggieButton";
+import {
+  FilePickerManager,
+  ImageUploadButton,
+} from "../../../components/ImageUploader";
 import UserToken from "../../../components/UserToken";
-import { Formik, Field, Form } from "formik";
+import { Formik, Field, FieldProps, Form } from "formik";
 import Linkify from "linkify-react";
+import { isEqual } from "lodash";
 
 import { faComment, faCommentAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit, faEllipsisH } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DateTime from "../../../components/DateTime";
 import DropdownMenu from "../../../components/DropdownMenu";
-
-const CommentSchema = Yup.object().shape({
-  commentdata: Yup.string().required("Cannot Post Empty Comment!"),
-});
 
 interface IProps {
   data: GroupComment;
@@ -32,6 +33,7 @@ const Comment = ({ data, groupId }: IProps) => {
     staleTime: 50000,
   });
   const [edit, setEdit] = useState(false);
+  const managerRef = useRef(new FilePickerManager());
 
   const doDeleteComment = useMutation(removeComment, {
     onSuccess() {
@@ -44,17 +46,33 @@ const Comment = ({ data, groupId }: IProps) => {
     },
   });
   function onEditSubmit(
-    formData: { commentdata: string },
+    formData: {
+      commentdata: string,
+      attachments: File | GroupCommentAttachment | null
+    },
     resetForm: () => void
   ) {
+    const post: GroupComment =
+      isEqual(data.attachments?.[0], formData.attachments)
+      ? {
+        ...data,
+        data: formData.commentdata,
+      }
+      : {
+        ...data,
+        data: formData.commentdata,
+        attachments: formData.attachments && [formData.attachments],
+        attachmentsToDelete:
+          (data.attachments?.[0] && '_id' in data.attachments[0])
+          ? [data.attachments[0]._id]
+          : null,
+      };
     doUpdateComment.mutate(
-      {
-        id: groupId,
-        comment: { ...data, data: formData.commentdata },
-      },
+      { id: groupId, comment: post, },
       {
         onSuccess: () => {
           resetForm();
+          managerRef.current.clear();
           setEdit(false);
           queryClient.invalidateQueries(["group", groupId]);
         },
@@ -110,20 +128,35 @@ const Comment = ({ data, groupId }: IProps) => {
       {edit ? (
         <>
           <Formik
-            initialValues={{ commentdata: data.data }}
+            initialValues={{
+              commentdata: data.data,
+              attachments: (data.attachments?.[0] || null)
+            }}
             onSubmit={(e, { resetForm }) => {
               onEditSubmit(e, resetForm);
             }}
-            validationSchema={CommentSchema}
+            validationSchema={Yup.object().shape({
+              commentdata: Yup.string().required("Cannot Post Empty Comment!"),
+              attachments: Yup.mixed(),
+            })}
           >
             {({ resetForm, errors, isValid }) => (
-              <Form>
+              <Form encType="multipart/form-data">
                 <Field
                   as='textarea'
                   name='commentdata'
                   className='focus-theme px-3 py-2 border-b border-slate-300 bg-white w-full min-h-36'
                   placeholder='Write a comment here...'
                 />
+                <Field name='attachments'>
+                  {({ form }: FieldProps) => <>
+                    <ImageUploadButton manager={managerRef.current} form={form} />
+                    {
+                      managerRef.current.getName()
+                      || form.initialValues.attachments?.fileName
+                    }
+                  </>}
+                </Field>
                 {errors && (
                   <p className='text-sm text-rose-700 italic ml-2'>
                     {errors.commentdata}
@@ -152,9 +185,17 @@ const Comment = ({ data, groupId }: IProps) => {
           </Formik>
         </>
       ) : (
-        <p className='whitespace-pre-line px-3 py-3 bg-white'>
-          <Linkify>{data.data}</Linkify>
-        </p>
+        <>
+          <p className='whitespace-pre-line px-3 py-3 bg-white'>
+            <Linkify>{data.data}</Linkify>
+          </p>
+          {
+            data.attachments
+            && data.attachments.map((f: GroupCommentAttachment | File) =>
+              ('fileName' in f) ? f.fileName : f.name
+            )
+          }
+        </>
       )}
     </div>
   );

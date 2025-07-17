@@ -84,6 +84,7 @@ export interface GroupComment extends EditableGroupComment {
   createdAt: string;
   updatedAt: string;
   _id: string;
+  attachmentsToDelete?: string[] | null;
 }
 
 export interface EditableGroupComment {

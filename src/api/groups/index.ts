@@ -167,25 +167,25 @@ export const addComment = async (params: addCommentParams) => {
 };
 
 interface editCommentParams extends Partial<SelectedOne> {
-  comment: EditableGroupComment;
+  comment: GroupComment;
 }
 export const editComment = async (params: editCommentParams) => {
   if (!params.id) return undefined;
-  const { data } = await axios.patch("/api/group/_comment_update", {
-    ids: [params.id],
-    comment: params.comment,
-  });
+  const formData = objectToFormData(params);
+  formData.append("ids[]", params.id);
+  formData.delete("id");
+  const { data } = await axios.patch("/api/group/_comment_update", formData);
   return data;
 };
 
 interface deleteCommentParams extends Partial<SelectedOne> {
-  comment: EditableGroupComment | GroupComment;
+  comment: GroupComment;
 }
 export const removeComment = async (params: deleteCommentParams) => {
   if (!params.id) return undefined;
   const { data } = await axios.patch("/api/group/_comment_remove", {
     ids: [params.id],
-    comment: params.comment,
+    commentId: params.comment._id,
   });
   return data;
 };
