@@ -8,12 +8,14 @@ import AggieButton from "./AggieButton";
 export class FilePickerManager {
   private file: File | null = null;
   private previewUrl: string | null = null;
+  private name: string | null = null;
   private listeners: Set<() => void> = new Set();
 
   setFile(file: File) {
     this.file = file;
     if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
     this.previewUrl = URL.createObjectURL(file);
+    this.name = file.name;
     this.notify();
   }
 
@@ -21,6 +23,7 @@ export class FilePickerManager {
     this.file = null;
     if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
     this.previewUrl = null;
+    this.name = null;
     this.notify();
   }
 
@@ -30,6 +33,10 @@ export class FilePickerManager {
 
   getPreviewUrl(): string | null {
     return this.previewUrl;
+  }
+
+  getName(): string | null {
+    return this.name;
   }
 
   subscribe(callback: () => void) {

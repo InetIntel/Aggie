@@ -89,4 +89,20 @@ export interface GroupComment extends EditableGroupComment {
 export interface EditableGroupComment {
   data: string;
   author: string;
+  attachments: (GroupCommentAttachment | File)[] | null;
+}
+
+export const MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+] as const;
+export type MimeTypes = (typeof MIME_TYPES)[number];
+
+export interface GroupCommentAttachment {
+  _id: string;
+  fileName: string;
+  path: string;
+  mimeType: MimeTypes;
+  fileSize: number;
 }

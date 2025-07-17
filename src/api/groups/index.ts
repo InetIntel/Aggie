@@ -156,7 +156,6 @@ export const setSelectedNotes = async (groupIds: string[], notes: string) => {
 
 interface addCommentParams extends SelectedOne {
   comment: EditableGroupComment;
-  attachments: File | null;
 }
 export const addComment = async (params: addCommentParams) => {
   if (!params.id) return undefined;

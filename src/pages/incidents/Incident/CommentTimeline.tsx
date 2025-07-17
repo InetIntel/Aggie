@@ -16,7 +16,6 @@ import DateTime from "../../../components/DateTime";
 import {
   FilePickerManager,
   ImageUploadButton,
-  NamePreview,
 } from "../../../components/ImageUploader";
 import UserToken from "../../../components/UserToken";
 import Comment from "./Comment";
@@ -45,9 +44,10 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
     const post: EditableGroupComment = {
       data: formData.commentdata,
       author: session._id,
+      attachments: formData.attachments && [formData.attachments],
     };
     postNewComment.mutate(
-      { id: group._id, comment: post, attachments: formData.attachments },
+      { id: group._id, comment: post },
       {
         onSuccess: () => {
           resetForm();
@@ -87,7 +87,6 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
         <Formik
           initialValues={{ commentdata: "", attachments: null }}
           onSubmit={(e, { resetForm }) => {
-            console.log(e);
             onPostAdd(e, resetForm);
           }}
           validationSchema={Yup.object().shape({
@@ -96,7 +95,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
           })}
         >
           {({ resetForm, errors }) => (
-            <Form>
+            <Form encType="multipart/form-data">
               <div className='flex justify-between px-3 py-2'>
                 <h2 className='font-medium'>Add Comment</h2>
                 <Field name='attachments'>
@@ -105,7 +104,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
                   )}
                 </Field>
               </div>
-              <NamePreview manager={managerRef.current} />
+              {managerRef.current.getName()}
               <Field
                 as='textarea'
                 name='commentdata'
