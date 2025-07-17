@@ -47,3 +47,5 @@ docs/_build
 
 build
 .env
+
+backend/api/uploads
