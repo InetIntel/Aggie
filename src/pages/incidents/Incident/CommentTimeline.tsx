@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Formik, Field, FieldProps, Form } from "formik";
 import * as Yup from "yup";
@@ -14,6 +14,7 @@ import { getSession } from "../../../api/session";
 
 import AggieButton from "../../../components/AggieButton";
 import DateTime from "../../../components/DateTime";
+import { FileChipList } from "../../../components/FileChip";
 import {
   FilePickerManager,
   FileUploadButton,
@@ -32,6 +33,7 @@ interface IProps {
 const CommentTimeline = ({ group, isLoading }: IProps) => {
   const queryClient = useQueryClient();
   const managerRef = useRef(new FilePickerManager());
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const postNewComment = useMutation(addComment);
 
@@ -103,25 +105,33 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
             <Form encType="multipart/form-data">
               <div className='flex justify-between px-3 py-2'>
                 <h2 className='font-medium'>Add Comment</h2>
-                <Field name='attachments'>
-                  {({ form }: FieldProps) => (
-                    <FileUploadButton manager={managerRef.current} form={form} />
-                  )}
-                </Field>
               </div>
-              {managerRef.current.getNames().toString()}
               <Field
                 as='textarea'
                 name='commentdata'
                 className='focus-theme px-3 py-1 border-y border-slate-300 bg-white w-full min-h-36'
                 placeholder='Write a comment here...'
               />
+              <Field name='attachments'>
+                {({ form }: FieldProps) => (
+                  <div className='px-2 py-1'>
+                    <FileUploadButton manager={managerRef.current} form={form} />
+                    <FileChipList
+                      nameList={managerRef.current.getNames()}
+                      pathList={managerRef.current.getPaths()}
+                      onRemove={(i) => managerRef.current.removeFileAt(i)}
+                      hoveredIndex={hoveredIndex}
+                      setHoveredIndex={setHoveredIndex}
+                      edit={true}
+                    />
+                  </div>
+                )}
+              </Field>
               {errors && (
                 <p className='text-sm text-rose-700 italic ml-2'>
                   {errors.commentdata}
                 </p>
               )}
-
               <AggieButton
                 type='submit'
                 variant='primary'

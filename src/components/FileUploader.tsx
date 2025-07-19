@@ -115,7 +115,7 @@ export const FileUploadButton: React.FC<FileUploadButtonProps> = ({
     [form, manager]
   );
 
-  return (<>
+  return (
     <AggieButton
       variant='transparent'
       icon={faPaperclip}
@@ -133,7 +133,7 @@ export const FileUploadButton: React.FC<FileUploadButtonProps> = ({
         tabIndex={-1}
         aria-hidden
       />
+      {error && <p className='text-sm text-rose-700 italic ml-2'>{error}</p>}
     </AggieButton>
-    {error && <p className='text-sm text-rose-700 italic ml-2'>{error}</p>}
-  </>);
+  );
 };
