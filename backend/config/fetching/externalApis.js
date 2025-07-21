@@ -22,7 +22,7 @@ const API_ROUTES = {
 
 const DATA_SOURCES = {
     IODA: {
-        'merit-int': 'Telescope',
+        'merit-nt': 'Telescope',
         'ping-slash24': 'Active Probing',
         'bgp': 'BGP',
     },
