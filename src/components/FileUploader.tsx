@@ -6,7 +6,8 @@ import { Formik, Field, FieldProps, Form } from "formik";
 import AggieButton from "./AggieButton";
 import { GroupCommentAttachment, MIME_TYPES } from "../api/groups/types";
 
-export const MAX_FILES = 3;
+export const MAX_ATTACHMENT_COUNT = 3;
+export const MAX_ATTACHMENT_SIZE = 500 * 1024;
 
 export class FilePickerManager {
   private files: (File | GroupCommentAttachment)[] = [];
@@ -22,7 +23,7 @@ export class FilePickerManager {
 
   setFiles(newFiles: (File | GroupCommentAttachment)[]) {
     this.clear();
-    this.files = newFiles.slice(0, MAX_FILES);
+    this.files = newFiles.slice(0, MAX_ATTACHMENT_COUNT);
     this.paths = this.files.map(f =>
       f instanceof File
       ? URL.createObjectURL(f)
@@ -101,10 +102,16 @@ export const FileUploadButton: React.FC<FileUploadButtonProps> = ({
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setError("");
-      const selectedFiles = Array.from(e.target.files ?? []);
+      const selectedFiles = e.target.files ?? [];
+      for (const element of selectedFiles) {
+        if (element.size > MAX_ATTACHMENT_SIZE) {
+          setError(`attachment should be lower than ${MAX_ATTACHMENT_SIZE / 1024} KB`);
+          return;
+        }
+      }
       const currentFiles = manager.getFiles();
-      if ((selectedFiles.length + currentFiles.length) > MAX_FILES) {
-        setError(`each comment can be attached maximum ${MAX_FILES} files`);
+      if ((selectedFiles.length + currentFiles.length) > MAX_ATTACHMENT_COUNT) {
+        setError(`each comment can be attached maximum ${MAX_ATTACHMENT_COUNT} files`);
         return;
       }
       const combined = [...currentFiles, ...selectedFiles].slice(0, 3); // max 3

@@ -12,12 +12,12 @@ import { FileChipList } from "../../../components/FileChip";
 import {
   FilePickerManager,
   FileUploadButton,
-  MAX_FILES,
+  MAX_ATTACHMENT_COUNT,
 } from "../../../components/FileUploader";
 import UserToken from "../../../components/UserToken";
 import { Formik, Field, FieldProps, Form } from "formik";
 import Linkify from "linkify-react";
-import { isEmpty, isEqual, difference } from "lodash";
+import { isEmpty, isEqual, differenceWith } from "lodash";
 
 import { faComment, faCommentAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit, faEllipsisH } from "@fortawesome/free-solid-svg-icons";
@@ -36,7 +36,6 @@ const Comment = ({ data, groupId }: IProps) => {
   });
   const [edit, setEdit] = useState(false);
   const managerRef = useRef(new FilePickerManager(data.attachments));
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const doDeleteComment = useMutation(removeComment, {
     onSuccess() {
@@ -56,21 +55,12 @@ const Comment = ({ data, groupId }: IProps) => {
     resetForm: () => void
   ) {
     const post: GroupComment =
-      isEqual(data.attachments, formData.attachments)
-      ? {
+      {
         ...data,
         data: formData.commentdata,
-      }
-      : {
-        ...data,
-        data: formData.commentdata,
-        attachments: (
-          data.attachments
-          ? difference(formData.attachments, data.attachments)
-          : formData.attachments
-        ),
+        attachments: differenceWith(formData.attachments, data.attachments, isEqual),
         attachmentsToDelete: (
-          difference(formData.attachments, data.attachments).reduce(
+          differenceWith(data.attachments, formData.attachments, isEqual).reduce(
             (accumulator, currentValue) => (
               ("_id" in currentValue)
               ? accumulator.concat([String(currentValue._id)])
@@ -91,7 +81,35 @@ const Comment = ({ data, groupId }: IProps) => {
       }
     );
   }
+  function onEditClick() {
+    managerRef.current.clear();
+    managerRef.current = new FilePickerManager(data.attachments);
+    setEdit(true);
+  }
+
   if (!groupId) return <></>;
+
+  const nameList = data.attachments.reduce(
+    (accumulator, currentValue) => (
+      accumulator.concat([
+        currentValue instanceof File
+        ? currentValue.name
+        : currentValue.fileName
+      ])
+    ),
+    [] as string[]
+  );
+  const pathList = data.attachments.reduce(
+    (accumulator, currentValue) => (
+      accumulator.concat([
+        currentValue instanceof File
+        ? currentValue.webkitRelativePath
+        : currentValue.path
+      ])
+    ),
+    [] as string[]
+  );
+  console.debug(nameList, pathList);
 
   return (
     <div
@@ -113,7 +131,7 @@ const Comment = ({ data, groupId }: IProps) => {
               <>
                 <AggieButton
                   variant='secondary'
-                  onClick={() => setEdit(true)}
+                  onClick={onEditClick}
                   icon={faEdit}
                   className='h-full'
                   disabled={edit}
@@ -151,8 +169,8 @@ const Comment = ({ data, groupId }: IProps) => {
           validationSchema={Yup.object().shape({
             commentdata: Yup.string().required("Cannot Post Empty Comment!"),
             attachments: Yup.array().of(Yup.mixed()).max(
-              MAX_FILES,
-              `each comment can be attached maximum ${MAX_FILES} files`
+              MAX_ATTACHMENT_COUNT,
+              `each comment can be attached maximum ${MAX_ATTACHMENT_COUNT} files`
             ),
           })}
         >
@@ -172,8 +190,7 @@ const Comment = ({ data, groupId }: IProps) => {
                       nameList={managerRef.current.getNames()}
                       pathList={managerRef.current.getPaths()}
                       onRemove={(i) => managerRef.current.removeFileAt(i)}
-                      hoveredIndex={hoveredIndex}
-                      setHoveredIndex={setHoveredIndex}
+                      form={form}
                       edit={true}
                     />
                   </div>
@@ -209,12 +226,9 @@ const Comment = ({ data, groupId }: IProps) => {
         <div className='bg-white flex flex-col gap-3 px-3 py-3 whitespace-pre-line'>
           <p><Linkify>{data.data}</Linkify></p>
           <FileChipList
-            nameList={managerRef.current.getNames()}
-            pathList={managerRef.current.getPaths()}
-            onRemove={(i) => managerRef.current.removeFileAt(i)}
-            hoveredIndex={hoveredIndex}
-            setHoveredIndex={setHoveredIndex}
-            edit={true}
+            nameList={nameList}
+            pathList={pathList}
+            edit={false}
           />
         </div>
       )}

@@ -18,7 +18,7 @@ import { FileChipList } from "../../../components/FileChip";
 import {
   FilePickerManager,
   FileUploadButton,
-  MAX_FILES,
+  MAX_ATTACHMENT_COUNT,
 } from "../../../components/FileUploader";
 import UserToken from "../../../components/UserToken";
 import Comment from "./Comment";
@@ -33,7 +33,6 @@ interface IProps {
 const CommentTimeline = ({ group, isLoading }: IProps) => {
   const queryClient = useQueryClient();
   const managerRef = useRef(new FilePickerManager());
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const postNewComment = useMutation(addComment);
 
@@ -96,8 +95,8 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
           validationSchema={Yup.object().shape({
             commentdata: Yup.string().required("Cannot Post Empty Comment!"),
             attachments: Yup.array().of(Yup.mixed()).max(
-              MAX_FILES,
-              `each comment can be attached maximum ${MAX_FILES} files`
+              MAX_ATTACHMENT_COUNT,
+              `each comment can be attached maximum ${MAX_ATTACHMENT_COUNT} files`
             ),
           })}
         >
@@ -120,8 +119,6 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
                       nameList={managerRef.current.getNames()}
                       pathList={managerRef.current.getPaths()}
                       onRemove={(i) => managerRef.current.removeFileAt(i)}
-                      hoveredIndex={hoveredIndex}
-                      setHoveredIndex={setHoveredIndex}
                       edit={true}
                     />
                   </div>
