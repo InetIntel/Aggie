@@ -14,13 +14,13 @@ import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { faRss } from "@fortawesome/free-solid-svg-icons";
 
 const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
-  tiktok: faTiktok,
-  instagram: faInstagram,
-  youtube: faYoutube,
-  twitter: faTwitter,
-  RSS: faRss,
-  facebook: faFacebook,
-  truthsocial: faQuestionCircle,
+  // tiktok: faTiktok,
+  // instagram: faInstagram,
+  // youtube: faYoutube,
+  // twitter: faTwitter,
+  // RSS: faRss,
+  // facebook: faFacebook,
+  // truthsocial: faQuestionCircle,
   ioda: faQuestionCircle,
   cloudflare: faCloudflare,
 };
