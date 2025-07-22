@@ -269,6 +269,7 @@ exports.reports_group_update = (req, res) => {
       }
       // map report with group
       report._group = req.body.group._id;
+      report.read = true;
       report.save((err) => {
         if (err) {
           if (!res.headersSent) return res.status(err.status).send(err.message)
@@ -296,7 +297,7 @@ exports.reports_group_update = (req, res) => {
         })
         
         if (--remaining === 0) {
-          eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id } }).then(() => {
+          eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id, read: true } }).then(() => {
             return res.sendStatus(200)
           });
 
