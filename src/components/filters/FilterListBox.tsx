@@ -1,4 +1,4 @@
-import { Listbox, RadioGroup } from "@headlessui/react";
+import { Listbox } from "@headlessui/react";
 import FilterDropdown from "./FilterDropdown";
 import { faCheck } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -6,8 +6,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 interface IProps<T> {
   label: string;
   options: T[];
-  value: T;
-  onChange: (item: T) => void;
+  value: T | T[];
+  onChange: (item: T | T[]) => void;
+  isMultiSelect?: boolean;
 }
 
 const FilterListBox = <T extends string>({
@@ -15,20 +16,36 @@ const FilterListBox = <T extends string>({
   options,
   value,
   onChange,
+  isMultiSelect = false,
 }: IProps<T>) => {
+
+  const selected = isMultiSelect ? value as T[] : [value as T];
+
+  const handleSelect = (selected: T | T[]) => {
+    onChange(selected)
+  }
+
+  const displayValue = () => {
+    return isMultiSelect
+      ? (selected.length > 0 ? selected.join(","): undefined)
+      : (value as string)
+  }
+
+
   return (
     <FilterDropdown
       label={label}
-      value={value}
-      onReset={() => onChange("" as T)}
+      value={displayValue()}
+      onReset={() => onChange(isMultiSelect ? [] : ("" as T))}
     >
       {({ close }) => (
         <Listbox
           value={value}
           onChange={(e) => {
-            onChange(e);
-            close();
+            handleSelect(e);
+            if (!isMultiSelect) close();
           }}
+          multiple={isMultiSelect}
         >
           <Listbox.Options static className='divide-y divide-slate-200 m-0 p-0'>
             {options.map((item) => (

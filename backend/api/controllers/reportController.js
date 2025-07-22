@@ -16,8 +16,9 @@ const eventRouter = require('../sockets/event-router');
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
   // Data passed through URL parameters
-  var query = _.pick(queryString, ['keywords', 'status', 'after', 'before', 'media',
+  var query = _.pick(queryString, ['keywords', 'status', 'after', 'before', 'media','dataSources', 'entityLevel',
     'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
+  if (query.dataSources) query.dataSources = query.dataSources.split(",").filter(Boolean);
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 }

@@ -10,17 +10,31 @@ export const VERACITY_OPTIONS = [
 export type VeracityOptions = (typeof VERACITY_OPTIONS)[number];
 
 export const MEDIA_OPTIONS = [
-  "twitter",
-  "tiktok",
-  "instagram",
-  "RSS",
-  "truthsocial",
-  "youtube",
-  "facebook",
+  // "twitter",
+  // "tiktok",
+  // "instagram",
+  // "RSS",
+  // "truthsocial",
+  // "youtube",
+  // "facebook",
   "ioda",
   "cloudflare",
 ] as const;
 export type MediaOptions = (typeof MEDIA_OPTIONS)[number];
+
+export const DATA_SOURCE_OPTIONS = [
+  "Telescope",
+  "BGP",
+  "Cloudflare Traffic",
+  "Active Probing",
+] as const;
+export type DataSourceOptions = (typeof DATA_SOURCE_OPTIONS)[number];
+
+export const ENTITY_LEVEL_OPTIONS = [
+  "Region",
+  "AS",
+]
+export type ENTITY_LEVEL_OPTIONS = (typeof ENTITY_LEVEL_OPTIONS)[number];
 
 export const ESCALATED_OPTIONS = ["true", "false"] as const;
 export type EscalatedOptions = (typeof ESCALATED_OPTIONS)[number];
