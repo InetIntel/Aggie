@@ -196,7 +196,7 @@ class IODAChannel extends PollChannel {
 
                         }
                     } catch (err) {
-                        console.error(`Error processing report for guid ${guid}:`, err);
+                        console.error(`Error processing report for guid ${formattedEvent.platformID}:`, err);
                     }
 
 
