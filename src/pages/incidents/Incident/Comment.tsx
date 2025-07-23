@@ -109,7 +109,6 @@ const Comment = ({ data, groupId }: IProps) => {
     ),
     [] as string[]
   );
-  console.debug(nameList, pathList);
 
   return (
     <div
