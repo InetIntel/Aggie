@@ -171,6 +171,11 @@ if (process.env.ENVIRONMENT === 'production') {
     '/images',
     express.static(path.join(__dirname, '..', 'build', 'images'))
   );
+  app.use(
+    '/incidents/uploads',
+    auth.authenticate(),
+    express.static(path.join(__dirname,'..', 'public', 'uploads'))
+  );
   app.get('/manifest.json', (req, res) => {
     res.sendFile(path.resolve(__dirname, '..', 'build', 'manifest.json'));
   });
