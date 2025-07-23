@@ -26,7 +26,7 @@ class IODAChannel extends PollChannel {
 
         this.options = options;
 
-        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country', 'asn-region', 'asn-country']        
+        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country', 'asn-country']        
 
         this.metadataUrl = `${API_BASE_URLS.IODA}${API_ROUTES.IODA.ENTITY_QUERY}`;
 
@@ -109,9 +109,10 @@ class IODAChannel extends PollChannel {
                 } else if (queryType === 'geoasn-country') {
                     url.searchParams.append('entityType', 'geoasn');
                     url.searchParams.append('relatedTo', `country/${this.countryCode}`);
-                } else if (queryType === 'asn-region') {
-                    url.searchParams.append('entityType', 'asn');
-                    url.searchParams.append('relatedTo', `region`);
+                // Remove as current ioda api support regional AS signal via geoasn-region
+                // } else if (queryType === 'asn-region') {
+                //     url.searchParams.append('entityType', 'asn');
+                //     url.searchParams.append('relatedTo', `region`);
                 } else if (queryType === 'asn-country') {
                     url.searchParams.append('entityType', 'asn');
                     url.searchParams.append('relatedTo', `country/${this.countryCode}`);
@@ -135,7 +136,7 @@ class IODAChannel extends PollChannel {
 
                 // Declare regex rule to exclude AS-region reports unrelated to the queried country
                 let regexRegion = null;
-                if (queryType === 'geoasn-region' || queryType === 'asn-region') {
+                if (queryType === 'geoasn-region') {
                     regexRegion = /(\d+)-(\d+)/;
                 }
                 
@@ -283,12 +284,15 @@ class IODAChannel extends PollChannel {
         let match = null;
         if (queryType.startsWith('geoasn')) {
             match = event.location_name.match(/^(.+?) -- (.+)$/)
-            entityLevel = 'AS';
-            entityScope = (queryType == 'geoasn-region') 
-                ? match[2] 
-                : countries.getName(this.countryCode, "en") || this.countryCode;
+            if (queryType === 'geoasn-region') {
+                entityLevel = 'AS - Regional';
+                entityScope = match[2]
+            } else {
+                entityLevel = 'AS'
+                entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
+            }
             entityName = `${match[1]} - ${entityScope}`;
-        } else if (queryType.startsWith('asn')) {
+        } else if (queryType === 'asn-country') {
             match = event.location_name.match(/^(AS[\w\d]+) \((.+)\)$/);
             entityLevel = 'AS';
             entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
