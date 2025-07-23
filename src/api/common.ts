@@ -23,16 +23,17 @@ export const MEDIA_OPTIONS = [
 export type MediaOptions = (typeof MEDIA_OPTIONS)[number];
 
 export const DATA_SOURCE_OPTIONS = [
-  "Telescope",
-  "BGP",
-  "Cloudflare Traffic",
   "Active Probing",
+  "BGP",
+  "Telescope",
+  "Cloudflare Traffic",
 ] as const;
 export type DataSourceOptions = (typeof DATA_SOURCE_OPTIONS)[number];
 
 export const ENTITY_LEVEL_OPTIONS = [
-  "Region",
   "AS",
+  "Region",
+  "AS - Region",
 ]
 export type ENTITY_LEVEL_OPTIONS = (typeof ENTITY_LEVEL_OPTIONS)[number];
 

@@ -285,7 +285,7 @@ class IODAChannel extends PollChannel {
         if (queryType.startsWith('geoasn')) {
             match = event.location_name.match(/^(.+?) -- (.+)$/)
             if (queryType === 'geoasn-region') {
-                entityLevel = 'AS - Regional';
+                entityLevel = 'AS - Region';
                 entityScope = match[2]
             } else {
                 entityLevel = 'AS'
