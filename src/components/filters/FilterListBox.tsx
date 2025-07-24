@@ -22,13 +22,13 @@ const FilterListBox = <T extends string>({
   const selected = isMultiSelect ? value as T[] : [value as T];
 
   const handleSelect = (selected: T | T[]) => {
-    onChange(selected)
+    onChange(selected);
   }
 
   const displayValue = () => {
     return isMultiSelect
       ? (selected.length > 0 ? selected.join(","): undefined)
-      : (value as string)
+      : (value as string);
   }
 
 
@@ -55,7 +55,7 @@ const FilterListBox = <T extends string>({
                 className='px-2 py-1 flex justify-between items-center w-full bg-[#fff] cursor-pointer hover:bg-slate-100 ui-active:bg-slate-100'
               >
                 {item}
-                {value === item && (
+                {(value === item || selected.includes(item)) && (
                   <FontAwesomeIcon icon={faCheck} className='text-slate-600' />
                 )}
               </Listbox.Option>
