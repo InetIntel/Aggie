@@ -13,8 +13,9 @@ interface IProps {
   name: string;
   list: { _id: string; label: string }[];
   disabled?: boolean;
+  placeholder?: string;
 }
-const FormikDropdown = ({ label, name, list, disabled = false }: IProps) => {
+const FormikDropdown = ({ label, name, list, disabled = false, placeholder }: IProps) => {
   const [field, meta, helpers] = useField(name);
   const { value } = meta;
   const { onBlur } = field;
@@ -36,7 +37,7 @@ const FormikDropdown = ({ label, name, list, disabled = false }: IProps) => {
           }`}
         >
           <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 border border-slate-300 w-full hover:bg-slate-100 text-left ui-active:bg-slate-200 rounded'>
-            {list.find((i) => value === i._id)?.label || "Select " + label}
+            {list.find((i) => String(value) === i._id)?.label || placeholder || "Select " + label}
             <FontAwesomeIcon
               icon={faChevronDown}
               className='ui-active:rotate-180 text-slate-400'
