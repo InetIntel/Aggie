@@ -65,8 +65,8 @@ const CreateEditIncidentForm = ({
           publication_status: group?.publication_status || ["Not Published"],
           assignedTo: group?.assignedTo?.map((i) => i._id) || [],
           notes: group?.notes || "",
-          incidentStartedAt: group?.incidentStartedAt?.toString().slice(0, 10) || "",
-          incidentEndedAt: group?.incidentEndedAt?.toString().slice(0, 10) || "",
+          incidentStartedAt: group?.incidentStartedAt || "",
+          incidentEndedAt: group?.incidentEndedAt || "",
         }}
         schema={incidentSchema}
         onSubmit={(values: GroupEditableData) => {
