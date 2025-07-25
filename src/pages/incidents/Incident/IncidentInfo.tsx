@@ -28,13 +28,15 @@ interface IProps {
 const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   const [isStatusClicked, setIsStatusClicked] = useState(false);
   const [isStatusHovered, setIsStatusHovered] = useState(false);
-  function isoToYMD (iso : string | Date) {
+  function formatIsoTime (iso : string | Date) {
     if (!iso) return "Unknown Date";
     const date = (iso instanceof Date) ? iso : new Date(iso);
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const year = date.getUTCFullYear();
-    return `${year}-${month}-${day}`;
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const hour = String(date.getUTCHours()).padStart(2, "0");
+    const minute = String(date.getUTCMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day} ${hour}:${minute}`;
   }
   return (
     <header className='text-slate-600 border-b border-slate-300 py-2'>
@@ -167,14 +169,14 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
         </PlaceholderDiv>
       </div>
       <div className='flex gap-2 items-center pt-2'>
-        <span className='whitespace-nowrap'>Incident Date:</span>
+        <span className='whitespace-nowrap'>Incident Time (UTC):</span>
         <PlaceholderDiv
           loading={isLoading}
           className='flex flex-wrap gap-x-2 gap-y-1 items-center '
         >
           {(group?.incidentStartedAt || group?.incidentEndedAt) ? (
             <p className='whitespace-pre-line max-w-prose text-black'>
-              {isoToYMD(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {isoToYMD(group?.incidentEndedAt)}
+              {formatIsoTime(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {formatIsoTime(group?.incidentEndedAt)}
             </p>
           ) : (
             <p className='italic text-slate-600'>No Date Set</p>

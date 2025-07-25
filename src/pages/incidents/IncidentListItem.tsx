@@ -110,9 +110,9 @@ const IncidentListItem = ({ item }: IProps) => {
             </div>
             <div className='text-xs'>
               {(item.incidentStartedAt || item.incidentEndedAt) && <p>
-                  <span>{item.incidentStartedAt?.toString().slice(0, 10) || "Unknown Date"}</span>
+                  <span>{item.incidentStartedAt?.toString().slice(0, 16).replace("T", " ") || "Unknown Date"}</span>
                   <span>{" "}<FontAwesomeIcon icon={faArrowRight} size="xs" />{" "}</span>
-                  <span>{item.incidentEndedAt?.toString().slice(0, 10) || "Unknown Date"}</span>
+                  <span>{item.incidentEndedAt?.toString().slice(0, 16).replace("T", " ") || "Unknown Date"}</span>
               </p>}
             </div>
           </div>
