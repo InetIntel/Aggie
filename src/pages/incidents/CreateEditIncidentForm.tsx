@@ -5,7 +5,7 @@ import * as Yup from "yup";
 import { PUBLISHED_OPTIONS, Group, GroupEditableData } from "../../api/groups/types";
 import { getUsers } from "../../api/users";
 
-import FormikDate from "../../components/FormikDate";
+import FormikDateTime from "../../components/FormikDateTime";
 import FormikDropdown from "../../components/FormikDropdown";
 import FormikInput from "../../components/FormikInput";
 import FormikMultiCombobox from "../../components/FormikMultiCombobox";
@@ -108,13 +108,13 @@ const CreateEditIncidentForm = ({
 
         <div className=' border-b'></div>
 
-        <FormikDate
+        <FormikDateTime
           name='incidentStartedAt'
-          label='Incident Start Date'
+          label='Incident Start Time (UTC)'
         />
-        <FormikDate
+        <FormikDateTime
           name='incidentEndedAt'
-          label='Incident End Date'
+          label='Incident End Time (UTC)'
         />
         <FormikInput name='locationName' label='Location' />
 

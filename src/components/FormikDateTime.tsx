@@ -6,7 +6,7 @@ interface IProps {
   name: string;
   label?: string;
 }
-const FormikDate = ({ name, label }: IProps) => {
+const FormikDateTime = ({ name, label }: IProps) => {
   const [field, meta, helpers] = useField(name);
   const { value } = meta;
   const { setValue } = helpers;
@@ -30,4 +30,4 @@ const FormikDate = ({ name, label }: IProps) => {
     </label>
   );
 };
-export default FormikDate;
+export default FormikDateTime;
