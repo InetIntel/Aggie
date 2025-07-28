@@ -8,6 +8,7 @@ const Report = require('../../models/report');
 const eventRouter = require('../sockets/event-router');
 const { saveFile, deleteFile } = require('../utils/fileStorage');
 const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../../config/models/groupConfigs');
+const path = require('path');
 
 exports.group_create = (req, res) => {
   req.body.creator = req.user;
@@ -371,13 +372,13 @@ exports.group_notes_update = (req, res) => {
 // add group comment
 exports.group_comment_add = async (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-
+  
   // parse from multipart/form-data
-  const groupIds = JSON.parse(req.body.ids);
-  const comment = JSON.parse(req.body.comment);
+  const groupIds = req.body.ids;
+  const comment = req.body.comment;
   const attachments = req.files;
   const savedPaths = [];
-
+  
   try {
 
     const groups = await Group.find({_id: {$in: groupIds}});
@@ -397,13 +398,15 @@ exports.group_comment_add = async (req, res) => {
         if (savedPath) {
           savedPaths.push(savedPath);
 
+          const publicRefPath = `/incidents/uploads/${path.basename(savedPath)}`;
+
           comment.attachments.push({
             fileName: attachment.originalname,
-            path: savedPath,
+            path: publicRefPath, // relative path for frontend href
+            serverPath: savedPath, // actual server storage path
             mimeType: attachment.mimetype,
             fileSize: attachment.size,
           });
-          console.log('deubgging-comment.attachments pushed.')
 
         }
       }
@@ -450,8 +453,8 @@ exports.group_comment_update = async (req, res) => {
 
   // parse from multipart/form-data
   try {
-    groupIds = JSON.parse(req.body.ids);
-    commentPayload = JSON.parse(req.body.comment);
+    groupIds = req.body.ids;
+    commentPayload = req.body.comment;
   } catch (error) {
     return res.status(400).send('Bad Request. Invalid JSON in group or comment.');
   }
@@ -477,7 +480,7 @@ exports.group_comment_update = async (req, res) => {
     comment.attachments = comment.attachments.filter((att) => {
       const toDelete = attachmentsToDelete.includes(att._id.toString());
       if (toDelete) {
-        deletedPaths.push(att.path);
+        deletedPaths.push(att.serverPath);
       }
       return !toDelete;      
     })
@@ -500,9 +503,12 @@ exports.group_comment_update = async (req, res) => {
       if (savedPath) {
         savedPaths.push(savedPath);
 
+        const publicRefPath = `/incidents/uploads/${path.basename(savedPath)}`;
+
         comment.attachments.push({
           fileName: attachment.originalname,
-          path: savedPath,
+          path: publicRefPath, // relative path for frontend href
+          serverPath: savedPath, // actual server storage path
           mimeType: attachment.mimetype,
           fileSize: attachment.size,
         });

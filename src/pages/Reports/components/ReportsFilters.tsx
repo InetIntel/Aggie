@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 
 import { getSources } from "../../../api/sources";
-import { MEDIA_OPTIONS } from "../../../api/common";
+import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS } from "../../../api/common";
 import type { ReportQueryState } from "../../../api/reports/types";
 
 import FilterComboBox from "../../../components/filters/FilterComboBox";
@@ -84,6 +84,11 @@ const ReportFilters = ({
     setParamsQuery(values);
   }
 
+  // const dataSourceParam = getParam("dataSources");
+  // console.log('debugging- dataSrouceParam: (mid)', dataSourceParam,"(mid).");
+  // if (!dataSourceParam) {
+  //   console.log('debugging-empty dataSourceParam');
+  // }
   const groupsList = useCallback(groupsRemapComboBox, [groups]);
 
   return (
@@ -243,18 +248,31 @@ const ReportFilters = ({
           <FilterListbox
             label='Platforms'
             options={[...MEDIA_OPTIONS]}
-            value={getParam("media")}
-            onChange={(e) => setParams({ media: e })}
+            value={getParam("media") as string}
+            onChange={(e) => setParams({ media: e as string})}
           />
-          <FilterComboBox
+          <FilterListbox
+            label='Entity Level'
+            options={[...ENTITY_LEVEL_OPTIONS]}
+            value={getParam("entityLevel") as string}
+            onChange={(e) => setParams({ entityLevel: e as string})}
+          />
+          <FilterListbox
+            label='Signal Sources'
+            options={[...DATA_SOURCE_OPTIONS]}
+            value={getParam("dataSources") ? getParam("dataSources").split(",") as string[] : []}
+            onChange={(e) => setParams({ dataSources: e as string[]})}
+            isMultiSelect={true}
+          />
+          {/* <FilterComboBox
             label='Sources'
             list={sourcesList(sources)}
             onChange={(e) => {
               setParams({ sourceId: e.key });
             }}
             selectedKey={getParam("sourceId")}
-          />
-          {!fromGroup && (
+          /> */}
+          {/* {!fromGroup && (
             <FilterComboBox
               label='Incidents'
               list={groupsList(groups)}
@@ -284,7 +302,7 @@ const ReportFilters = ({
                 { key: "none", value: "Not Added to Any Incident" },
               ]}
             />
-          )}
+          )} */}
         </div>
       </div>
     </>

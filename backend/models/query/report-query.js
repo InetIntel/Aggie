@@ -21,6 +21,8 @@ function ReportQuery(options) {
   this.before = options.before;
   this.sourceId = options.sourceId;
   this.media = options.media;
+  this.dataSources = options.dataSources;
+  this.entityLevel = options.entityLevel;
   this.author = options.author;
   this.event = 'reports';
   this.list = options.list;
@@ -119,6 +121,20 @@ ReportQuery.prototype.toMongooseFilter = function () {
     }
   }
   if (this.list) filter["metadata.ct_tag"] = { $in: [this.list] };
+  if (this.dataSources) {
+    filter.$and = [
+      ...(filter.$and || []),
+      {"metadata.rawAPIResponse.dataSource": {$exists: true}},
+      {"metadata.rawAPIResponse.dataSource": {$in: this.dataSources}},
+    ]
+  }
+  if (this.entityLevel) {
+    filter.$and = [
+      ...(filter.$and || []),
+      {"metadata.rawAPIResponse.entityLevel": {$exists: true}},
+      {"metadata.rawAPIResponse.entityLevel": this.entityLevel},
+    ]
+  }
   return filter;
 };
 

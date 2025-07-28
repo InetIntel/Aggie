@@ -49,6 +49,8 @@ export interface ReportQueryState {
   author?: string;
   groupId?: string;
   media?: string;
+  dataSources?: string[];
+  entityLevel?: string;
   sourceId?: string;
   list?: string;
   before?: Date | string;

@@ -28,15 +28,15 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
   const contentType = parseContentType(report);
   function renderAuthor(type: typeof contentType) {
     switch (type) {
-      case "RSS":
-        const website = new URL(report.url);
-        return (
-          <SocialMediaAuthor
-            username={website.host}
-            createdAt={report.authoredAt}
-            url={report.metadata.accountUrl}
-          />
-        );
+      // case "RSS":
+      //   const website = new URL(report.url);
+      //   return (
+      //     <SocialMediaAuthor
+      //       username={website.host}
+      //       createdAt={report.authoredAt}
+      //       url={report.metadata.accountUrl}
+      //     />
+      //   );
       default:
         return (
           <>
@@ -51,19 +51,19 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
   }
   function renderPost(type: typeof contentType) {
     switch (type) {
-      case "twitter":
-      case "twitter:quote":
-      case "twitter:quoteRetweet":
-      case "twitter:retweet":
-        return <TwitterPost report={report} />;
-      case "twitter:keywordSearch":
-        return <TwitterKWSearchPost report={report} />;
-      case "RSS":
-        return <RSSPost report={report} />;
-      case "truthsocial":
-        return <TruthSocialPost report={report} />;
-      case "youtube":
-        return <YoutubePost report={report} />;
+      // case "twitter":
+      // case "twitter:quote":
+      // case "twitter:quoteRetweet":
+      // case "twitter:retweet":
+      //   return <TwitterPost report={report} />;
+      // case "twitter:keywordSearch":
+      //   return <TwitterKWSearchPost report={report} />;
+      // case "RSS":
+      //   return <RSSPost report={report} />;
+      // case "truthsocial":
+      //   return <TruthSocialPost report={report} />;
+      // case "youtube":
+      //   return <YoutubePost report={report} />;
       case "ioda":
         return <IodaEvent report={report} />;
       case "cloudflare":
@@ -112,7 +112,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
   };
   return (
     <div className='pb-2 px-3 pt-3 bg-white rounded-xl border border-slate-300 text-base '>
-      {report._media[0] === "twitter" && <TwitterReply report={report} />}
+      {/* {report._media[0] === "twitter" && <TwitterReply report={report} />} */}
       <div className='flex justify-between mb-2'>
         {/* <TagsList values={report.smtcTags} /> */}
         <div className=' font-medium  '>{renderAuthor(contentType)}</div>

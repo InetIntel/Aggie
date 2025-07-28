@@ -32,6 +32,7 @@ const publicationValidator = function (arr) {
 const Attachment = new mongoose.Schema({
   fileName: { type: String, required: true},
   path: { type: String, required: true},
+  serverPath: {type: String, required: true},
   mimeType: { type: String, required: true},
   fileSize: {
     type: Number,

@@ -168,12 +168,12 @@ const IncidentsFilters = ({
             value={get("veracity")}
             onChange={(e) => setParams({ veracity: e })}
           />*/ }
-          <FilterListbox
+          {/* <FilterListbox
             label='Escalated'
             options={[...ESCALATED_OPTIONS]}
-            value={get("escalated")}
-            onChange={(e) => setParams({ escalated: e })}
-          />
+            value={get("escalated") as string}
+            onChange={(e) => setParams({ escalated: e as string })}
+          /> */}
 
           <FilterComboBox
             label='Creator'

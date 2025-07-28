@@ -26,7 +26,7 @@ class IODAChannel extends PollChannel {
 
         this.options = options;
 
-        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country', 'asn-region', 'asn-country']        
+        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country', 'asn-country']        
 
         this.metadataUrl = `${API_BASE_URLS.IODA}${API_ROUTES.IODA.ENTITY_QUERY}`;
 
@@ -81,8 +81,14 @@ class IODAChannel extends PollChannel {
         const outages = [];
 
         // reuseable broswer for fetching SVG components on each fetch()
-        const browser = await chromium.launch({headless: true});
-        
+        this.browser = null;
+        const newBrowser = await chromium.launch({headless: true});
+        if (!newBrowser) {
+            console.error('debugging - Failed initializing browser for fetching graphs');
+        } else {
+            this.browser = newBrowser;
+        }
+
         try{
         // update fetchTo timestamp for each fetch
         this.fetchToTimestamp = Math.floor(Date.now() / 1000); 
@@ -103,9 +109,10 @@ class IODAChannel extends PollChannel {
                 } else if (queryType === 'geoasn-country') {
                     url.searchParams.append('entityType', 'geoasn');
                     url.searchParams.append('relatedTo', `country/${this.countryCode}`);
-                } else if (queryType === 'asn-region') {
-                    url.searchParams.append('entityType', 'asn');
-                    url.searchParams.append('relatedTo', `region`);
+                // Remove as current ioda api support regional AS signal via geoasn-region
+                // } else if (queryType === 'asn-region') {
+                //     url.searchParams.append('entityType', 'asn');
+                //     url.searchParams.append('relatedTo', `region`);
                 } else if (queryType === 'asn-country') {
                     url.searchParams.append('entityType', 'asn');
                     url.searchParams.append('relatedTo', `country/${this.countryCode}`);
@@ -129,14 +136,14 @@ class IODAChannel extends PollChannel {
 
                 // Declare regex rule to exclude AS-region reports unrelated to the queried country
                 let regexRegion = null;
-                if (queryType === 'geoasn-region' || queryType === 'asn-region') {
+                if (queryType === 'geoasn-region') {
                     regexRegion = /(\d+)-(\d+)/;
                 }
                 
                 let newReportCount = 0;
                 let existedReportCount = 0;
                 let irrelevantRegionReportCount = 0;
-                const linkedPageCache = {};
+                this.linkedPageCache = {}; // avoid duplicately extract graph components
 
                 const collection = mongoose.connection.db.collection('reports');
 
@@ -152,7 +159,7 @@ class IODAChannel extends PollChannel {
                             };
                     }
 
-                    const formattedEvent = this.parseEvent(event, queryType);
+                    const formattedEvent = await this.parseEvent(event, queryType);
 
                     if (!formattedEvent) {
                         console.error(`\tFailed parsing formattedEvent: ${event}.`);
@@ -183,23 +190,6 @@ class IODAChannel extends PollChannel {
                             existedReportCount += 1;
 
                         } else {
-
-                            // Fetch and de-duplicate image as svg string
-                            if (linkedPageCache[formattedEvent.url]) {
-                                formattedEvent.raw['image'] = linkedPageCache[formattedEvent.url]
-                            } else {
-
-                                try {
-                                    const cleanSVG = await extractCleanSVGFromPage(browser, formattedEvent.url);
-                                    formattedEvent.raw['image'] = cleanSVG;
-                                    linkedPageCache[formattedEvent.url] = cleanSVG;
-                                } catch (err) {
-                                    console.error(`Error extracting SVG for URL ${formattedEvent.url}:`, err);
-                                    continue; 
-                                }
-
-                            }
-
                             // Add new report to downstream hooks
                             outages.push(formattedEvent);
                             this.enqueue(formattedEvent);
@@ -207,7 +197,7 @@ class IODAChannel extends PollChannel {
 
                         }
                     } catch (err) {
-                        console.error(`Error processing report for guid ${guid}:`, err);
+                        console.error(`Error processing report for guid ${formattedEvent.platformID}:`, err);
                     }
 
 
@@ -232,7 +222,7 @@ class IODAChannel extends PollChannel {
 
     } finally {
 
-        await browser.close(); // ensure closing headerless browser 
+        await this.browser.close(); // ensure closing headerless browser 
     }
 } 
 
@@ -257,7 +247,7 @@ class IODAChannel extends PollChannel {
     /**
      * Parse the fetched event data to SocialMediaPost.
      */
-    parseEvent(event, queryType) {
+    async parseEvent(event, queryType) {
 
         // Extract event timing
         const eventStartedAtSeconds = event.start;
@@ -294,12 +284,15 @@ class IODAChannel extends PollChannel {
         let match = null;
         if (queryType.startsWith('geoasn')) {
             match = event.location_name.match(/^(.+?) -- (.+)$/)
-            entityLevel = 'AS';
-            entityScope = (queryType == 'geoasn-region') 
-                ? match[2] 
-                : countries.getName(this.countryCode, "en") || this.countryCode;
+            if (queryType === 'geoasn-region') {
+                entityLevel = 'AS - Region';
+                entityScope = match[2]
+            } else {
+                entityLevel = 'AS'
+                entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
+            }
             entityName = `${match[1]} - ${entityScope}`;
-        } else if (queryType.startsWith('asn')) {
+        } else if (queryType === 'asn-country') {
             match = event.location_name.match(/^(AS[\w\d]+) \((.+)\)$/);
             entityLevel = 'AS';
             entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
@@ -308,7 +301,25 @@ class IODAChannel extends PollChannel {
             entityLevel = 'Region';
             entityScope = event.location_name;
             entityName = `${entityLevel} - ${entityScope}`;
+
         }
+
+        // Fetch and de-duplicate image as svg string
+        let image = null;
+        if (this.linkedPageCache[linkedPage]) {
+            image = this.linkedPageCache[linkedPage];
+        } else {
+
+            try {
+                const cleanSVG = await extractCleanSVGFromPage(this.browser, linkedPage);
+                image = cleanSVG;
+                this.linkedPageCache[linkedPage] = cleanSVG;
+            } catch (err) {
+                console.error(`Error extracting SVG for URL ${linkedPage}:`, err);
+            }
+
+        }
+
 
         return  new SocialMediaPost({
             authoredAt: eventStartedAt,
@@ -328,7 +339,7 @@ class IODAChannel extends PollChannel {
                 'started': eventStartedAt,
                 'ended': eventEndedAt,
                 'duration': eventDuration,
-                'image': null, // Store image as svg string
+                'image': image, // Store image as svg string
             }
         });
 

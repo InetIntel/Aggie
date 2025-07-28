@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs').promises;
-const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname,'../uploads');
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname,'../../../public/uploads');
 
 async function saveFile(fileBuffer, originalname) {
     try {
