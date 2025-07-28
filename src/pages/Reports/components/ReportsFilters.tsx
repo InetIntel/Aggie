@@ -228,7 +228,7 @@ const ReportFilters = ({
           <FilterRadioGroup
             options={{
               all: "All",
-              false: "Relevant/Unmarked",
+              false: "Relevant",
               true: "Irrelevant",
             }}
             value={getParam("irrelevant")}
