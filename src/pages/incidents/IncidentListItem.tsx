@@ -120,12 +120,10 @@ const IncidentListItem = ({ item }: IProps) => {
             <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
               {item.title}{" "}
             </span>
-            {item.escalated && (
-              <span
-              className='px-1 py-1 bg-purple-300 rounded-full font-medium text-sm text-slate-600 inline-flex gap-1 items-center no-underline w-fit'>
-                {incidentOverallStatus(item)}
-              </span>
-            )}
+            <span
+            className='px-1 py-1 bg-purple-300 rounded-full font-medium text-sm text-slate-600 inline-flex gap-1 items-center no-underline w-fit'>
+              {incidentOverallStatus(item)}
+            </span>
           </h2>
           <div className='grid grid-cols-4 flex-grow items-end font-medium'>
             <p>
