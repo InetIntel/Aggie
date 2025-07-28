@@ -75,14 +75,10 @@ let schema = new mongoose.Schema({
   creator: { type: mongoose.Schema.ObjectId, ref: 'User', index: 1 },
   status: { type: String, default: 'new', required: true },
   verification_status: {
-    type: Boolean, 
-    default: false,
-    required: true,
+    type: Boolean,
   },
   confirmation_status: {
-    type: Boolean, 
-    default: false,
-    required: true,
+    type: Boolean,
   },
   publication_status: {
     type: [String],

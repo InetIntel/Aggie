@@ -17,8 +17,8 @@ const incidentSchema = Yup.object().shape({
   locationName: Yup.string(),
   escalated: Yup.boolean(),
   closed: Yup.boolean(),
-  verification_status: Yup.boolean().required("verification status required"),
-  confirmation_status: Yup.boolean().required("confirmation status required"),
+  verification_status: Yup.boolean(),
+  confirmation_status: Yup.boolean(),
   publication_status: Yup.array(Yup.string())
     .required("publication status required").min(1).max(2)
     .test(
@@ -60,8 +60,8 @@ const CreateEditIncidentForm = ({
           locationName: group?.locationName || "",
           escalated: group?.escalated || false,
           closed: group?.closed || false,
-          verification_status: group?.verification_status || false,
-          confirmation_status: group?.confirmation_status || false,
+          verification_status: group?.verification_status,
+          confirmation_status: group?.confirmation_status,
           publication_status: group?.publication_status || ["Not Published"],
           assignedTo: group?.assignedTo?.map((i) => i._id) || [],
           notes: group?.notes || "",
@@ -85,8 +85,18 @@ const CreateEditIncidentForm = ({
           Ideally, titles should be written as a<i>question</i> that can be
           answered with a true/false
         </p>
-        <FormikSwitch name='verification_status' label='Outage verified?' />
-        <FormikSwitch name='confirmation_status' label='Reason confirmed?' />
+        <FormikDropdown
+          name='verification_status'
+          label='Outage verified?'
+          list={[{_id: "true", label: "Verified"}, {_id: "false", label: "Unable to Verify"}]}
+          placeholder='Verifying'
+        />
+        <FormikDropdown
+          name='confirmation_status'
+          label='Reason confirmed?'
+          list={[{_id: "true", label: "Confirmed"}, {_id: "false", label: "Unable to Confirm"}]}
+          placeholder='Confirming'
+        />
         <FormikMultiCombobox
           name='publication_status'
           unitLabel='status'

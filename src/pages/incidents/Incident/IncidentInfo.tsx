@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   faCompass,
   faFileLines,
@@ -10,12 +11,14 @@ import {
   faWarning,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { isNil } from "lodash";
 import { Group } from "../../../api/groups/types";
 import AggieButton from "../../../components/AggieButton";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 import TagsList from "../../../components/Tags/TagsList";
 import UserToken from "../../../components/UserToken";
 //import VeracityToken from "../../../components/VeracityToken";
+import incidentOverallStatus from "../incidentOverallStatus";
 
 interface IProps {
   group?: Group;
@@ -23,6 +26,8 @@ interface IProps {
   onEdit: () => void;
 }
 const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
+  const [isStatusClicked, setIsStatusClicked] = useState(false);
+  const [isStatusHovered, setIsStatusHovered] = useState(false);
   function formatIsoTime (iso : string | Date) {
     if (!iso) return "Unknown Date";
     const date = (iso instanceof Date) ? iso : new Date(iso);
@@ -80,20 +85,47 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
         </div>
       </div>
       <div className='flex gap-2'>
-        <PlaceholderDiv as='p' loading={isLoading} width='7em'
-          className='px-2 py-1 rounded-full bg-teal-200'>
-          {group?.verification_status ? "Verified" : "Unverified"}
-        </PlaceholderDiv>
-        <PlaceholderDiv as='p' loading={isLoading} width='7em'
-          className='px-2 py-1 rounded-full bg-pink-200'>
-          {group?.confirmation_status ? "Confirmed" : "Unconfirmed"}
-        </PlaceholderDiv>
-        {group?.publication_status?.map((s: String) =>
-          <PlaceholderDiv as='p' loading={isLoading} width='7em'
-            className='px-2 py-1 rounded-full bg-fuchsia-200'>
-            {s}
-          </PlaceholderDiv>
-        )}
+        {
+          group && (
+            <PlaceholderDiv as='p' loading={isLoading} width='7em'
+              className='px-2 py-1 rounded-full bg-purple-300 hover:cursor-pointer'
+              onClick={() => setIsStatusClicked(!isStatusClicked)}
+              onMouseEnter={() => setIsStatusHovered(true)}
+              onMouseLeave={() => setIsStatusHovered(false || isStatusClicked)}>
+              {incidentOverallStatus(group)}
+            </PlaceholderDiv>
+          )
+        }
+        {
+          isStatusHovered && (<>
+            <PlaceholderDiv as='p' loading={isLoading} width='7em'
+              className='px-2 py-1 rounded-full bg-fuchsia-200'>
+              {
+                isNil(group?.verification_status)
+                ? "Verifying"
+                : group?.verification_status
+                  ? "Verified"
+                  : "Unable to Verify"
+              }
+            </PlaceholderDiv>
+            <PlaceholderDiv as='p' loading={isLoading} width='7em'
+              className='px-2 py-1 rounded-full bg-fuchsia-200'>
+              {
+                isNil(group?.confirmation_status)
+                ? "Confirming"
+                : group?.confirmation_status
+                  ? "Confirmed"
+                  : "Unable to Confirm"
+              }
+            </PlaceholderDiv>
+            {group?.publication_status?.map((s: String) =>
+              <PlaceholderDiv as='p' loading={isLoading} width='7em'
+                className='px-2 py-1 rounded-full bg-fuchsia-200'>
+                {s}
+              </PlaceholderDiv>
+            )}
+          </>)
+        }
       </div>
       <div className='flex gap-12 my-2'>
         <PlaceholderDiv as='p' width='7em' loading={isLoading}>

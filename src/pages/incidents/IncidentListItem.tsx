@@ -33,6 +33,7 @@ import {
   faFileLines,
   faMessage,
 } from "@fortawesome/free-regular-svg-icons";
+import incidentOverallStatus from "./incidentOverallStatus";
 import UserToken from "../../components/UserToken";
 import { isString } from "lodash";
 import { hasId } from "../../api/common";
@@ -119,12 +120,10 @@ const IncidentListItem = ({ item }: IProps) => {
             <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
               {item.title}{" "}
             </span>
-            {item.escalated && (
-              <span className='px-1 bg-orange-700/90  text-white font-medium text-sm inline-flex gap-1 items-center no-underline w-fit'>
-                <FontAwesomeIcon icon={faWarning} />
-                Escalated
-              </span>
-            )}
+            <span
+            className='px-1 py-1 bg-purple-300 rounded-full font-medium text-sm text-slate-600 inline-flex gap-1 items-center no-underline w-fit'>
+              {incidentOverallStatus(item)}
+            </span>
           </h2>
           <div className='grid grid-cols-4 flex-grow items-end font-medium'>
             <p>
