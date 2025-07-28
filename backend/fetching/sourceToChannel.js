@@ -12,9 +12,10 @@ const downstream = require('./downstream');
 const RSSChannel = require('./channels/rss');
 const IODAChannel = require('./channels/ioda');
 const CloudflareChannel = require('./channels/cloudflare');
+const JunkipediaChannel = require('./channels/junkipedia');
 
 
-const { TwitterPageChannel, JunkipediaChannel } = builtin;
+// const { TwitterPageChannel, JunkipediaChannel } = builtin;
 
 
 // Key: Source ID; Value: Channel ID
@@ -163,20 +164,21 @@ function createChannel(source) {
                 queryParams = {
                     lists: lists,
                     keyword: keywords,
-                    // sort_order: "desc"
+                    sort_order: "desc"
                 }
             }
+
             options = {
                 ...options,
-                apiKey: credentials.secrets.junkipediaAPIKey,
+                credentials: credentials,
                 // Reference - https://www.junkipedia.org/apidocs#tag/Posts/paths/~1api~1v1~1posts/get
                 // TODO: Add list or channel specification
                 // interval is set to 3 minutes
-                interval: 6000,
+                interval: 180000,
                 queryParams: queryParams,
             }
-            console.log(credentials)
-            console.log(options)
+            // console.log(credentials)
+            // console.log(options)
             channel = new JunkipediaChannel(options);
             break;
         case 'rss':

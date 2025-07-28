@@ -16,6 +16,8 @@ class CloudflareChannel extends PollChannel {
     static INTERVAL = process.env.API_FETCH_INTERVAL || 300000;
     static LIMIT = API_MAX_RESULTS.CLOUDFLARE || 50;
 
+    #decryptedSecrets; // private property of decrypted secrets
+
     constructor(options) {
 
         super({...options,
@@ -27,7 +29,7 @@ class CloudflareChannel extends PollChannel {
         this.countryCode = options.countryCode || null;
 
         this.credentials = options.credentials || null;
-        this.decryptedSecrets = this.credentials?.secrets
+        this.#decryptedSecrets = this.credentials?.secrets
             ? decryptSecretsObject(this.credentials.secrets)
             : {};
 
@@ -66,7 +68,7 @@ class CloudflareChannel extends PollChannel {
 
         try {
             // Fetch data
-            const apiToken = this.decryptedSecrets.cloudflareApiToken || null;
+            const apiToken = this.#decryptedSecrets.cloudflareApiToken || null;
 
             if (!apiToken || apiToken.secrets) {
                 throw new Error(`Failed getting credential for the source ${this.options.namespace}.`);
