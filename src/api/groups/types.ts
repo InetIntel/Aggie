@@ -84,9 +84,26 @@ export interface GroupComment extends EditableGroupComment {
   createdAt: string;
   updatedAt: string;
   _id: string;
+  attachmentsToDelete?: string[];
 }
 
 export interface EditableGroupComment {
   data: string;
   author: string;
+  attachments: (GroupCommentAttachment | File)[];
+}
+
+export const MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+] as const;
+export type MimeTypes = (typeof MIME_TYPES)[number];
+
+export interface GroupCommentAttachment {
+  _id: string;
+  fileName: string;
+  path: string;
+  mimeType: MimeTypes;
+  fileSize: number;
 }
