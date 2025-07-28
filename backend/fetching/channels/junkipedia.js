@@ -33,18 +33,16 @@ class JunkipediaChannel extends PageChannel {
     };
     this.interval = options.interval || JunkipediaChannel.INTERVAL;
     this.lastTimestamp = options.lastTimestamp || null;
-    console.log('debugging-this.lastTimestamp: ', this.lastTimestamp);
+
   }
 
   async fetchPage() {
     let startDate;
     if (this.lastTimestamp) {
       startDate = new Date(this.lastTimestamp.getTime() + 1000);
-      console.log('debugging- lastTimestamp exist, startDate: ', startDate);
     } else {
       startDate = new Date();
       startDate.setHours(startDate.getHours() - 2);
-      console.log('debugging- No lastTimestamp, startDate: ', startDate);
     }
 
     const apiKey = this.#decryptedSecrets.junkipediaAPIKey || null;
@@ -73,7 +71,6 @@ class JunkipediaChannel extends PageChannel {
       };
     }
 
-    console.log('debugging- config.published_at_from: ', config.params.published_at_from, 'config.published_at_to: ', config.params.published_at_to);
     try {
 
       const response = await axios(config);
