@@ -65,7 +65,7 @@ const Incident = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { searchParams, getAllParams } = useQueryParams<ReportQueryState>();
-  const { doUpdate, doSetEscalate, doSetClosed } = useIncidentMutations();
+  const { doUpdate, doSetClosed } = useIncidentMutations();
   const [deleteModal, setDeleteModal] = useState(false);
 
   const [removeReports, setRemoveReports] = useState(false);
@@ -190,35 +190,6 @@ const Incident = () => {
             Go Back
           </AggieButton>
           <div className='flex items-center gap-2'>
-            {group && (
-              <div className='flex justify-between items-center px-2 py-1 gap-2 font-medium text-sm bg-white rounded-lg border border-slate-300'>
-                Escalate:
-                <AggieSwitch
-                  checked={group.escalated}
-                  disabled={doSetEscalate.isLoading}
-                  onChange={() =>
-                    doSetEscalate.mutate(
-                      {
-                        ids: [group._id],
-                        escalated: !group.escalated,
-                      },
-                      {
-                        onSuccess: (_, params) => {
-                          // update single report
-                          if (!id) return;
-                          queryData.update<Group>(["group", id], (data) => {
-                            return {
-                              escalated: params.escalated,
-                            };
-                          });
-                        },
-                      }
-                    )
-                  }
-                />
-              </div>
-            )}
-
             <DropdownMenu
               variant='secondary'
               className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'

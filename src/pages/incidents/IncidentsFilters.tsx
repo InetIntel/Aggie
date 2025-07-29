@@ -2,8 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getUsers } from "../../api/users";
 import {
-  //VERACITY_OPTIONS,
-  ESCALATED_OPTIONS,
   GROUP_SORTBY,
   GroupSortBy,
 } from "../../api/common";
@@ -150,30 +148,8 @@ const IncidentsFilters = ({
               setParams({ closed: e === "false" ? undefined : e })
             }
           />
-          {!get("escalated") && (
-            <AggieButton
-              variant='secondary'
-              icon={faWarning}
-              className='text-xs text-orange-700'
-              onClick={() => setParams({ escalated: true })}
-            >
-              Show Only Escalated
-            </AggieButton>
-          )}
         </div>
         <div className='flex items-center gap-1'>
-          { /*<FilterListbox
-            label='Veracity'
-            options={[...VERACITY_OPTIONS]}
-            value={get("veracity")}
-            onChange={(e) => setParams({ veracity: e })}
-          />*/ }
-          {/* <FilterListbox
-            label='Escalated'
-            options={[...ESCALATED_OPTIONS]}
-            value={get("escalated") as string}
-            onChange={(e) => setParams({ escalated: e as string })}
-          /> */}
 
           <FilterComboBox
             label='Creator'

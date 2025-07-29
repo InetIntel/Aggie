@@ -15,7 +15,6 @@ import FormikWithSchema from "../../components/FormikWithSchema";
 const incidentSchema = Yup.object().shape({
   title: Yup.string().required("Group name required"),
   locationName: Yup.string(),
-  escalated: Yup.boolean(),
   closed: Yup.boolean(),
   verification_status: Yup.boolean(),
   confirmation_status: Yup.boolean(),
@@ -58,7 +57,6 @@ const CreateEditIncidentForm = ({
         initialValues={{
           title: group?.title || "",
           locationName: group?.locationName || "",
-          escalated: group?.escalated || false,
           closed: group?.closed || false,
           verification_status: group?.verification_status,
           confirmation_status: group?.confirmation_status,
@@ -77,7 +75,6 @@ const CreateEditIncidentForm = ({
         onClose={onCancel}
       >
         <div className='flex gap-6 text-slate-200 pb-1'>
-          <FormikSwitch name='escalated' label={"Escalated"} />
           <FormikSwitch name='closed' label='Closed' />
         </div>
         <FormikInput name='title' label='Incident Title' />

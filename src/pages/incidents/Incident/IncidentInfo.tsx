@@ -74,12 +74,6 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           >
             <h1 className='max-w-prose'>
               {group?.title}{" "}
-              {group?.escalated && (
-                <span className='px-1 bg-orange-700 text-white font-medium text-base inline-flex gap-1 items-center no-underline'>
-                  <FontAwesomeIcon icon={faWarning} />
-                  Escalated
-                </span>
-              )}
             </h1>
           </PlaceholderDiv>
         </div>
