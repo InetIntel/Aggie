@@ -89,6 +89,7 @@ const Comment = ({ data, groupId }: IProps) => {
 
   if (!groupId) return <></>;
 
+  const UPLOAD_DIR = process.env.UPLOAD_DIR || process.env.PUBLIC_URL || "";
   const nameList = data.attachments.reduce(
     (accumulator, currentValue) => (
       accumulator.concat([
@@ -104,12 +105,11 @@ const Comment = ({ data, groupId }: IProps) => {
       accumulator.concat([
         currentValue instanceof File
         ? currentValue.webkitRelativePath
-        : currentValue.path
+        : UPLOAD_DIR + currentValue.path
       ])
     ),
     [] as string[]
   );
-  console.debug(nameList, pathList);
 
   return (
     <div
