@@ -85,6 +85,19 @@ const CreateEditIncidentForm = ({
           Ideally, titles should be written as a<i>question</i> that can be
           answered with a true/false
         </p>
+        <FormikMultiCombobox
+          name='assignedTo'
+          unitLabel='User'
+          label='Assign User to Incident'
+          list={
+            users?.map((i) => {
+              return { key: i._id, value: i.username };
+            }) || [{ key: "", value: "loading" }]
+          }
+        />
+
+        <div className=' border-b'></div>
+
         <FormikDropdown
           name='verification_status'
           label='Outage verified?'
@@ -105,19 +118,6 @@ const CreateEditIncidentForm = ({
             return { key: i, value: i };
           })}
         />
-        <FormikMultiCombobox
-          name='assignedTo'
-          unitLabel='User'
-          label='Assign User to Incident'
-          list={
-            users?.map((i) => {
-              return { key: i._id, value: i.username };
-            }) || [{ key: "", value: "loading" }]
-          }
-        />
-
-        <div className=' border-b'></div>
-
         <FormikDateTime
           name='incidentStartedAt'
           label='Incident Start Time (UTC)'
