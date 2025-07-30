@@ -11,11 +11,11 @@ import { Report } from "../../api/reports/types";
 export function parseContentType(report: Report) {
   if (!report._media) return "default";
 
-  // if (report._media[0] === "twitter") {
-  //   // some goofy coding practices going on here
-  //   const type = tweetType(report);
-  //   return type;
-  // }
+  if (report._media[0] === "twitter") {
+    // some goofy coding practices going on here
+    const type = tweetType(report);
+    return type;
+  }
 
   return report._media[0];
 }

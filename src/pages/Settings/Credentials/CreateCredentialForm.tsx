@@ -17,9 +17,10 @@ interface IProps {
   onClose: () => void;
 }
 const CreateCredentialForm = ({ onClose }: IProps) => {
-  const [credentialType, setCredentialType] =
-    //useState<CredentialOption>("junkipedia");
-    useState<CredentialOption>("ioda");
+  const [
+    credentialType,
+    setCredentialType
+  ] = useState<CredentialOption>("ioda");
 
   const queryClient = useQueryClient();
   const doCreateCredential = useMutation(newCredential, {
@@ -31,7 +32,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
 
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
-  /*const junkipediaSchema = Yup.object().shape({
+  const junkipediaSchema = Yup.object().shape({
     name: Yup.string().required("Credentials name required"),
     junkipediaAPIKey: Yup.string().required("API Token required"),
   });
@@ -57,71 +58,6 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       <FormikInput name='junkipediaAPIKey' label='Junkipedia API Token' />
     </FormikWithSchema>
   );
-
-
-  // rss credential
-  // could be cleaner but idk how to work the type inferencing with yup
-  const rssSchema = Yup.object().shape({
-    name: Yup.string().required("Credentials name required")
-  });
-  type IRssSchema = Yup.InferType<typeof rssSchema>;
-
-  const rssForm = (
-    <FormikWithSchema
-      schema={rssSchema}
-      onSubmit={(values: IRssSchema) => {
-        doCreateCredential.mutate({
-          credentials: {},
-          name: values.name,
-          type: "rss",
-        });
-      }}
-      loading={doCreateCredential.isLoading}
-      onClose={onClose}
-    >
-      <FormikInput name='name' label='Credential Name' />
-    </FormikWithSchema>
-  );
-  const twitterSchema = Yup.object().shape({
-    name: Yup.string().required("Credentials name required"),
-    consumerKey: Yup.string().required("Consumer key required."),
-    consumerSecret: Yup.string().required("Consumer secret required."),
-    accessToken: Yup.string().required("Access Token required."),
-    accessTokenSecret: Yup.string().required("Access Token secret required."),
-  });
-  type ITwitterSchema = Yup.InferType<typeof twitterSchema>;
-
-  const twitterForm = (
-    <FormikWithSchema
-      schema={twitterSchema}
-      onSubmit={(values: ITwitterSchema) => {
-        doCreateCredential.mutate({
-          credentials: {},
-          name: values.name,
-          type: "twitter",
-          secrets: {
-            consumerKey: values.consumerKey,
-            consumerSecret: values.consumerSecret,
-            accessToken: values.accessToken,
-            accessTokenSecret: values.accessTokenSecret,
-          },
-        });
-      }}
-      loading={doCreateCredential.isLoading}
-      onClose={onClose}
-    >
-      <FormikInput name='name' label='Credential Name' />
-      <FormikInput name='consumerKey' label='Twitter API Token' />
-      <FormikInput name='consumerSecret' label='Twitter API Token Secret' />
-      <FormikInput name='accessToken' label='Twitter Access Token' />
-      <FormikInput name='accessTokenSecret' label='Twitter Access Token Secret' />
-    </FormikWithSchema>
-  );*/
-
-  // const crowdTangleSchema = Yup.object().shape({
-  //   name: Yup.string().required("Credentials name required"),
-  //   dashboardAPIToken: Yup.string().required("API Token required"),
-  // });
 
   const iodaSchema = Yup.object().shape({
     name: Yup.string().required("Credentials name required")
@@ -172,6 +108,71 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
     </FormikWithSchema>
   );
 
+  // rss credential
+  // could be cleaner but idk how to work the type inferencing with yup
+  /*const rssSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required")
+  });
+  type IRssSchema = Yup.InferType<typeof rssSchema>;
+
+  const rssForm = (
+    <FormikWithSchema
+      schema={rssSchema}
+      onSubmit={(values: IRssSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "rss",
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Credential Name' />
+    </FormikWithSchema>
+  );
+
+  const crowdTangleSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required"),
+    dashboardAPIToken: Yup.string().required("API Token required"),
+  });
+
+  const twitterSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required"),
+    consumerKey: Yup.string().required("Consumer key required."),
+    consumerSecret: Yup.string().required("Consumer secret required."),
+    accessToken: Yup.string().required("Access Token required."),
+    accessTokenSecret: Yup.string().required("Access Token secret required."),
+  });
+  type ITwitterSchema = Yup.InferType<typeof twitterSchema>;
+
+  const twitterForm = (
+    <FormikWithSchema
+      schema={twitterSchema}
+      onSubmit={(values: ITwitterSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "twitter",
+          secrets: {
+            consumerKey: values.consumerKey,
+            consumerSecret: values.consumerSecret,
+            accessToken: values.accessToken,
+            accessTokenSecret: values.accessTokenSecret,
+          },
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Credential Name' />
+      <FormikInput name='consumerKey' label='Twitter API Token' />
+      <FormikInput name='consumerSecret' label='Twitter API Token Secret' />
+      <FormikInput name='accessToken' label='Twitter Access Token' />
+      <FormikInput name='accessTokenSecret' label='Twitter Access Token Secret' />
+    </FormikWithSchema>
+  );*/
+
   return (
     <>
       <label className='text-slate-600'>Credential Type</label>
@@ -207,9 +208,9 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
           ))}
         </Listbox.Options>
       </Listbox>
-      { /*{credentialType === "junkipedia" && junkipediaForm}
-      {credentialType === "rss" && rssForm}
-      {credentialType === "twitter" && twitterForm}*/ }
+      {credentialType === "junkipedia" && junkipediaForm}
+      {/*credentialType === "rss" && rssForm*/}
+      {/*credentialType === "twitter" && twitterForm*/}
       {credentialType === "ioda" && iodaForm}
       {credentialType === "cloudflare" && cloudflareForm}
     </>
