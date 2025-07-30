@@ -1,6 +1,7 @@
 const credentialsTypes = [
   'ioda',
-  'cloudflare'
+  'cloudflare',
+  'junkipedia',
 ];
 
 module.exports = credentialsTypes;

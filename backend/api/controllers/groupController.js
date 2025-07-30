@@ -531,52 +531,6 @@ exports.group_comment_update = async (req, res) => {
   }
 
 };
-// exports.group_comment_update = (req, res) => {
-//   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-//   Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-//     if (err) return res.status(err.status).send(err.message);
-//     if (groups.length === 0) return res.sendStatus(200);
-//     let remaining = groups.length;
-//     groups.forEach((group) => {
-//       const newData = req.body.comment
-//       const commentToUpdate = group.comments.id(req.body.comment._id)
-
-//       if (!commentToUpdate) {
-//         if (--remaining === 0) {
-//           return res.status(404).send('Comment not found in group.');
-//         }
-//         return; 
-//       }
-
-//       // comment content cannot be null
-//       if (newData.data) {
-//         commentToUpdate.data = newData.data;
-//       }
-
-//       // comment attachments can be removed to null
-//       if ('attachments' in newData) {
-//         if (!validateAttachments(newData.attachments)) {
-//           return res.status(400).send(`Invalid attachments: max ${Group.MAX_ATTACHMENT_COUNT} attachments, each <= ${Group.MAX_ATTACHMENT_SIZE / 1024} kb.`);
-//         }
-
-//         commentToUpdate.attachments = newData.attachments; 
-//       }
-
-//       group.save((err) => {
-//         if (err) {
-//           if (!res.headersSent) res.status(err.status).send(err.message);
-//           return;
-//         }
-        
-//         if (--remaining === 0) {
-//           eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
-//             return res.sendStatus(200)
-//           });
-//         }
-//       });
-//     });
-//   });
-// };
 
 // remove group comment
 exports.group_comment_remove = async (req, res) => {
@@ -596,7 +550,7 @@ exports.group_comment_remove = async (req, res) => {
     if (!comment) { return res.status(404).send('Comment not found.'); };
 
     let deletedPaths = [];
-    deletedPaths = comment.attachments.map(att => att.path);
+    deletedPaths = comment.attachments.map(att => att.serverPath);
 
     await Promise.all(deletedPaths.map(deleteFile));
     await comment.remove();
@@ -614,41 +568,6 @@ exports.group_comment_remove = async (req, res) => {
     res.status(err.status || 500).send('Failed removing comment', err.message);
   }
 }
-
-// exports.group_comment_remove = (req, res) => {
-//   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-//   Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-//     if (err) return res.status(err.status).send(err.message);
-//     if (groups.length === 0) return res.sendStatus(200);
-//     let remaining = groups.length;
-//     groups.forEach((group) => {
-
-//       const commentToDelete = group.comments.id(req.body.comment._id);
-
-//       if (!commentToDelete) {
-//         if (--remaining === 0){
-//           return res.status(404).send('Comment not found in group.');
-//         }
-//         return;
-//       }
-
-//       commentToDelete.remove();
-
-//       group.save((err) => {
-//         if (err) {
-//           if (!res.headersSent) res.status(err.status).send(err.message);
-//           return;
-//         }
-        
-//         if (--remaining === 0) {
-//           eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
-//             return res.sendStatus(200)
-//           });
-//         }
-//       });
-//     });
-//   });
-// };
 
 exports.group_tags_clear = (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
