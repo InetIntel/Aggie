@@ -11,14 +11,13 @@ import {
   faWarning,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { isNil } from "lodash";
 import { Group } from "../../../api/groups/types";
 import AggieButton from "../../../components/AggieButton";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 import TagsList from "../../../components/Tags/TagsList";
 import UserToken from "../../../components/UserToken";
 //import VeracityToken from "../../../components/VeracityToken";
-import incidentOverallStatus from "../incidentOverallStatus";
+import { IncidentOverallStatus, IncidentStatuses } from "../IncidentStatuses";
 
 interface IProps {
   group?: Group;
@@ -78,47 +77,21 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           </PlaceholderDiv>
         </div>
       </div>
-      <div className='flex gap-2'>
+      <div className='flex flex-wrap gap-2'>
         {
           group && (
-            <PlaceholderDiv as='p' loading={isLoading} width='7em'
-              className='px-2 py-1 rounded-full bg-purple-300 hover:cursor-pointer'
+            <IncidentOverallStatus
+              group={group}
+              className='px-2 py-1 rounded-full hover:cursor-pointer'
               onClick={() => setIsStatusClicked(!isStatusClicked)}
               onMouseEnter={() => setIsStatusHovered(true)}
-              onMouseLeave={() => setIsStatusHovered(false || isStatusClicked)}>
-              {incidentOverallStatus(group)}
-            </PlaceholderDiv>
+              onMouseLeave={() => setIsStatusHovered(false || isStatusClicked)}
+            />
           )
         }
         {
-          isStatusHovered && (<>
-            <PlaceholderDiv as='p' loading={isLoading} width='7em'
-              className='px-2 py-1 rounded-full bg-fuchsia-200'>
-              {
-                isNil(group?.verification_status)
-                ? "Verifying"
-                : group?.verification_status
-                  ? "Verified"
-                  : "Unable to Verify"
-              }
-            </PlaceholderDiv>
-            <PlaceholderDiv as='p' loading={isLoading} width='7em'
-              className='px-2 py-1 rounded-full bg-fuchsia-200'>
-              {
-                isNil(group?.confirmation_status)
-                ? "Confirming"
-                : group?.confirmation_status
-                  ? "Confirmed"
-                  : "Unable to Confirm"
-              }
-            </PlaceholderDiv>
-            {group?.publication_status?.map((s: String) =>
-              <PlaceholderDiv as='p' loading={isLoading} width='7em'
-                className='px-2 py-1 rounded-full bg-fuchsia-200'>
-                {s}
-              </PlaceholderDiv>
-            )}
-          </>)
+          (isStatusHovered && group)
+          && <IncidentStatuses group={group} className='px-2 py-1 rounded-full'/>
         }
       </div>
       <div className='flex gap-12 my-2'>
