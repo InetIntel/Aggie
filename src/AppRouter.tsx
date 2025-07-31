@@ -54,7 +54,7 @@ const PublicRoutes = () => {
   );
 };
 
-const defaultRoute = "/rpt";
+const defaultRoute = "/alerts";
 
 interface IPrivateRouteProps {
   sessionData: Session | undefined;
@@ -69,7 +69,7 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
 
       <Route index element={<Navigate to={defaultRoute} />} />
       <Route
-        path='/rpt'
+        path='/alerts'
         element={
           <Reports><AllReportsList alerts={true} /></Reports>
         }
