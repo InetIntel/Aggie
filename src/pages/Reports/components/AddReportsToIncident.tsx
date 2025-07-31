@@ -167,30 +167,23 @@ const AddReportsToIncidents = ({
             <div className='rounded-lg border overflow-x-hidden border-slate-300 overflow-y-auto'>
               {selection &&
                 selection.map((report) => (
-                  <MultiSelectListItem
-                    isChecked={multiSelect.exists(report)}
-                    isSelectMode={multiSelect.isActive}
-                    onCheckChange={() => multiSelect.addRemove(report)}
-                    key={report._id}
-                  >
-                    <div className='text-sm'>
-                      <SocialMediaListItem
-                        report={report}
-                        header={
-                          <span className='flex gap-1 group-hover:opacity-100 opacity-0'>
-                            <AggieButton
-                              variant='light:rose'
-                              className='rounded-lg text-xs border border-slate-300 '
-                              icon={faMinusCircle}
-                              onClick={() => addRemove(report)}
-                            >
-                              Remove from Selection
-                            </AggieButton>
-                          </span>
-                        }
-                      />
-                    </div>
-                  </MultiSelectListItem>
+                  <div className='bg-white hover:bg-slate-100 border-b border-slate-300 group p-3 relative text-sm'>
+                    <SocialMediaListItem
+                      report={report}
+                      header={
+                        <span className='flex gap-1 group-hover:opacity-100 opacity-0'>
+                          <AggieButton
+                            variant='light:rose'
+                            className='rounded-lg text-xs border border-slate-300 '
+                            icon={faMinusCircle}
+                            onClick={() => addRemove(report)}
+                          >
+                            Remove from Selection
+                          </AggieButton>
+                        </span>
+                      }
+                    />
+                  </div>
                 ))}
             </div>
           </div>
