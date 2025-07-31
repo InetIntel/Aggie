@@ -69,7 +69,6 @@ const AllReportsList = ({ alerts }: IProps) => {
       <div className='px-1 py-2 bg-gray-50/75 backdrop-blur-sm sticky top-0 z-10 '>
         <ReportsFilters
           reportCount={reports && reports.total}
-          searchPlaceholder={"Exact Keyword Search"}
           isFetching={isFetching}
           refetch={refetch}
           headerElement={
