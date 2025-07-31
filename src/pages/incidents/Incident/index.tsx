@@ -453,7 +453,7 @@ const Incident = () => {
                     close
                   </AggieButton>
                 </header>
-                <SocialMediaPost report={activePost} />
+                <SocialMediaPost report={activePost} showMedia />
               </div>
             </div>
           </section>
