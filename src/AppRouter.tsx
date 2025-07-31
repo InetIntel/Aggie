@@ -71,7 +71,7 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
       <Route
         path='/rpt'
         element={
-          <Reports><AllReportsList /></Reports>
+          <Reports><AllReportsList alerts={true} /></Reports>
         }
       >
         <Route path=':id' element={<Report />}></Route>
@@ -89,11 +89,9 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
       </Route>
 
       <Route
-        path='/rpt/search'
+        path='/mediaposts'
         element={
-          <Reports>
-            <FlaggedReportsList />
-          </Reports>
+          <Reports><AllReportsList alerts={false} /></Reports>
         }
       >
         <Route path=':id' element={<Report />}></Route>
