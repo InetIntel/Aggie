@@ -240,7 +240,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
         end.toISOString().replace('T', ' ').substring(0, 16);
       return (
         <p>
-          entity: {report?.author}<br />
+          {report?.author}<br />
           {startUtc} to {
             (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
             endUtc.substring(11) : endUtc
@@ -252,7 +252,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
         report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";
       return (
         <p>
-          entity: {report?.author}<br />
+          {report?.author}<br />
           {
             report?.authoredAt.replace('T', ' ').substring(0, 16)
           } to {endDate.replace('T', ' ').substring(0, 16)}
