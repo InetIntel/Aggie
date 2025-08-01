@@ -78,10 +78,6 @@ const CreateEditIncidentForm = ({
           <FormikSwitch name='closed' label='Closed' />
         </div>
         <FormikInput name='title' label='Incident Title' />
-        <p className='text-sm text-slate-700'>
-          Ideally, titles should be written as a<i>question</i> that can be
-          answered with a true/false
-        </p>
         <FormikMultiCombobox
           name='assignedTo'
           unitLabel='User'
