@@ -77,10 +77,10 @@ module.exports = async function postToReport(post, next) {
                     likeCount: like_count ? like_count : 0,
                     rawAPIResponse: raw,
                 }
-    } else if (platform === 'junkipedia') {
-        metadata = parseJunkipediaPostMetadata(raw);
-    } else {
+    } else if (platform === 'ioda' || platform === 'cloudflare') {
         metadata = {rawAPIResponse: raw} || null;
+    } else {
+        metadata = parseJunkipediaPostMetadata(raw);
     };
 
     post.metadata = metadata;

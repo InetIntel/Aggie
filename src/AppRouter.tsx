@@ -17,7 +17,6 @@ import SourceDetails from "./pages/Settings/source/SourceDetails";
 import UsersIndex from "./pages/Settings/user/UsersIndex";
 import UserProfile from "./pages/Settings/user/UserProfile";
 import TagsIndex from "./pages/Settings/tag/TagsIndex";
-//import Configuration from "./pages/Settings/Configuration";
 import CredentialsIndex from "./pages/Settings/Credentials/CredentialsIndex";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -30,8 +29,6 @@ import FetchIndicator from "./components/FetchIndicator";
 import Settings from "./pages/Settings";
 import { useQueryClient } from "@tanstack/react-query";
 import AllReportsList from "./pages/Reports/AllReportsList";
-import BatchReportList from "./pages/Reports/BatchReportsList";
-import FlaggedReportsList from "./pages/Reports/FlaggedReportsList";
 
 const RerouteToLogin = () => {
   const location = useLocation();
@@ -54,7 +51,7 @@ const PublicRoutes = () => {
   );
 };
 
-const defaultRoute = "/rpt";
+const defaultRoute = "/alerts";
 
 interface IPrivateRouteProps {
   sessionData: Session | undefined;
@@ -69,31 +66,18 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
 
       <Route index element={<Navigate to={defaultRoute} />} />
       <Route
-        path='/rpt'
+        path='/alerts'
         element={
-          <Reports><AllReportsList /></Reports>
+          <Reports><AllReportsList alerts={true} /></Reports>
         }
       >
         <Route path=':id' element={<Report />}></Route>
       </Route>
 
       <Route
-        path='/rpt/batch'
+        path='/mediaposts'
         element={
-          <Reports>
-            <BatchReportList />
-          </Reports>
-        }
-      >
-        <Route path=':id' element={<Report />}></Route>
-      </Route>
-
-      <Route
-        path='/rpt/search'
-        element={
-          <Reports>
-            <FlaggedReportsList />
-          </Reports>
+          <Reports><AllReportsList alerts={false} /></Reports>
         }
       >
         <Route path=':id' element={<Report />}></Route>

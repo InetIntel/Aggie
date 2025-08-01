@@ -92,7 +92,7 @@ function renderAuthor(
   type: ReturnType<typeof parseContentType>,
   report: Report
 ) {
-  switch (report._media[0]) {
+  switch (type) {
     case "ioda":
       let signal = report?.metadata?.rawAPIResponse?.rawEvent?.datasource;
       if (signal === "bgp") {
@@ -102,11 +102,11 @@ function renderAuthor(
       } else if (signal === "ping-slash24") {
         return <>IODA-Active Probing</>;
       }
-      return <>{report._media[0]}</>;
+      return <>{type}</>;
     case "cloudflare":
       return <>{report?.metadata?.rawAPIResponse?.dataSource}</>
     default:
-      return <>{report._media[0]}</>;
+      return <>{report.author}</>;
   }
 }
 function renderImage(
@@ -136,70 +136,70 @@ function renderImage(
 }
 function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
   switch (type) {
-    // case "twitter:quoteRetweet": {
-    //   const data = twitterParsing(report);
+    case "twitter:quoteRetweet": {
+      const data = twitterParsing(report);
 
-    //   return (
-    //     <>
-    //       <div className='grid place-items-center text-slate-600'>
-    //         <FontAwesomeIcon icon={faRetweet} />
-    //       </div>
-    //       <div className=' max-h-[10em] text-black'>
-    //         <p className='font-medium text-sm'>{data.author?.name}</p>
-    //         <p className='text-black line-clamp-2 mb-1'>
-    //           {formatText(data.content)}
-    //         </p>
+      return (
+        <>
+          <div className='grid place-items-center text-slate-600'>
+            <FontAwesomeIcon icon={faRetweet} />
+          </div>
+          <div className=' max-h-[10em] text-black'>
+            <p className='font-medium text-sm'>{data.author?.name}</p>
+            <p className='text-black line-clamp-2 mb-1'>
+              {formatText(data.content)}
+            </p>
 
-    //         <div className='border border-slate-300 rounded-lg py-2 px-3 '>
-    //           <p className='font-medium text-sm'>
-    //             {data.innerPost.author?.name}
-    //           </p>
-    //           <p className='line-clamp-2'>
-    //             {formatText(data.innerPost.content)}
-    //           </p>
-    //         </div>
-    //       </div>
-    //     </>
-    //   );
-    // }
-    // case "twitter:retweet":
-    //   twitterParsing(report);
+            <div className='border border-slate-300 rounded-lg py-2 px-3 '>
+              <p className='font-medium text-sm'>
+                {data.innerPost.author?.name}
+              </p>
+              <p className='line-clamp-2'>
+                {formatText(data.innerPost.content)}
+              </p>
+            </div>
+          </div>
+        </>
+      );
+    }
+    case "twitter:retweet":
+      twitterParsing(report);
 
-    //   return (
-    //     <>
-    //       <div className='grid place-items-center text-slate-600'>
-    //         <FontAwesomeIcon icon={faRetweet} />
-    //       </div>
-    //       <p className=' text-black max-h-[10em] line-clamp-4'>
-    //         {formatText(report.content)}
-    //       </p>
-    //     </>
-    //   );
-    // case "twitter:quote": {
-    //   const data = twitterParsing(report);
+      return (
+        <>
+          <div className='grid place-items-center text-slate-600'>
+            <FontAwesomeIcon icon={faRetweet} />
+          </div>
+          <p className=' text-black max-h-[10em] line-clamp-4'>
+            {formatText(report.content)}
+          </p>
+        </>
+      );
+    case "twitter:quote": {
+      const data = twitterParsing(report);
 
-    //   return (
-    //     <>
-    //       <div className=' max-h-[10em] text-black'>
-    //         <p className='text-black line-clamp-2 mb-1'>
-    //           {formatText(report.content)}
-    //         </p>
+      return (
+        <>
+          <div className=' max-h-[10em] text-black'>
+            <p className='text-black line-clamp-2 mb-1'>
+              {formatText(report.content)}
+            </p>
 
-    //         <div className='border border-slate-300 rounded-lg py-2 px-3 '>
-    //           <p className='font-medium text-sm'>{data.author?.name}</p>
-    //           <p className='line-clamp-2'>{formatText(data.content)}</p>
-    //         </div>
-    //       </div>
-    //     </>
-    //   );
-    // }
-    // case "twitter":
-    //   twitterParsing(report);
-    //   return (
-    //     <p className=' text-black max-h-[10em] line-clamp-4'>
-    //       {formatText(report.content)}
-    //     </p>
-    //   );
+            <div className='border border-slate-300 rounded-lg py-2 px-3 '>
+              <p className='font-medium text-sm'>{data.author?.name}</p>
+              <p className='line-clamp-2'>{formatText(data.content)}</p>
+            </div>
+          </div>
+        </>
+      );
+    }
+    case "twitter":
+      twitterParsing(report);
+      return (
+        <p className=' text-black max-h-[10em] line-clamp-4'>
+          {formatText(report.content)}
+        </p>
+      );
 
     // case "truthsocial":
     //   return (
@@ -240,7 +240,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
         end.toISOString().replace('T', ' ').substring(0, 16);
       return (
         <p>
-          entity: {report?.author}<br />
+          {report?.author}<br />
           {startUtc} to {
             (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
             endUtc.substring(11) : endUtc
@@ -252,7 +252,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
         report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";
       return (
         <p>
-          entity: {report?.author}<br />
+          {report?.author}<br />
           {
             report?.authoredAt.replace('T', ' ').substring(0, 16)
           } to {endDate.replace('T', ' ').substring(0, 16)}

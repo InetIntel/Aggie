@@ -26,7 +26,7 @@ class IODAChannel extends PollChannel {
 
         this.options = options;
 
-        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country', 'asn-country']        
+        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country', 'asn-country']    
 
         this.metadataUrl = `${API_BASE_URLS.IODA}${API_ROUTES.IODA.ENTITY_QUERY}`;
 
@@ -94,7 +94,7 @@ class IODAChannel extends PollChannel {
         this.fetchToTimestamp = Math.floor(Date.now() / 1000); 
         this.fetchFromTimestamp = Math.min(this.fetchFromTimestamp, this.fetchToTimestamp - 2 * 60 * 60);
 
-
+        
         for (const queryType of this.queryTypes) {
             try {
                 // Construct query url
@@ -296,7 +296,7 @@ class IODAChannel extends PollChannel {
             match = event.location_name.match(/^(AS[\w\d]+) \((.+)\)$/);
             entityLevel = 'AS';
             entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
-            entityName = `${match[2]} - ${entityScope}`;
+            entityName = `${match?.[2] ?? ' '} - ${entityScope}`;
         } else {
             entityLevel = 'Region';
             entityScope = event.location_name;
