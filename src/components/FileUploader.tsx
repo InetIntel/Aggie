@@ -105,13 +105,13 @@ export const FileUploadButton: React.FC<FileUploadButtonProps> = ({
       const selectedFiles = e.target.files ?? [];
       for (const element of selectedFiles) {
         if (element.size > MAX_ATTACHMENT_SIZE) {
-          setError(`attachment must be less than ${MAX_ATTACHMENT_SIZE / 1024} KiB`);
+          setError(`file must be less than ${MAX_ATTACHMENT_SIZE / 1024} KiB`);
           return;
         }
       }
       const currentFiles = manager.getFiles();
       if ((selectedFiles.length + currentFiles.length) > MAX_ATTACHMENT_COUNT) {
-        setError(`each comment can have maximum ${MAX_ATTACHMENT_COUNT} attachments`);
+        setError(`each comment can have maximum ${MAX_ATTACHMENT_COUNT} files`);
         return;
       }
       const combined = [...currentFiles, ...selectedFiles].slice(0, 3); // max 3

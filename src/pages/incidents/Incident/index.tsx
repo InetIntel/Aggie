@@ -46,7 +46,7 @@ import ReportFilters from "../../Reports/components/ReportsFilters";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 import { Report, ReportQueryState } from "../../../api/reports/types";
 import { useMultiSelect } from "../../../hooks/useMultiSelect";
-import GroupReportListItem from "./GoupReportListItem";
+import GroupReportListItem from "./GroupReportListItem";
 import AggieCheck from "../../../components/AggieCheck";
 import AggieDialog from "../../../components/AggieDialog";
 import AddReportsToIncidents from "../../Reports/components/AddReportsToIncident";
@@ -288,19 +288,6 @@ const Incident = () => {
             {group?._reports?.length}{" "}
             {group?._reports?.length === 1 ? "report" : "reports"} added
           </PlaceholderDiv>
-          <Link
-            to={`/rpt?groupId=${id}`}
-            className='text-sm text-blue-600 hover:underline'
-          >
-            <p>
-              Open List in All Reports Page
-              <FontAwesomeIcon
-                icon={faExternalLinkSquareAlt}
-                size='sm'
-                className='ml-1'
-              />
-            </p>
-          </Link>
         </div>
 
         <ReportFilters

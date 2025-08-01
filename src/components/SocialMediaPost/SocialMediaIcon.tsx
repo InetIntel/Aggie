@@ -1,11 +1,7 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { MediaOptions } from "../../api/common";
 import {
-  faFacebook,
-  faInstagram,
-  faTiktok,
   faTwitter,
-  faYoutube,
   faCloudflare,
   type IconDefinition as BrandsDef,
 } from "@fortawesome/free-brands-svg-icons";
@@ -17,10 +13,10 @@ const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
   // tiktok: faTiktok,
   // instagram: faInstagram,
   // youtube: faYoutube,
-  // twitter: faTwitter,
   // RSS: faRss,
   // facebook: faFacebook,
   // truthsocial: faQuestionCircle,
+  twitter: faTwitter,
   ioda: faQuestionCircle,
   cloudflare: faCloudflare,
 };

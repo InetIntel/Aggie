@@ -1,3 +1,5 @@
+// unused artifact from FuCo, used for advanced contextual search
+
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";

@@ -23,13 +23,11 @@ interface LinkOptions {
   not?: string[];
 }
 const mainLinks: Record<string, LinkOptions> = {
-  // Reports: { to: "/rpt/batch" },
-  "Reports": { to: "/rpt", not: ["batch", "search"] },
-  // "Contextual Search": { to: "/rpt/search" },
+  "Alerts": { to: "/alerts", not: ["batch", "search"] },
+  "Social Media Posts": { to: "/mediaposts" },
 
-  // divider1: { type: "divider", to: "" },
+  divider1: { type: "divider", to: "" },
   Incidents: { to: "/incidents" },
-  // Images: { to: "/images" },
 };
 
 const helpfulLinks = [
