@@ -27,23 +27,13 @@ const AllReportsList = ({ alerts }: IProps) => {
     useQueryParams<ReportQueryState>();
 
   const {
-    data: rawReports,
+    data: reports,
     refetch,
     isLoading,
     isFetching,
-  } = useQuery(["reports"], () => getReports(getAllParams(searchParams)), {
+  } = useQuery(["reports"], () => getReports(getAllParams(searchParams), alerts), {
     refetchInterval: 120000,
   });
-  const reports = rawReports && {...rawReports, results: (rawReports.results.filter(
-    obj => (
-      obj.metadata
-      && (
-        alerts
-        ? !obj.metadata.hasOwnProperty("junkipediaId")
-        : obj.metadata.hasOwnProperty("junkipediaId")
-      )
-    )
-  ))};
   useEffect(() => {
     // refetch on filter change
     multiSelect.set([]);

@@ -59,6 +59,7 @@ export interface ReportQueryState {
   page?: number;
   batch?: boolean;
   irrelevant?: string;
+  alerts?: boolean;
 }
 
 // metadata typed
