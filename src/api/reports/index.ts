@@ -6,10 +6,10 @@ import { isString } from "lodash";
 
 export const getReports = async (
   searchState: ReportQueryState,
+  alerts?: boolean,
   tagIds: hasId[] | string[] = [],
-  isRelevantReports = false
 ) => {
-  const urlparams = urlFromReportsQuery(searchState, tagIds);
+  const urlparams = urlFromReportsQuery(searchState, alerts, tagIds);
 
   if (urlparams != "") {
     const { data } = await axios.get<Reports | undefined>(
@@ -143,6 +143,7 @@ export const removeReportsFromGroup = async (
  */
 export function urlFromReportsQuery(
   queryState: ReportQueryState,
+  alerts?: boolean,
   tagIds: hasId[] | string[] = []
 ) {
   const url = new URLSearchParams();
@@ -158,6 +159,7 @@ export function urlFromReportsQuery(
   if (!("irrelevant" in queryState)) {
     url.set("irrelevant", "all");
   }
+  if (typeof alerts !== "undefined") url.set("alerts", alerts.toString());
   if (tagIds && tagIds.length > 0) {
     if (isString(tagIds[0])) url.set("tags", tagIds.toString());
     else {
