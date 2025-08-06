@@ -20,7 +20,7 @@ import Linkify from "linkify-react";
 import { isEmpty, isEqual, differenceWith } from "lodash";
 
 import { faComment, faCommentAlt } from "@fortawesome/free-regular-svg-icons";
-import { faEdit, faEllipsisH } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faEllipsisH, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DateTime from "../../../components/DateTime";
 import DropdownMenu from "../../../components/DropdownMenu";
@@ -148,7 +148,7 @@ const Comment = ({ data, groupId }: IProps) => {
                       doDeleteComment.mutate({ id: groupId, comment: data })
                     }
                   >
-                    <FontAwesomeIcon icon={faEdit} />
+                    <FontAwesomeIcon icon={faTrash} />
                     delete comment
                   </AggieButton>
                 </DropdownMenu>
