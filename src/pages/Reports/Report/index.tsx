@@ -143,46 +143,43 @@ const Report = () => {
             disabled={!report || setRead.isLoading}
             icon={report.read ? faEnvelopeOpen : faEnvelope}
           >
-            {report.read ? <> unread</> : <> read</>}
+            {report.read ? <> Unread</> : <> Read</>}
           </AggieButton>
           <div className='rounded-lg border border-slate-300 '>
-            {report.irrelevant !== "true" ?
-              <AggieButton
-                variant={"light:rose"}
-                className='rounded-lg'
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIrrelevance.mutate({
-                    reportIds: [report._id],
-                    irrelevant: "true",
-                    currentPageId: report._id,
-                  });
-                }}
-                icon={faXmark}
-                loading={setIrrelevance.isLoading}
-                disabled={!report || setIrrelevance.isLoading}
-              >
-                irrelevant
-              </AggieButton>
-              :
-              <AggieButton
-                variant={"light:green"}
-                className='rounded-lg'
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIrrelevance.mutate({
-                    reportIds: [report._id],
-                    irrelevant: "maybe",
-                    currentPageId: report._id,
-                  });
-                }}
-                icon={faDotCircle}
-                loading={setIrrelevance.isLoading}
-                disabled={!report || setIrrelevance.isLoading}
-              >
-                relevant
-              </AggieButton>
-            }
+            <AggieButton
+              variant={"light:rose"}
+              className='rounded-l-lg'
+              onClick={(e) => {
+                e.stopPropagation();
+                setIrrelevance.mutate({
+                  reportIds: [report._id],
+                  irrelevant: "true",
+                  currentPageId: report._id,
+                });
+              }}
+              icon={faXmark}
+              loading={setIrrelevance.isLoading}
+              disabled={!report || setIrrelevance.isLoading}
+            >
+              Ignore
+            </AggieButton>
+            <AggieButton
+              variant={"light:green"}
+              className='rounded-r-lg'
+              onClick={(e) => {
+                e.stopPropagation();
+                setIrrelevance.mutate({
+                  reportIds: [report._id],
+                  irrelevant: "false",
+                  currentPageId: report._id,
+                });
+              }}
+              icon={faDotCircle}
+              loading={setIrrelevance.isLoading}
+              disabled={!report || setIrrelevance.isLoading}
+            >
+              Investigate
+            </AggieButton>
           </div>
 
           <div className='flex font-medium'>

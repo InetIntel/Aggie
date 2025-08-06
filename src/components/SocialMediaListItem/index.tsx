@@ -51,8 +51,17 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
             {signal}
           </AggieToken>
           {report.irrelevant && report.irrelevant === "true" && (
-            <AggieToken variant='light:red' icon={faXmark}>
-              Irrelevant
+            <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
+              Ignore
+            </AggieToken>
+          )}
+          {report.irrelevant && report.irrelevant === "false" && (
+            <AggieToken
+              variant='light:green'
+              icon={faDotCircle}
+              className='text-xs'
+            >
+              Investigate
             </AggieToken>
           )}
         </div>

@@ -342,7 +342,7 @@ const Incident = () => {
                     })
                   }
                 >
-                  Not Relevant
+                  Ignore
                 </AggieButton>
                 <AggieButton
                   variant='light:green'
@@ -356,7 +356,7 @@ const Incident = () => {
                     })
                   }
                 >
-                  Relevant
+                  Investigate
                 </AggieButton>
               </div>
 
