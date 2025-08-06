@@ -125,7 +125,7 @@ const ReportListItem = ({
                         e.stopPropagation();
                         setIrrelevance.mutate({
                           reportIds: [report._id],
-                          irrelevant: "true",
+                          irrelevant: (report.irrelevant && report.irrelevant === "true") ? "maybe" : "true",
                           currentPageId: currentPageId,
                         });
                       }}
@@ -142,7 +142,7 @@ const ReportListItem = ({
                         e.stopPropagation();
                         setIrrelevance.mutate({
                           reportIds: [report._id],
-                          irrelevant: "false",
+                          irrelevant: (report.irrelevant && report.irrelevant === "false") ? "maybe" : "false",
                           currentPageId: currentPageId,
                         });
                       }}

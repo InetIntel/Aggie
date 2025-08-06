@@ -153,7 +153,7 @@ const Report = () => {
                 e.stopPropagation();
                 setIrrelevance.mutate({
                   reportIds: [report._id],
-                  irrelevant: "true",
+                  irrelevant: (report.irrelevant && report.irrelevant === "true") ? "maybe" : "true",
                   currentPageId: report._id,
                 });
               }}
@@ -170,7 +170,7 @@ const Report = () => {
                 e.stopPropagation();
                 setIrrelevance.mutate({
                   reportIds: [report._id],
-                  irrelevant: "false",
+                  irrelevant: (report.irrelevant && report.irrelevant === "false") ? "maybe" : "false",
                   currentPageId: report._id,
                 });
               }}
