@@ -29,6 +29,7 @@ import FetchIndicator from "./components/FetchIndicator";
 import Settings from "./pages/Settings";
 import { useQueryClient } from "@tanstack/react-query";
 import AllReportsList from "./pages/Reports/AllReportsList";
+import Style from "./pages/Style";
 
 const RerouteToLogin = () => {
   const location = useLocation();
@@ -101,6 +102,10 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
           </>
         }
       </Route>
+      { sessionData?.role === "admin"
+        && (process.env.ENVIRONMENT === "development" || process.env.NODE_ENV === "development")
+        && <Route path='/style' element={<Style />} />
+      }
       <Route path='/*' element={<NotFound />} />
     </Routes>
   );

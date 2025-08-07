@@ -11,7 +11,11 @@ import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
 import AggieToken from "../AggieToken";
 import DateTime from "../DateTime";
-import { parseContentType, sanitize } from "../SocialMediaPost/reportParser";
+import {
+  parseContentType,
+  sanitize,
+  signalToNameColor
+} from "../SocialMediaPost/reportParser";
 import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
 import { parseYoutube } from "../SocialMediaPost/YoutubePost";
@@ -26,28 +30,40 @@ interface IProps {
 const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const contentType = parseContentType(report);
   const { imagePreview, imagesCount } = renderImage(contentType, report);
+  const [signal, bgColor] = signalToNameColor(report?.metadata?.rawAPIResponse?.rawEvent?.datasource);
 
   const imageUrl = isString(imagePreview) ? imagePreview : imagePreview?.url;
   return (
     <>
       <header className='flex justify-between mb-2 relative'>
         <div
-          className={`flex flex-wrap gap-1 text-sm items-baseline ${headerClassName}`}
+          className={`flex flex-wrap gap-1 text-xs items-center ${headerClassName}`}
         >
-          <h1 className={`text-sm text-black mx-1 font-medium `}>
-            <span className='mr-2 text-slate-600 text-xs'>
-              <SocialMediaIcon mediaKey={report._media[0]} />
-            </span>
+          <span className='text-slate-600'>
+            <SocialMediaIcon mediaKey={report._media[0]} />
+          </span>
+          <h1 className='text-sm text-black font-medium'>
             {renderAuthor(contentType, report)}
           </h1>
-
-          {report.irrelevant && report.irrelevant === "true" && (
-            <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
-              Irrelevant
+          {signal && (
+            <AggieToken className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white`}>
+              {signal}
             </AggieToken>
           )}
-
-          <TagsList values={report.smtcTags} />
+          {report.irrelevant && report.irrelevant === "true" && (
+            <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
+              Ignore
+            </AggieToken>
+          )}
+          {report.irrelevant && report.irrelevant === "false" && (
+            <AggieToken
+              variant='light:green'
+              icon={faDotCircle}
+              className='text-xs'
+            >
+              Investigate
+            </AggieToken>
+          )}
         </div>
         {header || (
           <div className='text-xs '>
@@ -63,7 +79,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <div className='w-24 h-24 flex-0 justify-self-end relative'>
             <img
               loading='lazy'
-              src={imagePreview ? imageUrl : ""}
+              src={imageUrl}
               className='w-full rounded h-full object-cover bg-slate-100 border border-slate-200 '
               alt='image preview'
             />
@@ -94,19 +110,11 @@ function renderAuthor(
 ) {
   switch (type) {
     case "ioda":
-      let signal = report?.metadata?.rawAPIResponse?.rawEvent?.datasource;
-      if (signal === "bgp") {
-        return <>IODA-BGP</>;
-      } else if (signal === "merit-nt") {
-        return <>IODA-Telescope</>;
-      } else if (signal === "ping-slash24") {
-        return <>IODA-Active Probing</>;
-      }
-      return <>{type}</>;
+      return "IODA";
     case "cloudflare":
-      return <>{report?.metadata?.rawAPIResponse?.dataSource}</>
+      return report?.metadata?.rawAPIResponse?.dataSource;
     default:
-      return <>{report.author}</>;
+      return report.author;
   }
 }
 function renderImage(

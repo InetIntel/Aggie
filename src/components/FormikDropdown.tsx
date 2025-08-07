@@ -6,6 +6,7 @@ import {
   faExclamationTriangle,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { Listbox } from "@headlessui/react";
 
 interface IProps {
@@ -14,8 +15,9 @@ interface IProps {
   list: { _id: string; label: string }[];
   disabled?: boolean;
   placeholder?: string;
+  icon?: IconProp;
 }
-const FormikDropdown = ({ label, name, list, disabled = false, placeholder }: IProps) => {
+const FormikDropdown = ({ label, name, list, disabled = false, placeholder, icon }: IProps) => {
   const [field, meta, helpers] = useField(name);
   const { value } = meta;
   const { onBlur } = field;
@@ -24,7 +26,9 @@ const FormikDropdown = ({ label, name, list, disabled = false, placeholder }: IP
   // https://github.com/tailwindlabs/headlessui/issues/2843
   return (
     <div>
-      <label className='text-slate-600'>{label} </label>
+      <label className='text-slate-600'>
+        {icon && <FontAwesomeIcon icon={icon} />} {label}
+      </label>
       <Listbox
         name={name}
         value={value}

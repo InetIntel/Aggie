@@ -76,7 +76,7 @@ const SourcesIndex = (props: IProps) => {
         }
       </div>
       { session?.role === "admin" && <Configuration /> }
-      <section className='bg-white rounded-lg border border-slate-300 overflow-hidden divide-y divide-slate-300 mt-3'>
+      <section className='bg-white rounded-lg border border-slate-300 divide-y divide-slate-300 mt-3'>
         {data &&
           data.map((source) => (
             <article

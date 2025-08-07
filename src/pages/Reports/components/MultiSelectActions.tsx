@@ -102,7 +102,7 @@ const MultiSelectActions = ({
             })
           }
         >
-          Not Relevant
+          Ignore
         </AggieButton>
         <AggieButton
           variant='light:green'
@@ -117,7 +117,7 @@ const MultiSelectActions = ({
             })
           }
         >
-          Relevant
+          Investigate
         </AggieButton>
       </div>
 

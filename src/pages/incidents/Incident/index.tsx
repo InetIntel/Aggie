@@ -342,7 +342,7 @@ const Incident = () => {
                     })
                   }
                 >
-                  Not Relevant
+                  Ignore
                 </AggieButton>
                 <AggieButton
                   variant='light:green'
@@ -356,7 +356,7 @@ const Incident = () => {
                     })
                   }
                 >
-                  Relevant
+                  Investigate
                 </AggieButton>
               </div>
 
@@ -440,7 +440,7 @@ const Incident = () => {
                     close
                   </AggieButton>
                 </header>
-                <SocialMediaPost report={activePost} />
+                <SocialMediaPost report={activePost} showMedia />
               </div>
             </div>
           </section>

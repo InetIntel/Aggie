@@ -115,46 +115,43 @@ const ReportListItem = ({
                     disabled={!report || setRead.isLoading}
                     icon={report.read ? faEnvelopeOpen : faEnvelope}
                   >
-                    {report.read ? <> unread</> : <> read</>}
+                    {report.read ? <> Unread</> : <> Read</>}
                   </AggieButton>
                   <div className='shadow-md rounded-lg border border-slate-300 '>
-                    {report.irrelevant !== "true" ?
-                      <AggieButton
-                        variant={"light:rose"}
-                        className='rounded-lg'
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIrrelevance.mutate({
-                            reportIds: [report._id],
-                            irrelevant: "true",
-                            currentPageId: currentPageId,
-                          });
-                        }}
-                        icon={faXmark}
-                        loading={setIrrelevance.isLoading}
-                        disabled={!report || setIrrelevance.isLoading}
-                      >
-                        irrelevant
-                      </AggieButton>
-                      :
-                      <AggieButton
-                        variant={"light:green"}
-                        className='rounded-l-lg'
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIrrelevance.mutate({
-                            reportIds: [report._id],
-                            irrelevant: "maybe",
-                            currentPageId: currentPageId,
-                          });
-                        }}
-                        icon={faDotCircle}
-                        loading={setIrrelevance.isLoading}
-                        disabled={!report || setIrrelevance.isLoading}
-                      >
-                        relevant
-                      </AggieButton>
-                    }
+                    <AggieButton
+                      variant={"light:rose"}
+                      className='rounded-l-lg'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIrrelevance.mutate({
+                          reportIds: [report._id],
+                          irrelevant: (report.irrelevant && report.irrelevant === "true") ? "maybe" : "true",
+                          currentPageId: currentPageId,
+                        });
+                      }}
+                      icon={faXmark}
+                      loading={setIrrelevance.isLoading}
+                      disabled={!report || setIrrelevance.isLoading}
+                    >
+                      Ignore
+                    </AggieButton>
+                    <AggieButton
+                      variant={"light:green"}
+                      className='rounded-r-lg'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIrrelevance.mutate({
+                          reportIds: [report._id],
+                          irrelevant: (report.irrelevant && report.irrelevant === "false") ? "maybe" : "false",
+                          currentPageId: currentPageId,
+                        });
+                      }}
+                      icon={faDotCircle}
+                      loading={setIrrelevance.isLoading}
+                      disabled={!report || setIrrelevance.isLoading}
+                    >
+                      Investigate
+                    </AggieButton>
                   </div>
                 </div>
               </>

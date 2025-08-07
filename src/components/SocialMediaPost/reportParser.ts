@@ -75,3 +75,16 @@ export function sanitize(string: string) {
   //   },
   //});
 }
+
+export function signalToNameColor(rawSignal: string) {
+  switch(rawSignal) {
+    case "bgp":
+      return ["BGP", "bg-[#33A02C]"];
+    case "ping-slash24":
+      return ["Active Probing", "bg-[#1F78B4]"];
+    case "merit-nt":
+      return ["Telescope", "bg-[#ED9B40]"];
+    default:
+      return [rawSignal, ""];
+  }
+}
