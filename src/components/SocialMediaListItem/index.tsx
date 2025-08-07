@@ -45,11 +45,11 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <h1 className='text-sm text-black font-medium'>
             {renderAuthor(contentType, report)}
           </h1>
-          <AggieToken
-            className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white`}
-          >
-            {signal}
-          </AggieToken>
+          {signal && (
+            <AggieToken className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white`}>
+              {signal}
+            </AggieToken>
+          )}
           {report.irrelevant && report.irrelevant === "true" && (
             <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
               Ignore
@@ -248,8 +248,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
         end.toISOString().replace('T', ' ').substring(0, 16);
       return (
         <p>
-          {report?.author}
-          <br />
+          {report?.author}<br />
           {startUtc} to {
             (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
             endUtc.substring(11) : endUtc

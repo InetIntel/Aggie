@@ -76,7 +76,7 @@ export function sanitize(string: string) {
   //});
 }
 
-export function signalToNameColor(rawSignal="unknown") {
+export function signalToNameColor(rawSignal: string) {
   switch(rawSignal) {
     case "bgp":
       return ["BGP", "bg-[#33A02C]"];
@@ -85,6 +85,6 @@ export function signalToNameColor(rawSignal="unknown") {
     case "merit-nt":
       return ["Telescope", "bg-[#ED9B40]"];
     default:
-      return ["unknown", ""];
+      return [rawSignal, ""];
   }
 }
