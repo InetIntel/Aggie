@@ -84,11 +84,11 @@ const AddReportsToIncidents = ({
     },
   });
 
-  function onAddIncident() {
-    if (!selection || selection.length === 0 || !selectedIncident) return;
+  function onAddIncident(item: Group) {
+    if (!selection || selection.length === 0 || !item) return;
     doAddReportToIncident.mutate({
       reportIds: selection.map((i) => i._id),
-      groupId: selectedIncident,
+      groupId: item,
     });
   }
 
@@ -118,7 +118,7 @@ const AddReportsToIncidents = ({
 
             <p className='font-medium text-lg'>Select an Incident Below:</p>
             <div className='flex-1 flex justify-end gap-1'>
-              <AggieButton
+              {/*<AggieButton
                 variant='secondary'
                 icon={faFileCirclePlus}
                 onClick={onNewIncidentFromReports}
@@ -135,6 +135,7 @@ const AddReportsToIncidents = ({
                 Add {selection ? `${selection.length}` : ""} report(s) to
                 incident
               </AggieButton>
+              */}
             </div>
           </div>
 
@@ -178,10 +179,21 @@ const AddReportsToIncidents = ({
               totalCount={incidents && incidents.total}
             />
             <div className='overflow-y-auto bg-white border border-slate-300 rounded-lg'>
+            <AggieButton
+              className='hover:bg-blue-100 border-b border-slate-200 font-medium gap-2 h-16 items-center text-left w-full'
+              icon={faFileCirclePlus}
+              padding='px-2 py-2'
+              onClick={onNewIncidentFromReports}
+            >
+              Create new incident
+            </AggieButton>
               <NestedIncidentsList
                 incidents={incidents}
                 selectedIncident={selectedIncident}
-                onIncidentClicked={(item) => setSelectedIncident(item)}
+                onIncidentClicked={(item) => {
+                  setSelectedIncident(item);
+                  onAddIncident(item);
+                }}
               />
             </div>
           </div>
