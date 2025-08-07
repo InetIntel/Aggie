@@ -10,6 +10,7 @@ import {
   faXmark,
   faCog,
 } from "@fortawesome/free-solid-svg-icons";
+import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { useField } from "formik";
 import { Combobox, Popover } from "@headlessui/react";
 import AggieButton from "./AggieButton";
@@ -24,6 +25,7 @@ interface IProps {
   name: string;
   list: Item[];
   optionalItems?: Item[];
+  icon?: IconProp;
 }
 
 const FormikMultiCombobox = ({
@@ -31,6 +33,7 @@ const FormikMultiCombobox = ({
   list,
   label,
   unitLabel = "item",
+  icon,
 }: IProps) => {
   const [field, meta, helpers] = useField(name);
   const { value } = meta;
@@ -82,7 +85,9 @@ const FormikMultiCombobox = ({
   return (
     <Popover className='relative'>
       <div className='flex items-center justify-between text-slate-600'>
-        <h2>{label}</h2>
+        <h2>
+          {icon && <FontAwesomeIcon icon={icon} />} {label}
+        </h2>
         <Popover.Button
           className={({ open }) =>
             `focus-theme pl-2 pr-1 py-1 hover:bg-slate-200 ${

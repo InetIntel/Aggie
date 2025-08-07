@@ -1,4 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCircleMinus,
+  faUsers,
+  faMagnifyingGlassChart,
+  faCommentNodes,
+  faBullhorn,
+  faBackwardStep,
+  faForwardStep,
+} from "@fortawesome/free-solid-svg-icons";
+import { faCompass } from "@fortawesome/free-regular-svg-icons";
 
 import { Field } from "formik";
 import * as Yup from "yup";
@@ -75,13 +86,18 @@ const CreateEditIncidentForm = ({
         onClose={onCancel}
       >
         <div className='flex gap-6 text-slate-200 pb-1'>
-          <FormikSwitch name='closed' label='Closed' />
+          <FormikSwitch
+            name='closed'
+            label='Closed'
+            icon={faCircleMinus}
+          />
         </div>
-        <FormikInput name='title' label='Incident Title' />
+        <FormikInput name='title' label='Title' />
         <FormikMultiCombobox
           name='assignedTo'
           unitLabel='User'
           label='Assign User to Incident'
+          icon={faUsers}
           list={
             users?.map((i) => {
               return { key: i._id, value: i.username };
@@ -96,17 +112,20 @@ const CreateEditIncidentForm = ({
           label='Outage verified?'
           list={[{_id: "true", label: "Verified"}, {_id: "false", label: "Unable to Verify"}]}
           placeholder='Verifying'
+          icon={faMagnifyingGlassChart}
         />
         <FormikDropdown
           name='confirmation_status'
           label='Reason confirmed?'
           list={[{_id: "true", label: "Confirmed"}, {_id: "false", label: "Unable to Confirm"}]}
           placeholder='Confirming'
+          icon={faCommentNodes}
         />
         <FormikMultiCombobox
           name='publication_status'
           unitLabel='status'
           label='Published?'
+          icon={faBullhorn}
           list={PUBLISHED_OPTIONS.map((i) => {
             return { key: i, value: i };
           })}
@@ -114,12 +133,14 @@ const CreateEditIncidentForm = ({
         <FormikDateTime
           name='incidentStartedAt'
           label='Incident Start Time (UTC)'
+          icon={faBackwardStep}
         />
         <FormikDateTime
           name='incidentEndedAt'
           label='Incident End Time (UTC)'
+          icon={faForwardStep}
         />
-        <FormikInput name='locationName' label='Location' />
+        <FormikInput name='locationName' label='Location' icon={faCompass} />
 
         <label>
           <span className='text-slate-600'>Description:</span>
