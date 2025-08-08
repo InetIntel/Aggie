@@ -74,16 +74,8 @@ let schema = new mongoose.Schema({
   },
   creator: { type: mongoose.Schema.ObjectId, ref: 'User', index: 1 },
   status: { type: String, default: 'new', required: true },
-  verification_status: {
-    type: Boolean, 
-    default: false,
-    required: true,
-  },
-  confirmation_status: {
-    type: Boolean, 
-    default: false,
-    required: true,
-  },
+  verification_status: { type: String, default: 'maybe', required: true, enum: ['false', 'true', 'maybe'], index: true },
+  confirmation_status: { type: String, default: 'maybe', required: true, enum: ['false', 'true', 'maybe'], index: true },
   publication_status: {
     type: [String],
     default: ['Not Published'],
