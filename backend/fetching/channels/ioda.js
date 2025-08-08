@@ -267,7 +267,7 @@ class IODAChannel extends PollChannel {
         Outage duration ${eventDuration}`;
 
         // Render dashboard within a 24H time range (ending at current time)
-        const urlFromTime = this.fetchFromTimestamp - 24 * 60 * 60;
+        const urlFromTime = this.fetchToTimestamp - 12 * 60 * 60;
         const urlToTime = this.fetchToTimestamp;
         const linkedPage = `${API_LINKED_PAGE_URLS.IODA.BASE}/${event.location}?from=${urlFromTime}&until=${urlToTime}`;
         
