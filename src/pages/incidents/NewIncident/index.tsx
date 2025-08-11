@@ -56,6 +56,7 @@ const NewIncident = () => {
   });
 
   useEffect(() => {
+    document.title = "New Incident - Aggie";
     const key = getParam("key") || "reports";
     const data = queryClient.getQueryData<Reports>([key]);
     if (!data) return;

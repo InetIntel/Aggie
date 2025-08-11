@@ -32,6 +32,7 @@ const Incidents = () => {
   );
 
   useEffect(() => {
+    document.title = "Incidents - Aggie";
     // refetch on filter change
     refetch();
     document.getElementById("main_view")?.scrollTo({

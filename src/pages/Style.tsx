@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import AggieButton from "../components/AggieButton";
 import AggieCheck from "../components/AggieCheck";
@@ -11,6 +11,7 @@ function voidFuncParam(e: any) {return;}
 
 export default function Style() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  useEffect(() => {document.title = "Style - Aggie"}, []);
   return (<>
     <div className='flex flex-wrap'>
       <AggieButton>default AggieButton</AggieButton>

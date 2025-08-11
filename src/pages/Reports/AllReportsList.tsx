@@ -35,6 +35,7 @@ const AllReportsList = ({ alerts }: IProps) => {
     refetchInterval: 120000,
   });
   useEffect(() => {
+    document.title = alerts ? "Alerts - Aggie" : "Social Media Posts - Aggie";
     // refetch on filter change
     multiSelect.set([]);
     // apparanty not the way its supposed to be done but i cant do it another way
