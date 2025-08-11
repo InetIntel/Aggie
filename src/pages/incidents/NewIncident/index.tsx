@@ -44,7 +44,7 @@ const NewIncident = () => {
         return;
       }
       if (!getParam("reports")) {
-        navigate(`/incidents/${data._id}`);
+        navigate(`/incidents/${data._id}`, { replace: true });
         return;
       }
 
