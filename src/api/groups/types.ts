@@ -1,4 +1,4 @@
-import { hasId, GroupSortBy } from "../common";
+import { hasId, GroupSortBy, TernaryOptions } from "../common";
 import { User } from "../users/types";
 
 export const PUBLISHED_OPTIONS = [
@@ -20,8 +20,8 @@ export interface Group extends hasId {
   id?: number;
   smtcTags: string[];
   status: string;
-  verification_status: boolean;
-  confirmation_status: boolean;
+  verification_status: TernaryOptions;
+  confirmation_status: TernaryOptions;
   publication_status: PublishedOptions[];
   escalated: boolean;
   closed: boolean;
