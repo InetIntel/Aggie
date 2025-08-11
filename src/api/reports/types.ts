@@ -2,7 +2,7 @@ import type {
   hasId,
   VeracityOptions,
   MediaOptions,
-  IrrelevanceOptions,
+  TernaryOptions,
 } from "../common";
 
 export interface Report extends hasId {
@@ -25,7 +25,7 @@ export interface Report extends hasId {
   commentTo: string;
   notes: string;
   originalPost: string;
-  irrelevant?: IrrelevanceOptions;
+  irrelevant?: TernaryOptions;
   __v: number;
   aitags: GeneratedTags;
   aitagnames: string[];

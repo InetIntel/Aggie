@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
 
-import { IrrelevanceOptions } from "../../api/common";
+import { TernaryOptions } from "../../api/common";
 import {
   setSelectedRead,
   setSelectedIrrelevance,
@@ -82,7 +82,7 @@ export const useReportMutations = (
   const setIrrelevance = useMutation({
     mutationFn: (params: {
       reportIds: string[];
-      irrelevant: IrrelevanceOptions;
+      irrelevant: TernaryOptions;
       currentPageId?: string;
     }) => setSelectedIrrelevance(params.reportIds, params.irrelevant),
     onSuccess: (_, params) => {
