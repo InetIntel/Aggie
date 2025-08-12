@@ -126,9 +126,9 @@ const Incident = () => {
   });
 
   useEffect(() => {
-    document.title = `${group?.title ? group.title : "Unnamed Incident"} - Aggie`;
     // refetch on filter change
     groupRefetch();
+    document.title = `${group?.title ? group.title : "Incident"} - Aggie`;
     multiSelect.set([]);
     window.scrollTo({
       top: 0,
