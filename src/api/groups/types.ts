@@ -20,8 +20,8 @@ export interface Group extends hasId {
   id?: number;
   smtcTags: string[];
   status: string;
-  verification_status: TernaryOptions;
-  confirmation_status: TernaryOptions;
+  verification_status: TernaryOptions | boolean | null;
+  confirmation_status: TernaryOptions | boolean | null;
   publication_status: PublishedOptions[];
   escalated: boolean;
   closed: boolean;
