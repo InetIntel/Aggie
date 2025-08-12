@@ -46,7 +46,7 @@ class IODAChannel extends PollChannel {
             : this.fetchToTimestamp - 2 * 60 * 60
         
 
-        
+
     }   
 
     async initMetadata(){
@@ -153,6 +153,7 @@ class IODAChannel extends PollChannel {
                     // Exclude irrelevant region event
                     if (regexRegion) {
                             const match = event.location && event.location.match(regexRegion);
+                            
                             if (!match || (match && !this.regionCodes[match[2]])) {
                                 irrelevantRegionReportCount += 1;
                                 continue;
@@ -269,7 +270,12 @@ class IODAChannel extends PollChannel {
         // Render dashboard within a 24H time range (ending at current time)
         const urlFromTime = this.fetchToTimestamp - 12 * 60 * 60;
         const urlToTime = this.fetchToTimestamp;
-        const linkedPage = `${API_LINKED_PAGE_URLS.IODA.BASE}/${event.location}?from=${urlFromTime}&until=${urlToTime}`;
+        let entityCode = event.location;
+
+        if (queryType === 'geoasn-region' || queryType === 'geoasn-country') {
+            entityCode = entityCode.substring(3);
+        }
+        const linkedPage = `${API_LINKED_PAGE_URLS.IODA.BASE}/${entityCode}?from=${urlFromTime}&until=${urlToTime}`;
         
         const guid = `${queryType}-${event.start}-${event.location}-${event.datasource}`;
         if (!guid) {
