@@ -12,7 +12,7 @@ import { Listbox } from "@headlessui/react";
 interface IProps {
   label: string;
   name: string;
-  list: { _id: string | undefined; label: string }[];
+  list: { _id: string; label: string }[];
   disabled?: boolean;
   placeholder?: string;
   icon?: IconProp;

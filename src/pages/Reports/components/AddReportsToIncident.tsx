@@ -42,7 +42,6 @@ const AddReportsToIncidents = ({
   onSuccess,
   addRemove,
 }: IAddReportsToIncidents) => {
-  const [selectedIncident, setSelectedIncident] = useState<Group>();
   const queryClient = useQueryClient();
   const queryData = useUpdateQueryData();
   const navigate = useNavigate();
@@ -109,34 +108,12 @@ const AddReportsToIncidents = ({
       <div className='fixed inset-0 bg-black/30' aria-hidden='true' />
       <div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
         <Dialog.Panel className='bg-gray-50 rounded-xl border border-slate-200 shadow-xl min-w-24 h-[90vh] min-h-12 p-3 grid grid-cols-4 gap-y-1 gap-x-4 w-full	grid-rows-[auto_1fr]'>
-          <div className='col-span-full flex justify-between '>
-            <div className='flex-1'>
-              <AggieButton variant='secondary' onClick={onClose}>
-                Cancel
-              </AggieButton>
-            </div>
+          <div className='col-span-full flex items-center justify-center'>
+            <AggieButton variant='secondary' onClick={onClose} className='absolute left-7'>
+              Cancel
+            </AggieButton>
 
             <p className='font-medium text-lg'>Select an Incident Below:</p>
-            <div className='flex-1 flex justify-end gap-1'>
-              {/*<AggieButton
-                variant='secondary'
-                icon={faFileCirclePlus}
-                onClick={onNewIncidentFromReports}
-                className='hover:bg-slate-50 hover:underline text-blue-600 text-sm'
-              >
-                Create New Incident
-              </AggieButton>
-              <AggieButton
-                variant='primary'
-                onClick={onAddIncident}
-                loading={doAddReportToIncident.isLoading}
-                disabled={doAddReportToIncident.isLoading || !selectedIncident}
-              >
-                Add {selection ? `${selection.length}` : ""} report(s) to
-                incident
-              </AggieButton>
-              */}
-            </div>
           </div>
 
           <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3'>
@@ -179,19 +156,17 @@ const AddReportsToIncidents = ({
               totalCount={incidents && incidents.total}
             />
             <div className='overflow-y-auto bg-white border border-slate-300 rounded-lg'>
-            <AggieButton
-              className='hover:bg-green-100 border-b border-slate-200 font-medium gap-2 h-16 items-center text-left w-full'
-              icon={faFileCirclePlus}
-              padding='px-2 py-2'
-              onClick={onNewIncidentFromReports}
-            >
-              Create new incident
-            </AggieButton>
+              <AggieButton
+                className='hover:bg-green-100 active:bg-green-200 border-b border-slate-200 font-medium gap-2 h-16 items-center text-left w-full'
+                icon={faFileCirclePlus}
+                padding='px-2 py-2'
+                onClick={onNewIncidentFromReports}
+              >
+                Create new incident
+              </AggieButton>
               <NestedIncidentsList
                 incidents={incidents}
-                selectedIncident={selectedIncident}
                 onIncidentClicked={(item) => {
-                  setSelectedIncident(item);
                   onAddIncident(item);
                 }}
               />

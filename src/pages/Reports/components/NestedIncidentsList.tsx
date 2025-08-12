@@ -17,13 +17,11 @@ import UserToken from "../../../components/UserToken";
 
 interface IProps {
   incidents?: Groups;
-  selectedIncident?: Group;
   onIncidentClicked: (item: Group) => void;
 }
 
 const NestedIncidentsList = ({
   incidents,
-  selectedIncident,
   onIncidentClicked,
 }: IProps) => {
   const navigate = useNavigate();
@@ -40,11 +38,7 @@ const NestedIncidentsList = ({
         incidents.results.map((item) => (
           <button
             key={item._id}
-            className={`w-full text-left ${
-              selectedIncident?._id === item._id
-                ? "bg-blue-200"
-                : "hover:bg-blue-100"
-            }`}
+            className='w-full text-left active:bg-blue-200 hover:bg-blue-100'
             onClick={() => onIncidentClicked(item)}
           >
             <article className='grid grid-cols-4 lg:grid-cols-6 px-2 py-2 text-sm text-slate-500  group-hover:bg-slate-50 border-b border-slate-200'>
