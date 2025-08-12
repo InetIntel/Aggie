@@ -1,7 +1,7 @@
 import axios from "axios";
 import type { Report, ReportQueryState, Reports } from "./types";
 
-import type { hasId, IrrelevanceOptions, VeracityOptions } from "../common";
+import type { hasId, TernaryOptions, VeracityOptions } from "../common";
 import { isString } from "lodash";
 
 export const getReports = async (
@@ -70,7 +70,7 @@ export const setSelectedVeracity = async (
 
 export const setSelectedIrrelevance = async (
   reportIds: string[],
-  irrelevance: IrrelevanceOptions | string
+  irrelevance: TernaryOptions | string
 ) => {
   const { data } = await axios.patch("/api/report/_irrelevance", {
     ids: reportIds,

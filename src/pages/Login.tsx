@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQueryParams } from "../hooks/useQueryParams";
@@ -43,6 +43,7 @@ const Login = ({ }: IProps) => {
       password: values.loginPassword,
     };
   };
+  useEffect(() => {document.title = "Aggie"}, []);
   return (
     <main
       className='grid place-items-center h-[100svh]'

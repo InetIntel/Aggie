@@ -44,7 +44,7 @@ const NewIncident = () => {
         return;
       }
       if (!getParam("reports")) {
-        navigate(`/incidents/${data._id}`);
+        navigate(`/incidents/${data._id}`, { replace: true });
         return;
       }
 
@@ -56,6 +56,7 @@ const NewIncident = () => {
   });
 
   useEffect(() => {
+    document.title = "New Incident - Aggie";
     const key = getParam("key") || "reports";
     const data = queryClient.getQueryData<Reports>([key]);
     if (!data) return;

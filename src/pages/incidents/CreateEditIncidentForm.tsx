@@ -27,8 +27,8 @@ const incidentSchema = Yup.object().shape({
   title: Yup.string().required("Group name required"),
   locationName: Yup.string(),
   closed: Yup.boolean(),
-  verification_status: Yup.boolean(),
-  confirmation_status: Yup.boolean(),
+  verification_status: Yup.string(),
+  confirmation_status: Yup.string(),
   publication_status: Yup.array(Yup.string())
     .required("publication status required").min(1).max(2)
     .test(
@@ -69,8 +69,8 @@ const CreateEditIncidentForm = ({
           title: group?.title || "",
           locationName: group?.locationName || "",
           closed: group?.closed || false,
-          verification_status: group?.verification_status,
-          confirmation_status: group?.confirmation_status,
+          verification_status: group?.verification_status || "maybe",
+          confirmation_status: group?.confirmation_status || "maybe",
           publication_status: group?.publication_status || ["Not Published"],
           assignedTo: group?.assignedTo?.map((i) => i._id) || [],
           notes: group?.notes || "",
@@ -110,14 +110,24 @@ const CreateEditIncidentForm = ({
         <FormikDropdown
           name='verification_status'
           label='Outage verified?'
-          list={[{_id: "true", label: "Verified"}, {_id: "false", label: "Unable to Verify"}]}
+          list={[
+            // https://formik.org/docs/guides/validation#frequently-asked-questions
+            // Formik uses undefined to represent empty states.
+            {_id: "maybe", label: "Verifying"},
+            {_id: "true", label: "Verified"},
+            {_id: "false", label: "Unable to Verify"},
+          ]}
           placeholder='Verifying'
           icon={faMagnifyingGlassChart}
         />
         <FormikDropdown
           name='confirmation_status'
           label='Reason confirmed?'
-          list={[{_id: "true", label: "Confirmed"}, {_id: "false", label: "Unable to Confirm"}]}
+          list={[
+            {_id: "maybe", label: "Confirming"},
+            {_id: "true", label: "Confirmed"},
+            {_id: "false", label: "Unable to Confirm"},
+          ]}
           placeholder='Confirming'
           icon={faCommentNodes}
         />

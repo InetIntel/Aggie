@@ -43,8 +43,8 @@ export type EscalatedOptions = (typeof ESCALATED_OPTIONS)[number];
 export const CLOSED_OPTIONS = ["true", "false"] as const;
 export type ClosedOptions = (typeof CLOSED_OPTIONS)[number];
 
-export const IRRELEVANCE_OPTIONS = ["true", "maybe", "false"] as const;
-export type IrrelevanceOptions = (typeof IRRELEVANCE_OPTIONS)[number];
+export const TERNARY_OPTIONS = ["true", "maybe", "false"] as const;
+export type TernaryOptions = (typeof TERNARY_OPTIONS)[number];
 
 export const CREDENTIAL_OPTIONS = ["junkipedia", "ioda", "cloudflare"] as const;
 export type CredentialOption = (typeof CREDENTIAL_OPTIONS)[number];

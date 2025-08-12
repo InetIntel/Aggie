@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   faCog,
   faKey,
@@ -35,6 +36,8 @@ export function menuLinks(role: string | undefined) {
 const Settings = () => {
   const location = useLocation();
   const { data: session } = useQuery(["session"], getSession);
+
+  useEffect(() => {document.title = "Settings - Aggie"}, []);
 
   return (
     <section className='max-w-screen-xl mx-auto w-full grid grid-cols-5 gap-4'>
