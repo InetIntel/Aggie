@@ -11,8 +11,11 @@ import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
 import AggieToken from "../AggieToken";
 import DateTime from "../DateTime";
-import GeneratedTagsList from "../GeneratedTagsList";
-import { parseContentType, sanitize } from "../SocialMediaPost/reportParser";
+import {
+  parseContentType,
+  sanitize,
+  signalToNameColor
+} from "../SocialMediaPost/reportParser";
 import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
 import { parseYoutube } from "../SocialMediaPost/YoutubePost";
@@ -27,24 +30,29 @@ interface IProps {
 const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const contentType = parseContentType(report);
   const { imagePreview, imagesCount } = renderImage(contentType, report);
+  const [signal, bgColor] = signalToNameColor(report?.metadata?.rawAPIResponse?.rawEvent?.datasource);
 
   const imageUrl = isString(imagePreview) ? imagePreview : imagePreview?.url;
   return (
     <>
       <header className='flex justify-between mb-2 relative'>
         <div
-          className={`flex flex-wrap gap-1 text-sm items-baseline ${headerClassName}`}
+          className={`flex flex-wrap gap-1 text-xs items-center ${headerClassName}`}
         >
-          <h1 className={`text-sm text-black mx-1 font-medium `}>
-            <span className='mr-2 text-slate-600 text-xs'>
-              <SocialMediaIcon mediaKey={report._media[0]} />
-            </span>
+          <span className='text-slate-600'>
+            <SocialMediaIcon mediaKey={report._media[0]} />
+          </span>
+          <h1 className='text-sm text-black font-medium'>
             {renderAuthor(contentType, report)}
           </h1>
-
+          {signal && (
+            <AggieToken className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white`}>
+              {signal}
+            </AggieToken>
+          )}
           {report.irrelevant && report.irrelevant === "true" && (
             <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
-              Irrelevant
+              Ignore
             </AggieToken>
           )}
           {report.irrelevant && report.irrelevant === "false" && (
@@ -53,26 +61,9 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
               icon={faDotCircle}
               className='text-xs'
             >
-              Relevant
+              Investigate
             </AggieToken>
           )}
-
-          {(!report.irrelevant || report.irrelevant !== "true") && (
-            <>
-              {report.red_flag && (
-                <AggieToken
-                  variant='dark:red'
-                  icon={faExclamationTriangle}
-                  className='text-xs'
-                >
-                  Red Flag
-                </AggieToken>
-              )}
-              <GeneratedTagsList tags={report.aitags} report={report} />
-            </>
-          )}
-
-          <TagsList values={report.smtcTags} />
         </div>
         {header || (
           <div className='text-xs '>
@@ -88,7 +79,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <div className='w-24 h-24 flex-0 justify-self-end relative'>
             <img
               loading='lazy'
-              src={imagePreview ? imageUrl : ""}
+              src={imageUrl}
               className='w-full rounded h-full object-cover bg-slate-100 border border-slate-200 '
               alt='image preview'
             />
@@ -117,21 +108,13 @@ function renderAuthor(
   type: ReturnType<typeof parseContentType>,
   report: Report
 ) {
-  switch (report._media[0]) {
+  switch (type) {
     case "ioda":
-      let signal = report?.metadata?.rawAPIResponse?.rawEvent?.datasource;
-      if (signal === "bgp") {
-        return <>IODA-BGP</>;
-      } else if (signal === "merit-nt") {
-        return <>IODA-Telescope</>;
-      } else if (signal === "ping-slash24") {
-        return <>IODA-Active Probing</>;
-      }
-      return <>{report._media[0]}</>;
+      return "IODA";
     case "cloudflare":
-      return <>{report?.metadata?.rawAPIResponse?.dataSource}</>
+      return report?.metadata?.rawAPIResponse?.dataSource;
     default:
-      return <>{report._media[0]}</>;
+      return report.author;
   }
 }
 function renderImage(
@@ -161,70 +144,70 @@ function renderImage(
 }
 function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
   switch (type) {
-    // case "twitter:quoteRetweet": {
-    //   const data = twitterParsing(report);
+    case "twitter:quoteRetweet": {
+      const data = twitterParsing(report);
 
-    //   return (
-    //     <>
-    //       <div className='grid place-items-center text-slate-600'>
-    //         <FontAwesomeIcon icon={faRetweet} />
-    //       </div>
-    //       <div className=' max-h-[10em] text-black'>
-    //         <p className='font-medium text-sm'>{data.author?.name}</p>
-    //         <p className='text-black line-clamp-2 mb-1'>
-    //           {formatText(data.content)}
-    //         </p>
+      return (
+        <>
+          <div className='grid place-items-center text-slate-600'>
+            <FontAwesomeIcon icon={faRetweet} />
+          </div>
+          <div className=' max-h-[10em] text-black'>
+            <p className='font-medium text-sm'>{data.author?.name}</p>
+            <p className='text-black line-clamp-2 mb-1'>
+              {formatText(data.content)}
+            </p>
 
-    //         <div className='border border-slate-300 rounded-lg py-2 px-3 '>
-    //           <p className='font-medium text-sm'>
-    //             {data.innerPost.author?.name}
-    //           </p>
-    //           <p className='line-clamp-2'>
-    //             {formatText(data.innerPost.content)}
-    //           </p>
-    //         </div>
-    //       </div>
-    //     </>
-    //   );
-    // }
-    // case "twitter:retweet":
-    //   twitterParsing(report);
+            <div className='border border-slate-300 rounded-lg py-2 px-3 '>
+              <p className='font-medium text-sm'>
+                {data.innerPost.author?.name}
+              </p>
+              <p className='line-clamp-2'>
+                {formatText(data.innerPost.content)}
+              </p>
+            </div>
+          </div>
+        </>
+      );
+    }
+    case "twitter:retweet":
+      twitterParsing(report);
 
-    //   return (
-    //     <>
-    //       <div className='grid place-items-center text-slate-600'>
-    //         <FontAwesomeIcon icon={faRetweet} />
-    //       </div>
-    //       <p className=' text-black max-h-[10em] line-clamp-4'>
-    //         {formatText(report.content)}
-    //       </p>
-    //     </>
-    //   );
-    // case "twitter:quote": {
-    //   const data = twitterParsing(report);
+      return (
+        <>
+          <div className='grid place-items-center text-slate-600'>
+            <FontAwesomeIcon icon={faRetweet} />
+          </div>
+          <p className=' text-black max-h-[10em] line-clamp-4'>
+            {formatText(report.content)}
+          </p>
+        </>
+      );
+    case "twitter:quote": {
+      const data = twitterParsing(report);
 
-    //   return (
-    //     <>
-    //       <div className=' max-h-[10em] text-black'>
-    //         <p className='text-black line-clamp-2 mb-1'>
-    //           {formatText(report.content)}
-    //         </p>
+      return (
+        <>
+          <div className=' max-h-[10em] text-black'>
+            <p className='text-black line-clamp-2 mb-1'>
+              {formatText(report.content)}
+            </p>
 
-    //         <div className='border border-slate-300 rounded-lg py-2 px-3 '>
-    //           <p className='font-medium text-sm'>{data.author?.name}</p>
-    //           <p className='line-clamp-2'>{formatText(data.content)}</p>
-    //         </div>
-    //       </div>
-    //     </>
-    //   );
-    // }
-    // case "twitter":
-    //   twitterParsing(report);
-    //   return (
-    //     <p className=' text-black max-h-[10em] line-clamp-4'>
-    //       {formatText(report.content)}
-    //     </p>
-    //   );
+            <div className='border border-slate-300 rounded-lg py-2 px-3 '>
+              <p className='font-medium text-sm'>{data.author?.name}</p>
+              <p className='line-clamp-2'>{formatText(data.content)}</p>
+            </div>
+          </div>
+        </>
+      );
+    }
+    case "twitter":
+      twitterParsing(report);
+      return (
+        <p className=' text-black max-h-[10em] line-clamp-4'>
+          {formatText(report.content)}
+        </p>
+      );
 
     // case "truthsocial":
     //   return (
@@ -265,7 +248,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
         end.toISOString().replace('T', ' ').substring(0, 16);
       return (
         <p>
-          entity: {report?.author}<br />
+          {report?.author}<br />
           {startUtc} to {
             (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
             endUtc.substring(11) : endUtc
@@ -277,7 +260,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
         report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";
       return (
         <p>
-          entity: {report?.author}<br />
+          {report?.author}<br />
           {
             report?.authoredAt.replace('T', ' ').substring(0, 16)
           } to {endDate.replace('T', ' ').substring(0, 16)}

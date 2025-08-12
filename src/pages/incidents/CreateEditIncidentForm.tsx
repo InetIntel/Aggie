@@ -1,11 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCircleMinus,
+  faUsers,
+  faMagnifyingGlassChart,
+  faCommentNodes,
+  faBullhorn,
+  faBackwardStep,
+  faForwardStep,
+} from "@fortawesome/free-solid-svg-icons";
+import { faCompass } from "@fortawesome/free-regular-svg-icons";
 
 import { Field } from "formik";
 import * as Yup from "yup";
 import { PUBLISHED_OPTIONS, Group, GroupEditableData } from "../../api/groups/types";
 import { getUsers } from "../../api/users";
 
-import FormikDate from "../../components/FormikDate";
+import FormikDateTime from "../../components/FormikDateTime";
 import FormikDropdown from "../../components/FormikDropdown";
 import FormikInput from "../../components/FormikInput";
 import FormikMultiCombobox from "../../components/FormikMultiCombobox";
@@ -15,10 +26,9 @@ import FormikWithSchema from "../../components/FormikWithSchema";
 const incidentSchema = Yup.object().shape({
   title: Yup.string().required("Group name required"),
   locationName: Yup.string(),
-  escalated: Yup.boolean(),
   closed: Yup.boolean(),
-  verification_status: Yup.boolean().required("verification status required"),
-  confirmation_status: Yup.boolean().required("confirmation status required"),
+  verification_status: Yup.boolean(),
+  confirmation_status: Yup.boolean(),
   publication_status: Yup.array(Yup.string())
     .required("publication status required").min(1).max(2)
     .test(
@@ -58,15 +68,14 @@ const CreateEditIncidentForm = ({
         initialValues={{
           title: group?.title || "",
           locationName: group?.locationName || "",
-          escalated: group?.escalated || false,
           closed: group?.closed || false,
-          verification_status: group?.verification_status || false,
-          confirmation_status: group?.confirmation_status || false,
+          verification_status: group?.verification_status,
+          confirmation_status: group?.confirmation_status,
           publication_status: group?.publication_status || ["Not Published"],
           assignedTo: group?.assignedTo?.map((i) => i._id) || [],
           notes: group?.notes || "",
-          incidentStartedAt: group?.incidentStartedAt?.toString().slice(0, 10) || "",
-          incidentEndedAt: group?.incidentEndedAt?.toString().slice(0, 10) || "",
+          incidentStartedAt: group?.incidentStartedAt || "",
+          incidentEndedAt: group?.incidentEndedAt || "",
         }}
         schema={incidentSchema}
         onSubmit={(values: GroupEditableData) => {
@@ -77,28 +86,18 @@ const CreateEditIncidentForm = ({
         onClose={onCancel}
       >
         <div className='flex gap-6 text-slate-200 pb-1'>
-          <FormikSwitch name='escalated' label={"Escalated"} />
-          <FormikSwitch name='closed' label='Closed' />
+          <FormikSwitch
+            name='closed'
+            label='Closed'
+            icon={faCircleMinus}
+          />
         </div>
-        <FormikInput name='title' label='Incident Title' />
-        <p className='text-sm text-slate-700'>
-          Ideally, titles should be written as a<i>question</i> that can be
-          answered with a true/false
-        </p>
-        <FormikSwitch name='verification_status' label='Outage verified?' />
-        <FormikSwitch name='confirmation_status' label='Reason confirmed?' />
-        <FormikMultiCombobox
-          name='publication_status'
-          unitLabel='status'
-          label='Published?'
-          list={PUBLISHED_OPTIONS.map((i) => {
-            return { key: i, value: i };
-          })}
-        />
+        <FormikInput name='title' label='Title' />
         <FormikMultiCombobox
           name='assignedTo'
           unitLabel='User'
           label='Assign User to Incident'
+          icon={faUsers}
           list={
             users?.map((i) => {
               return { key: i._id, value: i.username };
@@ -108,15 +107,40 @@ const CreateEditIncidentForm = ({
 
         <div className=' border-b'></div>
 
-        <FormikDate
+        <FormikDropdown
+          name='verification_status'
+          label='Outage verified?'
+          list={[{_id: "true", label: "Verified"}, {_id: "false", label: "Unable to Verify"}]}
+          placeholder='Verifying'
+          icon={faMagnifyingGlassChart}
+        />
+        <FormikDropdown
+          name='confirmation_status'
+          label='Reason confirmed?'
+          list={[{_id: "true", label: "Confirmed"}, {_id: "false", label: "Unable to Confirm"}]}
+          placeholder='Confirming'
+          icon={faCommentNodes}
+        />
+        <FormikMultiCombobox
+          name='publication_status'
+          unitLabel='status'
+          label='Published?'
+          icon={faBullhorn}
+          list={PUBLISHED_OPTIONS.map((i) => {
+            return { key: i, value: i };
+          })}
+        />
+        <FormikDateTime
           name='incidentStartedAt'
-          label='Incident Start Date'
+          label='Incident Start Time (UTC)'
+          icon={faBackwardStep}
         />
-        <FormikDate
+        <FormikDateTime
           name='incidentEndedAt'
-          label='Incident End Date'
+          label='Incident End Time (UTC)'
+          icon={faForwardStep}
         />
-        <FormikInput name='locationName' label='Location' />
+        <FormikInput name='locationName' label='Location' icon={faCompass} />
 
         <label>
           <span className='text-slate-600'>Description:</span>

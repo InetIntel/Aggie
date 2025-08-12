@@ -1,24 +1,26 @@
 import { faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Field, useField } from "formik";
+import { IconProp } from "@fortawesome/fontawesome-svg-core";
+import { useField } from "formik";
 
 interface IProps {
   name: string;
   label?: string;
+  icon?: IconProp;
 }
-const FormikDate = ({ name, label }: IProps) => {
+const FormikDateTime = ({ name, label, icon }: IProps) => {
   const [field, meta, helpers] = useField(name);
   const { value } = meta;
   const { setValue } = helpers;
   return (
     <label className='flex flex-col gap-1 text-slate-600'>
-      {label ? label : name}
+      <span>{icon && <FontAwesomeIcon icon={icon} />} {label ? label : name}</span>
 
       <input
         name={name}
-        type='date'
-        value={value || ""}
-        onChange={(e) => setValue(e.target.value)}
+        type='datetime-local'
+        value={value.toString().slice(0, 16) || ""}
+        onChange={(e) => setValue(e.target.value + ":00.000Z")}
         className='px-3 py-2 focus-theme rounded border border-slate-300 bg-slate-50 text-black'
       />
       {meta.touched && meta.error ? (
@@ -30,4 +32,4 @@ const FormikDate = ({ name, label }: IProps) => {
     </label>
   );
 };
-export default FormikDate;
+export default FormikDateTime;

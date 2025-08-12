@@ -30,6 +30,7 @@ backend/migrations/.migrate
 .migrate
 
 public/css/styles.css
+public/uploads
 
 buildAssets
 docs/_build
@@ -47,3 +48,5 @@ docs/_build
 
 build
 .env
+
+backend/api/uploads

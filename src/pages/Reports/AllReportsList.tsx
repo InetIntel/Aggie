@@ -18,9 +18,9 @@ import { faMinus, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import MultiSelectActions from "./components/MultiSelectActions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
-interface IProps { }
+interface IProps { alerts: boolean }
 
-const AllReportsList = ({ }: IProps) => {
+const AllReportsList = ({ alerts }: IProps) => {
   const { id: currentPageId } = useParams();
   const navigate = useNavigate();
   const { searchParams, getAllParams, setParams, getParam } =
@@ -31,7 +31,7 @@ const AllReportsList = ({ }: IProps) => {
     refetch,
     isLoading,
     isFetching,
-  } = useQuery(["reports"], () => getReports(getAllParams(searchParams)), {
+  } = useQuery(["reports"], () => getReports(getAllParams(searchParams), alerts), {
     refetchInterval: 120000,
   });
   useEffect(() => {
@@ -59,7 +59,6 @@ const AllReportsList = ({ }: IProps) => {
       <div className='px-1 py-2 bg-gray-50/75 backdrop-blur-sm sticky top-0 z-10 '>
         <ReportsFilters
           reportCount={reports && reports.total}
-          searchPlaceholder={"Exact Keyword Search"}
           isFetching={isFetching}
           refetch={refetch}
           headerElement={

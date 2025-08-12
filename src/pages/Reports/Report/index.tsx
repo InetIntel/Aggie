@@ -143,7 +143,7 @@ const Report = () => {
             disabled={!report || setRead.isLoading}
             icon={report.read ? faEnvelopeOpen : faEnvelope}
           >
-            {report.read ? <> unread</> : <> read</>}
+            {report.read ? <> Unread</> : <> Read</>}
           </AggieButton>
           <div className='rounded-lg border border-slate-300 '>
             <AggieButton
@@ -153,7 +153,7 @@ const Report = () => {
                 e.stopPropagation();
                 setIrrelevance.mutate({
                   reportIds: [report._id],
-                  irrelevant: "true",
+                  irrelevant: (report.irrelevant && report.irrelevant === "true") ? "maybe" : "true",
                   currentPageId: report._id,
                 });
               }}
@@ -161,7 +161,7 @@ const Report = () => {
               loading={setIrrelevance.isLoading}
               disabled={!report || setIrrelevance.isLoading}
             >
-              irrelevant
+              Ignore
             </AggieButton>
             <AggieButton
               variant={"light:green"}
@@ -170,7 +170,7 @@ const Report = () => {
                 e.stopPropagation();
                 setIrrelevance.mutate({
                   reportIds: [report._id],
-                  irrelevant: "false",
+                  irrelevant: (report.irrelevant && report.irrelevant === "false") ? "maybe" : "false",
                   currentPageId: report._id,
                 });
               }}
@@ -178,7 +178,7 @@ const Report = () => {
               loading={setIrrelevance.isLoading}
               disabled={!report || setIrrelevance.isLoading}
             >
-              relevant
+              Investigate
             </AggieButton>
           </div>
 

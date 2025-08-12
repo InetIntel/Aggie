@@ -5,6 +5,7 @@ import {
   faRightFromBracket,
   faBars,
   faExternalLinkSquareAlt,
+  faPalette,
 } from "@fortawesome/free-solid-svg-icons";
 import { Menu } from "@headlessui/react";
 import { faUser } from "@fortawesome/free-regular-svg-icons";
@@ -23,13 +24,11 @@ interface LinkOptions {
   not?: string[];
 }
 const mainLinks: Record<string, LinkOptions> = {
-  // Reports: { to: "/rpt/batch" },
-  "Reports": { to: "/rpt", not: ["batch", "search"] },
-  // "Contextual Search": { to: "/rpt/search" },
+  "Alerts": { to: "/alerts", not: ["batch", "search"] },
+  "Social Media Posts": { to: "/mediaposts" },
 
-  // divider1: { type: "divider", to: "" },
+  divider1: { type: "divider", to: "" },
   Incidents: { to: "/incidents" },
-  // Images: { to: "/images" },
 };
 
 const helpfulLinks = [
@@ -170,6 +169,21 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
                 )}
               </Menu.Item>
             ))}
+            { session?.role === "admin"
+              && (process.env.ENVIRONMENT === "development" || process.env.NODE_ENV === "development")
+              && (
+                <Link
+                  className='px-3 py-2  hover:bg-slate-200 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left'
+                  to='/style'
+                >
+                  <FontAwesomeIcon
+                    icon={faPalette}
+                    className='place-self-center'
+                  />
+                  Style
+                </Link>
+              )
+            }
             <Menu.Item>
               <span>
                 <AggieButton

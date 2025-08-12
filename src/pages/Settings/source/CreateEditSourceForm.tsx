@@ -16,14 +16,6 @@ import { faChevronDown, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { CredentialOption, CREDENTIAL_OPTIONS } from "../../../api/common";
 
-
-//   const CrowdTangleFormSchema = Yup.object().shape({
-//     sourceNickname: Yup.string().required("Source name is a required field"),
-//     sourceCredentials: Yup.string().required(
-//       "A credential is required to create a source"
-//     ),
-//   });
-
 interface IProps {
   source?: Source;
   onClose: () => void;
@@ -68,8 +60,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   });
   const isLoading = doCreateSource.isLoading || doEditSource.isLoading;
 
-
-  /*// junkpedia credential
+  // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
   const JunkipediaSchema = Yup.object().shape({
     nickname: Yup.string().required("Source name is a required field"),
@@ -84,19 +75,6 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     ),
   });
   type IJunkipediaSchema = Yup.InferType<typeof JunkipediaSchema>;
-
-
-
-  const RssSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
-    // sourceKeywords: Yup.string().required(
-    //   "Keywords are required to create a Junkipedia source"
-    // ),
-    lists: Yup.string().required(
-      "Lists are required to create a Junkipedia source"
-    ),
-  });
-  type IRssSchema = Yup.InferType<typeof RssSchema>;
 
   const JunkipediaForm = (
     <FormikWithSchema
@@ -131,92 +109,6 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       />
     </FormikWithSchema>
   );
-
-
-  const RSSForm = (
-    <FormikWithSchema
-      initialValues={{
-        nickname: source?.nickname || "",
-        media: source?.media || "",
-        regex: source?.regex || "",
-        keywords: source?.keywords || "",
-        lists: source?.lists || "",
-        tags: source?.tags || "",
-        credentials: source?.credentials._id || "",
-        sourceURL: source?.url || "",
-        url: "",
-      }}
-      schema={RssSchema}
-      onSubmit={(values: IRssSchema) => {
-        onSubmit(values);
-      }}
-      loading={isLoading}
-      onClose={onClose}
-    >
-      <FormikInput name='nickname' label='Source Name' />
-      <FormikInput name='lists' label='Lists' />
-      <FormikInput name='regex' label='regex' />
-      <FormikDropdown
-        list={
-          credentialsList?.map((i) => {
-            return { _id: i._id, label: i.name };
-          }) || [{ _id: "", label: "loading" }]
-        }
-        label={"API Credentials"}
-        name={"credentials"}
-      />
-    </FormikWithSchema>
-  );
-
-
-
-  const twitterSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
-    // regex: Yup.string().required(
-    //   "Query is required to create a Twitter source"
-    // ),
-    credentials: Yup.string().required(
-      "A credential is required to create a source"
-    ),
-  });
-  type ITwitterSchema = Yup.InferType<typeof twitterSchema>;
-
-  const TwitterForm = (
-    <FormikWithSchema
-      initialValues={{
-        nickname: source?.nickname || "",
-        media: source?.media || "",
-        regex: source?.regex || "",
-        keywords: source?.keywords || "",
-        lists: source?.lists || "",
-        tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
-        sourceURL: source?.url || "",
-        url: "https://www.x.com/",
-      }}
-      schema={twitterSchema}
-      onSubmit={(values: ITwitterSchema) => {
-        onSubmit(values);
-      }}
-      loading={isLoading}
-      onClose={onClose}
-    >
-      <FormikInput name='nickname' label='Credential Name' />
-
-      <FormikInput name='regex' label='regex' />
-      {// <FormikInput name='lists' label='Lists' /> }
-
-      <FormikDropdown
-        list={
-          credentialsList?.map((i) => {
-            return { _id: i._id, label: i.name };
-          }) || [{ _id: "", label: "loading" }]
-        }
-        label={"API Credentials"}
-        name={"credentials"}
-      />
-    </FormikWithSchema>
-  );*/
 
 
   const iodaSchema = Yup.object().shape({
@@ -291,6 +183,102 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     </FormikWithSchema>
   );
 
+
+  /*const RssSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    // sourceKeywords: Yup.string().required(
+    //   "Keywords are required to create a Junkipedia source"
+    // ),
+    lists: Yup.string().required(
+      "Lists are required to create a Junkipedia source"
+    ),
+  });
+  type IRssSchema = Yup.InferType<typeof RssSchema>;
+
+
+  const RSSForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || "",
+        sourceURL: source?.url || "",
+        url: "",
+      }}
+      schema={RssSchema}
+      onSubmit={(values: IRssSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikInput name='lists' label='Lists' />
+      <FormikInput name='regex' label='regex' />
+      <FormikDropdown
+        list={
+          credentialsList?.map((i) => {
+            return { _id: i._id, label: i.name };
+          }) || [{ _id: "", label: "loading" }]
+        }
+        label={"API Credentials"}
+        name={"credentials"}
+      />
+    </FormikWithSchema>
+  );
+
+  const twitterSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    // regex: Yup.string().required(
+    //   "Query is required to create a Twitter source"
+    // ),
+    credentials: Yup.string().required(
+      "A credential is required to create a source"
+    ),
+  });
+  type ITwitterSchema = Yup.InferType<typeof twitterSchema>;
+
+  const TwitterForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "https://www.x.com/",
+      }}
+      schema={twitterSchema}
+      onSubmit={(values: ITwitterSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Credential Name' />
+
+      <FormikInput name='regex' label='regex' />
+      { /*<FormikInput name='lists' label='Lists' /> }
+
+      <FormikDropdown
+        list={
+          credentialsList?.map((i) => {
+            return { _id: i._id, label: i.name };
+          }) || [{ _id: "", label: "loading" }]
+        }
+        label={"API Credentials"}
+        name={"credentials"}
+      />
+    </FormikWithSchema>
+  );*/
+
   return (
     <>
       <label className='text-slate-600'>Credential Type</label>
@@ -326,9 +314,9 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
           ))}
         </Listbox.Options>
       </Listbox>
-      { /*{credentialType === "junkipedia" && JunkipediaForm}
-      {credentialType === "rss" && RSSForm}
-      {credentialType === "twitter" && TwitterForm}*/ }
+      {credentialType === "junkipedia" && JunkipediaForm}
+      {/*credentialType === "rss" && RSSForm*/}
+      {/*credentialType === "twitter" && TwitterForm*/}
       {credentialType === "ioda" && iodaForm}
       {credentialType === "cloudflare" && cloudflareForm}
     </>

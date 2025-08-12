@@ -4,6 +4,7 @@ import {
   faWarning,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { Field, useField } from "formik";
 
 interface IProps {
@@ -11,14 +12,15 @@ interface IProps {
   label?: string;
   type?: string;
   placeholder?: string;
+  icon?: IconProp;
 }
-const FormikInput = ({ name, label, type, placeholder }: IProps) => {
+const FormikInput = ({ name, label, type, placeholder, icon }: IProps) => {
   const [field, meta, helpers] = useField(name);
   const { value } = meta;
   const { setValue } = helpers;
   return (
     <label className='flex flex-col gap-1 text-slate-600'>
-      {label ? label : name}
+      <span>{icon && <FontAwesomeIcon icon={icon} />} {label ? label : name}</span>
 
       <input
         name={name}

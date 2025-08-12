@@ -46,7 +46,7 @@ import ReportFilters from "../../Reports/components/ReportsFilters";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 import { Report, ReportQueryState } from "../../../api/reports/types";
 import { useMultiSelect } from "../../../hooks/useMultiSelect";
-import GroupReportListItem from "./GoupReportListItem";
+import GroupReportListItem from "./GroupReportListItem";
 import AggieCheck from "../../../components/AggieCheck";
 import AggieDialog from "../../../components/AggieDialog";
 import AddReportsToIncidents from "../../Reports/components/AddReportsToIncident";
@@ -65,7 +65,7 @@ const Incident = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { searchParams, getAllParams } = useQueryParams<ReportQueryState>();
-  const { doUpdate, doSetEscalate, doSetClosed } = useIncidentMutations();
+  const { doUpdate, doSetClosed } = useIncidentMutations();
   const [deleteModal, setDeleteModal] = useState(false);
 
   const [removeReports, setRemoveReports] = useState(false);
@@ -190,35 +190,6 @@ const Incident = () => {
             Go Back
           </AggieButton>
           <div className='flex items-center gap-2'>
-            {group && (
-              <div className='flex justify-between items-center px-2 py-1 gap-2 font-medium text-sm bg-white rounded-lg border border-slate-300'>
-                Escalate:
-                <AggieSwitch
-                  checked={group.escalated}
-                  disabled={doSetEscalate.isLoading}
-                  onChange={() =>
-                    doSetEscalate.mutate(
-                      {
-                        ids: [group._id],
-                        escalated: !group.escalated,
-                      },
-                      {
-                        onSuccess: (_, params) => {
-                          // update single report
-                          if (!id) return;
-                          queryData.update<Group>(["group", id], (data) => {
-                            return {
-                              escalated: params.escalated,
-                            };
-                          });
-                        },
-                      }
-                    )
-                  }
-                />
-              </div>
-            )}
-
             <DropdownMenu
               variant='secondary'
               className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
@@ -317,19 +288,6 @@ const Incident = () => {
             {group?._reports?.length}{" "}
             {group?._reports?.length === 1 ? "report" : "reports"} added
           </PlaceholderDiv>
-          <Link
-            to={`/rpt?groupId=${id}`}
-            className='text-sm text-blue-600 hover:underline'
-          >
-            <p>
-              Open List in All Reports Page
-              <FontAwesomeIcon
-                icon={faExternalLinkSquareAlt}
-                size='sm'
-                className='ml-1'
-              />
-            </p>
-          </Link>
         </div>
 
         <ReportFilters
@@ -384,7 +342,7 @@ const Incident = () => {
                     })
                   }
                 >
-                  Not Relevant
+                  Ignore
                 </AggieButton>
                 <AggieButton
                   variant='light:green'
@@ -398,7 +356,7 @@ const Incident = () => {
                     })
                   }
                 >
-                  Relevant
+                  Investigate
                 </AggieButton>
               </div>
 
@@ -482,7 +440,7 @@ const Incident = () => {
                     close
                   </AggieButton>
                 </header>
-                <SocialMediaPost report={activePost} />
+                <SocialMediaPost report={activePost} showMedia />
               </div>
             </div>
           </section>

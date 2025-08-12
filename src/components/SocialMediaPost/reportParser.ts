@@ -11,11 +11,11 @@ import { Report } from "../../api/reports/types";
 export function parseContentType(report: Report) {
   if (!report._media) return "default";
 
-  // if (report._media[0] === "twitter") {
-  //   // some goofy coding practices going on here
-  //   const type = tweetType(report);
-  //   return type;
-  // }
+  if (report._media[0] === "twitter") {
+    // some goofy coding practices going on here
+    const type = tweetType(report);
+    return type;
+  }
 
   return report._media[0];
 }
@@ -74,4 +74,17 @@ export function sanitize(string: string) {
   //     span: ["class"],
   //   },
   //});
+}
+
+export function signalToNameColor(rawSignal: string) {
+  switch(rawSignal) {
+    case "bgp":
+      return ["BGP", "bg-[#33A02C]"];
+    case "ping-slash24":
+      return ["Active Probing", "bg-[#1F78B4]"];
+    case "merit-nt":
+      return ["Telescope", "bg-[#ED9B40]"];
+    default:
+      return [rawSignal, ""];
+  }
 }

@@ -1,9 +1,12 @@
 import { isObject, isString } from "lodash";
 import { Report } from "../../api/reports/types";
+import { signalToNameColor } from "../SocialMediaPost/reportParser";
+import AggieToken from "../AggieToken";
 
 interface IProps {
   report: Report;
 }
+
 const IodaEvent = ({ report }: IProps) => {
   const rawData = report?.metadata?.rawAPIResponse;
   const start = report?.authoredAt?.replace('T', ' ').substring(0, 16);
@@ -11,18 +14,7 @@ const IodaEvent = ({ report }: IProps) => {
   console.log(rawData?.ended, end);
 
   const rawSignal = rawData?.rawEvent?.datasource;
-  let signal = "unknown";
-  let bgColor = "";
-  if (rawSignal === "bgp") {
-    signal = "BGP";
-    bgColor = "bg-[#33A02C]";
-  } else if (rawSignal === "ping-slash24") {
-    signal = "Active Probing";
-    bgColor = "bg-[#1F78B4]";
-  } else if (rawSignal === "merit-nt") {
-    signal = "Telescope";
-    bgColor = "bg-[#ED9B40]";
-  }
+  let [signal, bgColor] = signalToNameColor(rawSignal);
 
   const image = rawData?.image?.
     replace('width="726"', 'width="100%"').
@@ -32,7 +24,11 @@ const IodaEvent = ({ report }: IProps) => {
     <>
       <div className='flex gap-2 items-center'>
         <h2 className='font-bold'>{report?.author}</h2>
-        <span className={bgColor + " p-1 rounded-lg text-white text-xs"}>{signal}</span>
+        <AggieToken
+          className={`${bgColor} p-1 rounded-lg text-sm text-white`}
+        >
+          {signal}
+        </AggieToken>
       </div>
       <p className='mb-1'>
         {start} - {end} UTC

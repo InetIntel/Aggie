@@ -1,3 +1,5 @@
+// unused artifact from FuCo, used for batch-assigning reports to users
+
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";

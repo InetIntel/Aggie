@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   faCompass,
   faFileLines,
@@ -16,6 +17,7 @@ import PlaceholderDiv from "../../../components/PlaceholderDiv";
 import TagsList from "../../../components/Tags/TagsList";
 import UserToken from "../../../components/UserToken";
 //import VeracityToken from "../../../components/VeracityToken";
+import { IncidentOverallStatus, IncidentStatuses } from "../IncidentStatuses";
 
 interface IProps {
   group?: Group;
@@ -23,13 +25,17 @@ interface IProps {
   onEdit: () => void;
 }
 const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
-  function isoToYMD (iso : string | Date) {
+  const [isStatusClicked, setIsStatusClicked] = useState(false);
+  const [isStatusHovered, setIsStatusHovered] = useState(false);
+  function formatIsoTime (iso : string | Date) {
     if (!iso) return "Unknown Date";
     const date = (iso instanceof Date) ? iso : new Date(iso);
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const year = date.getUTCFullYear();
-    return `${year}-${month}-${day}`;
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const hour = String(date.getUTCHours()).padStart(2, "0");
+    const minute = String(date.getUTCMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day} ${hour}:${minute}`;
   }
   return (
     <header className='text-slate-600 border-b border-slate-300 py-2'>
@@ -67,31 +73,26 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           >
             <h1 className='max-w-prose'>
               {group?.title}{" "}
-              {group?.escalated && (
-                <span className='px-1 bg-orange-700 text-white font-medium text-base inline-flex gap-1 items-center no-underline'>
-                  <FontAwesomeIcon icon={faWarning} />
-                  Escalated
-                </span>
-              )}
             </h1>
           </PlaceholderDiv>
         </div>
       </div>
-      <div className='flex gap-2'>
-        <PlaceholderDiv as='p' loading={isLoading} width='7em'
-          className='px-2 py-1 rounded-full bg-teal-200'>
-          {group?.verification_status ? "Verified" : "Unverified"}
-        </PlaceholderDiv>
-        <PlaceholderDiv as='p' loading={isLoading} width='7em'
-          className='px-2 py-1 rounded-full bg-pink-200'>
-          {group?.confirmation_status ? "Confirmed" : "Unconfirmed"}
-        </PlaceholderDiv>
-        {group?.publication_status?.map((s: String) =>
-          <PlaceholderDiv as='p' loading={isLoading} width='7em'
-            className='px-2 py-1 rounded-full bg-fuchsia-200'>
-            {s}
-          </PlaceholderDiv>
-        )}
+      <div className='flex flex-wrap gap-2'>
+        {
+          group && (
+            <IncidentOverallStatus
+              group={group}
+              className='px-2 py-1 rounded-full hover:cursor-pointer'
+              onClick={() => setIsStatusClicked(!isStatusClicked)}
+              onMouseEnter={() => setIsStatusHovered(true)}
+              onMouseLeave={() => setIsStatusHovered(false || isStatusClicked)}
+            />
+          )
+        }
+        {
+          (isStatusHovered && group)
+          && <IncidentStatuses group={group} className='px-2 py-1 rounded-full'/>
+        }
       </div>
       <div className='flex gap-12 my-2'>
         <PlaceholderDiv as='p' width='7em' loading={isLoading}>
@@ -135,14 +136,14 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
         </PlaceholderDiv>
       </div>
       <div className='flex gap-2 items-center pt-2'>
-        <span className='whitespace-nowrap'>Incident Date:</span>
+        <span className='whitespace-nowrap'>Incident Time (UTC):</span>
         <PlaceholderDiv
           loading={isLoading}
           className='flex flex-wrap gap-x-2 gap-y-1 items-center '
         >
           {(group?.incidentStartedAt || group?.incidentEndedAt) ? (
             <p className='whitespace-pre-line max-w-prose text-black'>
-              {isoToYMD(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {isoToYMD(group?.incidentEndedAt)}
+              {formatIsoTime(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {formatIsoTime(group?.incidentEndedAt)}
             </p>
           ) : (
             <p className='italic text-slate-600'>No Date Set</p>

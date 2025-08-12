@@ -115,7 +115,7 @@ const ReportListItem = ({
                     disabled={!report || setRead.isLoading}
                     icon={report.read ? faEnvelopeOpen : faEnvelope}
                   >
-                    {report.read ? <> unread</> : <> read</>}
+                    {report.read ? <> Unread</> : <> Read</>}
                   </AggieButton>
                   <div className='shadow-md rounded-lg border border-slate-300 '>
                     <AggieButton
@@ -125,7 +125,7 @@ const ReportListItem = ({
                         e.stopPropagation();
                         setIrrelevance.mutate({
                           reportIds: [report._id],
-                          irrelevant: "true",
+                          irrelevant: (report.irrelevant && report.irrelevant === "true") ? "maybe" : "true",
                           currentPageId: currentPageId,
                         });
                       }}
@@ -133,7 +133,7 @@ const ReportListItem = ({
                       loading={setIrrelevance.isLoading}
                       disabled={!report || setIrrelevance.isLoading}
                     >
-                      irrelevant
+                      Ignore
                     </AggieButton>
                     <AggieButton
                       variant={"light:green"}
@@ -142,7 +142,7 @@ const ReportListItem = ({
                         e.stopPropagation();
                         setIrrelevance.mutate({
                           reportIds: [report._id],
-                          irrelevant: "false",
+                          irrelevant: (report.irrelevant && report.irrelevant === "false") ? "maybe" : "false",
                           currentPageId: currentPageId,
                         });
                       }}
@@ -150,7 +150,7 @@ const ReportListItem = ({
                       loading={setIrrelevance.isLoading}
                       disabled={!report || setIrrelevance.isLoading}
                     >
-                      relevant
+                      Investigate
                     </AggieButton>
                   </div>
                 </div>
