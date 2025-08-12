@@ -7,7 +7,7 @@ const { decryptSecretsObject } = require('../utils/decryption');
 
 class JunkipediaChannel extends PageChannel {
   static BASE_URL = 'https://www.junkipedia.org';
-  static INTERVAL = 10000;
+  static INTERVAL = 100000;
   static PER_PAGE = 100;
   #decryptedSecrets; // private property of decrypted secrets
 
@@ -38,11 +38,15 @@ class JunkipediaChannel extends PageChannel {
 
   async fetchPage() {
     let startDate;
-    if (this.lastTimestamp) {
-      startDate = new Date(this.lastTimestamp.getTime() + 1000);
+
+    if (!this.lastTimestamp) {
+      startDate = Math.floor((Date.now() - 2 * 60 * 60 * 1000) / 1000); // 2-hrs before current time
     } else {
-      startDate = new Date();
-      startDate.setHours(startDate.getHours() - 2);
+
+      const fiveMinutesAgo = Math.floor((Date.now() - 5 * 60 * 1000) / 1000);
+      const lastTimestampEpoch = Math.floor((this.lastTimestamp.getTime() + 1000) / 1000);
+      
+      startDate = Math.min(fiveMinutesAgo, lastTimestampEpoch);
     }
 
     const apiKey = this.#decryptedSecrets.junkipediaAPIKey || null;
@@ -65,8 +69,8 @@ class JunkipediaChannel extends PageChannel {
         url: apiRoute,
         params: {
           ...this.queryParams,
-          published_at_from: Math.round(startDate.getTime() / 1000),
-          published_at_to: Math.round(new Date().getTime() / 1000),
+          published_at_from: startDate,
+          published_at_to: Math.floor(Date.now() / 1000),
         },
       };
     }
