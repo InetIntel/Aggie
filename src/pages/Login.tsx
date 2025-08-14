@@ -66,7 +66,7 @@ const Login = ({ }: IProps) => {
             </svg>
 
             <h2 className={"mb-3 mt-1 text-center text-xl font-medium"}>
-              AGGIE
+              Aggie
             </h2>
           </div>
         </div>

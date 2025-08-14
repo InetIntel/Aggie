@@ -67,14 +67,6 @@ const ReportListItem = ({
     return "bg-white hover:bg-slate-100";
   }
 
-  function onAttachedReportClick(
-    e: React.MouseEvent<HTMLDivElement>,
-    id: string
-  ) {
-    e.stopPropagation();
-    window.open(`${window.location.origin}/incidents/${id}`, "_blank");
-  }
-
   return (
     <MultiSelectListItem
       isChecked={isChecked}

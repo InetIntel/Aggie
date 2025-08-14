@@ -19,7 +19,7 @@ const FilterRadioGroup = ({
     "ui-checked:px-2 ui-checked:pointer-events-none  ui-checked:text-black ui-checked:bg-slate-200 ";
   return (
     <RadioGroup
-      className='flex items-center gap-1  text-slate-700  underline-offset-2 font-normal'
+      className='flex items-center gap-1  text-slate-700 underline-offset-2'
       value={value ? value : defaultValue}
       onChange={onChange}
     >

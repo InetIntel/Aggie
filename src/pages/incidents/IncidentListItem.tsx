@@ -184,7 +184,7 @@ const IncidentListItem = ({ item }: IProps) => {
         <DropdownMenu
           variant='secondary'
           className='px-2 py-1 hover:bg-slate-200 rounded h-full z-10 pointer-events-auto text-slate-600'
-          panelClassName='right-0 pointer-events-auto text-base'
+          panelClassName='right-0 pointer-events-auto'
           buttonElement={
             <div className=''>
               <FontAwesomeIcon icon={faEllipsis} />

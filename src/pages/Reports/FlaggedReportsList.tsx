@@ -72,7 +72,7 @@ const FlaggedReportsList = ({}: IProps) => {
           >
             {({ resetForm, values }) => (
               <Form className='flex gap-2 flex-col text-center my-4'>
-                <h1 className='text-xl font-medium'>
+                <h1 className='text-3xl font-medium'>
                   {" "}
                   Advanced Contextual Search
                 </h1>

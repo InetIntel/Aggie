@@ -56,7 +56,7 @@ const NestedIncidentsList = ({
                   <TagsList values={item.smtcTags} />
                 </div>
                 <h2 className=' text-black gap-2 items-center font-medium my-0.5'>
-                  <span className='text-base  group-hover:text-blue-600 group-hover:underline'>
+                  <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
                     {item.title}
                   </span>
                   {item.escalated && (

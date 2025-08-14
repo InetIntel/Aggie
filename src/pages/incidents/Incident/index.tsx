@@ -283,7 +283,7 @@ const Incident = () => {
             as='h2'
             width='7em'
             loading={isLoading}
-            className='text-xl font-medium'
+            className='text-lg font-medium'
           >
             <FontAwesomeIcon icon={faFileLines} size='sm' />{" "}
             {group?._reports?.length}{" "}
@@ -432,7 +432,7 @@ const Incident = () => {
             <div className='absolute p-3 inset-0 h-full w-full overflow-y-auto  grid place-items-center'>
               <div className='p-3 bg-slate-50 rounded-xl border border-slate-300 shadow-md max-w-md'>
                 <header className='flex justify-between items-center mb-2'>
-                  <h2 className='font-medium text-lg'>Preview</h2>
+                  <h2 className='font-medium text-xl'>Preview</h2>
                   <AggieButton
                     variant='secondary'
                     icon={faClose}
