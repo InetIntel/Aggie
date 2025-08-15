@@ -113,7 +113,7 @@ const AddReportsToIncidents = ({
               Cancel
             </AggieButton>
 
-            <p className='font-medium text-lg'>Select an Incident Below:</p>
+            <p className='font-medium text-xl'>Select an Incident Below:</p>
           </div>
 
           <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3'>
@@ -157,7 +157,7 @@ const AddReportsToIncidents = ({
             />
             <div className='overflow-y-auto bg-white border border-slate-300 rounded-lg'>
               <AggieButton
-                className='hover:bg-green-100 active:bg-green-200 border-b border-slate-200 font-medium gap-2 h-16 items-center text-left w-full'
+                className='hover:bg-green-100 active:bg-green-200 border-b border-slate-200 font-medium gap-2 h-16 items-center text-left text-lg w-full'
                 icon={faFileCirclePlus}
                 padding='px-2 py-2'
                 onClick={onNewIncidentFromReports}

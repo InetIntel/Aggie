@@ -111,7 +111,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
     );
   };
   return (
-    <div className='pb-2 px-3 pt-3 bg-white rounded-xl border border-slate-300 text-base '>
+    <div className='pb-2 px-3 pt-3 bg-white rounded-xl border border-slate-300'>
       {/* {report._media[0] === "twitter" && <TwitterReply report={report} />} */}
       <div className='flex justify-between mb-2'>
         {/* <TagsList values={report.smtcTags} /> */}

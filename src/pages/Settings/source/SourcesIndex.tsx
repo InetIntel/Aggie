@@ -88,7 +88,7 @@ const SourcesIndex = (props: IProps) => {
                   to={`/settings/source/${source._id}`}
                   className='hover:underline  '
                 >
-                  <h2 className='font-medium text-blue-600  text-base'>
+                  <h2 className='font-medium text-blue-600 text-lg'>
                     {source.nickname}
                   </h2>
                 </Link>
@@ -156,7 +156,7 @@ const SourcesIndex = (props: IProps) => {
 
                   <DropdownMenu
                     variant='secondary'
-                    className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300 text-base'
+                    className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
                     panelClassName='overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >

@@ -65,11 +65,11 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
   return (
     <article className='mt-4'>
       <div className='px-2 py-2 flex justify-between'>
-        <h2 className='text-sm font-medium flex gap-1 items-center'>
+        <p className='text-sm flex gap-1 items-center'>
           <FontAwesomeIcon icon={faDotCircle} className='text-slate-600 mr-1' />
-          <span className='font-normal italic text-slate-600'> user </span>
+          <span className='italic text-slate-600'> user </span>
           <UserToken id={group?.creator?._id || ""} loading={isLoading} />
-          <span className='font-normal italic text-slate-600'>
+          <span className='italic text-slate-600'>
             {" "}
             created this incident on
           </span>{" "}
@@ -77,7 +77,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
             {" "}
             <DateTime dateString={group?.storedAt || ""} />
           </span>
-        </h2>
+        </p>
         <p></p>
       </div>
       <div>
