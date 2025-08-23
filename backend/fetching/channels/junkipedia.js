@@ -7,7 +7,7 @@ const { decryptSecretsObject } = require('../utils/decryption');
 
 class JunkipediaChannel extends PageChannel {
   static BASE_URL = 'https://www.junkipedia.org';
-  static INTERVAL = 100000;
+  static INTERVAL = 3600000;
   static PER_PAGE = 100;
   #decryptedSecrets; // private property of decrypted secrets
 
@@ -40,13 +40,13 @@ class JunkipediaChannel extends PageChannel {
     let startDate;
 
     if (!this.lastTimestamp) {
-      startDate = Math.floor((Date.now() - 2 * 60 * 60 * 1000) / 1000); // 2-hrs before current time
+      startDate = Math.floor((Date.now() - 6 * 60 * 60 * 1000) / 1000); // 6-hrs before current time (junkipedia data update has delays despite of hour update)
     } else {
 
-      const fiveMinutesAgo = Math.floor((Date.now() - 5 * 60 * 1000) / 1000);
+      const sixHoursAgo = Math.floor((Date.now() - 6 * 60 * 60 * 1000) / 1000);
       const lastTimestampEpoch = Math.floor((this.lastTimestamp.getTime() + 1000) / 1000);
       
-      startDate = Math.min(fiveMinutesAgo, lastTimestampEpoch);
+      startDate = Math.min(sixHoursAgo, lastTimestampEpoch);
     }
 
     const apiKey = this.#decryptedSecrets.junkipediaAPIKey || null;
@@ -70,7 +70,7 @@ class JunkipediaChannel extends PageChannel {
         params: {
           ...this.queryParams,
           published_at_from: startDate,
-          published_at_to: Math.floor(Date.now() / 1000),
+          published_at_to: Math.floor((Date.now() - 5 * 60 * 60 * 1000) / 1000),
         },
       };
     }
@@ -93,12 +93,13 @@ class JunkipediaChannel extends PageChannel {
 
       console.log(`[Fetching-channel-Junkipedia] Success - Parsed and formatted data, total records: ${posts.length}.`);
       
-      const updatedTimestamp = config.params?.published_at_to
-        ? new Date(config.params.published_at_to * 1000)
-        : new Date(Date.now() - 100000);
+      if (posts.length > 0) {
+        const updatedTimestamp = config.params?.published_at_to
+          ? new Date(config.params.published_at_to * 1000)
+          : new Date(Date.now() - 100000);
 
-      this.lastTimestamp = updatedTimestamp;
-
+        this.lastTimestamp = updatedTimestamp;
+      }
       return posts;
       
     } catch (e) {

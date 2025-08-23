@@ -1,7 +1,7 @@
 const multer = require('multer');
 const { MAX_ATTACHMENT_SIZE, MAX_ATTACHMENT_COUNT } = require('../../models/group');
 
-const allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+const allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf', 'text/csv', 'text/plain'];
 
 const upload = multer({
     storage: multer.memoryStorage(),

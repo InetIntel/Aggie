@@ -88,6 +88,11 @@ if (process.env.ENVIRONMENT === 'development') {
       credentials: true, // allow session cookie from browser to pass through
     })
   );
+  app.use(
+    '/incidents/uploads',
+    auth.authenticate(),
+    express.static(path.join(__dirname,'..', 'public', 'uploads'))
+  );
   app.use(function (req, res, next) {
     res.header('Access-Control-Allow-Credentials', true);
     res.header('Access-Control-Allow-Origin', req.headers.origin);

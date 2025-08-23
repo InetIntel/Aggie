@@ -1,5 +1,5 @@
 const MAX_ATTACHMENT_COUNT = 3;
-const MAX_ATTACHMENT_SIZE = 500 * 1024;
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 
 module.exports = {
     MAX_ATTACHMENT_COUNT,
