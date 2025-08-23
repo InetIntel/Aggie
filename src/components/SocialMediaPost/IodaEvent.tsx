@@ -18,6 +18,7 @@ const IodaEvent = ({ report }: IProps) => {
 
   const image = rawData?.image?.
     replace('width="726"', 'width="100%"').
+    replace('width="733"', 'width="100%"').
     replace('height="514"', 'height="auto"') || "";
 
   return (

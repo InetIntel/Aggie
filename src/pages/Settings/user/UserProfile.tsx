@@ -12,11 +12,12 @@ import AggieButton from "../../../components/AggieButton";
 import AggieDialog from "../../../components/AggieDialog";
 import CreateEditUserForm from "./CreateEditUserForm";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
-
+import SetPassword from "./SetPassword";
 import {
   faEllipsisH,
   faEdit,
   faTrashAlt,
+  faUserShield,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
@@ -33,6 +34,7 @@ const UserProfile = ({ session }: IProps) => {
   });
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
+  const [openEditPassword, setOpenEditPassword] = useState(false);
 
   const doDeleteUser = useMutation(deleteUser, {
     onSuccess: () => {
@@ -63,6 +65,13 @@ const UserProfile = ({ session }: IProps) => {
               >
                 <FontAwesomeIcon icon={faEdit} />
                 Edit
+              </AggieButton>
+              <AggieButton
+                className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                onClick={() => setOpenEditPassword(true)}
+              >
+                <FontAwesomeIcon icon={faUserShield} />
+                Change Password
               </AggieButton>
               <AggieButton
                 className='px-3 py-2 hover:bg-slate-100 text-red-600'
@@ -111,6 +120,19 @@ const UserProfile = ({ session }: IProps) => {
         }}
       >
         <CreateEditUserForm user={data} onClose={() => setOpenEdit(false)} />
+      </AggieDialog>
+      <AggieDialog
+        isOpen={!!openEditPassword}
+        onClose={() => setOpenEditPassword(false)}
+        className='px-3 py-4 w-full max-w-lg'
+        data={{
+          title: `Change password`,
+        }}
+      >
+        <SetPassword
+          user={session}
+          onClose={() => setOpenEditPassword(false)}
+        />
       </AggieDialog>
       <ConfirmationDialog
         isOpen={!!openDelete}
