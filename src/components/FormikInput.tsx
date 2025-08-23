@@ -24,6 +24,7 @@ const FormikInput = ({ name, label, type, placeholder, icon }: IProps) => {
 
       <input
         name={name}
+        type={type || "text"}
         placeholder={placeholder ? placeholder : "Enter " + label}
         value={value || ""}
         onChange={(e) => setValue(e.target.value)}

@@ -7,6 +7,7 @@ import type { User } from "../../../api/users/types";
 import { Formik, Form } from "formik";
 import AggieButton from "../../../components/AggieButton";
 import FormikInput from "../../../components/FormikInput";
+import { Session } from "../../../api/session/types";
 
 const updatePasswordSchema = Yup.object().shape({
   password: Yup.string()
@@ -21,7 +22,7 @@ const updatePasswordSchema = Yup.object().shape({
 type IPasswordSchema = Yup.InferType<typeof updatePasswordSchema>;
 
 interface IProps {
-  user?: User;
+  user?: User | Session;
   onClose: () => void;
 }
 
