@@ -97,6 +97,8 @@ export const MIME_TYPES = [
   "application/pdf",
   "image/jpeg",
   "image/png",
+  "text/csv", 
+  "text/plain",
 ] as const;
 export type MimeTypes = (typeof MIME_TYPES)[number];
 

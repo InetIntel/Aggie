@@ -7,7 +7,7 @@ import AggieButton from "./AggieButton";
 import { GroupCommentAttachment, MIME_TYPES } from "../api/groups/types";
 
 export const MAX_ATTACHMENT_COUNT = 3;
-export const MAX_ATTACHMENT_SIZE = 500 * 1024;
+export const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 
 export class FilePickerManager {
   private files: (File | GroupCommentAttachment)[] = [];
@@ -105,7 +105,7 @@ export const FileUploadButton: React.FC<FileUploadButtonProps> = ({
       const selectedFiles = e.target.files ?? [];
       for (const element of selectedFiles) {
         if (element.size > MAX_ATTACHMENT_SIZE) {
-          setError(`file must be less than ${MAX_ATTACHMENT_SIZE / 1024} KiB`);
+          setError(`file must be less than ${MAX_ATTACHMENT_SIZE / (1024 * 1024)} MiB`);
           return;
         }
       }
