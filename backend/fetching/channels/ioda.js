@@ -267,9 +267,15 @@ class IODAChannel extends PollChannel {
         Ended: ${eventEndedAt}
         Outage duration ${eventDuration}`;
 
-        // Render dashboard within a 24H time range (ending at current time)
-        const urlFromTime = this.fetchToTimestamp - 12 * 60 * 60;
-        const urlToTime = this.fetchToTimestamp;
+        // Render dashboard
+        const urlFromTime = eventStartedAtSeconds - 4 * 60 * 60;
+        const urlToTime = Math.min(
+            Math.max(
+                eventEndedAtSeconds + 4 * 60 * 60, 
+                urlFromTime + 24 * 60 * 60
+            ), 
+            this.fetchToTimestamp
+        );
         let entityCode = event.location;
 
         if (queryType === 'geoasn-region' || queryType === 'geoasn-country') {
@@ -317,7 +323,7 @@ class IODAChannel extends PollChannel {
         } else {
 
             try {
-                const cleanSVG = await extractCleanSVGFromPage(this.browser, linkedPage);
+                const cleanSVG = await extractCleanSVGFromPage(this.browser, linkedPage, queryType);
                 image = cleanSVG;
                 this.linkedPageCache[linkedPage] = cleanSVG;
             } catch (err) {

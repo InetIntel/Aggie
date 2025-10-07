@@ -6,7 +6,14 @@ const { JSDOM } = require('jsdom');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
 
-async function extractCleanSVGFromPage(browser, linkedPageUrl) {
+const chartIndexMap = {
+    'geoasn-country': '0',
+    'geoasn-region': '0',
+    'default': '1',
+  };
+
+
+async function extractCleanSVGFromPage(browser, linkedPageUrl, queryType) {
 
 
     const page = await browser.newPage();
@@ -15,9 +22,17 @@ async function extractCleanSVGFromPage(browser, linkedPageUrl) {
 
         await page.goto(linkedPageUrl, {waitUntil: 'networkidle'});
 
-        await page.waitForSelector('svg.highcharts-root', {timeout: 30000, state: 'attached',});
+        const chartIndex = chartIndexMap[queryType] || chartIndexMap['default'];
 
-        const rawSvg = await page.$eval('svg.highcharts-root', el => el.outerHTML);
+        await page.waitForSelector(`div[data-highcharts-chart="${chartIndex}"] svg.highcharts-root`, {
+            timeout: 30000, 
+            state: 'attached',
+        });
+
+        const rawSvg = await page.$eval(
+            `div[data-highcharts-chart="${chartIndex}"] svg.highcharts-root`, 
+            el => el.outerHTML
+        );
 
         const cleanSvg = DOMPurify.sanitize(rawSvg, {USE_PROFILES: {svg: true}});
 
