@@ -13,7 +13,7 @@ const FormikDateTime = ({ name, label, icon }: IProps) => {
   const { value } = meta;
   const { setValue } = helpers;
   return (
-    <label className='flex flex-col gap-1 text-slate-600'>
+    <label className='flex flex-col gap-1 text-slate-600 dark:text-gray-400'>
       <span>{icon && <FontAwesomeIcon icon={icon} />} {label ? label : name}</span>
 
       <input
@@ -21,7 +21,7 @@ const FormikDateTime = ({ name, label, icon }: IProps) => {
         type='datetime-local'
         value={value.toString().slice(0, 16) || ""}
         onChange={(e) => setValue(e.target.value + ":00.000Z")}
-        className='px-3 py-2 focus-theme rounded border border-slate-300 bg-slate-50 text-black'
+        className='px-3 py-2 focus-theme rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 text-black '
       />
       {meta.touched && meta.error ? (
         <p className='text-orange-600 my-1 ml-1 inline-flex gap-1 items-center text-sm'>

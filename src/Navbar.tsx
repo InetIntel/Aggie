@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -6,6 +6,8 @@ import {
   faBars,
   faExternalLinkSquareAlt,
   faPalette,
+  faSun,
+  faMoon,
 } from "@fortawesome/free-solid-svg-icons";
 import { Menu } from "@headlessui/react";
 import { faUser } from "@fortawesome/free-regular-svg-icons";
@@ -64,6 +66,18 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
   };
 
   const [logoutModal, setLogoutModal] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDark) {
+      root.classList.add('dark');
+      localStorage.setItem("theme", "dark");
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDark]);
+
 
   const doLogout = useMutation({
     mutationFn: logOut,
@@ -76,14 +90,14 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
 
   if (!isAuthenticated) return <></>;
   return (
-    <nav className='w-full bg-white flex justify-between items-center px-4 border-b border-gray-200 py-2'>
+    <nav className='w-full bg-white dark:bg-gray-800 text-black dark:text-gray-300 flex justify-between items-center px-4 border-b border-gray-200 py-2'>
       <div className='flex gap-2 items-center '>
 
         <div>
           <svg
             fill='none'
             viewBox='0 0 62 62'
-            className='w-10 h-10 bg-[#416B34] text-white px-2 rounded-lg'
+            className='w-10 h-10 bg-[#416B34] text-white dark:text-gray-300 px-2 rounded-lg'
           >
             <path
               d='M31 39a7 7 0 1 1-14 0 7 7 0 0 1 14 0Zm15-15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Zm-4-14a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm0 29a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm13 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm-43 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm30 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm14-28a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm-43 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm16 0a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z'
@@ -97,7 +111,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
               <Link
                 key={name}
                 to={path.to}
-                className={`px-2 focus-theme hover:bg-gray-100 rounded-lg text-[#416B34] hover:text-[#416B34] ${isActive(path.to, path.not) ? "" : ""
+                className={`px-2 focus-theme hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-[#416B34] dark:text-gray-300 hover:text-[#416B34] ${isActive(path.to, path.not) ? "" : ""
                   }`}
               >
                 <p
@@ -115,7 +129,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
           )}
         </div>
       </div>
-      <div className='flex gap-2 items-center'>
+      <div className='flex gap-2 items-center '>
         { /*<DropdownMenu
           buttonElement={<p className='text-xs'>Helpful Links</p>}
           panelClassName='border border-slate-300 rounded-lg z-20 bg-white w-max max-w-lg right-0 top-100'
@@ -139,25 +153,36 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
         {session && (
           <Link
             to={"/settings/user/" + session._id}
-            className='focus-theme rounded-full hover:underline  hover:bg-slate-100'
+            className='focus-theme rounded-full hover:underline  hover:bg-slate-100 dark:hover:bg-gray-700 '
           >
-            <div className='px-3 py-1 flex gap-2 h-full  items-center border border-slate-200 rounded-full font-medium text-xs'>
+            <div className='px-3 py-1 flex gap-2 h-full  items-center border border-slate-200 rounded-lg font-medium text-xs '>
               <FontAwesomeIcon icon={faUser} />
               {session.username}
             </div>
           </Link>
         )}
 
+        <div
+          onClick={() => setIsDark(!isDark)}
+          className="focus-theme rounded-lg hover:underline hover:bg-slate-100 dark:hover:bg-gray-700 px-3 py-1.5 flex gap-2 h-full items-center border border-slate-200 rounded-full font-medium text-xs"
+        >
+          <FontAwesomeIcon
+            icon = {isDark? faSun: faMoon}
+            className="fa-fw w-3 h-3"
+          />
+        </div>
+
+
         <Menu as='div' className='relative'>
-          <Menu.Button className='focus-theme px-3 py-1 rounded-lg bg-slate-100 border-y border border-slate-300 hover:bg-slate-200 ui-open:bg-slate-300 disabled:opacity-70 disabled:pointer-events-none'>
+          <Menu.Button className='focus-theme px-3 py-1 rounded-lg border-y border border-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600 ui-open:bg-slate-300 dark:ui-open:bg-gray-500 disabled:opacity-70 disabled:pointer-events-none'>
             <FontAwesomeIcon icon={faBars} />
           </Menu.Button>
-          <Menu.Items className='absolute top-full right-0 mt-1 shadow-md overflow-hidden rounded-lg bg-white border border-slate-200 z-30 text-sm font-medium'>
+          <Menu.Items className='absolute top-full right-0 mt-1 shadow-md overflow-hidden rounded-lg bg-white dark:bg-gray-800 border border-slate-200 z-30 text-sm font-medium'>
             {Object.entries(menuLinks(session?.role)).map(([name, link]) => (
               <Menu.Item key={name}>
                 {({ active }) => (
                   <Link
-                    className='px-3 py-2  hover:bg-slate-200 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left'
+                    className='px-3 py-2  hover:bg-slate-200 dark:hover:bg-gray-600 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left'
                     to={'/settings/' + link.to}
                   >
                     <FontAwesomeIcon
@@ -173,7 +198,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
               && (process.env.ENVIRONMENT === "development" || process.env.NODE_ENV === "development")
               && (
                 <Link
-                  className='px-3 py-2  hover:bg-slate-200 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left'
+                  className='px-3 py-2  hover:bg-slate-200 dark:hover:bg-gray-600 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left'
                   to='/style'
                 >
                   <FontAwesomeIcon
@@ -187,7 +212,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
             <Menu.Item>
               <span>
                 <AggieButton
-                  className='px-3 py-2 hover:bg-red-200 hover:text-red-800 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left w-full'
+                  className='px-3 py-2 hover:bg-red-200 dark:hover:bg-red-200 dark:saturate-[0.7] hover:text-red-800 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left w-full'
                   onClick={() => setLogoutModal(true)}
                 >
                   <FontAwesomeIcon

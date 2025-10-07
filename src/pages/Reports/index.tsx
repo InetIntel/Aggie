@@ -50,7 +50,7 @@ const Reports = ({ children }: IProps) => {
       <main className='col-span-2 '>{children}</main>
       <aside className='col-span-1'>
         {!outlet || !outlet.type ? (
-          <p className='grid w-full py-24 place-items-center font-medium sticky top-2 bg-slate-50 rounded-lg mt-4'>
+          <p className='grid w-full py-24 place-items-center font-medium sticky top-2 bg-slate-50 dark:bg-gray-900  rounded-lg mt-4'>
             Select a report to view in this window
           </p>
         ) : (

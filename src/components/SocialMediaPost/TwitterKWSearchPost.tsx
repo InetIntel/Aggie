@@ -33,7 +33,7 @@ const TwitterPost = ({ report }: IProps) => {
             key={id}
             options={{
               target: "_blank",
-              className: "underline text-blue-600 hover:bg-slate-100 ",
+              className: "underline text-blue-600 hover:bg-slate-100 dark:hover:bg-gray-700",
             }}
           >
             {formatText(content)}
@@ -76,7 +76,7 @@ const TwitterPost = ({ report }: IProps) => {
 
     return (
       <a target={"_blank"} href={url}>
-        <div className='flex text-sm gap-2 p-1 border border-slate-200 rounded hover:bg-slate-50'>
+        <div className='flex text-sm gap-2 p-1 border border-slate-200 rounded hover:bg-slate-50 dark:hover:bg-gray-900'>
           <img
             src={image}
             className='object-cover w-32 ratio-video rounded-sm'
@@ -116,7 +116,7 @@ const TwitterPost = ({ report }: IProps) => {
             />
           </div>
           {innerPost && <QuoteRetweetContent {...innerPost} />}
-          <div className='flex gap-3 text-sm text-slate-500 font-medium mt-1 items-center'>
+          <div className='flex gap-3 text-sm text-slate-500 dark:text-gray-400 font-medium mt-1 items-center'>
             <PostReactions stats={statistics} media={report._media[0]} />
           </div>
         </div>

@@ -20,9 +20,9 @@ const MultiSelectListItem = ({
   // refactor at some point
   function bgState() {
     if (isChecked && !isSelectMode)
-      return "border-2 border-slate-300 bg-slate-100 rounded-lg ";
-    else if (isChecked && isSelectMode) return "bg-blue-100 ";
-    return "bg-white hover:bg-slate-100";
+      return "border-2 border-slate-300 bg-slate-100 dark:bg-gray-700 rounded-lg";
+    else if (isChecked && isSelectMode) return "bg-blue-100 dark:bg-blue-100 dark:saturate-[0.7]";
+    return "bg-white dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700";
   }
   function onChange(e: React.MouseEvent<HTMLDivElement>) {
     e.stopPropagation();
@@ -38,10 +38,10 @@ const MultiSelectListItem = ({
           className='flex items-center absolute top-0 bottom-0 left-0 w-12 pointer-events-none '
           onClick={onChange}
         >
-          <div className='w-full h-full pointer-events-auto cursor-pointer group hover:bg-blue-200/25 rounded p-2 pl-3 '>
+          <div className='w-full h-full pointer-events-auto cursor-pointer group hover:bg-blue-200/25 dark:hover:bg-blue-200/25 dark:saturate-[0.7] rounded p-2 pl-3 '>
             <div
               className={`w-4 h-4  border border-slate-500  group-hover:border-slate-600 grid place-items-center rounded ${
-                isChecked ? "bg-blue-500 text-slate-50" : "bg-white"
+                isChecked ? "bg-blue-500 dark:bg-blue-500 dark:saturate-[0.7] text-slate-50 dark:text-gray-200" : "bg-white dark:bg-gray-800"
               }`}
             >
               {isChecked && <FontAwesomeIcon icon={faCheck} size='xs' />}

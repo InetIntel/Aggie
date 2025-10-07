@@ -10,9 +10,9 @@ type VeracityKeyMap<T> = {
 };
 
 const VeracityColor: VeracityKeyMap<string> = {
-  Unconfirmed: "text-gray-500 bg-slate-100",
-  "Confirmed True": "bg-lime-100 text-lime-700 ",
-  "Confirmed False": "bg-red-100 text-red-700 ",
+  Unconfirmed: "text-gray-500 bg-slate-100 dark:bg-gray-700",
+  "Confirmed True": "bg-lime-100 dark:bg-lime-100 dark:saturate-[0.7] text-lime-700 ",
+  "Confirmed False": "bg-red-100 dark:bg-red-100 dark:saturate-[0.7] text-red-700 ",
 };
 
 const VeracityText: VeracityKeyMap<string> = {
@@ -33,7 +33,7 @@ interface IProps {
 const VeracityToken = ({ value }: IProps) => {
   if (!value)
     return (
-      <span className='h-[1.2em] w-[8em] inline-flex animate-pulse rounded-lg bg-slate-200'></span>
+      <span className='h-[1.2em] w-[8em] inline-flex animate-pulse rounded-lg bg-slate-200 dark:bg-gray-600 '></span>
     );
   return (
     <span

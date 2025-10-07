@@ -105,9 +105,9 @@ const AddReportsToIncidents = ({
   if (!isOpen) return <></>;
   return (
     <Dialog open={isOpen} onClose={onClose} className='relative z-50'>
-      <div className='fixed inset-0 bg-black/30' aria-hidden='true' />
+      <div className='fixed inset-0 bg-black/30 dark:bg-white/20' aria-hidden='true' />
       <div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
-        <Dialog.Panel className='bg-gray-50 rounded-xl border border-slate-200 shadow-xl min-w-24 h-[90vh] min-h-12 p-3 grid grid-cols-4 gap-y-1 gap-x-4 w-full	grid-rows-[auto_1fr]'>
+        <Dialog.Panel className='bg-gray-50 dark:bg-gray-800 rounded-xl border border-slate-200 shadow-xl min-w-24 h-[90vh] min-h-12 p-3 grid grid-cols-4 gap-y-1 gap-x-4 w-full	grid-rows-[auto_1fr]'>
           <div className='col-span-full flex items-center justify-center'>
             <AggieButton variant='secondary' onClick={onClose} className='absolute left-7'>
               Cancel
@@ -116,9 +116,9 @@ const AddReportsToIncidents = ({
             <p className='font-medium text-xl'>Select an Incident Below:</p>
           </div>
 
-          <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3'>
+          <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-1 border-2 border-dashed border-slate-300 bg-slate-50 dark:bg-gray-900 rounded-lg p-3'>
             <h2 className='font-medium text-lg mb-1'>
-              <span className='bg-slate-100 rounded-lg px-2 py-1  text-slate-700'>
+              <span className='bg-slate-100 dark:bg-gray-700 rounded-lg px-2 py-1  text-slate-700 dark:text-gray-300'>
                 {selection?.length || 0}
               </span>{" "}
               Selected Reports
@@ -126,7 +126,7 @@ const AddReportsToIncidents = ({
             <div className='rounded-lg border overflow-x-hidden border-slate-300 overflow-y-auto'>
               {selection &&
                 selection.map((report) => (
-                  <div className='bg-white hover:bg-slate-100 border-b border-slate-300 group p-3 relative text-sm'>
+                  <div className='bg-white dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 border-b border-slate-300 group p-3 relative text-sm'>
                     <SocialMediaListItem
                       report={report}
                       header={
@@ -155,9 +155,9 @@ const AddReportsToIncidents = ({
               clearAll={clearAllParams}
               totalCount={incidents && incidents.total}
             />
-            <div className='overflow-y-auto bg-white border border-slate-300 rounded-lg'>
+            <div className='overflow-y-auto bg-white dark:bg-gray-800 border border-slate-300 rounded-lg'>
               <AggieButton
-                className='hover:bg-green-100 active:bg-green-200 border-b border-slate-200 font-medium gap-2 h-16 items-center text-left text-lg w-full'
+                className='hover:bg-green-100 active:bg-green-200 border-b border-slate-200 font-medium gap-2 h-16 items-center text-left text-lg w-full dark:hover:bg-green-100 dark:active:bg-green-200 dark:saturate-[0.7]'
                 icon={faFileCirclePlus}
                 padding='px-2 py-2'
                 onClick={onNewIncidentFromReports}

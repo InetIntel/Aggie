@@ -75,7 +75,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
               <Linkify
                 options={{
                   target: "_blank",
-                  className: "underline text-blue-600 hover:bg-slate-100 ",
+                  className: "underline text-blue-600 hover:bg-slate-100 dark:hover:bg-gray-700",
                 }}
               >
                 {formatText(report.content)}
@@ -100,7 +100,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
 
     return (
       <div className=''>
-        <p className='text-xs text-slate-600 italic'>
+        <p className='text-xs text-slate-600 dark:text-gray-400 italic'>
           Replying to {author}'s{" "}
           <a href={url} className='underline' target='_blank'>
             post
@@ -111,7 +111,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
     );
   };
   return (
-    <div className='pb-2 px-3 pt-3 bg-white rounded-xl border border-slate-300'>
+    <div className='pb-2 px-3 pt-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-300 dark:bg-gray-800'>
       {/* {report._media[0] === "twitter" && <TwitterReply report={report} />} */}
       <div className='flex justify-between mb-2'>
         {/* <TagsList values={report.smtcTags} /> */}
@@ -120,12 +120,12 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
           <a
             target='_blank'
             href={report.url}
-            className='ml-1 px-2 py-1 rounded-full border border-slate-200 font-medium text-xs inline-flex gap-1 items-center bg-slate-100 hover:bg-white text-nowrap'
+            className='ml-1 px-2 py-1 rounded-full border border-slate-200 font-medium text-xs inline-flex gap-1 items-center bg-slate-100 dark:bg-gray-700 hover:bg-white dark:hover:bg-gray-800 text-nowrap '
           >
             <span>Open Post</span>
             <FontAwesomeIcon icon={faExternalLink} />
           </a>
-          <p className='text-slate-600'>
+          <p className='text-slate-600 dark:text-gray-400'>
             <SocialMediaIcon mediaKey={report._media[0]} />
           </p>
         </div>
@@ -133,13 +133,13 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
       {renderPost(contentType)}
 
       <div className='flex justify-between'>
-        <div className='flex gap-3 text-sm text-slate-500 font-medium mt-1 items-center'>
+        <div className='flex gap-3 text-sm text-slate-500 dark:text-gray-400 font-medium mt-1 items-center'>
           <PostReactions
             stats={report.metadata.actualStatistics}
             media={report._media[0]}
           />
         </div>
-        <p className='text-xs text-slate-600 text-right'>
+        <p className='text-xs text-slate-600 dark:text-gray-400 text-right'>
           updated: <br />
           <DateTime dateString={report.fetchedAt} />
         </p>

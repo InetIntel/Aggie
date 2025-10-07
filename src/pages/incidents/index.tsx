@@ -73,7 +73,7 @@ const Incidents = () => {
           <AggieButton
             icon={faRefresh}
             variant='transparent'
-            className='text-slate-700'
+            className='text-slate-700 dark:text-gray-300'
             title='refresh page'
             loading={isFetching}
             disabled={isFetching}
@@ -82,7 +82,7 @@ const Incidents = () => {
         </div>
         <Link
           to='new'
-          className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 hover:bg-green-700 text-slate-100 rounded-lg font-medium'
+          className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 dark:hover:text-gray-300 hover:bg-green-700 text-slate-100 dark:text-gray-300 rounded-lg font-medium dark:bg-green-800 dark:hover:bg-green-700 dark:saturate-[0.7] '
         >
           <FontAwesomeIcon icon={faPlus} /> Create New Incident
         </Link>
@@ -95,13 +95,13 @@ const Incidents = () => {
         isQuery={!!searchParams.size}
         clearAll={clearAllParams}
       />
-      <div className='border border-slate-300 rounded-lg bg-white z-0'>
+      <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 z-0 '>
         {!!data && !!data.total ? (
           data.results.map((incident) => (
             <IncidentListItem key={incident._id} item={incident} />
           ))
         ) : (
-          <div className='w-full bg-white py-12 grid place-items-center font-medium'>
+          <div className='w-full bg-white dark:bg-gray-800 py-12 grid place-items-center font-medium'>
             <p>{isLoading ? "Loading data..." : "No Results Found"}</p>
           </div>
         )}

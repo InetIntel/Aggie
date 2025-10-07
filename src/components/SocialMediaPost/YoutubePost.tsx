@@ -23,7 +23,7 @@ const YoutubePost = ({ report }: IProps) => {
           key={report._id}
           options={{
             target: "_blank",
-            className: "underline text-blue-600 hover:bg-slate-100 ",
+            className: "underline text-blue-600 hover:bg-slate-100 dark:hover:bg-gray-700",
           }}
         >
           {description}
@@ -32,7 +32,7 @@ const YoutubePost = ({ report }: IProps) => {
       {!expand && description.length > 100 && (
         <AggieButton
           padding='px-0 py-0'
-          className='text-sm underline text-blue-700 hover:bg-slate-200'
+          className='text-sm underline text-blue-700 hover:bg-slate-200 dark:hover:bg-gray-600 '
           onClick={() => setExpand(true)}
         >
           Expand Text

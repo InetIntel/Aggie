@@ -66,10 +66,10 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
     <article className='mt-4'>
       <div className='px-2 py-2 flex justify-between'>
         <p className='text-sm flex gap-1 items-center'>
-          <FontAwesomeIcon icon={faDotCircle} className='text-slate-600 mr-1' />
-          <span className='italic text-slate-600'> user </span>
+          <FontAwesomeIcon icon={faDotCircle} className='text-slate-600 dark:text-gray-400 mr-1' />
+          <span className='italic text-slate-600 dark:text-gray-400'> user </span>
           <UserToken id={group?.creator?._id || ""} loading={isLoading} />
-          <span className='italic text-slate-600'>
+          <span className='italic text-slate-600 dark:text-gray-400'>
             {" "}
             created this incident on
           </span>{" "}
@@ -86,7 +86,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
             <Comment data={comment} groupId={group._id} key={comment._id} />
           ))}
       </div>
-      <div className=' bg-slate-50 border border-slate-300 rounded-lg'>
+      <div className=' bg-slate-50 dark:bg-gray-900 border border-slate-300 rounded-lg'>
         <Formik
           initialValues={{ commentdata: "", attachments: [] as File[] }}
           onSubmit={(e, { resetForm }) => {
@@ -108,12 +108,12 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
               <Field
                 as='textarea'
                 name='commentdata'
-                className='focus-theme px-3 py-1 border-y border-slate-300 bg-white w-full min-h-36'
+                className='focus-theme px-3 py-1 border-y border-slate-300 bg-white dark:bg-gray-800 w-full min-h-36 dark:bg-gray-600'
                 placeholder='Write a comment here...'
               />
-              <Field name='attachments'>
+              <Field name='attachments' >
                 {({ form }: FieldProps) => (
-                  <div className='px-2 py-1'>
+                  <div className='px-2 py-1 '>
                     <FileUploadButton manager={managerRef.current} form={form} />
                     <FileChipList
                       nameList={managerRef.current.getNames()}
@@ -132,7 +132,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
               <AggieButton
                 type='submit'
                 variant='primary'
-                className='mb-2 ml-2 mt-1'
+                className='mb-2 ml-2 mt-1 '
                 loading={postNewComment.isLoading}
                 disabled={postNewComment.isLoading}
               >

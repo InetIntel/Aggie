@@ -43,7 +43,7 @@ const Pagination = ({
     if (props.direction === "next" ? validNext : validPrev) {
       return (
         <AggieButton
-          className={"px-2 py-2 hover:bg-slate-200 justify-center "}
+          className={"px-2 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 justify-center "}
           onClick={() => onPageChange(props.toPage)}
           disabled={props.disabled}
         >
@@ -54,9 +54,9 @@ const Pagination = ({
     return <></>;
   };
   return (
-    <div className='flex font-medium bg-white rounded-lg border divide-x border-slate-300 divide-slate-300 h-fit'>
+    <div className='flex font-medium bg-white dark:bg-gray-800 rounded-lg border divide-x border-slate-300 divide-slate-300 h-fit'>
       <AggieButton
-        className={"px-2 py-2 hover:bg-slate-200 justify-center "}
+        className={"px-2 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 justify-center "}
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage - 1 < 0}
       >
@@ -76,7 +76,7 @@ const Pagination = ({
       <div className='relative'>
         <button
           ref={refs.setReference}
-          className='focus-theme px-2 py-2 hover:bg-slate-200 whitespace-nowrap'
+          className='focus-theme px-2 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 whitespace-nowrap'
           {...getReferenceProps()}
         >
           Page {currentPage + 1}{" "}
@@ -86,7 +86,7 @@ const Pagination = ({
           <div
             ref={refs.setFloating}
             style={floatingStyles}
-            className='absolute top-full mt-1 z-10 p-2 bg-white rounded-lg shadow-md border border-slate-300'
+            className='absolute top-full mt-1 z-10 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-slate-300'
             {...getFloatingProps()}
           >
             <Formik
@@ -100,13 +100,13 @@ const Pagination = ({
                     name='page'
                     type='number'
                     autoFocus
-                    className='focus-theme px-2 py-2 border border-r-0 border-slate-300 bg-slate-50 rounded-l-lg w-24'
+                    className='focus-theme px-2 py-2 border border-r-0 border-slate-300 bg-slate-50 dark:bg-gray-900 rounded-l-lg w-24 '
                     placeholder='page #'
                     max={totalPages}
                   />
                   <AggieButton
                     type='submit'
-                    className='px-2 py-1 bg-slate-50 hover:bg-white rounded-r-lg border-y border-r border-slate-30'
+                    className='px-2 py-1 bg-slate-50 dark:bg-gray-900 hover:bg-white dark:hover:bg-gray-800 rounded-r-lg border-y border-r  border-slate-30'
                   >
                     <FontAwesomeIcon icon={faArrowRight} />
                   </AggieButton>
@@ -148,7 +148,7 @@ const Pagination = ({
         ))}
 
       <AggieButton
-        className={"px-2 py-2 hover:bg-slate-200 justify-center "}
+        className={"px-2 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 justify-center"}
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage + 1 > (totalCount || 0) / pageSize}
       >

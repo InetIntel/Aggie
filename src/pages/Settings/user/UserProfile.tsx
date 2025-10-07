@@ -49,32 +49,32 @@ const UserProfile = ({ session }: IProps) => {
 
   return (
     <section className={"mt-4 max-w-screen-xl mx-auto"}>
-      <div className={`p-3 bg-white rounded-xl `}>
+      <div className={`p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-300`}>
         <div className='flex justify-between items-center'>
           <h2 className='text-3xl font-medium'>{isSelf && "Your "}Profile</h2>
           {(isSelf || session?.role === "admin") && (
             <DropdownMenu
               variant='secondary'
-              className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
+              className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 dark:hover:bg-gray-700'
               panelClassName='overflow-hidden right-0 text-sm'
               buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
             >
               <AggieButton
-                className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full dark:text-gray-300'
                 onClick={() => setOpenEdit(true)}
               >
                 <FontAwesomeIcon icon={faEdit} />
                 Edit
               </AggieButton>
               <AggieButton
-                className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full dark:text-gray-300'
                 onClick={() => setOpenEditPassword(true)}
               >
                 <FontAwesomeIcon icon={faUserShield} />
                 Change Password
               </AggieButton>
               <AggieButton
-                className='px-3 py-2 hover:bg-slate-100 text-red-600'
+                className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-red-600'
                 onClick={() => setOpenDelete(true)}
               >
                 <FontAwesomeIcon icon={faTrashAlt} />
@@ -101,7 +101,7 @@ const UserProfile = ({ session }: IProps) => {
         </PlaceholderDiv>
         <PlaceholderDiv loading={isLoading} className={grid}>
           <p className=''>Role</p>
-          <span className='px-2 py-1 bg-slate-100 rounded w-fit'>
+          <span className='px-2 py-1 bg-slate-100 dark:bg-gray-700 rounded w-fit border border-slate-300'>
             {data?.role}
           </span>
         </PlaceholderDiv>

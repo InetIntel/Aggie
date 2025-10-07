@@ -104,11 +104,11 @@ const ReportFilters = ({
           >
             {({ resetForm, values }) => (
               <Form className='flex gap-2'>
-                <div className='flex items-center focus-within-theme rounded-lg'>
+                <div className='flex items-center focus-within-theme rounded-lg '>
                   <div className='group relative'>
                     <Field
                       name='keywords'
-                      className='focus-theme px-2 py-1 border border-slate-300 bg-white rounded-lg min-w-[20rem]'
+                      className='focus-theme px-2 py-1 border border-slate-300 bg-white dark:bg-gray-800 rounded-lg min-w-[20rem]'
                       placeholder={searchPlaceholder || "Keyword Search"}
                     />
                   </div>
@@ -116,7 +116,7 @@ const ReportFilters = ({
                 <AggieButton
                   icon={faRefresh}
                   variant='transparent'
-                  className='text-slate-700'
+                  className='text-slate-700 dark:text-gray-300'
                   title='refresh page'
                   loading={isFetching}
                   disabled={isFetching}
@@ -124,7 +124,7 @@ const ReportFilters = ({
                 ></AggieButton>
                 {!!searchParams.size && (
                   <AggieButton
-                    className='hover:underline hover:bg-slate-100 px-2 py-1 text-sm rounded'
+                    className='hover:underline hover:bg-slate-100 dark:hover:bg-gray-700 px-2 py-1 text-sm rounded '
                     onClick={() => {
                       clearAllParams();
                       resetForm({ values: { keywords: "" } });

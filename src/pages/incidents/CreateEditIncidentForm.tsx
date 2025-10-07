@@ -85,7 +85,7 @@ const CreateEditIncidentForm = ({
         onSubmitText={!!group ? "Update Incident" : "Create Incident"}
         onClose={onCancel}
       >
-        <div className='flex gap-6 text-slate-200 pb-1'>
+        <div className='flex gap-6 text-slate-200 dark:text-gray-300 pb-1'>
           <FormikSwitch
             name='closed'
             label='Closed'
@@ -153,11 +153,11 @@ const CreateEditIncidentForm = ({
         <FormikInput name='locationName' label='Location' icon={faCompass} />
 
         <label>
-          <span className='text-slate-600'>Description:</span>
+          <span className='text-slate-600 dark:text-gray-400'>Description:</span>
           <Field
             as='textarea'
             name='notes'
-            className='focus-theme px-3 py-2 border border-slate-300 bg-slate-50 rounded w-full min-h-36'
+            className='focus-theme px-3 py-2 border border-slate-300 bg-slate-50 dark:bg-gray-900 rounded w-full min-h-36'
             placeholder='Write useful information for Report trackers to know to help them understand this incident'
           />
         </label>

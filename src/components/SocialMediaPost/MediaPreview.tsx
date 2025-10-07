@@ -17,7 +17,7 @@ const MediaPreview = ({ mediaUrl, media, report }: IProps) => {
       return (
         <div className='min-h-[30vh] relative'>
           {!loaded && (
-            <div className='absolute inset-0 z-10 rounded bg-slate-50 grid place-items-center'>
+            <div className='absolute inset-0 z-10 rounded bg-slate-50 dark:bg-gray-900 grid place-items-center'>
               Loading Image...
             </div>
           )}

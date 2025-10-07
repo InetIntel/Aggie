@@ -24,7 +24,7 @@ export default function FileChip({
   return (
     <span
       key={name + index}
-      className='bg-white hover:bg-slate-200 border border-slate-300 flex gap-1 items-center px-2 py-1 rounded-lg text-sm'
+      className='bg-white dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-600 border border-slate-300 flex gap-1 items-center px-2 py-1 rounded-lg text-sm'
       onMouseOver={() => setHoveredIndex(index)}
       onMouseOut={() => setHoveredIndex(-1)}
     >

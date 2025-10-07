@@ -51,7 +51,7 @@ const Login = ({ }: IProps) => {
         background: "linear-gradient(to bottom right, #2D9242, #0d6efd)",
       }}
     >
-      <section className='rounded-lg bg-white shadow-xl mb-24 p-4 w-full max-w-lg'>
+      <section className='rounded-lg bg-white dark:bg-gray-800 shadow-xl mb-24 p-4 w-full max-w-lg'>
         <div className='flex justify-center text-[#416B34]'>
           <div>
             <svg
@@ -96,12 +96,12 @@ const Login = ({ }: IProps) => {
             <Form noValidate onSubmit={handleSubmit}>
               <label
                 htmlFor='loginPassword'
-                className='font-medium text-sm text-slate-600'
+                className='font-medium text-sm text-slate-600 dark:text-gray-400'
               >
                 Username
               </label>
               <Field
-                className='focus-theme px-3 py-2 border mb-2 border-slate-300 bg-slate-50 focus:bg-white rounded-lg w-full'
+                className='focus-theme px-3 py-2 border mb-2 border-slate-300 bg-slate-50 dark:bg-gray-900 focus:bg-white dark:focus:bg-gray-800 rounded-lg w-full'
                 required
                 type='text'
                 placeholder='Username'
@@ -112,13 +112,13 @@ const Login = ({ }: IProps) => {
 
               <label
                 htmlFor='loginPassword'
-                className='font-medium text-sm text-slate-600'
+                className='font-medium text-sm text-slate-600 dark:text-gray-400'
               >
                 Password
               </label>
               <div className='flex mb-6'>
                 <Field
-                  className='focus-theme px-3 py-2 border-y border-l border-slate-300 bg-slate-50 focus:bg-white rounded-l-lg w-full'
+                  className='focus-theme px-3 py-2 border-y border-l border-slate-300 bg-slate-50 dark:bg-gray-900 focus:bg-white dark:focus:bg-gray-800 rounded-l-lg w-full'
                   required
                   type={passwordVisibility ? "text" : "password"}
                   placeholder='Password'
@@ -132,7 +132,7 @@ const Login = ({ }: IProps) => {
                 />
                 <AggieButton
                   type='button'
-                  className='rounded-r-lg w-12 bg-slate-100 border-y border-r border-slate-300 justify-center hover:bg-slate-200'
+                  className='rounded-r-lg w-12 bg-slate-100 dark:bg-gray-700 border-y border-r border-slate-300 justify-center hover:bg-slate-200 dark:hover:bg-gray-600 '
                   onClick={() => setPasswordVisibility(!passwordVisibility)}
                 >
                   <FontAwesomeIcon

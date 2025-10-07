@@ -35,18 +35,18 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const imageUrl = isString(imagePreview) ? imagePreview : imagePreview?.url;
   return (
     <>
-      <header className='flex justify-between mb-2 relative'>
+      <header className='flex justify-between mb-2 relative '>
         <div
           className={`flex flex-wrap gap-1 text-xs items-center ${headerClassName}`}
         >
-          <span className='text-slate-600'>
+          <span className='text-slate-600 dark:text-gray-400'>
             <SocialMediaIcon mediaKey={report._media[0]} />
           </span>
-          <h1 className='text-sm text-black font-medium'>
+          <h1 className='text-sm text-black font-medium dark:text-gray-300'>
             {renderAuthor(contentType, report)}
           </h1>
           {signal && (
-            <AggieToken className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white`}>
+            <AggieToken className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white dark:text-gray-300 `}>
               {signal}
             </AggieToken>
           )}
@@ -71,7 +71,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           </div>
         )}
       </header>
-      <div className='flex gap-1 justify-between'>
+      <div className='flex gap-1 justify-between '>
         <div className='flex gap-2 flex-1 max-w-prose'>
           {renderText(contentType, report)}
         </div>
@@ -80,10 +80,10 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
             <img
               loading='lazy'
               src={imageUrl}
-              className='w-full rounded h-full object-cover bg-slate-100 border border-slate-200 '
+              className='w-full rounded h-full object-cover bg-slate-100 dark:bg-gray-700 border border-slate-200 '
               alt='image preview'
             />
-            <p className='absolute bottom-1 right-1 px-1 rounded-sm bg-black/75 text-xs text-white'>
+            <p className='absolute bottom-1 right-1 px-1 rounded-sm bg-black/75 dark:bg-white/60 text-xs text-white dark:text-gray-300 '>
               <FontAwesomeIcon icon={faImages} /> {imagesCount}
             </p>
           </div>
@@ -149,12 +149,12 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
 
       return (
         <>
-          <div className='grid place-items-center text-slate-600'>
+          <div className='grid place-items-center text-slate-600 dark:text-gray-400'>
             <FontAwesomeIcon icon={faRetweet} />
           </div>
-          <div className=' max-h-[10em] text-black'>
+          <div className=' max-h-[10em] text-black dark:text-gray-300'>
             <p className='font-medium text-sm'>{data.author?.name}</p>
-            <p className='text-black line-clamp-2 mb-1'>
+            <p className='text-black line-clamp-2 mb-1 dark:text-gray-300'>
               {formatText(data.content)}
             </p>
 
@@ -175,10 +175,10 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
 
       return (
         <>
-          <div className='grid place-items-center text-slate-600'>
+          <div className='grid place-items-center text-slate-600 dark:text-gray-400'>
             <FontAwesomeIcon icon={faRetweet} />
           </div>
-          <p className=' text-black max-h-[10em] line-clamp-4'>
+          <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
             {formatText(report.content)}
           </p>
         </>
@@ -188,8 +188,8 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
 
       return (
         <>
-          <div className=' max-h-[10em] text-black'>
-            <p className='text-black line-clamp-2 mb-1'>
+          <div className=' max-h-[10em] text-black dark:text-gray-300'>
+            <p className='text-black line-clamp-2 mb-1 dark:text-gray-300'>
               {formatText(report.content)}
             </p>
 
@@ -204,7 +204,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
     case "twitter":
       twitterParsing(report);
       return (
-        <p className=' text-black max-h-[10em] line-clamp-4'>
+        <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
           {formatText(report.content)}
         </p>
       );
@@ -247,7 +247,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
       const endUtc =
         end.toISOString().replace('T', ' ').substring(0, 16);
       return (
-        <p>
+        <p className="dark:text-gray-300">
           {report?.author}<br />
           {startUtc} to {
             (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
@@ -259,7 +259,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
       const endDate = 
         report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";
       return (
-        <p>
+        <p className="dark:text-gray-300">
           {report?.author}<br />
           {
             report?.authoredAt.replace('T', ' ').substring(0, 16)
@@ -268,7 +268,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
       );
     default:
       return (
-        <p className=' text-black max-h-[10em] line-clamp-4'>
+        <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
           {formatText(report.content)}
         </p>
       );

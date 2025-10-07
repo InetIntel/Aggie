@@ -54,7 +54,7 @@ const SourceDetails = () => {
               className='flex justify-end items-center gap-2'
               loading={!data}
             >
-              <p className='text-xs font-medium text-slate-600'>
+              <p className='text-xs font-medium text-slate-600 dark:text-gray-400'>
                 {data?.enabled ? "Enabled" : "Disabled"}
               </p>
               <div className='flex items-center gap-1'>
@@ -79,19 +79,19 @@ const SourceDetails = () => {
             </PlaceholderDiv>
             <DropdownMenu
               variant='secondary'
-              className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
+              className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
               panelClassName='overflow-hidden right-0 text-sm'
               buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
             >
               <AggieButton
-                className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                 onClick={() => setOpenCreate(true)}
               >
                 <FontAwesomeIcon icon={faEdit} />
                 Edit
               </AggieButton>
               <AggieButton
-                className='px-3 py-2 hover:bg-slate-100 text-red-600'
+                className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-red-600'
                 onClick={() => setDeletionModal(true)}
               >
                 <FontAwesomeIcon icon={faTrashAlt} />
@@ -101,11 +101,11 @@ const SourceDetails = () => {
           </div>
         )}
       </div>
-      <section className='bg-white rounded-lg px-3 py-3 flex flex-col gap-2'>
+      <section className='bg-white dark:bg-gray-800 rounded-lg px-3 py-3 flex flex-col gap-2'>
         <div className='grid grid-cols-4 '>
-          <p className='text-slate-600'>Media Source</p>
+          <p className='text-slate-600 dark:text-gray-400'>Media Source</p>
           <div className='col-span-3'>
-            <span className='rounded px-2 py-1 bg-slate-300 font-medium'>
+            <span className='rounded px-2 py-1 bg-slate-300 dark:bg-gray-500 font-medium'>
               {data?.media}
             </span>
           </div>
@@ -113,9 +113,9 @@ const SourceDetails = () => {
 
         { session?.role === "admin" &&
           <div className='grid grid-cols-4'>
-            <p className='text-slate-600'>Credential</p>
+            <p className='text-slate-600 dark:text-gray-400'>Credential</p>
             <div className='col-span-3'>
-              <p className=' bg-slate-200 rounded-full px-2  w-fit  py-1'>
+              <p className=' bg-slate-200 dark:bg-gray-600 rounded-full px-2  w-fit  py-1'>
                 <Link
                   to={`/settings/credentials`}
                   className='hover:underline flex items-center gap-2'
@@ -124,7 +124,7 @@ const SourceDetails = () => {
                   <FontAwesomeIcon
                     icon={faKey}
                     size='xs'
-                    className='text-slate-500'
+                    className='text-slate-500 dark:text-gray-400'
                   />
                   {data?.credentials.name}
                 </Link>
@@ -133,7 +133,7 @@ const SourceDetails = () => {
           </div>
         }
         <div className='grid grid-cols-4'>
-          <p className='text-slate-600'>Created by</p>
+          <p className='text-slate-600 dark:text-gray-400'>Created by</p>
           <div className='col-span-3'>
             <Link
               to={`/settings/user/${data?.user._id}`}
@@ -144,11 +144,11 @@ const SourceDetails = () => {
           </div>
         </div>
         <div className='grid grid-cols-4'>
-          <p className='text-slate-600'>Tags</p>
+          <p className='text-slate-600 dark:text-gray-400'>Tags</p>
           <div className='col-span-3'>{data?.tags}</div>
         </div>
       </section>
-      <section className='bg-white rounded-lg px-3 py-3 mt-3 flex flex-col gap-2'>
+      <section className='bg-white dark:bg-gray-800 rounded-lg px-3 py-3 mt-3 flex flex-col gap-2'>
         <header className='grid grid-cols-4 border-slate-300 border-b'>
           <p>Time</p>
           <p>Level</p>

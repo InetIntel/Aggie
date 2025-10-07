@@ -14,12 +14,12 @@ const FilterRadioGroup = ({
   defaultValue,
 }: IProps) => {
   const OptionStyle =
-    "ui-not-checked:px-1 py-1 hover:bg-slate-100 rounded cursor-pointer hover:underline transition font-medium";
+    "ui-not-checked:px-1 py-1 hover:bg-slate-100 dark:hover:bg-gray-700 rounded cursor-pointer transition font-medium dark:text-gray-300";
   const OptionCheckedStyle =
-    "ui-checked:px-2 ui-checked:pointer-events-none  ui-checked:text-black ui-checked:bg-slate-200 ";
+    "ui-checked:px-2 ui-checked:pointer-events-none  ui-checked:text-black ui-checked:bg-slate-200 dark:ui-checked:bg-gray-600 dark:ui-checked:text-[#d8d4ef]";
   return (
     <RadioGroup
-      className='flex items-center gap-1  text-slate-700 underline-offset-2'
+      className='flex items-center gap-1  text-slate-700 dark:text-gray-300 underline-offset-2'
       value={value ? value : defaultValue}
       onChange={onChange}
     >

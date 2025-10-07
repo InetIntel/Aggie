@@ -79,9 +79,9 @@ const IncidentListItem = ({ item }: IProps) => {
     } else return user._id;
   }
   return (
-    <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-500 border-b border-slate-300 '>
+    <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-500 dark:text-gray-400 border-b border-slate-300  '>
       <div
-        className='col-span-5 grid grid-cols-subgrid hover:bg-slate-300/15 pl-3 py-3 pr-1'
+        className='col-span-5 grid grid-cols-subgrid hover:bg-slate-300/15 dark:hover:bg-gray-500/15 pl-3 py-3 pr-1'
         onClick={onOpenIncidentPage}
         title={`open incident ${item.title}`}
         role='button'
@@ -92,23 +92,23 @@ const IncidentListItem = ({ item }: IProps) => {
               <p className='font-medium'>#{item.idnum}</p>
               { /*<VeracityToken value={item.veracity} />*/ }
               {item.closed && (
-                <span className='px-1 bg-purple-100 text-purple-700 font-medium flex gap-1 items-center'>
+                <span className='px-1 bg-purple-100 dark:bg-purple-100 dark:saturate-[0.7] text-purple-700 font-medium flex gap-1 items-center'>
                   <FontAwesomeIcon
                     icon={faCircleMinus}
-                    className='text-purple-500'
+                    className='text-purple-500  dark:saturate-[0.7]'
                   />
                   Closed
                 </span>
               )}
               {!item.public && (
-                <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
+                <span className='px-1 bg-red-200 dark:bg-red-200 dark:saturate-[0.7] text-red-800 font-medium inline-flex gap-1 items-center'>
                   <FontAwesomeIcon icon={faTrash} />
                   Deleted
                 </span>
               )}
               <TagsList values={item.smtcTags} />
             </div>
-            <div className='text-xs'>
+            <div className='text-xs dark:text-gray-300'>
               {(item.incidentStartedAt || item.incidentEndedAt) && <p>
                   <span>{item.incidentStartedAt?.toString().slice(0, 16).replace("T", " ") || "Unknown Date"}</span>
                   <span>{" "}<FontAwesomeIcon icon={faArrowRight} size="xs" />{" "}</span>
@@ -116,11 +116,11 @@ const IncidentListItem = ({ item }: IProps) => {
               </p>}
             </div>
           </div>
-          <h2 className=' text-black items-center font-medium my-1'>
-            <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
+          <h2 className=' text-black items-center font-medium my-1 dark:text-gray-300'>
+            <span className='text-lg group-hover:text-blue-600 group-hover:underline dark:group-hover:text-purple-200'>
               {item.title}{" "}
             </span>
-            <IncidentOverallStatus group={item} className='px-1 py-1 rounded-full font-medium text-sm text-slate-600 inline-flex gap-1 items-center no-underline w-fit'/>
+            <IncidentOverallStatus group={item} className='px-1 py-1 rounded-full font-medium text-sm text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit'/>
           </h2>
           <div className='grid grid-cols-4 flex-grow items-end font-medium'>
             <p>
@@ -152,7 +152,7 @@ const IncidentListItem = ({ item }: IProps) => {
           </div>
         </header>
         <div className='hidden lg:block col-span-2 '>
-          <p className='px-2 py-1 text-slate-700 bg-slate-50 h-[6em] overflow-y-auto border border-slate-100 rounded whitespace-pre-line'>
+          <p className='px-2 py-1 text-slate-700 dark:text-gray-300 bg-slate-50 dark:bg-gray-900 h-[6em] overflow-y-auto border border-slate-100 rounded whitespace-pre-line dark:bg-gray-700'>
             {item.notes && item.notes}
           </p>
         </div>
@@ -183,7 +183,7 @@ const IncidentListItem = ({ item }: IProps) => {
         </div>
         <DropdownMenu
           variant='secondary'
-          className='px-2 py-1 hover:bg-slate-200 rounded h-full z-10 pointer-events-auto text-slate-600'
+          className='px-2 py-1 hover:bg-slate-200 dark:hover:bg-gray-600 rounded h-full z-10 pointer-events-auto text-slate-600 dark:text-gray-400'
           panelClassName='right-0 pointer-events-auto'
           buttonElement={
             <div className=''>
@@ -205,7 +205,7 @@ const IncidentListItem = ({ item }: IProps) => {
             />
           </div>
           <AggieButton
-            className='w-full px-2 py-1 hover:bg-slate-200  font-medium flex gap-2 text-nowrap items-center flex-grow border-t border-slate-300'
+            className='w-full px-2 py-1 hover:bg-slate-200  dark:hover:bg-gray-600 font-medium flex gap-2 text-nowrap items-center flex-grow border-t border-slate-300'
             onClick={() => setIsEditOpen(true)}
           >
             <FontAwesomeIcon icon={faEdit} />
@@ -213,7 +213,7 @@ const IncidentListItem = ({ item }: IProps) => {
           </AggieButton>
           {item.closed ? (
             <AggieButton
-              className={`w-full px-2 py-1 hover:bg-green-100 text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+              className={`w-full px-2 py-1 hover:bg-green-100 dark:hover:bg-green-100 dark:saturate-[0.7] text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
               onClick={() =>
                 doSetClosed.mutate({
                   ids: [item._id],
@@ -226,7 +226,7 @@ const IncidentListItem = ({ item }: IProps) => {
             </AggieButton>
           ) : (
             <AggieButton
-              className={`w-full px-2 py-1 hover:bg-red-100 text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+              className={`w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
               onClick={() =>
                 doSetClosed.mutate({
                   ids: [item._id],

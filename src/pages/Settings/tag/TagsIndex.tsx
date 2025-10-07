@@ -64,7 +64,7 @@ const TagsIndex = (props: IProps) => {
           </AggieButton>
         }
       </div>
-      <section className='divide-y divide-slate-300 bg-white rounded-lg border border-slate-300'>
+      <section className='divide-y divide-slate-300 bg-white dark:bg-gray-800 rounded-lg border border-slate-300'>
         {data &&
           data.map((tag) => (
             <article key={tag._id} className='py-2 px-3 grid grid-cols-5'>
@@ -84,12 +84,12 @@ const TagsIndex = (props: IProps) => {
                 { session?.role === "admin" &&
                   <DropdownMenu
                     variant='secondary'
-                    className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
+                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
                     panelClassName='overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
                     <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                      className='px-3 py-2 hover:bg-slate-100 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => setEditOpen(tag._id)}
                     >
                       <FontAwesomeIcon icon={faEdit} />

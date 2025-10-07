@@ -38,29 +38,29 @@ const NestedIncidentsList = ({
         incidents.results.map((item) => (
           <button
             key={item._id}
-            className='w-full text-left active:bg-blue-200 hover:bg-blue-100'
+            className='w-full text-left active:bg-blue-200 hover:bg-blue-100 dark:active:bg-blue-200 dark:hover:bg-blue-100 dark:saturate-[0.7]'
             onClick={() => onIncidentClicked(item)}
           >
-            <article className='grid grid-cols-4 lg:grid-cols-6 px-2 py-2 text-sm text-slate-500  group-hover:bg-slate-50 border-b border-slate-200'>
+            <article className='grid grid-cols-4 lg:grid-cols-6 px-2 py-2 text-sm text-slate-500 dark:text-gray-400 group-hover:bg-slate-50 dark:group-hover:bg-gray-900 border-b border-slate-200'>
               <header className='col-span-3 flex flex-col'>
                 <div className='flex gap-1 text-xs'>
                   <p className='font-medium'>#{item.idnum}</p>
 
                   { /*<VeracityToken value={item.veracity} />*/ }
                   {item.closed && (
-                    <span className='px-1 bg-purple-100 text-purple-600 font-medium flex gap-1 items-center'>
+                    <span className='px-1 bg-purple-100 dark:bg-purple-100 dark:saturate-[0.7] text-purple-600 font-medium flex gap-1 items-center'>
                       <FontAwesomeIcon icon={faMinusCircle} />
                       Closed
                     </span>
                   )}
                   <TagsList values={item.smtcTags} />
                 </div>
-                <h2 className=' text-black gap-2 items-center font-medium my-0.5'>
+                <h2 className=' text-black dark:text-gray-300 gap-2 items-center font-medium my-0.5'>
                   <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
                     {item.title}
                   </span>
                   {item.escalated && (
-                    <span className='px-1 bg-orange-700 w-fit ml-1 text-white font-medium text-xs inline-flex gap-1 items-center no-underline'>
+                    <span className='px-1 bg-orange-700 w-fit ml-1 text-white dark:text-gray-300  font-medium text-xs inline-flex gap-1 items-center no-underline'>
                       <FontAwesomeIcon icon={faWarning} />
                       Escalated
                     </span>
@@ -96,7 +96,7 @@ const NestedIncidentsList = ({
                 </div>
               </header>
               <div className='hidden lg:block col-span-2 text-xs '>
-                <p className='px-2 py-1 bg-slate-50 h-[6em] text-slate-700 overflow-y-auto border border-slate-100 rounded whitespace-pre-line'>
+                <p className='px-2 py-1 bg-slate-50 dark:bg-gray-900 h-[6em] text-slate-700 overflow-y-auto border border-slate-100 rounded whitespace-pre-line'>
                   {item.notes && item.notes}
                 </p>
               </div>

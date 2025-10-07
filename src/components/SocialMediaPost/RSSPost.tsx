@@ -27,10 +27,10 @@ const RSSPost = ({ report }: IProps) => {
     <>
       <h2 className='font-medium'>{rawData?.title}</h2>
       <p className=' mb-1'>By {report.author}</p>
-      <p className='flex gap-2 flex-wrap text-sm text-slate-700 mb-1'>
+      <p className='flex gap-2 flex-wrap text-sm text-slate-700 dark:text-gray-300 mb-1'>
         Categories:{" "}
         {rawData?.categories?.map((i: string, index: number) => (
-          <span key={index} className='text-slate-800 font-medium bg-slate-100'>
+          <span key={index} className='text-slate-800 font-medium bg-slate-100 dark:bg-gray-700'>
             {renderCategories(i)}
           </span>
         ))}

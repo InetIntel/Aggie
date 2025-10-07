@@ -20,7 +20,7 @@ const TagsList = ({ values }: IProps) => {
     return (
       <span
         key={id}
-        className='bg-slate-200 font-medium px-2 text-slate-700 rounded-full'
+        className='bg-slate-200 dark:bg-gray-600 font-medium px-2 text-slate-700 dark:text-gray-300 rounded-full'
       >
         {tag.name}
       </span>

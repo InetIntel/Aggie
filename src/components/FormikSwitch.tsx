@@ -16,7 +16,7 @@ const FormikSwitch = ({ name, label, icon }: IProps) => {
   return (
     <label className='flex items-center gap-2 w-full'>
       <AggieSwitch checked={value} onChange={() => setValue(!value)} />
-      <span className='text-slate-600'>
+      <span className='text-slate-600 dark:text-gray-400'>
         {icon && <FontAwesomeIcon icon={icon} />} {label}
       </span>
     </label>

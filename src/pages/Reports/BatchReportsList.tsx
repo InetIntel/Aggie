@@ -85,7 +85,7 @@ const BatchReportList = ({}: IProps) => {
   // when batch mode not activated
   if (!getParam("batch"))
     return (
-      <div className='w-full px-4 py-8 mt-2 rounded-lg border border-slate-300 bg-white flex flex-col items-center'>
+      <div className='w-full px-4 py-8 mt-2 rounded-lg border border-slate-300 bg-white dark:bg-gray-800 flex flex-col items-center'>
         <p className='font-medium mb-1'>
           Get 50 unread reports to look at (assigned individually, each user
           will get a separate batch)
@@ -103,7 +103,7 @@ const BatchReportList = ({}: IProps) => {
 
   return (
     <>
-      <div className='py-2 sticky top-0 z-10 bg-gray-50/75 backdrop-blur-sm'>
+      <div className='py-2 sticky top-0 z-10 bg-gray-50/75 dark:bg-gray-800/75 backdrop-blur-sm'>
         <div className='flex justify-between  mt-1 '>
           <AggieButton
             variant='secondary'
@@ -156,7 +156,7 @@ const BatchReportList = ({}: IProps) => {
           )}
         </div>
       </div>
-      <div className='flex flex-col border border-slate-200 rounded-lg bg-white'>
+      <div className='flex flex-col border border-slate-200 rounded-lg bg-white dark:bg-gray-800'>
         {batchData &&
           batchData.results.map((report) => (
             <div
