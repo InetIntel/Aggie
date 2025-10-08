@@ -207,11 +207,11 @@ const Report = () => {
                   className='ui-open:rotate-180 '
                 />
               }
-              className='px-2 py-1 rounded-r-lg border-y border-r dark:bg-gray-800 dark:hover:bg-gray-600 '
+              className='px-2 py-1 rounded-r-lg border-y border-r  '
               panelClassName='right-0'
             >
               <AggieButton
-                className='px-3 py-2 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-600 '
+                className='px-3 py-2 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 '
                 onClick={newIncidentFromReport}
               >
                 <FontAwesomeIcon icon={faFile} />

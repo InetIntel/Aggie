@@ -62,7 +62,7 @@ const ReportListItem = ({
   function bgState() {
     if (isChecked && !isSelectMode)
       return "border-2 border-slate-300 bg-slate-100 dark:bg-gray-700 rounded-lg";
-    else if (isChecked && isSelectMode) return "bg-blue-100 dark:bg-blue-100 dark:saturate-[0.7]";
+    else if (isChecked && isSelectMode) return "bg-blue-100 dark:bg-gray-600";
     else if (report.read) return "bg-slate-50 dark:bg-gray-900  hover:bg-slate-100 dark:hover:bg-gray-700 ";
     return "bg-white dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 ";
   }
