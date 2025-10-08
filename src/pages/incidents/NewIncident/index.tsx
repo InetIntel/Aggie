@@ -90,7 +90,7 @@ const NewIncident = () => {
     if (status === "idle")
       return <div className='px-2 py-1 opacity-0'>idle</div>;
     return (
-      <div className='px-2 py-1 border border-slate-200 bg-slate-100 rounded-lg flex gap-1 items-center'>
+      <div className='px-2 py-1 border border-slate-200 bg-slate-100 dark:bg-gray-700 rounded-lg flex gap-1 items-center'>
         {status === "loading" && (
           <FontAwesomeIcon icon={faSpinner} className='animate-spin' />
         )}
@@ -133,9 +133,9 @@ const NewIncident = () => {
         }}
         className='relative z-50'
       >
-        <div className='fixed inset-0 bg-black/30' aria-hidden='true' />
+        <div className='fixed inset-0 bg-black/30 dark:bg-white/20' aria-hidden='true' />
         <div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
-          <Dialog.Panel className='bg-white rounded-xl border border-slate-200 shadow-xl min-w-24 min-h-12 p-4 flex flex-col gap-2'>
+          <Dialog.Panel className='bg-white dark:bg-gray-800 rounded-xl border border-slate-200 shadow-xl min-w-24 min-h-12 p-4 flex flex-col gap-2'>
             <p>Creating incident... Please don't close the page!</p>
             {mutationIndicator(doCreateNewGroup.status, {
               loading: "creating Incident...",

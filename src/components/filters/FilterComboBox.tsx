@@ -88,7 +88,7 @@ const FilterComboBox = <T extends {}>({
           />
           {!!rawSearch && (
             <button
-              className='px-2 mt-1 rounded hover:bg-slate-600 hover:text-slate-100 absolute right-2 text-slate-600   '
+              className='px-2 mt-1 rounded hover:bg-slate-600 dark:hover:bg-gray-300 hover:text-slate-100 dark:hover:text-gray-300  absolute right-2 text-slate-600 dark:text-gray-400   '
               onClick={clearSearch}
             >
               <FontAwesomeIcon icon={faClose} />
@@ -98,12 +98,12 @@ const FilterComboBox = <T extends {}>({
       }
     >
       {({ close }) => (
-        <div className=' flex flex-col divide-y divide-slate-200 max-h-[20em] overflow-y-auto bg-white text-start'>
+        <div className=' flex flex-col divide-y divide-slate-200 max-h-[20em] overflow-y-auto bg-white dark:bg-gray-800 text-start'>
           {!rawSearch && optionalItems.length > 0 && (
             <>
               {optionalItems.map((item) => (
                 <button
-                  className={`px-2 py-1 flex justify-between items-center hover:bg-slate-50 gap-1 ${selectedKey === item.key ? "bg-slate-100" : ""
+                  className={`px-2 py-1 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-gray-900 gap-1 ${selectedKey === item.key ? "bg-slate-100 dark:bg-gray-700" : ""
                     }`}
                   key={item.key}
                   onClick={() => {
@@ -115,19 +115,19 @@ const FilterComboBox = <T extends {}>({
                   {selectedKey === item.key && (
                     <FontAwesomeIcon
                       icon={faCheck}
-                      className='text-slate-600'
+                      className='text-slate-600 dark:text-gray-400'
                     />
                   )}
                 </button>
               ))}
-              <div className='w-full h-2 bg-slate-100'></div>
+              <div className='w-full h-2 bg-slate-100 dark:bg-gray-700'></div>
             </>
           )}
 
           {filteredList && filteredList.length > 0 ? (
             filteredList.map((item) => (
               <button
-                className={`px-2 py-1 flex justify-between items-center hover:bg-slate-50 gap-1 ${selectedKey === item.key ? "bg-slate-100" : ""
+                className={`px-2 py-1 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-gray-900 gap-1 ${selectedKey === item.key ? "bg-slate-100 dark:bg-gray-700" : ""
                   }`}
                 key={item.key}
                 onClick={() => {
@@ -137,7 +137,7 @@ const FilterComboBox = <T extends {}>({
               >
                 {itemElement(item)}
                 {selectedKey === item.key && (
-                  <FontAwesomeIcon icon={faCheck} className='text-slate-600' />
+                  <FontAwesomeIcon icon={faCheck} className='text-slate-600 dark:text-gray-400' />
                 )}
               </button>
             ))

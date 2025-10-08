@@ -34,7 +34,7 @@ const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
   const preferredName = user?.displayName || user?.username;
   if (isLoading || loading)
     return (
-      <span className='h-[1em] w-12 rounded-lg bg-slate-200 animate-pulse inline-block'></span>
+      <span className='h-[1em] w-12 rounded-lg bg-slate-200 dark:bg-gray-600 animate-pulse inline-block'></span>
     );
 
   if (!user)
@@ -49,7 +49,7 @@ const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
       onClick={onUserClick}
       type='button'
       title={`open ${preferredName}'s profile`}
-      className={`text-blue-500 hover:underline hover:bg-slate-200 ${className}`}
+      className={`text-blue-500 hover:underline hover:bg-slate-200 dark:hover:bg-gray-600 ${className}`}
     >
       {preferredName}
     </button>

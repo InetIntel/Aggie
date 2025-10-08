@@ -26,7 +26,7 @@ const IodaEvent = ({ report }: IProps) => {
       <div className='flex gap-2 items-center'>
         <h2 className='font-medium'>{report?.author}</h2>
         <AggieToken
-          className={`${bgColor} p-1 rounded-lg text-sm text-white`}
+          className={`${bgColor} p-1 rounded-lg text-sm text-white dark:text-gray-300 `}
         >
           {signal}
         </AggieToken>

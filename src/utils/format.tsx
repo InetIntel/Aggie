@@ -6,13 +6,13 @@ const formatters = [
     key: "username",
     desc: "format usernames with @mark",
     regex: /@[a-z0-9_]+/g,
-    defaultStyle: "bg-slate-200/75 px-1",
+    defaultStyle: "bg-slate-200/75 dark:bg-gray-600/75 px-1",
   },
   {
     key: "hashtag",
     desc: "format #hastags",
     regex: /#[a-z0-9_]+/g,
-    defaultStyle: "text-slate-500",
+    defaultStyle: "text-slate-500 dark:text-gray-400",
   },
 ];
 

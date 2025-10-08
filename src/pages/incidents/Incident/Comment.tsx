@@ -114,11 +114,11 @@ const Comment = ({ data, groupId }: IProps) => {
   return (
     <div
       key={data._id}
-      className='border border-slate-300 rounded-lg bg-slate-50 overflow-hidden my-2'
+      className='border border-slate-300 rounded-lg bg-slate-50 dark:bg-gray-900 overflow-hidden my-2 dark:bg-gray-700'
     >
       <div className='border-b border-slate-300'>
         <div className='flex justify-between text-sm px-2 py-2'>
-          <p className='inline-flex items-center text-slate-600 gap-1'>
+          <p className='inline-flex items-center text-slate-600 dark:text-gray-400 gap-1'>
             <FontAwesomeIcon icon={faCommentAlt} /> <UserToken id={data.author} />
             <span className='italic '>comments </span>
           </p>
@@ -138,12 +138,12 @@ const Comment = ({ data, groupId }: IProps) => {
                 ></AggieButton>
                 <DropdownMenu
                   variant='secondary'
-                  className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
+                  className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 '
                   panelClassName='overflow-hidden right-0'
                   buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                 >
                   <AggieButton
-                    className='w-full px-2 py-1 hover:bg-red-100  font-medium flex gap-2 text-nowrap items-center flex-grow text-red-800 '
+                    className='w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] font-medium flex gap-2 text-nowrap items-center flex-grow text-red-800 '
                     onClick={() =>
                       doDeleteComment.mutate({ id: groupId, comment: data })
                     }
@@ -175,11 +175,11 @@ const Comment = ({ data, groupId }: IProps) => {
           })}
         >
           {({ resetForm, errors, isValid }) => (
-            <Form encType="multipart/form-data">
+            <Form encType="multipart/form-data" >
               <Field
                 as='textarea'
                 name='commentdata'
-                className='focus-theme px-3 py-2 border-b border-slate-300 bg-white w-full min-h-36'
+                className='focus-theme px-3 py-2 border-b border-slate-300 bg-white dark:bg-gray-800 w-full min-h-36'
                 placeholder='Write a comment here...'
               />
               <Field name='attachments'>
@@ -223,7 +223,7 @@ const Comment = ({ data, groupId }: IProps) => {
           )}
         </Formik>
       ) : (
-        <div className='bg-white flex flex-col gap-3 px-3 py-3 whitespace-pre-line'>
+        <div className='bg-white dark:bg-gray-800 flex flex-col gap-3 px-3 py-3 whitespace-pre-line'>
           <p><Linkify>{data.data}</Linkify></p>
           <FileChipList
             nameList={nameList}

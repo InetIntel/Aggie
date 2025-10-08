@@ -80,19 +80,19 @@ const IncidentsFilters = ({
               <Form className='flex w-full'>
                 <Field
                   name='title'
-                  className='px-2 py-1 border border-r-0 border-slate-300 bg-white rounded-l-lg w-full'
+                  className='px-2 py-1 border border-r-0 border-slate-300 bg-white dark:bg-gray-800 rounded-l-lg w-full '
                   placeholder='search title, location, description, id (with #)'
                 />
                 <button
                   type='submit'
                   onClick={onSearch}
-                  className='px-4 py-1 bg-slate-100 rounded-r-lg border border-slate-300 hover:bg-slate-50'
+                  className='px-4 py-1 bg-slate-100 dark:bg-gray-700 rounded-r-lg border border-slate-300 hover:bg-slate-50 dark:hover:bg-gray-900  '
                 >
                   <FontAwesomeIcon icon={faSearch} />
                 </button>
                 {isQuery && (
                   <AggieButton
-                    className='ml-1 hover:underline hover:bg-slate-100 px-2 py-1 text-sm rounded'
+                    className='ml-1 hover:underline hover:bg-slate-100 dark:hover:bg-gray-700 px-2 py-1 text-sm rounded'
                     onClick={() => {
                       clearAll();
                       resetForm();
@@ -107,7 +107,7 @@ const IncidentsFilters = ({
           </Formik>
         </div>
         <div className='text-xs flex items-center gap-2'>
-          <p className={"font-medium text-slate-600"}>
+          <p className={"font-medium text-slate-600 dark:text-gray-400"}>
             {formatPageCount(Number(get("page")), 50, totalCount)}
           </p>
           <Pagination
@@ -135,7 +135,7 @@ const IncidentsFilters = ({
                 <span>
                   <FontAwesomeIcon
                     icon={faCircleMinus}
-                    className='text-purple-500'
+                    className='text-purple-500 filter dark:saturate-[0.7]'
                   />{" "}
                   Closed
                 </span>
@@ -159,7 +159,7 @@ const IncidentsFilters = ({
                 {i.data?.displayName ? (
                   <>
                     <p className='font-medium'>{i.data?.displayName}</p>
-                    <p className=' text-xs text-slate-700'>
+                    <p className=' text-xs text-slate-700 dark:text-gray-300'>
                       {i.data?.username}
                     </p>
                   </>
@@ -183,7 +183,7 @@ const IncidentsFilters = ({
                 {i.data?.displayName ? (
                   <>
                     <p className='font-medium'>{i.data?.displayName}</p>
-                    <p className=' text-xs text-slate-700'>
+                    <p className=' text-xs text-slate-700 dark:text-gray-300'>
                       {i.data?.username}
                     </p>
                   </>

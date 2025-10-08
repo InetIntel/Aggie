@@ -19,7 +19,7 @@ const FormikInput = ({ name, label, type, placeholder, icon }: IProps) => {
   const { value } = meta;
   const { setValue } = helpers;
   return (
-    <label className='flex flex-col gap-1 text-slate-600'>
+    <label className='flex flex-col gap-1 text-slate-600 dark:text-gray-400'>
       <span>{icon && <FontAwesomeIcon icon={icon} />} {label ? label : name}</span>
 
       <input
@@ -28,7 +28,7 @@ const FormikInput = ({ name, label, type, placeholder, icon }: IProps) => {
         placeholder={placeholder ? placeholder : "Enter " + label}
         value={value || ""}
         onChange={(e) => setValue(e.target.value)}
-        className='px-3 py-2 focus-theme rounded border border-slate-300 bg-slate-50 text-black'
+        className='px-3 py-2 focus-theme rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 text-black'
       />
       {meta.touched && meta.error ? (
         <p className='text-orange-600 my-1 ml-1 inline-flex gap-1 items-center text-sm'>

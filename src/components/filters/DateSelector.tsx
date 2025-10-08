@@ -69,7 +69,7 @@ const DateSelector = ({ value, onChange, unsetLabel }: IProps) => {
       <button
         ref={refs.setReference}
         type='button'
-        className='relative px-2 py-1 bg-white rounded hover:bg-slate-50 border border-slate-200'
+        className='relative px-2 py-1 bg-white dark:bg-gray-800 rounded hover:bg-slate-50 dark:hover:bg-gray-900 border border-slate-200'
         {...getReferenceProps()}
       >
         {showDate || unsetLabel || "Set Date"}
@@ -81,7 +81,7 @@ const DateSelector = ({ value, onChange, unsetLabel }: IProps) => {
               ref={refs.setFloating}
               style={floatingStyles}
               {...getFloatingProps()}
-              className='z-20  text-sm'
+              className='z-20  text-sm dark:bg-gray-700'
             >
               <DayPicker
                 mode='single'
@@ -90,12 +90,13 @@ const DateSelector = ({ value, onChange, unsetLabel }: IProps) => {
                 startMonth={new Date(2024, 7)}
                 endMonth={today}
                 classNames={{
+                  day:"dark:bg-gray-700",
                   caption_label: "text-sm font-medium",
                   month_caption: "items-center flex",
                   month_grid: `${defaultClassNames.month_grid}`,
                   today: `border-green-700 rounded`, // Add a border to today's date
-                  selected: `bg-green-700 border-green-500 text-white rounded`, // Highlight the selected day
-                  root: `${defaultClassNames.root} shadow-lg p-3 bg-white rounded-lg border border-slate-300 text-center`, // Add a shadow to the root element
+                  selected: `bg-green-700 dark:bg-green-700 dark:saturate-[0.7] border-green-500 text-white dark:text-gray-300 rounded`, // Highlight the selected day
+                  root: `${defaultClassNames.root} shadow-lg p-3 bg-white dark:bg-gray-800 rounded-lg border border-slate-300 text-center`, // Add a shadow to the root element
                   chevron: `${defaultClassNames.chevron} fill-green-700`, // Change the color of the chevron
                   nav: "absolute right-0 top-0 h-[2em]",
                 }}

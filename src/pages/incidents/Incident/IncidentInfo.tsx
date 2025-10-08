@@ -38,7 +38,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
     return `${year}-${month}-${day} ${hour}:${minute}`;
   }
   return (
-    <header className='text-slate-600 border-b border-slate-300 py-2'>
+    <header className='text-slate-600 dark:text-gray-400 border-b border-slate-300 py-2 dark:text-gray-300'>
       <div className='flex justify-between'>
         <div>
           <div className='flex gap-2 flex-wrap'>
@@ -52,13 +52,13 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             </PlaceholderDiv>
             { /*<VeracityToken value={group?.veracity} />*/ }
             {group?.closed && (
-              <span className='px-1 bg-purple-200 text-purple-700 font-medium inline-flex gap-1 items-center'>
+              <span className='px-1 bg-purple-200 text-purple-700 font-medium inline-flex gap-1 items-center dark:bg-purple-200 dark:saturate-[0.7]'>
                 <FontAwesomeIcon icon={faMinusCircle} />
                 Closed
               </span>
             )}
             {group && !group?.public && (
-              <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
+              <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center dark:bg-red-200 dark:saturate-[0.7]'>
                 <FontAwesomeIcon icon={faTrash} />
                 Deleted
               </span>
@@ -67,8 +67,8 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           </div>
           <PlaceholderDiv
             loading={isLoading}
-            className='text-black text-3xl font-medium my-2'
-            loadingClass='mt-1 bg-slate-200 rounded-lg'
+            className='text-black text-3xl font-medium my-2 dark:text-gray-300'
+            loadingClass='mt-1 bg-slate-200 dark:bg-gray-600 rounded-lg'
             width='12em'
           >
             <h1 className='max-w-prose'>
@@ -128,10 +128,10 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             ? group.assignedTo.map((user) => (
                 <UserToken
                   id={user._id}
-                  className='bg-white border border-slate-300 rounded-full px-2 text-sm font-medium'
+                  className='bg-white dark:bg-gray-800 border border-slate-300 rounded-full px-2 text-sm font-medium dark:border-slate-600'
                 />
               ))
-            : (<p className='italic text-slate-600'>No User Assigned</p>)
+            : (<p className='italic text-slate-600 dark:text-gray-400'>No User Assigned</p>)
           }
         </PlaceholderDiv>
       </div>
@@ -142,11 +142,11 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           className='flex flex-wrap gap-x-2 gap-y-1 items-center '
         >
           {(group?.incidentStartedAt || group?.incidentEndedAt) ? (
-            <p className='whitespace-pre-line max-w-prose text-black'>
+            <p className='whitespace-pre-line max-w-prose text-black dark:text-gray-300'>
               {formatIsoTime(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {formatIsoTime(group?.incidentEndedAt)}
             </p>
           ) : (
-            <p className='italic text-slate-600'>No Date Set</p>
+            <p className='italic text-slate-600 dark:text-gray-400'>No Date Set</p>
           )}
         </PlaceholderDiv>
       </div>
@@ -155,13 +155,13 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
         <p>Description:</p>
 
         {group?.notes ? (
-          <div className='px-2 py-1 border border-slate-200 rounded w-full bg-white overflow-y-auto max-h-40'>
-            <p className='whitespace-pre-line max-w-prose text-black'>
+          <div className='px-2 py-1 border border-slate-200 rounded w-full bg-white dark:bg-gray-800 overflow-y-auto max-h-40 dark:bg-gray-700 dark:border-slate-600'>
+            <p className='whitespace-pre-line max-w-prose text-black dark:text-gray-300'>
               {group?.notes}
             </p>
           </div>
         ) : (
-          <p className='italic text-slate-600'>No Description Set</p>
+          <p className='italic text-slate-600 dark:text-gray-400'>No Description Set</p>
         )}
       </div>
     </header>

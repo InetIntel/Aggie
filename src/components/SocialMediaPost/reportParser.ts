@@ -79,11 +79,11 @@ export function sanitize(string: string) {
 export function signalToNameColor(rawSignal: string) {
   switch(rawSignal) {
     case "bgp":
-      return ["BGP", "bg-[#33A02C]"];
+      return ["BGP", "bg-[#33A02C] dark:bg-[#33A02C] dark:dark:saturate-[0.6]"];
     case "ping-slash24":
-      return ["Active Probing", "bg-[#1F78B4]"];
+      return ["Active Probing", "bg-[#1F78B4] dark:bg-[#1F78B4] dark:dark:saturate-[0.6]"];
     case "merit-nt":
-      return ["Telescope", "bg-[#ED9B40]"];
+      return ["Telescope", "bg-[#ED9B40] dark:bg-[#ED9B40] dark:dark:saturate-[0.6]"];
     default:
       return [rawSignal, ""];
   }

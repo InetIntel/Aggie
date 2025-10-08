@@ -52,11 +52,11 @@ const FilterListBox = <T extends string>({
               <Listbox.Option
                 value={item}
                 key={item}
-                className='px-2 py-1 flex justify-between items-center w-full bg-[#fff] cursor-pointer hover:bg-slate-100 ui-active:bg-slate-100'
+                className='px-2 py-1 flex justify-between items-center w-full bg-white dark:bg-gray-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-gray-700 ui-active:bg-slate-100 dark:ui-active:bg-gray-700'
               >
                 {item}
                 {(value === item || selected.includes(item)) && (
-                  <FontAwesomeIcon icon={faCheck} className='text-slate-600' />
+                  <FontAwesomeIcon icon={faCheck} className='text-slate-600 dark:text-gray-400' />
                 )}
               </Listbox.Option>
             ))}

@@ -92,7 +92,7 @@ const Report = () => {
           {previous}
           {previous.props.children && ", "}
           <button
-            className='inline hover:bg-slate-100 rounded hover:underline px-1 text-left'
+            className='inline hover:bg-slate-100 dark:hover:bg-gray-700 rounded hover:underline px-1 text-left'
             onClick={() => setParams({ sourceId: source._id })}
           >
             {source.nickname}
@@ -124,7 +124,7 @@ const Report = () => {
         onClose={() => setAddReportModal(false)}
         addRemove={() => setAddReportModal(false)}
       />
-      <nav className='sticky top-0 pl-3 pr-2 py-2 flex justify-between items-center rounded-lg text-xs border border-slate-300 mb-2 shadow-md bg-white z-10'>
+      <nav className='sticky top-0 pl-3 pr-2 py-2 flex justify-between items-center rounded-lg text-xs border border-slate-300 mb-2 shadow-md bg-white dark:bg-gray-800 z-10  '>
         <div className='flex text-xxs  '></div>
         <div className='flex gap-1'>
           <AggieButton
@@ -184,7 +184,7 @@ const Report = () => {
 
           <div className='flex font-medium'>
             <AggieButton
-              className='px-2 py-1 rounded-l-lg bg-slate-100 border border-slate-300 hover:bg-slate-200'
+              className='px-2 py-1 rounded-l-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600'
               onClick={addReportsToIncidents}
             >
               {!!report._group ? (
@@ -204,14 +204,14 @@ const Report = () => {
               buttonElement={
                 <FontAwesomeIcon
                   icon={faCaretDown}
-                  className='ui-open:rotate-180'
+                  className='ui-open:rotate-180 '
                 />
               }
-              className='px-2 py-1 rounded-r-lg border-y border-r'
+              className='px-2 py-1 rounded-r-lg border-y border-r  '
               panelClassName='right-0'
             >
               <AggieButton
-                className='px-3 py-2 hover:bg-slate-200'
+                className='px-3 py-2 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 '
                 onClick={newIncidentFromReport}
               >
                 <FontAwesomeIcon icon={faFile} />

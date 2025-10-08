@@ -60,7 +60,7 @@ const UsersIndex = ({ session }: IProps) => {
         </AggieButton>
       </div>
 
-      <div className=' rounded-lg border border-slate-300 bg-white divide-y divide-slate-300'>
+      <div className=' rounded-lg border border-slate-300 bg-white dark:bg-gray-800 divide-y divide-slate-300'>
         <div className='grid grid-cols-4 px-3 py-3 font-medium text-sm border-b border-slate-300 items-baseline'>
           <p>Username</p>
           <p>Role</p>
@@ -95,7 +95,7 @@ const UsersIndex = ({ session }: IProps) => {
                   </p>
                 )}
               </div>
-              <p className='px-2 py-1 bg-slate-200 rounded text-sm w-fit font-medium'>
+              <p className='px-2 py-1 bg-slate-200 dark:bg-gray-600 rounded text-sm w-fit font-medium'>
                 {user.role}
               </p>
               <p>{user.email}</p>
@@ -103,26 +103,26 @@ const UsersIndex = ({ session }: IProps) => {
                 {session?.role === "admin" && (
                   <DropdownMenu
                     variant='secondary'
-                    className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
+                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
                     panelClassName='overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
                     <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                      className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => setEditUser(user._id)}
                     >
                       <FontAwesomeIcon icon={faEdit} />
                       Edit
                     </AggieButton>
                     <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                      className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => setEditPassword(user._id)}
                     >
                       <FontAwesomeIcon icon={faUserShield} />
                       Change Password
                     </AggieButton>
                     <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-red-600'
+                      className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-red-600'
                       onClick={() => setRemoveUser(user._id)}
                     >
                       <FontAwesomeIcon icon={faTrashAlt} />
@@ -138,7 +138,7 @@ const UsersIndex = ({ session }: IProps) => {
             <p className=''>
               <FontAwesomeIcon
                 icon={faRefresh}
-                className='animate-spin text-slate-600'
+                className='animate-spin text-slate-600 dark:text-gray-400'
               />{" "}
               Loading
             </p>

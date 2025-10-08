@@ -50,7 +50,7 @@ const FilterDateTime = ({ before, onSetBefore, after, onSetAfter }: IProps) => {
       >
         {({ close }) => (
           <>
-            <div className='flex gap-1 text-sm p-1'>
+            <div className='flex gap-1 text-sm p-1 dark:bg-gray-800'>
               <div>
                 <p>After:</p>
                 <DateSelector

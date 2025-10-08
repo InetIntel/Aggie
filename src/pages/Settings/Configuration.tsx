@@ -33,7 +33,7 @@ const Configuration = () => {
   return (
     <section className='w-full'>
       <div
-        className={`px-4 py-3 bg-white border border-slate-300 rounded-lg flex justify-between items-center ${
+        className={`px-4 py-3 bg-white dark:bg-gray-800 border border-slate-300 rounded-lg flex justify-between items-center ${
           fetchSuccess && !fetchStatusMutation.isLoading ? "" : "opacity-50"
         }`}
       >

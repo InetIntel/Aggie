@@ -38,8 +38,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
   height: 100%;
   width: 100%;
-  background: #fafafa;
-  @apply font-emojisans scroll-smooth;
+  /* background: #fafafa; */
+  @apply font-emojisans scroll-smooth bg-white dark:bg-gray-800 text-black dark:text-gray-300;
 }
 
 html {

@@ -43,10 +43,10 @@ const ConfirmationDialog = ({
       onClose={() => !disabled && onClose()}
       className='relative z-50 '
     >
-      <div className='fixed inset-0 bg-black/30' aria-hidden='true' />
+      <div className='fixed inset-0 bg-black/30 dark:bg-white/20' aria-hidden='true' />
       <div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
         <Dialog.Panel
-          className={`bg-white rounded-xl border border-slate-200 shadow-xl min-w-24 min-h-12 ${className}`}
+          className={`bg-white dark:bg-gray-800 rounded-xl border border-slate-200 shadow-xl min-w-24 min-h-12 ${className}`}
         >
           <header className='px-3 py-3'>
             <Dialog.Title className='text-xl font-medium'>{title}</Dialog.Title>

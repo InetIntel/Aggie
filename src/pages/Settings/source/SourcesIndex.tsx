@@ -76,12 +76,12 @@ const SourcesIndex = (props: IProps) => {
         }
       </div>
       { session?.role === "admin" && <Configuration /> }
-      <section className='bg-white rounded-lg border border-slate-300 divide-y divide-slate-300 mt-3'>
+      <section className='bg-white dark:bg-gray-800 rounded-lg border border-slate-300 divide-y divide-slate-300 mt-3'>
         {data &&
           data.map((source) => (
             <article
               key={source._id}
-              className='grid grid-cols-6 py-3 px-3 text-slate-600 items-center text-xs font-medium'
+              className='grid grid-cols-6 py-3 px-3 text-slate-600 dark:text-gray-400 items-center text-xs font-medium'
             >
               <main className='col-span-3'>
                 <Link
@@ -97,7 +97,7 @@ const SourcesIndex = (props: IProps) => {
               </main>
               { session?.role === "admin" &&
                 <div>
-                  <p className=' bg-slate-200 rounded-full px-2  w-fit  py-1'>
+                  <p className=' bg-slate-200 dark:bg-gray-600 rounded-full px-2  w-fit  py-1'>
                     <Link
                       to={`/settings/credentials`}
                       className='hover:underline flex items-center gap-2'
@@ -106,7 +106,7 @@ const SourcesIndex = (props: IProps) => {
                       <FontAwesomeIcon
                         icon={faKey}
                         size='xs'
-                        className='text-slate-500'
+                        className='text-slate-500 dark:text-gray-400'
                       />
                       {source.credentials.name}
                     </Link>
@@ -131,7 +131,7 @@ const SourcesIndex = (props: IProps) => {
               </div>
               { session?.role === "admin" &&
                 <div className='flex justify-end items-center gap-2'>
-                  <p className='text-xs font-medium text-slate-600'>
+                  <p className='text-xs font-medium text-slate-600 dark:text-gray-400'>
                     {source.enabled ? "Enabled" : "Disabled"}
                   </p>
                   <div className='flex items-center gap-1'>
@@ -156,19 +156,19 @@ const SourcesIndex = (props: IProps) => {
 
                   <DropdownMenu
                     variant='secondary'
-                    className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
+                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
                     panelClassName='overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
                     <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                      className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => setOpenCreate(source._id)}
                     >
                       <FontAwesomeIcon icon={faEdit} />
                       Edit
                     </AggieButton>
                     <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-red-600'
+                      className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-red-600'
                       onClick={() => setDeletionModal(source)}
                     >
                       <FontAwesomeIcon icon={faTrashAlt} />

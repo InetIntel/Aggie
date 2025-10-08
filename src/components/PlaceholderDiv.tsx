@@ -9,7 +9,7 @@ const PlaceholderDiv = ({
   as = "div",
   loading = false,
   width = "50%",
-  loadingClass = "bg-slate-200 rounded-lg ",
+  loadingClass = "bg-slate-200 dark:bg-gray-600 rounded-lg ",
   ...props
 }: IProps) => {
   const Element = as;

@@ -22,7 +22,7 @@ const GroupReportListItem = ({
       isSelectMode={isSelectMode}
       onCheckChange={onCheckChange}
     >
-      <div className='text-sm'>
+      <div className='text-sm '>
         <SocialMediaListItem report={report} />
       </div>
     </MultiSelectListItem>

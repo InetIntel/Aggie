@@ -77,15 +77,15 @@ const FilterDropdown = ({
   return (
     <div className='relative'>
       <button
-        className={`focus-theme py-1 hover:bg-slate-100 hover:underline line-clamp-1 max-w-[24em] ${isOpen ? "bg-slate-100" : ""
-          } rounded ${value ? "bg-slate-200 px-2" : "px-1"}`}
+        className={`focus-theme py-1 hover:bg-slate-100 dark:hover:bg-gray-700 hover:underline line-clamp-1 max-w-[24em]  ${isOpen ? "bg-slate-100 dark:bg-gray-700" : ""
+          } rounded ${value ? "bg-slate-200 dark:bg-gray-600 px-2" : "px-1"}`}
         ref={refs.setReference}
         {...getReferenceProps()}
       >
         <>
           <FontAwesomeIcon
             icon={faCaretDown}
-            className={`${isOpen ? "rotate-180" : ""} mr-1 text-slate-500`}
+            className={`${isOpen ? "rotate-180" : ""} mr-1 text-slate-500 dark:text-gray-400`}
           />
           {value ? value : label}
         </>
@@ -93,7 +93,7 @@ const FilterDropdown = ({
       <FloatingNode id={nodeId}>
         {isOpen && (
           <div
-            className={`absolute mt-1 right-0 rounded-lg border border-slate-300  bg-slate-100 overflow-hidden w-[20em] drop-shadow-lg z-10 text-sm  ${panelClassName || "w-fit max-w-md"
+            className={`absolute mt-1 right-0 rounded-lg border border-slate-300  bg-slate-100 dark:bg-gray-700 overflow-hidden w-[20em] drop-shadow-lg z-10 text-sm dark:bg-gray-800 ${panelClassName || "w-fit max-w-md"
               }`}
             style={floatingStyles}
             ref={refs.setFloating}
@@ -106,7 +106,7 @@ const FilterDropdown = ({
 
                   {value && (
                     <button
-                      className='px-1 -mr-1 rounded hover:bg-slate-200 absolute right-2 text-slate-600  underline '
+                      className='px-1 -mr-1 rounded hover:bg-slate-200 dark:hover:bg-gray-600 absolute right-2 text-slate-600  dark:text-gray-400 underline '
                       onClick={() => {
                         onReset();
                         // dont run "onOpenChange" when running reset to avoid weird state race condition stuff

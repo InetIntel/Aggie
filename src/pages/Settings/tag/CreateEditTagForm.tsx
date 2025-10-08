@@ -79,7 +79,7 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
     >
       <Form className='flex flex-col gap-3'>
         {error && (
-          <p className='px-3 py-2 border border-red-400 bg-red-200 text-red-800 font-medium'>
+          <p className='px-3 py-2 border border-red-400 bg-red-200 dark:bg-red-200 dark:saturate-[0.7] text-red-800 font-medium'>
             {error}
           </p>
         )}
@@ -90,7 +90,7 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
           <Field
             as='textarea'
             name='description'
-            className='p-3 border border-slate-300 rounded bg-slate-50'
+            className='p-3 border border-slate-300 rounded bg-slate-50 dark:bg-gray-900'
           />
         </label>
 

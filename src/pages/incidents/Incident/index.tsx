@@ -193,12 +193,12 @@ const Incident = () => {
           <div className='flex items-center gap-2'>
             <DropdownMenu
               variant='secondary'
-              className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
+              className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300  dark:border-slate-600'
               panelClassName='overflow-hidden right-0'
               buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
             >
               <AggieButton
-                className='w-full px-2 py-1 hover:bg-slate-200  font-medium flex gap-2 text-nowrap items-center flex-grow '
+                className='w-full px-2 py-1 hover:bg-slate-200 dark:hover:bg-gray-600  font-medium flex gap-2 text-nowrap items-center flex-grow'
                 onClick={() => setIsEditOpen(true)}
               >
                 <FontAwesomeIcon icon={faEdit} />
@@ -206,7 +206,7 @@ const Incident = () => {
               </AggieButton>
               {group?.closed ? (
                 <AggieButton
-                  className={`w-full px-2 py-1 hover:bg-green-100 text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+                  className={`w-full px-2 py-1 hover:bg-green-100 text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow dark:hover:bg-green-100 dark:saturate-[0.7]`}
                   onClick={() =>
                     doSetClosed.mutate(
                       {
@@ -233,7 +233,7 @@ const Incident = () => {
                 </AggieButton>
               ) : (
                 <AggieButton
-                  className={`w-full px-2 py-1 hover:bg-red-100 text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+                  className={`w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow`}
                   onClick={() =>
                     doSetClosed.mutate(
                       {
@@ -260,7 +260,7 @@ const Incident = () => {
                 </AggieButton>
               )}
               <AggieButton
-                className={`w-full px-2 py-1 hover:bg-red-100 text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+                className={`w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
                 onClick={() => setDeleteModal(true)}
               >
                 <FontAwesomeIcon icon={faTrash} />
@@ -317,7 +317,7 @@ const Incident = () => {
           }
         />
         <div
-          className={`px-1 flex gap-2 text-xs font-medium items-center ${multiSelect.isActive ? "mt-2" : ""
+          className={`px-1 flex gap-2 text-xs font-medium items-center   ${multiSelect.isActive ? "mt-2" : ""
             }`}
         >
           {multiSelect.isActive && (
@@ -363,7 +363,7 @@ const Incident = () => {
 
               <div className='flex font-medium'>
                 <AggieButton
-                  className='px-2 py-1 rounded-l-lg bg-slate-100 border border-slate-300 hover:bg-slate-200'
+                  className='px-2 py-1 rounded-l-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600 '
                   onClick={() => setAddReportModal(true)}
                   disabled={!multiSelect.any()}
                 >
@@ -383,14 +383,14 @@ const Incident = () => {
                   disabled={!multiSelect.any()}
                 >
                   <AggieButton
-                    className='px-3 py-2 hover:bg-slate-200'
+                    className='px-3 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 '
                     onClick={onNewIncidentFromReports}
                   >
                     <FontAwesomeIcon icon={faFile} />
                     Move to a New Incident
                   </AggieButton>
                   <AggieButton
-                    className='px-3 py-2 hover:bg-slate-200 text-red-800'
+                    className='px-3 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 text-red-800'
                     onClick={() => setRemoveReports(true)}
                   >
                     <FontAwesomeIcon icon={faFileCircleMinus} />
@@ -401,12 +401,12 @@ const Incident = () => {
             </>
           )}
         </div>
-        <div className='overflow-y-auto flex flex-col rounded-lg bg-slate-50 border border-slate-300'>
+        <div className='overflow-y-auto flex flex-col rounded-lg bg-slate-50 dark:bg-gray-900 border border-slate-300 '>
           {groupReports && groupReports.total > 0 ? (
             groupReports.results.map((report) => (
               <div
                 onClick={() => setActivePost(report)}
-                className='cursor-pointer'
+                className='cursor-pointer '
               >
                 <GroupReportListItem
                   report={report}
@@ -417,7 +417,7 @@ const Incident = () => {
               </div>
             ))
           ) : (
-            <div className='grid place-items-center py-8 bg-white rounded-lg'>
+            <div className='grid place-items-center py-8 bg-white dark:bg-gray-800 rounded-lg'>
               <p className='font-medium text-center px-3'>No Reports Found</p>
             </div>
           )}
@@ -425,12 +425,12 @@ const Incident = () => {
         {activePost && (
           <section className='absolute inset-0'>
             <div
-              className='absolute inset-0 bg-black/30'
+              className='absolute inset-0 bg-black/30 dark:bg-white/20'
               aria-hidden='true'
               onClick={() => setActivePost(undefined)}
             />
             <div className='absolute p-3 inset-0 h-full w-full overflow-y-auto  grid place-items-center'>
-              <div className='p-3 bg-slate-50 rounded-xl border border-slate-300 shadow-md max-w-md'>
+              <div className='p-3 bg-slate-50 dark:bg-gray-900 rounded-xl border border-slate-300 shadow-md max-w-md'>
                 <header className='flex justify-between items-center mb-2'>
                   <h2 className='font-medium text-xl'>Preview</h2>
                   <AggieButton
