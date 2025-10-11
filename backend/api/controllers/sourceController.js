@@ -13,7 +13,7 @@ exports.source_create = (req, res) => {
       return res.status(err.status).send(err.message);
     }
     
-    res.send(200, source);
+    res.status(200).send(source);
   });
 }
 

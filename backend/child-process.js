@@ -68,7 +68,7 @@ ChildProcess.prototype.registerOutgoingEmitter = function (options) {
   var emitter = require(options.emitter);
   if (options.subclass) emitter = emitter[options.subclass];
   // Listen to registered event
-  if (!_.includes(_.keys(emitter._events), options.registeredEvent)) {
+  if (!_.includes(_.keys(emitter._events), options.registeredEvent)||options.registeredEvent == 'source:save') {
     // Events emitted by the backend can have up to 1 argument (data)
     emitter.on(options.registeredEvent, function (data, other) {
       if (other) throw new Error('Events can only have one argument');
