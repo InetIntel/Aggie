@@ -183,14 +183,19 @@ class CloudflareChannel extends PollChannel {
         
         // construct start date
         const startDate = new Date(event.startDate);
+        const startHour = startDate.getUTCHours();
         const eventStartedAt = startDate.toISOString();
-        const eventStartDate = eventStartedAt.slice(0, 10);
+
+        const urlFromEpoch = new Date(startDate);
+        if (startHour < 12) urlFromEpoch.setUTCDate(urlFromEpoch.getUTCDate() - 1);
+        urlFromEpoch.setUTCHours(0, 0, 0, 0);
+        const urlFromDate = urlFromEpoch.toISOString().slice(0, 10);
 
         // construct end date
         let endDate = null;
         let eventEndedAt = 'unknown';
         let eventDuration = 'unknown';
-        let eventEndDate = this.fetchToTimestamp;
+        let urlToDate;
 
         if (event.endDate) {
             endDate = new Date(event.endDate);    
@@ -198,9 +203,13 @@ class CloudflareChannel extends PollChannel {
             eventDuration = this.formatDuration(
                 Math.floor((endDate - startDate) / 1000)
             );
-            eventEndDate = eventEndedAt.slice(0, 10); 
-        }
-       
+            urlToDate = eventEndedAt.slice(0, 10); 
+        } else {
+            const urlToEpoch = new Date(startDate);
+            if (startHour >= 12) urlToEpoch.setUTCDate(urlToEpoch.getUTCDate() + 1);
+            urlToEpoch.setUTCHours(0, 0, 0, 0);
+            urlToDate = urlToEpoch.toISOString().slice(0, 10);            
+        }  
 
         let entityLevel = null;
         let entityScope = null;
@@ -212,14 +221,14 @@ class CloudflareChannel extends PollChannel {
             entityLevel = 'Country';
             entityScope = event.locationDetails.name;
             entityName = `${entityLevel} - ${entityScope}`;
-            linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${event.locationDetails.code}?dateStart=${eventStartDate}&dateEnd=${eventEndDate}`;
-            image = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${API_LINKED_PAGE_URLS.CLOUDFLARE.IMAGE_ROUTE}&dateStart=${eventStartDate}&dateEnd=${eventEndDate}&location=${this.countryCode}`;
+            linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${event.locationDetails.code}?dateStart=${urlFromDate}&dateEnd=${urlToDate}`;
+            image = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${API_LINKED_PAGE_URLS.CLOUDFLARE.IMAGE_ROUTE}&dateStart=${urlFromDate}&dateEnd=${urlToDate}&location=${this.countryCode}`;
         } else {
             entityLevel = 'AS';
             entityScope = event.asnDetails.location.name;
             entityName = `${event.asnDetails.name} - ${entityScope}`;
-            linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/as${event.asnDetails.asn}?dateStart=${eventStartDate}&dateEnd=${eventEndDate}`;
-            image = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${API_LINKED_PAGE_URLS.CLOUDFLARE.IMAGE_ROUTE}&dateStart=${eventStartDate}&dateEnd=${eventEndDate}&location=as${event.asnDetails.asn}`;
+            linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/as${event.asnDetails.asn}?dateStart=${urlFromDate}&dateEnd=${urlToDate}`;
+            image = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${API_LINKED_PAGE_URLS.CLOUDFLARE.IMAGE_ROUTE}&dateStart=${urlFromDate}&dateEnd=${urlToDate}&location=as${event.asnDetails.asn}`;
         }
 
         const dataSource = DATA_SOURCES.CLOUDFLARE;
