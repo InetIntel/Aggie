@@ -66,7 +66,17 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
   };
 
   const [logoutModal, setLogoutModal] = useState(false);
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState<boolean>(()=>{
+    try {
+      const saved = localStorage.getItem("theme");
+      if (saved == "dark") return true;
+      if (saved == "light") return false;
+      return window.matchMedia && 
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+    } catch (error) {
+      return false;
+    }
+  })
   useEffect(() => {
     const root = document.documentElement;
     if (isDark) {
@@ -77,6 +87,18 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
       localStorage.setItem("theme", "light");
     }
   }, [isDark]);
+  // ensure cross-tab dark mode consistency
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "theme") {
+        setIsDark(e.newValue === "dark");
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [])
+
+
 
 
   const doLogout = useMutation({
