@@ -6,9 +6,13 @@ const validator = require('validator');
 
 
 exports.user_users = (req, res) => {
-  User.find({}, function (err, users) {
-    if (err) {
+  if (!req.user) return res.status(401).send("Unauthenticated.");
 
+  const isAdmin = req.user.role === "admin";
+  const filter = isAdmin ? {} : {_id: req.user._id};
+
+  User.find(filter, function (err, users) {
+    if (err) {
       return res.status(err.status).send(err.message);
     }
     else {
@@ -76,18 +80,20 @@ exports.user_create = (req, res) => {
 
 // Update a User
 exports.user_update = (req, res) => {
+  const isAdmin = req.user.role === "admin";
+  const isSelf = String(req.params._id) === String(req.user._id);
+
+  if (!isAdmin && !isSelf) return res.sendStatus(403);
+
+  const allowedFields =  // admin can edit roles only when editing others' roles
+      isAdmin && !isSelf
+      ? ['email', 'username', 'displayName', 'role']
+      : ['email', 'username', 'displayName'];
+
+
   User.findById(req.params._id, (err, user) => {
     if (err) return res.status(err.status).send(err.message);
     if (!user) return res.sendStatus(404);
-    // Only admin can update users other than itself
-    if (
-      req.user &&
-      !User.can('admin users') &&
-      req.params._id != req.user._id
-    )
-      return res.send(403);
-
-    const allowedFields = ['email', 'username', 'displayName'];
 
     for (const attr of allowedFields) {
       if (req.body[attr] !== undefined) {

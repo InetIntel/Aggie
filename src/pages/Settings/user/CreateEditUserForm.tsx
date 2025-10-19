@@ -53,9 +53,10 @@ const defaultCreateSchema = userCreateSchema.getDefault();
 interface IProps {
   user?: User;
   onClose: () => void;
+  canEditRole?: boolean;
 }
 
-const CreateEditUserForm = ({ user, onClose }: IProps) => {
+const CreateEditUserForm = ({ user, onClose, canEditRole }: IProps) => {
   const queryClient = useQueryClient();
 
   const doCreateUser = useMutation(newUser, {
@@ -103,13 +104,14 @@ const CreateEditUserForm = ({ user, onClose }: IProps) => {
         <FormikDropdown
           label='Role'
           name='role'
-          list={!!user
-            ? [{ _id: user.role, label: user.role }]
-            : [...USER_ROLES].map((i) => {
-              return { _id: i, label: i };
-              })
+          list={
+            user
+            ? (canEditRole
+                ? [...USER_ROLES].map(r => ({_id: r, label: r}))
+                : [{_id: user.role, label: user.role}])
+            : [...USER_ROLES].map(r => ({_id: r, label: r}))
           }
-          disabled={!!user}
+          disabled={user ? !canEditRole : false}
         />
         <FormikInput label='Username' name='username' />
         <FormikInput

@@ -44,6 +44,7 @@ const UserProfile = ({ session }: IProps) => {
   });
 
   const isSelf = session?._id === params.id;
+  const canEditRole = session?.role === "admin" && !isSelf;
 
   const grid = "grid grid-cols-4 py-1 items-center";
 
@@ -119,7 +120,11 @@ const UserProfile = ({ session }: IProps) => {
           title: "Edit user details",
         }}
       >
-        <CreateEditUserForm user={data} onClose={() => setOpenEdit(false)} />
+        <CreateEditUserForm 
+          user={data} 
+          onClose={() => setOpenEdit(false)} 
+          canEditRole = {canEditRole}
+        />
       </AggieDialog>
       <AggieDialog
         isOpen={!!openEditPassword}
