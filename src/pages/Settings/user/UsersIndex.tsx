@@ -44,6 +44,11 @@ const UsersIndex = ({ session }: IProps) => {
   }
 
   const userToDelete = userFromId(removeUser);
+  
+  const userToEdit = userFromId(editUser);
+  const canEditRole = 
+    (editUser === "newUser" && session?.role === "admin") || 
+    (!!userToEdit && session?.role === "admin" && userToEdit._id !== session?._id);
 
   return (
     <div className='w-full mb-16'>
@@ -154,8 +159,9 @@ const UsersIndex = ({ session }: IProps) => {
         }}
       >
         <CreateEditUserForm
-          user={userFromId(editUser)}
+          user={userToEdit}
           onClose={() => setEditUser("")}
+          canEditRole = {!! canEditRole}
         />
       </AggieDialog>
       <AggieDialog
