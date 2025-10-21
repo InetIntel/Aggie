@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { deleteUser, getUser } from "../../../api/users";
 import type { Session } from "../../../api/session/types";
+import { startRegistration } from "@simplewebauthn/browser";
+import { webauthnRegisterStart, webauthnRegisterFinish, getSession } from "../../../api/session";
 
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 
@@ -18,6 +20,8 @@ import {
   faEdit,
   faTrashAlt,
   faUserShield,
+  faKey, 
+  faShieldHalved
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
@@ -32,6 +36,11 @@ const UserProfile = ({ session }: IProps) => {
     if (params.id) return getUser(params.id);
     else return undefined;
   });
+
+  const queryClient = useQueryClient();
+  const [enrollLoading, setEnrollLoading] = useState(false);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [enrollSuccess, setEnrollSuccess] = useState<boolean>(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
   const [openEditPassword, setOpenEditPassword] = useState(false);
@@ -43,6 +52,27 @@ const UserProfile = ({ session }: IProps) => {
     },
   });
 
+  async function handleEnrollWebAuthn() {
+    setEnrollError(null);
+    setEnrollSuccess(false);
+    setEnrollLoading(true);
+    try {
+      const options = await webauthnRegisterStart();
+
+      const attestation = await startRegistration({optionsJSON: options});
+
+      await webauthnRegisterFinish(attestation);
+
+      //refresh session
+      const fresh = await getSession();
+      queryClient.setQueryData(["session"], fresh);
+      setEnrollSuccess(true);
+    } catch (e: any) {
+      setEnrollError(e?.message || "Enrollment failed. Please try again.");
+    } finally {
+      setEnrollLoading(false);
+    }
+  }
   const isSelf = session?._id === params.id;
   const canEditRole = session?.role === "admin" && !isSelf;
 
@@ -111,6 +141,67 @@ const UserProfile = ({ session }: IProps) => {
           <p className=''>Email</p>
           <p className='mt-1'>{data?.email}</p>
         </PlaceholderDiv>
+        <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-300">
+          <h3 className="text-xl font-medium mb-2">Security</h3>
+
+          {/* <div className="grid grid-cols-4 py-1 items-center">
+            <p>MFA status</p>
+            <div className="col-span-3 inline-flex items-center gap-2">
+              <span
+                className={[
+                  "text-xs px-2 py-0.5 rounded-full border",
+                  (session?.mfa ? "text-green-700 border-green-300 bg-green-50" : "text-amber-700 border-amber-300 bg-amber-50")
+                ].join(" ")}
+                title={session?.mfa ? "Multi-factor authentication is active for this session" : "You have not completed MFA this session"}
+              >
+                <FontAwesomeIcon icon={faShieldHalved} className="mr-1" />
+                {session?.mfa ? "MFA On" : "MFA Off"}
+              </span>
+            </div>
+          </div> */}
+          <div className="grid grid-cols-4 py-1 items-center">
+            <p>Enrollment</p>
+            <div className="col-span-3 inline-flex items-center gap-2">
+              <span
+                className={[
+                  "text-xs px-2 py-0.5 rounded-full border",
+                  (session?.mfa_enrolled ? "text-green-700 border-green-300 bg-green-50" : "text-amber-700 border-amber-300 bg-amber-50")
+                ].join(" ")}
+                title={session?.mfa_enrolled ? "You have at least one registered passkey" : "No passkeys enrolled yet"}
+              >
+                {session?.mfa_enrolled ? "Enrolled" : "Not enrolled"}
+              </span>
+            </div>
+          </div>
+          {isSelf && (
+            <div className="grid grid-cols-4 py-2 items-center">
+              <p>WebAuthn device</p>
+              <div className="col-span-3">
+                <AggieButton
+                  variant="primary"
+                  className="justify-center"
+                  onClick={handleEnrollWebAuthn}
+                  loading={enrollLoading}
+                  disabled={enrollLoading}
+                >
+                  <FontAwesomeIcon icon={faKey} className="mr-2" />
+                  {enrollLoading ? "Enrolling..." : "Enable / Add authenticator"}
+                </AggieButton>
+
+                {enrollError && (
+                  <p className="mt-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                    {enrollError}
+                  </p>
+                )}
+                {enrollSuccess && (
+                  <p className="mt-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
+                    Device enrolled. MFA is now active for this session.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>        
       </div>
       <AggieDialog
         isOpen={!!openEdit}

@@ -5,6 +5,19 @@ const Schema = mongoose.Schema;
 const passportLocalMongoose = require('passport-local-mongoose');
 require('dotenv').config()
 
+const WebAuthnCredSchema = new Schema({
+  credentialID: { type: Buffer, required: true },   
+  publicKey:    { type: Buffer, required: true },   
+  counter:      { type: Number,  required: true, default: 0 },
+  transports:   [{ type: String }],
+  fmt:          { type: String },
+  aaguid:       { type: String },
+  userVerified: { type: Boolean, default: false },
+  lastUsedAt:   { type: Date },
+  label:        { type: String },
+  createdAt:    { type: Date, default: Date.now }
+}, { _id: false });
+
 var userSchema = new Schema({
   provider: { type: String, default: 'local' },
   username: { type: String, required: true, unique: true },
@@ -15,7 +28,12 @@ var userSchema = new Schema({
   role: { type: String, default: 'viewer' },
   active: { type: Boolean, default: true },
   attempts: { type: Number, default: 0 },
-  last: { type: Date }
+  last: { type: Date },
+  webauthnUserID: { type: Buffer }, 
+  currentChallenge: { type: String },   
+  webauthnCredentials: { type: [WebAuthnCredSchema], default: [] },
+  mfaEnforced: { type: Boolean, default: false },  
+  mfaEnrolledAt: { type: Date }
 });
 
 userSchema.plugin(passportLocalMongoose, {

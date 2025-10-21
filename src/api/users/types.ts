@@ -10,7 +10,7 @@ export interface User extends hasId {
   email: string;
   username: string;
   displayName?: string;
-  __v: number;
+  __v?: number;
 }
 
 export interface UserEditableData {

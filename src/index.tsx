@@ -14,8 +14,8 @@ import TimeAgo from "javascript-time-ago";
 import en from "javascript-time-ago/locale/en";
 import SocketProvider from "./hooks/WebsocketProvider";
 import AppRouter from "./AppRouter";
-
-axios.defaults.baseURL = process.env.PUBLIC_URL;
+axios.defaults.withCredentials = true;
+axios.defaults.baseURL = process.env.PUBLIC_URL || 'http://localhost:3000';
 
 //locale for rendering relative time react
 TimeAgo.addDefaultLocale(en);
@@ -28,8 +28,11 @@ const queryClient = new QueryClient({
       staleTime: 10000,
       onError: (err) => {
         const error = err as AxiosError;
+        // const path = window.location.pathname;
         if (error.response && error.response.status === 401) {
           window.location.reload();
+          // const search = new URLSearchParams([['to', path + window.location.search]]).toString();
+          // window.location.assign(`/login?${search}`);
         }
       },
     },

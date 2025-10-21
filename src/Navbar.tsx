@@ -8,6 +8,8 @@ import {
   faPalette,
   faSun,
   faMoon,
+  faShieldHalved,
+  faKey,
 } from "@fortawesome/free-solid-svg-icons";
 import { Menu } from "@headlessui/react";
 import { faUser } from "@fortawesome/free-regular-svg-icons";
@@ -104,7 +106,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
   const doLogout = useMutation({
     mutationFn: logOut,
     onSuccess: () => {
-      navigate({ pathname: "/login" });
+      navigate({ pathname: "/login" }, {replace: true});
       setLogoutModal(false);
       queryClient.invalidateQueries(["session"]);
     },
@@ -173,15 +175,42 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
         </DropdownMenu>*/ }
 
         {session && (
-          <Link
-            to={"/settings/user/" + session._id}
-            className='focus-theme rounded-full hover:underline  hover:bg-slate-100 dark:hover:bg-gray-700 '
-          >
-            <div className='px-3 py-1 flex gap-2 h-full  items-center border border-slate-200 rounded-lg font-medium text-xs '>
-              <FontAwesomeIcon icon={faUser} />
-              {session.username}
-            </div>
-          </Link>
+          <div className='flex items-center gap-2'>
+            <Link
+              to={"/settings/user/" + session._id}
+              className='focus-theme rounded-full hover:underline  hover:bg-slate-100 dark:hover:bg-gray-700 '
+            >
+              <div className='px-3 py-1 flex gap-2 h-full  items-center border border-slate-200 rounded-lg font-medium text-xs '>
+                <FontAwesomeIcon icon={faUser} />
+                {session.username}
+              </div>
+            </Link>
+            
+            <span
+              className={[
+                'text-xs px-2 py-0.5 rounded-full border',
+                session.mfa_enrolled
+                  ? "text-green-700 border-green-300 bg-green-50" 
+                  : "text-amber-700 border-amber-300 bg-amber-50"
+              ].join(' ')}
+              title={session.mfa_enrolled ? 'You have at least one registered passkey' : 'No passkeys enrolled yet'}
+            >
+              {session.mfa_enrolled ? 'MFA Enrolled' : 'MFA Off'}
+            </span>
+            {/* <span
+              className={[
+                'text-xs px-2 py-0.5 rounded-full border',
+                session.mfa
+                  ? 'text-green-700 border-green-300 bg-green-50'
+                  : 'text-amber-700 border-amber-300 bg-amber-50'
+              ].join(' ')}
+              title={session.mfa ? 'Multi-factor authentication is active' : 'You have not completed MFA this session'}
+            >
+              <FontAwesomeIcon icon={faShieldHalved} className='mr-1' />
+              {session.mfa ? 'MFA On' : 'MFA Off'}
+            </span> */}
+          </div>
+        
         )}
 
         <div

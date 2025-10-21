@@ -4,12 +4,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQueryParams } from "../hooks/useQueryParams";
 
 import * as Yup from "yup";
-import { logIn } from "../api/session";
+import { logIn, webauthnLoginStart, webauthnLoginFinish } from "../api/session";
 
 import { Field, Formik, FormikValues, Form } from "formik";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import AggieButton from "../components/AggieButton";
+import { startAuthentication } from '@simplewebauthn/browser';
 
 const loginFormSchema = Yup.object().shape({
   loginUsername: Yup.string().required("Username required"),
@@ -26,23 +27,50 @@ const Login = ({ }: IProps) => {
   const queryClient = useQueryClient();
 
   const loginQuery = useMutation(logIn, {
-    onSuccess: (_) => {
-      // if theres a return parameter, return to that url
-      if (!!getParam("to")) {
-        navigate(getParam("to"));
+    onSuccess: async (resp, vars: {username: string, password: string}) => {
+      if ((resp as any)?.mfa_required && (resp as any)?.pendingLoginId) {
+        try {
+          await runWebAuthnLogin((resp as any).pendingLoginId, vars.username);
+          return;
+        } catch (e:any) {
+          setMfaError(e?.message || "Multi-factor authentication failed. Please try again.");
+          return;
+        }
       }
-      //reload website to check for session in root
-      navigate(0);
+
+      const to = getParam("to");
+      window.location.assign(to || "/alerts");
     },
     onError: (_) => { },
   });
   const [passwordVisibility, setPasswordVisibility] = useState(false);
+  const [mfaError, setMfaError] = useState<string | null>(null);
   const formValuesToLogin = (values: FormikValues) => {
     return {
       username: values.loginUsername,
       password: values.loginPassword,
     };
   };
+  async function runWebAuthnLogin(pendingLoginId: string, username: string) {
+    setMfaError(null);
+  
+    try {
+      const options = await webauthnLoginStart({ pendingLoginId });
+
+      const assertion = await startAuthentication({optionsJSON: options});
+
+      await webauthnLoginFinish({ username, assertion });
+
+      const to = getParam("to");
+      window.location.assign(to || "/alerts");
+    } catch (err: any) {
+      const msg = err?.name === 'NotAllowedError'
+        ? 'Authentication was canceled or timed out.'
+        : (err?.message || 'Multi-factor authentication failed. Please try again.');
+      setMfaError(msg);
+      throw err; 
+    }
+  }
   useEffect(() => {document.title = "Aggie"}, []);
   return (
     <main
@@ -78,6 +106,11 @@ const Login = ({ }: IProps) => {
             Your username and password combination was not correct, please try
             again.
           </span>
+        </div>
+        <div
+          className={`px-2 py-2 bg-orange-100 border border-orange-700 text-orange-800 font-medium rounded-lg ${mfaError ? "" : "hidden"}`}
+        >
+          <span>{mfaError}</span>
         </div>
         <Formik
           initialValues={{ loginUsername: "", loginPassword: "" }}
