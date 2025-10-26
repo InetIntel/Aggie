@@ -203,8 +203,9 @@ exports.webauthnRegisterStart = async (req, res) => {
       userName: user.username,
       attestationType: 'none',
       authenticatorSelection: {
-        userVerification: 'preferred',
-        residentKey: 'required',      
+        authenticatorAttachment: 'platform', // force macOS/iCloud Keychain
+        residentKey: 'discouraged',          // fine for 2FA
+        userVerification: 'required',      
       },
       excludeCredentials: (user.webauthnCredentials || []).map(c => ({
         id: bufferToBase64url(
@@ -244,6 +245,7 @@ exports.webauthnRegisterFinish = async (req, res) => {
         expectedChallenge,
         expectedOrigin,                     
         expectedRPID: rpIDEff,
+        requireUserVerification: true,
       });
     } catch (e) {
       console.error('[regFinish] verify threw:', e?.name, e?.message);
@@ -340,7 +342,7 @@ exports.webauthnLoginStart = async (req, res) => {
     const options = await generateAuthenticationOptions({
       rpID,
       timeout: 60000,
-      userVerification: 'preferred',
+      userVerification: 'required',
       allowCredentials, 
     });
 
@@ -394,7 +396,8 @@ exports.webauthnLoginFinish = async (req, res) => {
         expectedChallenge,
         expectedOrigin,                
         expectedRPID: rpID,
-        credential,                    
+        credential,
+        requireUserVerification: true,                    
       });
     } catch (e) {
       console.error('[loginFinish] verify threw:', e?.name, e?.message);
