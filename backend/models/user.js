@@ -5,6 +5,16 @@ const Schema = mongoose.Schema;
 const passportLocalMongoose = require('passport-local-mongoose');
 require('dotenv').config()
 
+function bufferToBase64url(buf) {
+  try {
+    return Buffer.from(buf).toString('base64url');
+  } catch {
+    return Buffer.from(buf).toString('base64')
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/,'');
+  }
+}
+
+
 const WebAuthnCredSchema = new Schema({
   credentialID: { type: Buffer, required: true },   
   publicKey:    { type: Buffer, required: true },   
@@ -14,7 +24,7 @@ const WebAuthnCredSchema = new Schema({
   aaguid:       { type: String },
   userVerified: { type: Boolean, default: false },
   lastUsedAt:   { type: Date },
-  label:        { type: String },
+  label:        { type: String, trim:true, maxlength: 50},
   createdAt:    { type: Date, default: Date.now }
 }, { _id: false });
 
@@ -35,6 +45,32 @@ var userSchema = new Schema({
   mfaEnforced: { type: Boolean, default: false },  
   mfaEnrolledAt: { type: Date }
 });
+
+userSchema.index(
+  { _id: 1, 'webauthnCredentials.credentialID': 1 },
+  { unique: true, sparse: true }
+);
+userSchema.index({ 'webauthnCredentials.credentialID': 1 });
+
+userSchema.set('toJSON', {
+  transform: function (doc, ret) {
+    
+    delete ret.password;
+    delete ret.currentChallenge;
+
+    if (Array.isArray(ret.webauthnCredentials)) {
+      ret.webauthnCredentials = ret.webauthnCredentials.map(c => {
+        const out = { ...c };
+        // hider raw buffer
+        if (out.credentialID) out.credentialID = bufferToBase64url(out.credentialID);
+        delete out.publicKey;
+        return out;
+      });
+    }
+    return ret;
+  }
+});
+
 
 userSchema.plugin(passportLocalMongoose, {
   usernameLowerCase: true,

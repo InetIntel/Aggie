@@ -17,4 +17,8 @@ router.post('/webauthn/register/finish', auth.authenticate(), authController.web
 router.post('/webauthn/login/start', authController.webauthnLoginStart);
 router.post('/webauthn/login/finish', authController.webauthnLoginFinish);
 
+router.get('/webauthn/credentials', auth.authenticate(), authController.webauthnListCredentials);
+router.patch('/webauthn/credentials/:credId', auth.authenticate(), authController.webauthnRenameCredential);
+router.delete('/webauthn/credentials/:credId', auth.authenticate(), authController.webauthnDeleteCredential);
+
 module.exports = router;

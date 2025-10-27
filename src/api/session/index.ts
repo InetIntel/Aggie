@@ -6,7 +6,8 @@ import {
   AuthOptions,
   RegisterOptions,
   AuthFinishPayload,
-  RegisterFinishPayload, 
+  RegisterFinishPayload,
+  WebAuthnDevice, 
 } from "./types";
 
 
@@ -66,6 +67,24 @@ export const webauthnLoginFinish = async (
   );
   return data;
 };
+
+export const listWebAuthnDevices = async (): Promise<WebAuthnDevice[]> => {
+  const { data } = await axios.get("/webauthn/credentials", { withCredentials: true });
+  return data?.credentials ?? [];
+};
+
+export const renameWebAuthnDevice = async (credentialID: string, label: string) => {
+  await axios.patch(
+    `/webauthn/credentials/${credentialID}`,
+    { label },
+    { withCredentials: true }
+  );
+};
+
+export const deleteWebAuthnDevice = async (credentialID: string) => {
+  await axios.delete(`/webauthn/credentials/${credentialID}`, { withCredentials: true });
+};
+
 
 export const getSession = async (): Promise<Session> => {
   const { data } = await axios.get("/session", { withCredentials: true });

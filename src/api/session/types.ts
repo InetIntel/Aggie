@@ -48,3 +48,15 @@ export interface SourceEvent {
   type: string;
   message: string;
 }
+
+export type WebAuthnDevice = {
+  credentialID: string;          // base64url string 
+  label: string;
+  transports: string[];
+  fmt: string;
+  aaguid: string;
+  counter: number;
+  userVerified: boolean;
+  lastUsedAt?: string | null;
+  createdAt?: string | null;
+};

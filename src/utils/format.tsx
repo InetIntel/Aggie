@@ -93,3 +93,16 @@ export function formatPageCount(
     totalCount && "of " + totalCount
   }`;
 }
+
+export function formatDate(d?: string | null) {
+  return (d ? new Date(d).toLocaleString() : "—")
+}
+
+export function shortenString(s: string, left = 10, right = 10) {
+  if (s.length > left + right + 3) {
+    return `${s.slice(0, left)}…${s.slice(-right)}`
+  } else {
+    return s;
+  } 
+}
+  

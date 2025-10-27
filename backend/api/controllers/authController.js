@@ -74,7 +74,7 @@ function signJWT(user, mfa) {
     mfa: !!mfa
   };
   // 12 hours
-  return jwt.sign(payload, process.env.SECRET, { expiresIn: 60 });
+  return jwt.sign(payload, process.env.SECRET, { expiresIn: '12h' });
 }
 
 const expectedOrigin = process.env.ORIGIN || 'http://localhost:3000';
@@ -169,7 +169,7 @@ exports.passwordReset = (req, res) => {
         username: user.username,
         role: user.role,
       };
-      const token = jwt.sign(payload, process.env.SECRET, { expiresIn: '12hr' });
+      const token = jwt.sign(payload, process.env.SECRET, { expiresIn: '12h' });
       res.cookie('jwt', token, {
         httpOnly: true,
         expires: new Date(Date.now() + 43200000), // +1 day
@@ -203,8 +203,8 @@ exports.webauthnRegisterStart = async (req, res) => {
       userName: user.username,
       attestationType: 'none',
       authenticatorSelection: {
-        authenticatorAttachment: 'platform', // force macOS/iCloud Keychain
-        residentKey: 'discouraged',          // fine for 2FA
+        authenticatorAttachment: 'platform', 
+        residentKey: 'discouraged',          
         userVerification: 'required',      
       },
       excludeCredentials: (user.webauthnCredentials || []).map(c => ({
@@ -431,5 +431,88 @@ exports.webauthnLoginFinish = async (req, res) => {
     return res.json({ ok: true, mfa: true, token });
   } catch {
     return res.status(400).json({ ok: false, error: 'Authentication finish failed' });
+  }
+};
+
+exports.webauthnListCredentials = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('webauthnCredentials');
+    if (!user) return res.sendStatus(401);
+
+    const creds = (user.webauthnCredentials || []).map(c => ({
+      credentialID: bufferToBase64url(Buffer.isBuffer(c.credentialID) ? c.credentialID : Buffer.from(c.credentialID)),
+      label: c.label || '',
+      transports: Array.isArray(c.transports) ? c.transports : [],
+      fmt: c.fmt || '',
+      aaguid: c.aaguid || '',
+      counter: Number.isFinite(c.counter) ? c.counter : 0,
+      userVerified: !!c.userVerified,
+      lastUsedAt: c.lastUsedAt || null,
+      createdAt: c.createdAt || null,
+    }));
+
+    return res.json({ credentials: creds });
+  } catch (err) {
+    console.error('[webauthnListCredentials] error:', err);
+    return res.status(400).json({ ok: false, error: 'Could not list credentials' });
+  }
+};
+
+exports.webauthnRenameCredential = async (req, res) => {
+  try {
+    const { credId } = req.params;
+    const { label } = req.body || {};
+    if (typeof label !== 'string' || label.length > 120) {
+      return res.status(400).json({ ok: false, error: 'Label must be a <=120 char string' });
+    }
+
+    const credBuf = base64urlToBuffer(credId);
+    const user = await User.findOneAndUpdate(
+      { _id: req.user._id, 'webauthnCredentials.credentialID': credBuf },
+      { $set: { 'webauthnCredentials.$.label': label.trim() } },
+      { new: true, projection: { _id: 1 } }
+    );
+
+    if (!user) return res.status(404).json({ ok: false, error: 'Credential not found' });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[webauthnRenameCredential] error:', err);
+    return res.status(400).json({ ok: false, error: 'Could not rename credential' });
+  }
+};
+
+exports.webauthnDeleteCredential = async (req, res) => {
+  try {
+    const { credId } = req.params;
+    const credBuf = base64urlToBuffer(credId);
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.sendStatus(401);
+
+    const creds = Array.isArray(user.webauthnCredentials) ? user.webauthnCredentials : [];
+    const currentlyEnforced =
+      (String(process.env.MFA_REQUIRE_FOR_ENROLLED || '').toLowerCase() === 'true' && creds.length > 0)
+      || user.mfaEnforced === true;
+
+    if (currentlyEnforced && creds.length <= 1) {
+      return res.status(400).json({ ok: false, error: 'Cannot remove the only device while MFA is enforced' });
+    }
+
+    const before = creds.length;
+    user.webauthnCredentials = creds.filter(c => !(Buffer.isBuffer(c.credentialID) ? c.credentialID : Buffer.from(c.credentialID)).equals(credBuf));
+
+    if (user.webauthnCredentials.length === before) {
+      return res.status(404).json({ ok: false, error: 'Credential not found' });
+    }
+
+    if (user.webauthnCredentials.length === 0) {
+      user.mfaEnrolledAt = undefined;
+    }
+
+    await user.save();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[webauthnDeleteCredential] error:', err);
+    return res.status(400).json({ ok: false, error: 'Could not delete credential' });
   }
 };
