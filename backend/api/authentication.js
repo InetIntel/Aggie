@@ -21,24 +21,36 @@ const params = {
 };
 
 module.exports = function() {
-  const strategy = new Strategy(params, function(payload, done) {
-    var user = User.findById(payload.id, function(err, user) {
-      if (err) {
-        return done(new Error("User Not Found"), null);
-      } else if(payload.expire<=Date.now()) {
-        return done(new Error("Token Expired"), null);
-      } else{
-        return done(null, user);
+  const strategy = new Strategy(params, async function (payload, done) {
+    try {
+      const userId = payload.sub || payload.id;
+      const user = await User.findById(userId).lean(false);
+      if (!user) {
+        return done(null, false);
       }
-    });
+
+      return done(null, user, { tokenPayload: payload });
+    } catch (err) {
+      console.error('debugging-[jwt] error', err);
+      return done(null, false);
+    }
   });
   passport.use(strategy);
+
+  function authenticate() {
+    // Wrapper to attach token payload to req
+    return function (req, res, next) {
+      return passport.authenticate('jwt', config.jwtSession, function (err, user, info) {
+        if (err || !user) return res.sendStatus(401);
+        req.user = user;
+        req.userToken = info && info.tokenPayload ? info.tokenPayload : null;
+        return next();
+      })(req, res, next);
+    };
+  }
+
   return {
-    initialize: function() {
-      return passport.initialize();
-    },
-    authenticate: function() {
-      return passport.authenticate("jwt", config.jwtSession);
-    }
+    initialize: () => passport.initialize(),
+    authenticate,
   };
 };

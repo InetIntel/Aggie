@@ -5,6 +5,29 @@ const Schema = mongoose.Schema;
 const passportLocalMongoose = require('passport-local-mongoose');
 require('dotenv').config()
 
+function bufferToBase64url(buf) {
+  try {
+    return Buffer.from(buf).toString('base64url');
+  } catch {
+    return Buffer.from(buf).toString('base64')
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/,'');
+  }
+}
+
+
+const WebAuthnCredSchema = new Schema({
+  credentialID: { type: Buffer, required: true },   
+  publicKey:    { type: Buffer, required: true },   
+  counter:      { type: Number,  required: true, default: 0 },
+  transports:   [{ type: String }],
+  fmt:          { type: String },
+  aaguid:       { type: String },
+  userVerified: { type: Boolean, default: false },
+  lastUsedAt:   { type: Date },
+  label:        { type: String, trim:true, maxlength: 50},
+  createdAt:    { type: Date, default: Date.now }
+}, { _id: false });
+
 var userSchema = new Schema({
   provider: { type: String, default: 'local' },
   username: { type: String, required: true, unique: true },
@@ -16,8 +39,39 @@ var userSchema = new Schema({
   active: { type: Boolean, default: true },
   attempts: { type: Number, default: 0 },
   last: { type: Date },
+  webauthnUserID: { type: Buffer }, 
+  currentChallenge: { type: String },   
+  webauthnCredentials: { type: [WebAuthnCredSchema], default: [] },
+  mfaEnforced: { type: Boolean, default: false },  
+  mfaEnrolledAt: { type: Date },
   createdBy: {type: Schema.Types.ObjectId, ref: 'User', index: true}
 });
+
+userSchema.index(
+  { _id: 1, 'webauthnCredentials.credentialID': 1 },
+  { unique: true, sparse: true }
+);
+userSchema.index({ 'webauthnCredentials.credentialID': 1 });
+
+userSchema.set('toJSON', {
+  transform: function (doc, ret) {
+    
+    delete ret.password;
+    delete ret.currentChallenge;
+
+    if (Array.isArray(ret.webauthnCredentials)) {
+      ret.webauthnCredentials = ret.webauthnCredentials.map(c => {
+        const out = { ...c };
+        // hider raw buffer
+        if (out.credentialID) out.credentialID = bufferToBase64url(out.credentialID);
+        delete out.publicKey;
+        return out;
+      });
+    }
+    return ret;
+  }
+});
+
 
 userSchema.plugin(passportLocalMongoose, {
   usernameLowerCase: true,

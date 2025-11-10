@@ -112,7 +112,8 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
 };
 
 const AppRouter = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [hydrating, setHydrating] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState<Session | undefined>(undefined);
 
   const navigate = useNavigate();
@@ -122,8 +123,10 @@ const AppRouter = () => {
   // check if user is authorized
   // we just wanna check session once, no need for react query.
   useEffect(() => {
+    let cancelled = false;
     getSession()
       .then((data: Session) => {
+        if(cancelled) return;
         // did log in
         setIsLoggedIn(true);
         if (data) {
@@ -135,11 +138,19 @@ const AppRouter = () => {
         }
       })
       .catch((err: AxiosError) => {
-        // didn't log in
-        if (err.response && err.response.status === 401) {
-        }
+        if(cancelled) return;
         setIsLoggedIn(false);
+        if (location.pathname !== "/login") {
+          const searchParam = new URLSearchParams([
+            ["to", location.pathname + location.search],
+          ]);
+          navigate({ pathname: "/login", search: searchParam.toString() }, { replace: true });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setHydrating(false);
       });
+      return () => {cancelled = true;};
   }, []);
 
 
@@ -148,7 +159,7 @@ const AppRouter = () => {
       <Navbar isAuthenticated={isLoggedIn} session={userData} />
       <FetchIndicator className='sticky top-0 z-20' />
       <main id='main_view' className='h-full overflow-y-auto flex-1'>
-        {isLoggedIn ? (
+        {hydrating ? null : isLoggedIn ? (
           <PrivateRoutes
             sessionData={userData}
           />
