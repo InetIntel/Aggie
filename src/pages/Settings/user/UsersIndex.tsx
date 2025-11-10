@@ -21,6 +21,7 @@ import {
   faTrashAlt,
   faUserShield,
 } from "@fortawesome/free-solid-svg-icons";
+import { UserRoles } from "../../../api/users/types";
 
 interface IProps {
   session?: Session;
@@ -73,7 +74,17 @@ const UsersIndex = ({ session }: IProps) => {
           <div className='flex justify-end '></div>
         </div>
         {!!data ? (
-          data.map((user) => (
+          data.map((user) => {
+            const role = session?.role as UserRoles | undefined;
+            const isAdmin = role === 'admin';
+            const isTeamLead = role === 'team_lead';
+            const isSelf = user._id === session?._id;
+            const canEditRow = isAdmin && !isSelf; // edit & change password allowed here
+            const canDeleteAsAdmin = isAdmin && !isSelf;
+            const canDeleteAsTeamLead = isTeamLead && !isSelf && String(user.createdBy) === String(session?._id);
+            const canDeleteRow = canDeleteAsAdmin || canDeleteAsTeamLead;
+            const showMenuRow = canEditRow || canDeleteRow;
+            return (
             <article
               key={user._id}
               className='grid grid-cols-4 px-3 py-3 items-center'
@@ -105,13 +116,15 @@ const UsersIndex = ({ session }: IProps) => {
               </p>
               <p>{user.email}</p>
               <div className='flex justify-end'>
-                {session?.role === "admin" && (
+                {showMenuRow  && (
                   <DropdownMenu
                     variant='secondary'
                     className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
                     panelClassName='overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
+                  {canEditRow && (
+                    <>
                     <AggieButton
                       className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => setEditUser(user._id)}
@@ -126,6 +139,9 @@ const UsersIndex = ({ session }: IProps) => {
                       <FontAwesomeIcon icon={faUserShield} />
                       Change Password
                     </AggieButton>
+                    </>
+                  )}
+                  {canDeleteRow && (
                     <AggieButton
                       className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-red-600'
                       onClick={() => setRemoveUser(user._id)}
@@ -133,11 +149,12 @@ const UsersIndex = ({ session }: IProps) => {
                       <FontAwesomeIcon icon={faTrashAlt} />
                       Permanently Delete
                     </AggieButton>
+                  )}
                   </DropdownMenu>
                 )}
               </div>
             </article>
-          ))
+          )})
         ) : (
           <article className='grid py-6 font-medium w-full place-items-center'>
             <p className=''>
@@ -162,6 +179,7 @@ const UsersIndex = ({ session }: IProps) => {
           user={userToEdit}
           onClose={() => setEditUser("")}
           canEditRole = {!! canEditRole}
+          currentUserRole={session?.role as UserRoles | undefined}
         />
       </AggieDialog>
       <AggieDialog

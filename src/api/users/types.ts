@@ -1,6 +1,6 @@
 import { hasId } from "../common";
 
-export const USER_ROLES = ["viewer", "monitor", "admin"] as const;
+export const USER_ROLES = ["viewer", "monitor", "admin", "team_lead"] as const;
 export type UserRoles = (typeof USER_ROLES)[number];
 
 export interface User extends hasId {
@@ -11,6 +11,7 @@ export interface User extends hasId {
   username: string;
   displayName?: string;
   __v: number;
+  createdBy?: string;
 }
 
 export interface UserEditableData {

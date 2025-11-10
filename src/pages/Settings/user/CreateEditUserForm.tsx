@@ -2,7 +2,7 @@ import * as Yup from "yup";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { newUser, editUser } from "../../../api/users";
-import { type User, USER_ROLES } from "../../../api/users/types";
+import { type User, USER_ROLES, UserRoles } from "../../../api/users/types";
 
 import { Form, Formik } from "formik";
 import FormikDropdown from "../../../components/FormikDropdown";
@@ -54,9 +54,10 @@ interface IProps {
   user?: User;
   onClose: () => void;
   canEditRole?: boolean;
+  currentUserRole?: UserRoles;
 }
 
-const CreateEditUserForm = ({ user, onClose, canEditRole }: IProps) => {
+const CreateEditUserForm = ({ user, onClose, canEditRole, currentUserRole }: IProps) => {
   const queryClient = useQueryClient();
 
   const doCreateUser = useMutation(newUser, {
@@ -74,6 +75,9 @@ const CreateEditUserForm = ({ user, onClose, canEditRole }: IProps) => {
   });
 
   function onSubmitForm(data: editSchema | createSchema) {
+    if (user && currentUserRole === 'team_lead') {
+      return; 
+    }
     if (!user) {
       doCreateUser.mutate(data);
     } else {
@@ -83,6 +87,11 @@ const CreateEditUserForm = ({ user, onClose, canEditRole }: IProps) => {
   }
 
   const isLoading = doCreateUser.isLoading || doEditUser.isLoading;
+  const isCreate = !user;
+  const isTeamLead = currentUserRole === 'team_lead';
+  
+  const allowedRoleList = (isCreate && isTeamLead) ? (['viewer','monitor']) : USER_ROLES;
+  const inputsDisabled = isLoading || (!!user && isTeamLead);
 
   const schema = !user ? userCreateSchema : userEditSchema;
   const defaultUser = !user
@@ -105,28 +114,30 @@ const CreateEditUserForm = ({ user, onClose, canEditRole }: IProps) => {
           label='Role'
           name='role'
           list={
-            user
-            ? (canEditRole
-                ? [...USER_ROLES].map(r => ({_id: r, label: r}))
-                : [{_id: user.role, label: user.role}])
-            : [...USER_ROLES].map(r => ({_id: r, label: r}))
-          }
-          disabled={user ? !canEditRole : false}
+              user
+                ? ( (canEditRole && !isTeamLead) // team_lead can’t edit role (or anything)
+                      ? [...USER_ROLES].map(r => ({ _id: r, label: r }))
+                      : [{ _id: user.role, label: user.role }] )
+                : allowedRoleList.map(r => ({ _id: r, label: r }))
+            }
+            disabled={user ? (!canEditRole || isTeamLead) : inputsDisabled}
         />
-        <FormikInput label='Username' name='username' />
+        <FormikInput label='Username' name='username' disabled={inputsDisabled}/>
         <FormikInput
           label='Display Name'
           name='displayName'
           placeholder='(optional) display name'
+          disabled={inputsDisabled}
         />
-        <FormikInput label='Email' name='email' type='email' />
+        <FormikInput label='Email' name='email' type='email' disabled={inputsDisabled} />
         {!user && (
           <>
-            <FormikInput name='password' label='Password' type='password' />
+            <FormikInput name='password' label='Password' type='password' disabled={inputsDisabled}/>
             <FormikInput
               name='confirmPassword'
               label='Re-type Password'
               type='password'
+              disabled={inputsDisabled}
             />
           </>
         )}
@@ -141,13 +152,18 @@ const CreateEditUserForm = ({ user, onClose, canEditRole }: IProps) => {
           </AggieButton>
           <AggieButton
             variant='primary'
-            disabled={isLoading}
+            disabled={isLoading || inputsDisabled}
             loading={isLoading}
             type={"submit"}
           >
             Confirm
           </AggieButton>
         </div>
+        {user && isTeamLead && (
+          <div className="text-sm text-red-500">
+            Team leads cannot edit users. Try delete and re-create users.
+          </div>
+        )}
       </Form>
     </Formik>
   );

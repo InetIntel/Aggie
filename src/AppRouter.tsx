@@ -95,7 +95,7 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
           path='user/:id'
           element={<UserProfile session={sessionData} />}
         />
-        { sessionData?.role === "admin" &&
+        { (sessionData?.role === "admin" || sessionData?.role === "team_lead" ) &&
           <>
             <Route path='users' element={<UsersIndex session={sessionData} />} />
             <Route path='credentials' element={<CredentialsIndex />} />

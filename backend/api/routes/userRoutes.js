@@ -8,7 +8,7 @@ const User = require('../../models/user');
 router.get('', User.can('view users'), userController.user_users);
 
 // Create a user
-router.post('', User.can('admin users'), userController.user_create);
+router.post('', User.can('change settings'), userController.user_create);
 
 // Get Individual User
 router.get('/:_id', User.can('view users'), userController.user_detail);
@@ -17,7 +17,7 @@ router.get('/:_id', User.can('view users'), userController.user_detail);
 router.put('/:_id', User.can('update users'), userController.user_update);
 
 // Delete User
-router.delete('/:_id', User.can('admin users'), userController.user_delete);
+router.delete('/:_id', User.can('delete users'), userController.user_delete);
 
 // Update User password
 router.put('/password_set/:_id', User.can('update users'), userController.user_update_password);

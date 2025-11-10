@@ -4,7 +4,7 @@ export interface Session extends hasId {
   email: string;
   hasDefaultPassword: boolean;
   provider: string;
-  role: "admin" | "monitor" | undefined;
+  role: "admin" | "monitor" |"viewer" |"team_lead" | undefined;
   username: string;
   __v: number;
 }
