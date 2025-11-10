@@ -32,6 +32,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import WebAuthnDeviceRow from "./components/WebAuthnDeviceRow";
+import { UserRoles } from "../../../api/users/types";
 
 interface IProps {
   session: Session | undefined;
@@ -110,7 +111,15 @@ const UserProfile = ({ session }: IProps) => {
     }
   }
   const isSelf = session?._id === params.id;
-  const canEditRole = session?.role === "admin" && !isSelf;
+  const role = session?.role as UserRoles | undefined;
+  const isAdmin = role === 'admin';
+  const isTeamLead = role === 'team_lead';
+  const canEdit = !!isSelf || (isAdmin && !isSelf);
+  const canEditRole = isAdmin && !isSelf;
+  const canDeleteAsTeamLead = isTeamLead && !!data && String(data.createdBy) === String(session?._id) && !isSelf;
+  const canDeleteAsAdmin = isAdmin && !isSelf;
+  const canDelete = canDeleteAsAdmin || canDeleteAsTeamLead;
+  const showMenu = !!(isSelf || isAdmin || (isTeamLead && !!data && String(data.createdBy) === String(session?._id)));
 
   const grid = "grid grid-cols-4 py-1 items-center";
 
@@ -119,34 +128,40 @@ const UserProfile = ({ session }: IProps) => {
       <div className={`p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-300`}>
         <div className='flex justify-between items-center'>
           <h2 className='text-3xl font-medium'>{isSelf && "Your "}Profile</h2>
-          {(isSelf || session?.role === "admin") && (
+          {showMenu && (
             <DropdownMenu
               variant='secondary'
               className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 dark:hover:bg-gray-700'
               panelClassName='overflow-hidden right-0 text-sm'
               buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
             >
-              <AggieButton
-                className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full dark:text-gray-300'
-                onClick={() => setOpenEdit(true)}
-              >
-                <FontAwesomeIcon icon={faEdit} />
-                Edit
-              </AggieButton>
-              <AggieButton
-                className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full dark:text-gray-300'
-                onClick={() => setOpenEditPassword(true)}
-              >
-                <FontAwesomeIcon icon={faUserShield} />
-                Change Password
-              </AggieButton>
-              <AggieButton
-                className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-red-600'
-                onClick={() => setOpenDelete(true)}
-              >
-                <FontAwesomeIcon icon={faTrashAlt} />
-                Permanently Delete
-              </AggieButton>
+              {canEdit && (
+                <>
+                  <AggieButton
+                    className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full dark:text-gray-300'
+                    onClick={() => setOpenEdit(true)}
+                  >
+                    <FontAwesomeIcon icon={faEdit} />
+                    Edit
+                  </AggieButton>
+                  <AggieButton
+                    className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full dark:text-gray-300'
+                    onClick={() => setOpenEditPassword(true)}
+                  >
+                    <FontAwesomeIcon icon={faUserShield} />
+                    Change Password
+                  </AggieButton>
+                </>
+              )}
+              {canDelete && (
+                <AggieButton
+                  className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-red-600'
+                  onClick={() => setOpenDelete(true)}
+                >
+                  <FontAwesomeIcon icon={faTrashAlt} />
+                    Permanently Delete
+                </AggieButton>
+              )}
             </DropdownMenu>
           )}
         </div>
@@ -260,7 +275,8 @@ const UserProfile = ({ session }: IProps) => {
         <CreateEditUserForm 
           user={data} 
           onClose={() => setOpenEdit(false)} 
-          canEditRole = {canEditRole}
+          canEditRole={canEditRole}
+          currentUserRole={role}
         />
       </AggieDialog>
       <AggieDialog
