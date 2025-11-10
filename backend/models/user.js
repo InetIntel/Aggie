@@ -15,7 +15,8 @@ var userSchema = new Schema({
   role: { type: String, default: 'viewer' },
   active: { type: Boolean, default: true },
   attempts: { type: Number, default: 0 },
-  last: { type: Date }
+  last: { type: Date },
+  createdBy: {type: Schema.Types.ObjectId, ref: 'User', index: true}
 });
 
 userSchema.plugin(passportLocalMongoose, {
@@ -26,12 +27,13 @@ var User = mongoose.model('User', userSchema);
 
 User.permissions = {
   'manage trends': ['admin'],
-  'view data': ['viewer', 'monitor', 'admin'],
-  'edit data': ['monitor', 'admin'],
-  'change settings': ['admin'],
-  'view users': ['viewer', 'monitor', 'admin'],
-  'view other users': ['manager', 'admin'],
+  'view data': ['viewer', 'monitor', 'admin', 'team_lead'],
+  'edit data': ['monitor', 'admin', 'team_lead'],
+  'change settings': ['admin', 'team_lead'],
+  'view users': ['viewer', 'monitor', 'admin', 'team_lead'],
+  'view other users': ['manager', 'admin','team_lead'],
   'update users': ['viewer', 'monitor', 'admin'],
+  'delete users': ['admin', 'team_lead'],
   'admin users': ['admin'],
   'change admin password': ['admin'],
   'edit tags': ['manager', 'admin']

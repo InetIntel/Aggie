@@ -48,7 +48,7 @@ const SourceDetails = () => {
     <div className=''>
       <div className='flex justify-between items-center my-3'>
         <h2 className='text-3xl font-medium'>{data?.nickname}</h2>
-        {session?.role === "admin" && (
+        { (session?.role === "admin" || session?.role === "team_lead") && (
           <div className='flex gap-4'>
             <PlaceholderDiv
               className='flex justify-end items-center gap-2'
@@ -111,7 +111,7 @@ const SourceDetails = () => {
           </div>
         </div>
 
-        { session?.role === "admin" &&
+        { (session?.role === "admin" || session?.role === "team_lead") &&
           <div className='grid grid-cols-4'>
             <p className='text-slate-600 dark:text-gray-400'>Credential</p>
             <div className='col-span-3'>

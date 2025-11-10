@@ -18,10 +18,17 @@ export function menuLinks(role: string | undefined) {
     case "admin":
       return {
         "Manage Users": { to: "users", icon: faUsersCog },
-        "Manage Tags": { to: "tags", icon: faTags },
+        // "Manage Tags": { to: "tags", icon: faTags },
         "API Credentials": { to: "credentials", icon: faKey },
         "Manage Sources": { to: "sources", icon: faCloudArrowDown },
       };
+    case "team_lead":
+      return {
+        "Manage Users": { to: "users", icon: faUsersCog },
+        // "Manage Tags": { to: "tags", icon: faTags },
+        "API Credentials": { to: "credentials", icon: faKey },
+        "Manage Sources": { to: "sources", icon: faCloudArrowDown },
+      };      
     case "monitor":
     case "viewer":
       return {

@@ -8,8 +8,13 @@ const validator = require('validator');
 exports.user_users = (req, res) => {
   if (!req.user) return res.status(401).send("Unauthenticated.");
 
-  const isAdmin = req.user.role === "admin";
-  const filter = isAdmin ? {} : {_id: req.user._id};
+  const role = req.user.role;
+  let filter = { _id: req.user._id }
+  if (role === "admin") {
+    filter = {};
+  } else if (role === "team_lead") {
+    filter = { createdBy: req.user._id }; 
+  }
 
   User.find(filter, function (err, users) {
     if (err) {
@@ -23,10 +28,28 @@ exports.user_users = (req, res) => {
 
 // Get a User by id
 exports.user_detail = (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
   User.findById(req.params._id, '-password', function (err, user) {
     if (err) { return res.status(err.status).send(err.message); }
     else if (!user) { return res.sendStatus(404); }
-    else { return res.status(200).send(user); }
+    else {
+      const role = req.user.role;
+      const isSelf = String(user._id) === String(req.user._id);
+      let allowed = false;
+
+      if (role === 'admin') {
+        allowed = true; 
+      } else if (role === 'team_lead') {
+        const createdByMe = String(user.createdBy) === String(req.user._id);
+        allowed = isSelf || createdByMe; 
+      } else {
+        allowed = isSelf; 
+      }
+
+      if (!allowed) return res.status(403).send('Unauthorized to view the user.');
+      return res.status(200).send(user);
+    }
   });
 };
 
@@ -40,16 +63,29 @@ exports.user_create = (req, res) => {
     '.'
   );
 
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
   if (!validator.isEmail(req.body.email)) {
     res.status(400).send('Please provide a valid email.');
   } else {
+
+    if (req.user.role === 'team_lead') {
+      const desiredRole = (req.body.role || '').toLowerCase();
+      if (!['viewer', 'monitor'].includes(desiredRole)) {
+        return res.status(403).send('Unauthorized.Team lead can only create viewer or monitor users.');
+      }
+    }
+
+    const payload = {
+      username: req.body.username,
+      displayName: req.body.displayName,
+      email: req.body.email,
+      role: req.body.role,
+      createdBy: req.user._id,    
+    };
+
     User.register(
-      {
-        username: req.body.username,
-        displayName: req.body.displayName,
-        email: req.body.email,
-        role: req.body.role,
-      },
+      payload,
       req.body.password,
       (err, user) => {
         if (err) {
@@ -57,7 +93,7 @@ exports.user_create = (req, res) => {
         } else {
           const authenticate = User.authenticate();
           authenticate(req.body.username, req.body.password, (err, result) => {
-            if (err) res.status(err.status).send(error.message);
+            if (err) res.status(err.status).send(err.message);
             else res.status(200).send(user);
           });
         }
@@ -137,9 +173,20 @@ exports.user_update_password = (req, res) => {
 
 // Delete a User
 exports.user_delete = (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
   User.findById(req.params._id, (err, user) => {
     if (err) return res.status(err.status).send(err.message);
     if (!user) return res.sendStatus(404);
+
+    if (req.user.role === 'team_lead') {
+      const canDelete = String(user.createdBy) === String(req.user._id);
+      if (!canDelete) return res.status(403).send('Unauthorized to delete users you did not create.');
+      if (user.role === 'admin') {
+        return res.status(403).send('Unauthorized to delete admin users.');
+      }
+    }
+
     user.remove((err) => {
       err = Error.decode(err);
       if (err) res.status(err.status).send(err.message);
