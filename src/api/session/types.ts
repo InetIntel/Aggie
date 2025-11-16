@@ -13,7 +13,7 @@ export interface Session extends hasId {
   role: "admin" | "monitor" |"viewer" |"team_lead" | undefined;
   username: string;
   mfa?: boolean;              // session is MFA-verified
-  mfa_enrolled?: boolean;     // account has at least one WebAuthn credential
+  mfa_enrolled?: boolean;     // account has at least one WebAuthn / TOTP credential
   mfa_enforced?: boolean;     // MFA policy enforced for this user/org
   __v?: number;
 }
@@ -30,6 +30,7 @@ export interface LoginResponse {
   mfa?: boolean;           // whether current session has been verified by mfa
   mfa_required?: boolean;  // whether current session require mfa verification
   pendingLoginId?: string; // present when mfa_required=true
+  methods?: ("webauthn" | "totp")[];
 }
 
 export type AuthOptions = PublicKeyCredentialRequestOptionsJSON;
@@ -60,3 +61,26 @@ export type WebAuthnDevice = {
   lastUsedAt?: string | null;
   createdAt?: string | null;
 };
+
+export interface TotpEnrollStartResponse {
+  otpauthUrl: string;
+  qrPngDataUrl: string;
+  manualSecret: string;
+}
+
+export interface TotpEnrollVerifyResponse {
+  ok: boolean;
+  totpEnabled: boolean;
+  recoveryCodes: string[];
+}
+
+export interface TotpLoginVerifyResponse {
+  ok: boolean;
+  mfa: boolean;
+  token?: string;
+}
+
+export interface TotpRecoveryCodesResponse {
+  ok: boolean;
+  recoveryCodes: string[];
+}

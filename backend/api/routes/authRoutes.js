@@ -21,4 +21,11 @@ router.get('/webauthn/credentials', auth.authenticate(), authController.webauthn
 router.patch('/webauthn/credentials/:credId', auth.authenticate(), authController.webauthnRenameCredential);
 router.delete('/webauthn/credentials/:credId', auth.authenticate(), authController.webauthnDeleteCredential);
 
+router.post('/totp/enroll/start', auth.authenticate(), authController.totpEnrollStart);
+router.post('/totp/enroll/verify', auth.authenticate(), authController.totpEnrollVerify);
+router.post('/totp/login/verify', authController.totpLoginVerify);
+router.post('/totp/disable', auth.authenticate(), authController.totpDisable);
+router.post('/totp/recovery/regenerate', auth.authenticate(), authController.totpRegenerateRecoveryCodes);
+
+
 module.exports = router;

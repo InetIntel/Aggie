@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQueryParams } from "../hooks/useQueryParams";
 
 import * as Yup from "yup";
-import { logIn, webauthnLoginStart, webauthnLoginFinish } from "../api/session";
+import { logIn, webauthnLoginStart, webauthnLoginFinish, totpLoginVerify } from "../api/session";
 
 import { Field, Formik, FormikValues, Form } from "formik";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -19,6 +19,10 @@ const loginFormSchema = Yup.object().shape({
 
 interface IProps { }
 
+function isWebAuthnSupported() {
+  return typeof window !== "undefined" && "PublicKeyCredential" in window;
+}
+
 const Login = ({ }: IProps) => {
   const { getParam } = useQueryParams<{ to: string }>();
 
@@ -28,29 +32,54 @@ const Login = ({ }: IProps) => {
 
   const loginQuery = useMutation(logIn, {
     onSuccess: async (resp, vars: {username: string, password: string}) => {
-      if ((resp as any)?.mfa_required && (resp as any)?.pendingLoginId) {
-        try {
-          await runWebAuthnLogin((resp as any).pendingLoginId, vars.username);
-          return;
-        } catch (e:any) {
-          setMfaError(e?.message || "Multi-factor authentication failed. Please try again.");
-          return;
+      setPendingLoginId(null);
+      setAvailableMethods([]);
+      setLoginUsername(null);
+      setMfaError(null);
+
+      if (resp?.mfa_required && resp?.pendingLoginId) {
+        const methods = resp.methods && resp.methods.length > 0
+          ? resp.methods
+          : (["webauthn"] as ("webauthn" | "totp")[]); // fallback
+
+        setPendingLoginId(resp.pendingLoginId);
+        setAvailableMethods(methods);
+        setLoginUsername(vars.username);
+
+        if (methods.length === 1 && methods[0] === "webauthn" && isWebAuthnSupported()) {
+          try {
+            await runWebAuthnLogin(resp.pendingLoginId, vars.username);
+            return;
+          } catch (e: any) {
+            setMfaError(e?.message || "Multi-factor authentication failed. Please try again.");
+            return;
+          }
         }
+
+        return;
       }
 
-      const to = getParam("to");
-      window.location.assign(to || "/alerts");
+      const to = getParam("to") || "/alerts";
+      const base = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).pathname : "";
+      window.location.assign(`${base}${to.startsWith("/") ? to : `/${to}`}`);
     },
     onError: (_) => { },
   });
+
   const [passwordVisibility, setPasswordVisibility] = useState(false);
   const [mfaError, setMfaError] = useState<string | null>(null);
+  const [pendingLoginId, setPendingLoginId] = useState<string | null>(null);
+  const [availableMethods, setAvailableMethods] = useState<("webauthn" | "totp")[]>([]);
+  const [loginUsername, setLoginUsername] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpLoading, setTotpLoading] = useState(false);
   const formValuesToLogin = (values: FormikValues) => {
     return {
       username: values.loginUsername,
       password: values.loginPassword,
     };
   };
+
   async function runWebAuthnLogin(pendingLoginId: string, username: string) {
     setMfaError(null);
   
@@ -61,8 +90,9 @@ const Login = ({ }: IProps) => {
 
       await webauthnLoginFinish({ username, assertion });
 
-      const to = getParam("to");
-      window.location.assign(to || "/alerts");
+      const to = getParam("to") || "/alerts";
+      const base = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).pathname : "";
+      window.location.assign(`${base}${to.startsWith("/") ? to : `/${to}`}`);
     } catch (err: any) {
       const msg = err?.name === 'NotAllowedError'
         ? 'Authentication was canceled or timed out.'
@@ -71,6 +101,30 @@ const Login = ({ }: IProps) => {
       throw err; 
     }
   }
+
+  async function runTotpLogin() {
+    if (!pendingLoginId || !loginUsername) return;
+    setMfaError(null);
+    setTotpLoading(true);
+  
+    try {
+      await totpLoginVerify({
+        pendingLoginId,
+        code: totpCode.trim(),
+      });
+  
+      const to = getParam("to") || "/alerts";
+      const base = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).pathname : "";
+      window.location.assign(`${base}${to.startsWith("/") ? to : `/${to}`}`);
+    } catch (err: any) {
+      const apiMsg = err?.response?.data?.error;
+      const msg = apiMsg || err?.message || "Multi-factor authentication failed. Please try again.";
+      setMfaError(msg);
+    } finally {
+      setTotpLoading(false);
+    }
+  }
+
   useEffect(() => {document.title = "Aggie"}, []);
   return (
     <main
@@ -112,6 +166,63 @@ const Login = ({ }: IProps) => {
         >
           <span>{mfaError}</span>
         </div>
+
+        {pendingLoginId && (
+          <div className="mt-3 px-3 py-2 border border-slate-300 bg-slate-50 rounded-lg text-sm">
+            <p className="font-medium mb-1">Multi-factor authentication required</p>
+            <p className="text-slate-600 mb-2">
+              Choose a verification method available for your account.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              {availableMethods.includes("webauthn") && isWebAuthnSupported() && loginUsername && (
+                <AggieButton
+                  variant="secondary"
+                  className="justify-center"
+                  type="button"
+                  onClick={() => {
+                    if (pendingLoginId && loginUsername) {
+                      runWebAuthnLogin(pendingLoginId, loginUsername).catch(() => {});
+                    }
+                  }}
+                >
+                  Use device (WebAuthn)
+                </AggieButton>
+              )}
+
+              {availableMethods.includes("totp") && (
+                <div className="border border-slate-200 rounded-md bg-white px-3 py-2">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Authentication code (TOTP)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={8}
+                    className="w-full px-2 py-1 border rounded-md bg-slate-50 focus-theme"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value)}
+                    placeholder="6-digit code from your authenticator app"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <AggieButton
+                      variant="primary"
+                      type="button"
+                      className="justify-center"
+                      onClick={runTotpLogin}
+                      loading={totpLoading}
+                      disabled={totpLoading || !totpCode.trim()}
+                    >
+                      Verify code
+                    </AggieButton>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <Formik
           initialValues={{ loginUsername: "", loginPassword: "" }}
           validationSchema={loginFormSchema}

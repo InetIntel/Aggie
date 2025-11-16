@@ -2,6 +2,12 @@ const User = require("../../models/user");
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const crypto = require('crypto');
+const OTPAuth = require('otpauth');                              
+const QRCode = require('qrcode');                                
+const argon2 = require('argon2');                                 
+const { RateLimiterMemory } = require('rate-limiter-flexible');   
+const { encryptToken } = require('../utils/encryption');
+const { decryptToken } = require('../../fetching/utils/decryption');
 
 const {
   generateRegistrationOptions,
@@ -14,7 +20,7 @@ const {
 const challengeStore = new Map();    
 const pendingLoginStore = new Map(); 
 
-
+// Webauth Helpers
 const now = () => Date.now();
 const TTL_MS = 2 * 60 * 1000; // 2 minutes
 function putChallenge(key, challenge) {
@@ -56,6 +62,59 @@ function effectiveRpID() {
     || (process.env.ORIGIN ? new URL(process.env.ORIGIN).hostname : 'localhost');
 }
 
+// TOTP Helpers
+const TOTP_DIGITS = Number(process.env.TOTP_DIGITS || 6);               
+const TOTP_PERIOD = Number(process.env.TOTP_PERIOD || 30);              
+const TOTP_ALGO   = (process.env.TOTP_ALGO || 'SHA1').toUpperCase();    
+const TOTP_WINDOW = Number(process.env.TOTP_WINDOW || 1);               
+const APP_ISSUER  = process.env.APP_ISSUER || 'Aggie';                  
+const BACKUP_CODE_COUNT  = Number(process.env.BACKUP_CODE_COUNT || 10); 
+const BACKUP_CODE_LENGTH = Number(process.env.BACKUP_CODE_LENGTH || 10);
+
+function makeOtpAuthUri({ issuer, label, secret, digits, period, algo }) {   
+  const totp = new OTPAuth.TOTP({
+    issuer,
+    label,
+    secret: OTPAuth.Secret.fromBase32(secret),
+    digits,
+    period,
+    algorithm: algo
+  });
+  return totp.toString();
+}
+function verifyTotpCode({ secret, code, digits, period, algo, window = TOTP_WINDOW }) { 
+  const totp = new OTPAuth.TOTP({
+    issuer: APP_ISSUER,
+    label: '',
+    secret: OTPAuth.Secret.fromBase32(secret),
+    digits,
+    period,
+    algorithm: algo
+  });
+  const delta = totp.validate({ token: String(code || '').trim(), window });
+  return (delta !== null);
+}
+function currentTimestep(period) {                                         
+  return Math.floor(Date.now() / 1000 / period);
+}
+function generateRecoveryCodes() {                                         
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const codes = [];
+  for (let i = 0; i < BACKUP_CODE_COUNT; i++) {
+    let s = '';
+    for (let j = 0; j < BACKUP_CODE_LENGTH; j++) {
+      s += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    codes.push(s);
+  }
+  return codes;
+}
+
+// NEW: rate limiters (memory) — per pendingLoginId & per user only
+const limiterPending = new RateLimiterMemory({ points: 5, duration: 600 });   // 5 per 10m
+const limiterUser    = new RateLimiterMemory({ points: 10, duration: 3600 }); // 10 per 1h
+
+
 function cookieOpts() {
   const isProd = process.env.ENVIRONMENT === 'production';
   return {
@@ -84,10 +143,15 @@ const rpName = process.env.RP_NAME || 'Aggie';
 exports.login = async (req, res) => {
   try {
     // req.user is set by passport local strategy
-    const user = await User.findById(req.user._id).select('username role email webauthnCredentials mfaEnforced').exec();
+    const user = await User.findById(req.user._id)
+                           .select('username role email webauthnCredentials mfaEnforced mfa')
+                           .exec();
     if (!user) return res.status(401).json({ success: false, message: 'User not found' });
 
-    const enrolled = (user.webauthnCredentials || []).length > 0;
+    const webauthnEnrolled = (user.webauthnCredentials || []).length > 0;
+    const totpEnrolled = !!(user.mfa && user.mfa.totp && user.mfa.totp.enabled === true);
+    const enrolled = webauthnEnrolled || totpEnrolled;
+
     const orgEnforce = String(process.env.MFA_REQUIRE_FOR_ENROLLED || '').toLowerCase() === 'true';
     const mustEnforce = orgEnforce ? enrolled : user.mfaEnforced === true;
    
@@ -96,7 +160,11 @@ exports.login = async (req, res) => {
       return res.status(200).json({
         success: true,
         mfa_required: true,
-        pendingLoginId
+        pendingLoginId,
+        methods: [
+          ...(webauthnEnrolled ? ['webauthn'] : []),
+          ...(totpEnrolled ? ['totp'] : [])
+        ]
       });
     }
 
@@ -131,7 +199,10 @@ exports.session = async (req, res, next) => {
       return res.status(422).send("No user found.");
     }
 
-    const enrolled = Array.isArray(user.webauthnCredentials) && user.webauthnCredentials.length > 0;
+    const webauthnEnrolled = Array.isArray(user.webauthnCredentials) && user.webauthnCredentials.length > 0; 
+    const totpEnrolled = !!(user.mfa && user.mfa.totp && user.mfa.totp.enabled === true);
+    const enrolled = webauthnEnrolled || totpEnrolled;
+
     const enforced = user.mfaEnforced === true;
     const mfa = !!(req.userToken && req.userToken.mfa === true);
 
@@ -184,6 +255,7 @@ exports.passwordReset = (req, res) => {
   });
 }
 
+// WebAuthn Registration & Login Controllers
 exports.webauthnRegisterStart = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -514,5 +586,193 @@ exports.webauthnDeleteCredential = async (req, res) => {
   } catch (err) {
     console.error('[webauthnDeleteCredential] error:', err);
     return res.status(400).json({ ok: false, error: 'Could not delete credential' });
+  }
+};
+
+// TOTP Registration & Login Controllers
+exports.totpEnrollStart = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.sendStatus(401);
+
+    const issuer = APP_ISSUER;
+    const label = `${issuer}:${user.username}`;
+
+    const secret = new OTPAuth.Secret({ size: 20 }); 
+    const secretBase32 = secret.base32;
+
+    user.mfa ||= {};
+    user.mfa.totp ||= {};
+    user.mfa.totp.enabled = false;
+    user.mfa.totp.secretEnc = encryptToken(secretBase32);  
+    user.mfa.totp.issuer = issuer;
+    user.mfa.totp.digits = TOTP_DIGITS;
+    user.mfa.totp.period = TOTP_PERIOD;
+    user.mfa.totp.algo = TOTP_ALGO;
+    await user.save();
+
+    const otpauth = makeOtpAuthUri({
+      issuer,
+      label,
+      secret: secretBase32,
+      digits: TOTP_DIGITS,
+      period: TOTP_PERIOD,
+      algo: TOTP_ALGO
+    });
+    const qrPngDataUrl = await QRCode.toDataURL(otpauth);
+
+    return res.json({
+      otpauthUrl: otpauth,
+      qrPngDataUrl,
+      manualSecret: secretBase32
+    });
+  } catch (err) {
+    console.error('[totpEnrollStart] error:', err);
+    return res.status(400).json({ ok: false, error: 'Could not start TOTP enrollment' });
+  }
+};
+
+exports.totpEnrollVerify = async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (typeof code !== 'string' || !code.trim()) {
+      return res.status(400).json({ ok: false, error: 'Code required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user || !user.mfa || !user.mfa.totp || !user.mfa.totp.secretEnc) {
+      return res.status(400).json({ ok: false, error: 'No TOTP pending enrollment' });
+    }
+
+    const secret = decryptToken(user.mfa.totp.secretEnc); // using your util
+    const valid = verifyTotpCode({
+      secret,
+      code: code.trim(),
+      digits: user.mfa.totp.digits || TOTP_DIGITS,
+      period: user.mfa.totp.period || TOTP_PERIOD,
+      algo: user.mfa.totp.algo || TOTP_ALGO
+    });
+    if (!valid) {
+      return res.status(400).json({ ok: false, error: 'Invalid code' });
+    }
+
+    user.mfa.totp.enabled = true;
+    user.mfa.totp.verifiedAt = new Date();
+    user.mfa.totp.lastTimestepUsed = currentTimestep(user.mfa.totp.period || TOTP_PERIOD);
+
+    if (!user.mfaEnrolledAt) user.mfaEnrolledAt = new Date();
+
+    // Generate recovery codes
+    const codes = generateRecoveryCodes();
+    const hashed = await Promise.all(codes.map(c => argon2.hash(c)));
+    user.mfa.totp.recoveryCodes = hashed.map(h => ({ hash: h, usedAt: null }));
+
+    await user.save();
+    return res.json({ ok: true, totpEnabled: true, recoveryCodes: codes });
+  } catch (err) {
+    console.error('[totpEnrollVerify] error:', err);
+    return res.status(400).json({ ok: false, error: 'Could not verify TOTP enrollment' });
+  }
+};
+
+exports.totpLoginVerify = async (req, res) => {
+  try {
+    const { pendingLoginId, code } = req.body || {};
+    if (!pendingLoginId || !code) {
+      return res.status(400).json({ ok: false, error: 'pendingLoginId and code are required' });
+    }
+
+    const userId = popPendingLogin(pendingLoginId);
+    if (!userId) return res.status(400).json({ ok: false, error: 'Pending login expired' });
+
+    const user = await User.findById(userId).select('mfa username role');
+    if (!user || !user.mfa || !user.mfa.totp || user.mfa.totp.enabled !== true || !user.mfa.totp.secretEnc) {
+      return res.status(400).json({ ok: false, error: 'TOTP not enrolled' });
+    }
+
+    try {
+      await Promise.all([
+        limiterPending.consume(pendingLoginId),
+        limiterUser.consume(String(user._id)),
+      ]);
+    } catch (rlErr) {
+      const ms = Math.max(rlErr.msBeforeNext || 0, 1000);
+      res.set('Retry-After', String(Math.ceil(ms / 1000)));
+      return res.status(429).json({ ok: false, error: 'Too many attempts. Try again later.' });
+    }
+
+    const period = user.mfa.totp.period || TOTP_PERIOD;
+    const digits = user.mfa.totp.digits || TOTP_DIGITS;
+    const algo = (user.mfa.totp.algo || TOTP_ALGO).toUpperCase();
+
+    const secretBase32 = decryptToken(user.mfa.totp.secretEnc); // using your util
+    const isValid = verifyTotpCode({
+      secret: secretBase32,
+      code: String(code).trim(),
+      digits,
+      period,
+      algo,
+      window: TOTP_WINDOW
+    });
+    if (!isValid) {
+      return res.status(400).json({ ok: false, error: 'Invalid code' });
+    }
+
+    // Prevent same timestep reuse
+    const step = currentTimestep(period);
+    if (Number.isFinite(user.mfa.totp.lastTimestepUsed) && step <= user.mfa.totp.lastTimestepUsed) {
+      return res.status(400).json({ ok: false, error: 'Code already used' });
+    }
+    user.mfa.totp.lastTimestepUsed = step;
+    await user.save();
+
+    const token = signJWT(user, true);
+    res.cookie('jwt', token, cookieOpts());
+    return res.json({ ok: true, mfa: true, token });
+  } catch (err) {
+    console.error('[totpLoginVerify] error:', err);
+    return res.status(400).json({ ok: false, error: 'TOTP verification failed' });
+  }
+};
+
+exports.totpDisable = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user || !user.mfa || !user.mfa.totp) return res.sendStatus(401);
+
+    user.mfa.totp = {
+      enabled: false,
+      secretEnc: undefined,
+      verifiedAt: undefined,
+      lastTimestepUsed: undefined,
+      issuer: undefined,
+      digits: TOTP_DIGITS,
+      period: TOTP_PERIOD,
+      algo: TOTP_ALGO,
+      recoveryCodes: []
+    };
+    await user.save();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[totpDisable] error:', err);
+    return res.status(400).json({ ok: false, error: 'Could not disable TOTP' });
+  }
+};
+
+exports.totpRegenerateRecoveryCodes = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user || !user.mfa || !user.mfa.totp || user.mfa.totp.enabled !== true) {
+      return res.status(400).json({ ok: false, error: 'TOTP not enabled' });
+    }
+
+    const codes = generateRecoveryCodes();
+    const hashed = await Promise.all(codes.map(c => argon2.hash(c)));
+    user.mfa.totp.recoveryCodes = hashed.map(h => ({ hash: h, usedAt: null }));
+    await user.save();
+    return res.json({ ok: true, recoveryCodes: codes });
+  } catch (err) {
+    console.error('[totpRegenerateRecoveryCodes] error:', err);
+    return res.status(400).json({ ok: false, error: 'Could not regenerate recovery codes' });
   }
 };

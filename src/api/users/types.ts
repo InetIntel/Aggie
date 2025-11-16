@@ -12,6 +12,15 @@ export interface User extends hasId {
   displayName?: string;
   __v: number;
   createdBy?: string;
+  mfa?: {
+    totp?: {
+      enabled?: boolean;
+      issuer?: string;
+      digits?: number;
+      period?: number;
+      algo?: string;
+    };
+  };
 }
 
 export interface UserEditableData {

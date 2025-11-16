@@ -154,26 +154,6 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
         </div>
       </div>
       <div className='flex gap-2 items-center '>
-        { /*<DropdownMenu
-          buttonElement={<p className='text-xs'>Helpful Links</p>}
-          panelClassName='border border-slate-300 rounded-lg z-20 bg-white w-max max-w-lg right-0 top-100'
-          className='px-2 py-2 rounded-lg hover:bg-slate-100 hover:underline'
-        >
-          {helpfulLinks.map((item, index) => (
-            <a
-              href={item.to}
-              key={index}
-              target='_blank'
-              className='hover:underline text-blue-600'
-            >
-              <p className='px-2 py-1'>
-                {item.label}{" "}
-                <FontAwesomeIcon icon={faExternalLinkSquareAlt} size='sm' />
-              </p>
-            </a>
-          ))}
-        </DropdownMenu>*/ }
-
         {session && (
           <div className='flex items-center gap-2'>
             <Link
@@ -193,22 +173,12 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
                   ? "text-green-700 border-green-300 bg-green-50" 
                   : "text-amber-700 border-amber-300 bg-amber-50"
               ].join(' ')}
-              title={session.mfa_enrolled ? 'You have at least one registered passkey' : 'No passkeys enrolled yet'}
+              title={session.mfa_enrolled 
+                ? 'You have at least one MFA method configured' 
+                : 'No MFA methods enrolled yet'}
             >
               {session.mfa_enrolled ? 'MFA Enrolled' : 'MFA Off'}
             </span>
-            {/* <span
-              className={[
-                'text-xs px-2 py-0.5 rounded-full border',
-                session.mfa
-                  ? 'text-green-700 border-green-300 bg-green-50'
-                  : 'text-amber-700 border-amber-300 bg-amber-50'
-              ].join(' ')}
-              title={session.mfa ? 'Multi-factor authentication is active' : 'You have not completed MFA this session'}
-            >
-              <FontAwesomeIcon icon={faShieldHalved} className='mr-1' />
-              {session.mfa ? 'MFA On' : 'MFA Off'}
-            </span> */}
           </div>
         
         )}

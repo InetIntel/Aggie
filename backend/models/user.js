@@ -28,6 +28,11 @@ const WebAuthnCredSchema = new Schema({
   createdAt:    { type: Date, default: Date.now }
 }, { _id: false });
 
+const RecoveryCodeSchema = new Schema({
+  hash: { type: String, required: true }, 
+  usedAt: { type: Date, default: null }
+}, { _id: false });
+
 var userSchema = new Schema({
   provider: { type: String, default: 'local' },
   username: { type: String, required: true, unique: true },
@@ -44,7 +49,20 @@ var userSchema = new Schema({
   webauthnCredentials: { type: [WebAuthnCredSchema], default: [] },
   mfaEnforced: { type: Boolean, default: false },  
   mfaEnrolledAt: { type: Date },
-  createdBy: {type: Schema.Types.ObjectId, ref: 'User', index: true}
+  createdBy: {type: Schema.Types.ObjectId, ref: 'User', index: true},
+  mfa: {
+    totp: {
+      enabled: { type: Boolean, default: false },
+      secretEnc: { type: String }, //stores { iv, ct, tag } base64 strings, serialized JSON
+      verifiedAt: { type: Date },
+      lastTimestepUsed: { type: Number }, 
+      issuer: { type: String },
+      digits: { type: Number, default: 6 },
+      period: { type: Number, default: 30 },
+      algo: { type: String, default: 'SHA1' },
+      recoveryCodes: { type: [RecoveryCodeSchema], default: [] }
+    }
+  }
 });
 
 userSchema.index(
@@ -67,6 +85,17 @@ userSchema.set('toJSON', {
         delete out.publicKey;
         return out;
       });
+    }
+
+    if (ret.mfa && ret.mfa.totp) {
+      const t = ret.mfa.totp;
+      ret.mfa.totp = {
+        enabled: !!t.enabled,
+        issuer: t.issuer || undefined,
+        digits: t.digits,
+        period: t.period,
+        algo: t.algo
+      };
     }
     return ret;
   }

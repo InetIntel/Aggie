@@ -4,15 +4,6 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { deleteUser, getUser } from "../../../api/users";
 import type { Session, WebAuthnDevice } from "../../../api/session/types";
-import { startRegistration } from "@simplewebauthn/browser";
-import { 
-  webauthnRegisterStart, 
-  webauthnRegisterFinish, 
-  getSession,
-  listWebAuthnDevices,
-  renameWebAuthnDevice,
-  deleteWebAuthnDevice,
-} from "../../../api/session";
 
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 
@@ -27,12 +18,10 @@ import {
   faEdit,
   faTrashAlt,
   faUserShield,
-  faKey, 
-  faShieldHalved
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import WebAuthnDeviceRow from "./components/WebAuthnDeviceRow";
 import { UserRoles } from "../../../api/users/types";
+import SecuritySection from "./components/SecuritySection";
 
 interface IProps {
   session: Session | undefined;
@@ -47,27 +36,9 @@ const UserProfile = ({ session }: IProps) => {
   });
 
   const queryClient = useQueryClient();
-  const [enrollLoading, setEnrollLoading] = useState(false);
-  const [enrollError, setEnrollError] = useState<string | null>(null);
-  const [enrollSuccess, setEnrollSuccess] = useState<boolean>(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
   const [openEditPassword, setOpenEditPassword] = useState(false);
-
-  const {
-    data: devices,
-    isLoading: devicesLoading,
-    refetch: refetchDevices,
-  } = useQuery<WebAuthnDevice[]>(
-    ["webauthn-devices"],
-    listWebAuthnDevices,
-    { enabled: !!session && session._id === params.id }
-  );
-
-  const doRenameDevice = useMutation(
-    ({ credentialID, label }: { credentialID: string; label: string }) => renameWebAuthnDevice(credentialID, label),
-    { onSuccess: () => refetchDevices() }
-  );
 
   const doDeleteUser = useMutation(deleteUser, {
     onSuccess: () => {
@@ -76,40 +47,6 @@ const UserProfile = ({ session }: IProps) => {
     },
   });
 
-  const doDeleteDevice = useMutation(
-    (credentialID: string) => deleteWebAuthnDevice(credentialID),
-    {
-      onSuccess: async () => {
-        await refetchDevices();
-        const fresh = await getSession();
-        queryClient.setQueryData(["session"], fresh);
-      },
-    }
-  );
-
-  async function handleEnrollWebAuthn() {
-    setEnrollError(null);
-    setEnrollSuccess(false);
-    setEnrollLoading(true);
-    try {
-      const options = await webauthnRegisterStart();
-
-      const attestation = await startRegistration({optionsJSON: options});
-
-      await webauthnRegisterFinish(attestation);
-
-      //refresh session
-      const fresh = await getSession();
-      queryClient.setQueryData(["session"], fresh);
-      await refetchDevices();
-
-      setEnrollSuccess(true);
-    } catch (e: any) {
-      setEnrollError(e?.message || "Enrollment failed. Please try again.");
-    } finally {
-      setEnrollLoading(false);
-    }
-  }
   const isSelf = session?._id === params.id;
   const role = session?.role as UserRoles | undefined;
   const isAdmin = role === 'admin';
@@ -192,7 +129,15 @@ const UserProfile = ({ session }: IProps) => {
           <p className=''>Email</p>
           <p className='mt-1'>{data?.email}</p>
         </PlaceholderDiv>
-        <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-300">
+
+        <SecuritySection
+          session={session}
+          user={data}
+          isSelf={isSelf}
+          onUserUpdated={refetch}
+        />
+        
+        {/* <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-300">
           <h3 className="text-xl font-medium mb-2">Security</h3>
 
           <div className="grid grid-cols-4 py-1 items-center">
@@ -203,7 +148,9 @@ const UserProfile = ({ session }: IProps) => {
                   "text-xs px-2 py-0.5 rounded-full border",
                   (session?.mfa_enrolled ? "text-green-700 border-green-300 bg-green-50" : "text-amber-700 border-amber-300 bg-amber-50")
                 ].join(" ")}
-                title={session?.mfa_enrolled ? "You have at least one registered passkey" : "No passkeys enrolled yet"}
+                title={session?.mfa_enrolled 
+                  ? "You have at least one MFA method configured" 
+                  : "No MFA methods enrolled yet"}
               >
                 {session?.mfa_enrolled ? "MFA Enrolled" : "MFA Off"}
               </span>
@@ -259,10 +206,158 @@ const UserProfile = ({ session }: IProps) => {
                 )}
               </div>
             </div>
+
+            <div className="grid grid-cols-4 py-2 items-start mt-4 border-t border-slate-200 dark:border-gray-700 pt-4">
+              <p>TOTP (Authenticator app)</p>
+              <div className="col-span-3 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={[
+                      "text-xs px-2 py-0.5 rounded-full border",
+                      totpEnabled
+                        ? "text-green-700 border-green-300 bg-green-50"
+                        : "text-amber-700 border-amber-300 bg-amber-50"
+                    ].join(" ")}
+                  >
+                    {totpEnabled ? "Enabled" : "Not enabled"}
+                  </span>
+
+                  {!totpEnabled && (
+                    <AggieButton
+                      variant="secondary"
+                      className="justify-center"
+                      type="button"
+                      onClick={handleTotpEnrollStart}
+                      loading={totpEnrollLoading}
+                      disabled={totpEnrollLoading}
+                    >
+                      <FontAwesomeIcon icon={faShieldHalved} className="mr-2" />
+                      Set up TOTP
+                    </AggieButton>
+                  )}
+
+                  {totpEnabled && (
+                    <>
+                      <AggieButton
+                        variant="secondary"
+                        className="justify-center"
+                        type="button"
+                        onClick={() => setTotpEnrollVisible(!totpEnrollVisible)}
+                      >
+                        Manage TOTP
+                      </AggieButton>
+                      <AggieButton
+                        variant="danger"
+                        className="justify-center"
+                        type="button"
+                        onClick={handleTotpDisable}
+                        loading={totpDisableLoading}
+                        disabled={totpDisableLoading}
+                      >
+                        Disable TOTP
+                      </AggieButton>
+                    </>
+                  )}
+                </div>
+
+                {totpEnrollError && (
+                  <p className="mt-1 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                    {totpEnrollError}
+                  </p>
+                )}
+                {totpRegenError && (
+                  <p className="mt-1 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                    {totpRegenError}
+                  </p>
+                )}
+
+                {(totpEnrollVisible || (!totpEnabled && totpQrDataUrl)) && (
+                  <div className="mt-3 border border-slate-200 rounded-md bg-slate-50 dark:bg-gray-900 p-3 space-y-3">
+                    {totpQrDataUrl && (
+                      <div className="flex flex-col sm:flex-row gap-3 items-start">
+                        <img
+                          src={totpQrDataUrl}
+                          alt="TOTP QR code"
+                          className="w-32 h-32 border border-slate-300 rounded bg-white"
+                        />
+                        <div className="text-xs text-slate-700 dark:text-gray-300">
+                          <p className="font-medium mb-1">Scan this QR code in your authenticator app.</p>
+                          <p>Alternatively, you can enter this secret manually:</p>
+                          <code className="block mt-1 px-2 py-1 bg-white dark:bg-gray-800 border border-slate-300 rounded text-[11px] select-all">
+                            {totpManualSecret}
+                          </code>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Enter a 6-digit code to confirm setup
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={8}
+                        className="w-full px-2 py-1 border rounded-md bg-white dark:bg-gray-900 focus-theme"
+                        value={totpCodeInput}
+                        onChange={(e) => setTotpCodeInput(e.target.value)}
+                        placeholder="Code from your authenticator app"
+                      />
+                      <div className="mt-2 flex justify-end">
+                        <AggieButton
+                          variant="primary"
+                          type="button"
+                          onClick={handleTotpEnrollVerify}
+                          loading={totpEnrollLoading}
+                          disabled={totpEnrollLoading || !totpCodeInput.trim()}
+                          className="justify-center"
+                        >
+                          Verify
+                        </AggieButton>
+                      </div>
+                    </div>
+
+                    {totpRecoveryCodes && totpRecoveryCodes.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-medium text-slate-700 mb-1">
+                          Recovery codes (shown only once)
+                        </p>
+                        <p className="text-xs text-slate-600 mb-2">
+                          Store these in a safe place. Each code can be used once if you lose access to your authenticator app.
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                          {totpRecoveryCodes.map((c) => (
+                            <code
+                              key={c}
+                              className="px-2 py-1 text-[11px] bg-white dark:bg-gray-800 border border-slate-300 rounded text-center"
+                            >
+                              {c}
+                            </code>
+                          ))}
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <AggieButton
+                            variant="secondary"
+                            type="button"
+                            onClick={handleTotpRegenerateCodes}
+                            loading={totpRegenLoading}
+                            disabled={totpRegenLoading}
+                            className="justify-center"
+                          >
+                            Regenerate recovery codes
+                          </AggieButton>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
             </>
             
           )}
-        </div>        
+        </div>         */}
       </div>
       <AggieDialog
         isOpen={!!openEdit}
