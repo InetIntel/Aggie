@@ -216,7 +216,7 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
       </div>
 
       {!isSelf && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-gray-400">
           You can only manage MFA for your own account.
         </p>
       )}
@@ -230,8 +230,8 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
               className={[
                 "px-3 py-2 text-sm border-b-2",
                 activeTab === "webauthn"
-                  ? "border-[#416B34] text-[#416B34]"
-                  : "border-transparent text-slate-500 hover:text-slate-700",
+                  ? "border-green-700 text-green-700 "
+                  : "border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
               ].join(" ")}
               onClick={() => setActiveTab("webauthn")}
             >
@@ -242,8 +242,8 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
               className={[
                 "px-3 py-2 text-sm border-b-2",
                 activeTab === "totp"
-                  ? "border-[#416B34] text-[#416B34]"
-                  : "border-transparent text-slate-500 hover:text-slate-700",
+                  ? "border-green-700 text-green-700"
+                  : "border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
               ].join(" ")}
               onClick={() => setActiveTab("totp")}
             >
@@ -255,11 +255,11 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
           {activeTab === "webauthn" ? (
             <div>
               <div className="grid grid-cols-4 py-2 items-center">
-                <p>WebAuthn Enrollment</p>
+                <p>WebAuthn (Passkey)</p>
                 <div className="col-span-3">
                   <AggieButton
                     variant="primary"
-                    className="justify-center"
+                    className="justify-center text-sm"
                     onClick={handleEnrollWebAuthn}
                     loading={enrollLoading}
                     disabled={enrollLoading}
@@ -287,9 +287,9 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
                 <p className="text-lg font-medium mb-1">Enrolled devices</p>
                 <div className="rounded-lg border border-slate-300 dark:border-gray-700">
                   {devicesLoading ? (
-                    <div className="p-3 text-sm text-slate-500">Loading…</div>
+                    <div className="p-3 text-sm text-slate-500 dark:text-gray-400">Loading…</div>
                   ) : !devices || devices.length === 0 ? (
-                    <div className="p-3 text-sm text-slate-500">
+                    <div className="p-3 text-sm text-slate-500 dark:text-gray-400">
                       No devices yet.
                     </div>
                   ) : (
@@ -313,8 +313,8 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
             </div>
           ) : (
             <div className="grid grid-cols-4 py-2 items-start mt-1">
-              <p>TOTP (Authenticator app)</p>
-              <div className="col-span-3 space-y-2">
+              <p>TOTP (Authenticator App)</p>
+              <div className="col-span-3 space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={[
@@ -326,7 +326,9 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
                   >
                     {totpEnabled ? "Enabled" : "Not enabled"}
                   </span>
+                </div>
 
+                <div className="flex flex-wrap items-center gap-2">
                   {!totpEnabled && (
                     <AggieButton
                       variant="secondary"
@@ -345,7 +347,7 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
                     <>
                       <AggieButton
                         variant="secondary"
-                        className="justify-center"
+                        className="min-w-[60px] justify-center rounded-small hover:bg-slate-100 dark:hover:bg-gray-700 text-sm"
                         type="button"
                         onClick={() =>
                           setTotpEnrollVisible((visible) => !visible)
@@ -355,7 +357,7 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
                       </AggieButton>
                       <AggieButton
                         variant="danger"
-                        className="justify-center"
+                        className="min-w-[60px] justify-center rounded-small hover:bg-slate-100 dark:hover:bg-gray-700 text-sm"
                         type="button"
                         onClick={handleTotpDisable}
                         loading={totpDisableLoading}
@@ -402,7 +404,7 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
                     )}
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                      <label className="block text-xs font-medium text-slate-600 dark:text-gray-400 mb-1">
                         Enter a 6-digit code to confirm setup
                       </label>
                       <input
@@ -424,7 +426,7 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
                           disabled={
                             totpEnrollLoading || !totpCodeInput.trim()
                           }
-                          className="justify-center"
+                          className="justify-center text-sm"
                         >
                           Verify
                         </AggieButton>
@@ -433,10 +435,10 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
 
                     {totpRecoveryCodes && totpRecoveryCodes.length > 0 && (
                       <div className="mt-3">
-                        <p className="text-xs font-medium text-slate-700 mb-1">
+                        <p className="text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
                           Recovery codes (shown only once)
                         </p>
-                        <p className="text-xs text-slate-600 mb-2">
+                        <p className="text-xs text-slate-600 dark:text-gray-400 mb-2">
                           Store these in a safe place. Each code can be used
                           once if you lose access to your authenticator app.
                         </p>
