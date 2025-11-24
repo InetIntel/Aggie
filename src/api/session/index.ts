@@ -7,7 +7,11 @@ import {
   RegisterOptions,
   AuthFinishPayload,
   RegisterFinishPayload,
-  WebAuthnDevice, 
+  WebAuthnDevice,
+  TotpEnrollStartResponse,
+  TotpEnrollVerifyResponse,
+  TotpLoginVerifyResponse,
+  TotpRecoveryCodesResponse, 
 } from "./types";
 
 
@@ -83,6 +87,54 @@ export const renameWebAuthnDevice = async (credentialID: string, label: string) 
 
 export const deleteWebAuthnDevice = async (credentialID: string) => {
   await axios.delete(`/webauthn/credentials/${credentialID}`, { withCredentials: true });
+};
+
+export const totpEnrollStart = async (): Promise<TotpEnrollStartResponse> => {
+  const { data } = await axios.post(
+    "/totp/enroll/start",
+    {},
+    { withCredentials: true }
+  );
+  return data as TotpEnrollStartResponse;
+};
+
+export const totpEnrollVerify = async (code: string): Promise<TotpEnrollVerifyResponse> => {
+  const { data } = await axios.post(
+    "/totp/enroll/verify",
+    { code },
+    { withCredentials: true }
+  );
+  return data as TotpEnrollVerifyResponse;
+};
+
+export const totpLoginVerify = async (body: {
+  pendingLoginId: string;
+  code: string;
+}): Promise<TotpLoginVerifyResponse> => {
+  const { data } = await axios.post(
+    "/totp/login/verify",
+    body,
+    { withCredentials: true }
+  );
+  return data as TotpLoginVerifyResponse;
+};
+
+export const totpDisable = async (): Promise<{ ok: boolean }> => {
+  const { data } = await axios.post(
+    "/totp/disable",
+    {},
+    { withCredentials: true }
+  );
+  return data;
+};
+
+export const totpRegenerateRecoveryCodes = async (): Promise<TotpRecoveryCodesResponse> => {
+  const { data } = await axios.post(
+    "/totp/recovery/regenerate",
+    {},
+    { withCredentials: true }
+  );
+  return data as TotpRecoveryCodesResponse;
 };
 
 
