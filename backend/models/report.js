@@ -13,6 +13,12 @@ let schema = new Schema({
   authoredAt: { type: Date, index: true },
   fetchedAt: { type: Date, index: true },
   storedAt: { type: Date, index: true },
+  isOutageEvent: {type: Boolean, index: true},
+  isAsnScoped: {type:Boolean, index: true},
+  asn: {type: String},
+  outageStartedAt: { type: Date,},
+  outageEndedAt: { type: Date},
+  geoScope: {type: String},
   content: { type: String },
   author: { type: String },
   veracity: { type: String, default: 'Unconfirmed', enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'], index: true },
@@ -52,7 +58,9 @@ let schema = new Schema({
 // Add fulltext index to the `content` and `author` field.
 
 schema.index({ author: 'text', content: 'text' });
-
+schema.index({ geoScope: 1 });
+schema.index({ outageStartedAt: 1 });
+schema.index({ outageEndedAt: 1 });
 schema.index({ irrelevant: 1 });
 schema.path('_group').set(function (_group) {
   this._prevGroup = this._group;

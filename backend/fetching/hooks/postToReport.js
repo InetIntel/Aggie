@@ -8,7 +8,14 @@ module.exports = async function postToReport(post, next) {
         channel: channelID,
         platform,
         raw,
+        isOutageEvent = false,
+        isAsnScoped = false,
+        asn  = null,
+        outageStartedAt = null,
+        outageEndedAt = null,
+        geoScope = null,
     } = post;
+
     const channel = getChannel(channelID);
     const sourceID = getSourceID(channelID);
     let isKeywordSearchTwitter = false;
@@ -26,6 +33,13 @@ module.exports = async function postToReport(post, next) {
     }
     post.tags = channel.tags;
     post.guid = post.guid || post.link || post.platformID || post.id || null;
+
+    post.isOutageEvent = isOutageEvent;
+    post.isAsnScoped = isAsnScoped;
+    if (asn !== null) {post.asn = asn};
+    if (outageStartedAt !== null) {post.outageStartedAt = outageStartedAt};
+    if (outageEndedAt !== null) {post.outageEndedAt = outageEndedAt};
+    if (geoScope !== null) {post.geoScope = geoScope};
 
 
     let metadata;

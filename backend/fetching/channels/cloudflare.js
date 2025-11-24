@@ -7,6 +7,9 @@ const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS, API_MAX_R
 const { decryptSecretsObject } = require('../utils/decryption');
 require('dotenv').config();
 
+const countries = require('i18n-iso-countries');
+countries.registerLocale(require('i18n-iso-countries/langs/en.json'))
+
 /**
  * A Channel that polls the RSS feed of a list of URLs.
  */
@@ -180,11 +183,26 @@ class CloudflareChannel extends PollChannel {
      * Parse the fetched event data to SocialMediaPost.
      */
     parseEvent(event, matchesLocation) {
-        
+
+        // Enriched attributes
+        let entityLevel = null;
+        let entityScope = null;
+        let entityName = null;
+        let isOutageEvent = null;
+        let isAsnScoped = null;
+        let asn  = null;
+        let outageStartedAt = null;
+        let outageEndedAt = null;
+        let geoScope = null;
+
+        let linkedPage = null;
+        let image = null;
+
         // construct start date
         const startDate = new Date(event.startDate);
         const startHour = startDate.getUTCHours();
         const eventStartedAt = startDate.toISOString();
+        outageStartedAt = startDate;
 
         const urlFromEpoch = new Date(startDate);
         if (startHour < 12) urlFromEpoch.setUTCDate(urlFromEpoch.getUTCDate() - 1);
@@ -199,6 +217,7 @@ class CloudflareChannel extends PollChannel {
 
         if (event.endDate) {
             endDate = new Date(event.endDate);    
+            outageEndedAt = endDate;
             eventEndedAt = endDate.toISOString();
             eventDuration = this.formatDuration(
                 Math.floor((endDate - startDate) / 1000)
@@ -210,22 +229,26 @@ class CloudflareChannel extends PollChannel {
             urlToEpoch.setUTCHours(0, 0, 0, 0);
             urlToDate = urlToEpoch.toISOString().slice(0, 10);            
         }  
-
-        let entityLevel = null;
-        let entityScope = null;
-        let entityName = null;
-        let linkedPage = null;
-        let image = null;
+        
 
         if (matchesLocation) {
+            isOutageEvent = true;
+            isAsnScoped = false;
+
             entityLevel = 'Country';
-            entityScope = event.locationDetails.name;
+            entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
+            geoScope = entityScope;
             entityName = `${entityLevel} - ${entityScope}`;
             linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${event.locationDetails.code}?dateStart=${urlFromDate}&dateEnd=${urlToDate}`;
             image = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${API_LINKED_PAGE_URLS.CLOUDFLARE.IMAGE_ROUTE}&dateStart=${urlFromDate}&dateEnd=${urlToDate}&location=${this.countryCode}`;
         } else {
+            isOutageEvent = true;
+            isAsnScoped = true;
+            asn = `as${event.asnDetails.asn}`;
+
             entityLevel = 'AS';
-            entityScope = event.asnDetails.location.name;
+            entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
+            geoScope = entityScope;
             entityName = `${event.asnDetails.name} - ${entityScope}`;
             linkedPage = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/as${event.asnDetails.asn}?dateStart=${urlFromDate}&dateEnd=${urlToDate}`;
             image = `${API_LINKED_PAGE_URLS.CLOUDFLARE.BASE}/${API_LINKED_PAGE_URLS.CLOUDFLARE.IMAGE_ROUTE}&dateStart=${urlFromDate}&dateEnd=${urlToDate}&location=as${event.asnDetails.asn}`;
@@ -247,9 +270,15 @@ class CloudflareChannel extends PollChannel {
         }
 
 
-        return  new SocialMediaPost({
+        const post = new SocialMediaPost({
             authoredAt: eventStartedAt,
             fetchedAt: null,
+            isOutageEvent: isOutageEvent,
+            isAsnScoped: isAsnScoped,
+            asn: asn,
+            outageStartedAt: outageStartedAt,
+            outageEndedAt: outageEndedAt,
+            geoScope: geoScope,
             author: entityName,
             content: content,
             url: linkedPage,
@@ -267,6 +296,15 @@ class CloudflareChannel extends PollChannel {
                 'image': image, // Store image as https url
             }
         });
+
+        post.isOutageEvent = isOutageEvent;
+        post.isAsnScoped = isAsnScoped;
+        post.asn = asn;
+        post.outageStartedAt = outageStartedAt;
+        post.outageEndedAt = outageEndedAt;
+        post.geoScope = geoScope;
+        
+        return post;
 
     }
 
