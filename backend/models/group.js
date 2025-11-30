@@ -66,6 +66,8 @@ let schema = new mongoose.Schema({
   storedAt: { type: Date, index: true },
   incidentStartedAt: {type: Date, index: true},
   incidentEndedAt: { type: Date, index: true },
+  impactedAsns: { type: [String], default:[] },
+  impactedGeoScopes:{ type: [String], default:[] },
   tags: { type: [String], default: [] },
   assignedTo: { type: [mongoose.Schema.ObjectId], ref: 'User', index: 1 },
   smtcTags: {
