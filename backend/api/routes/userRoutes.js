@@ -7,6 +7,10 @@ const User = require('../../models/user');
 // Get a list of all Users
 router.get('', User.can('view users'), userController.user_users);
 
+// Get a list of manageable Users
+router.get('/manageable', User.can('view users'), userController.user_manageableUsers);
+
+
 // Create a user
 router.post('', User.can('change settings'), userController.user_create);
 

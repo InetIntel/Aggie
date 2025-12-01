@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { deleteUser, getUsers } from "../../../api/users";
+import { deleteUser, getManageableUsers } from "../../../api/users";
 import { Session } from "../../../api/session/types";
 
 import { Link } from "react-router-dom";
@@ -28,7 +28,7 @@ interface IProps {
 }
 
 const UsersIndex = ({ session }: IProps) => {
-  const { data } = useQuery(["users"], getUsers);
+  const { data } = useQuery(["users"], getManageableUsers);
   const [editUser, setEditUser] = useState("");
   const [removeUser, setRemoveUser] = useState("");
   const [editPassword, setEditPassword] = useState("");

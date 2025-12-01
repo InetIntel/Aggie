@@ -4,26 +4,54 @@ const passport = require('passport');
 const validator = require('validator');
 
 
-
+// get user list
 exports.user_users = (req, res) => {
   if (!req.user) return res.status(401).send("Unauthenticated.");
 
+  User.find({})
+    .select("-password")
+    .lean()
+    .exec((err, users) => {
+      if (err) {
+        return res
+          .status(err.status || 500)
+          .send(err.message || "User query failed");
+      }
+      return res.status(200).send(users);
+    });
+};
+
+// get manageble user list (for admin: all, for team lead: team lead + created users)
+exports.user_manageableUsers = (req, res) => {
+  if (!req.user) return res.status(401).send("Unauthenticated.");
+
   const role = req.user.role;
+  const self = req.user._id;
   let filter = { _id: req.user._id }
   if (role === "admin") {
     filter = {};
   } else if (role === "team_lead") {
-    filter = { createdBy: req.user._id }; 
+    filter = {
+      $or: [
+        { _id: self },
+        { createdBy: self },
+      ],
+    };
+  } else {
+    filter = { _id: self };
   }
 
-  User.find(filter, function (err, users) {
-    if (err) {
-      return res.status(err.status).send(err.message);
-    }
-    else {
+  User.find(filter)
+    .select("-password")
+    .lean()
+    .exec((err, users) => {
+      if (err) {
+        return res
+          .status(err.status || 500)
+          .send(err.message || "User query failed");
+      }
       return res.status(200).send(users);
-    }
-  });
+    });
 };
 
 // Get a User by id
