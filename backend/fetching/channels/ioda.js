@@ -310,7 +310,7 @@ class IODAChannel extends PollChannel {
         if (queryType.startsWith('geoasn')) {
             isOutageEvent = true;
             isAsnScoped = true;
-            asn = event.location.replace(/.*asn\//, "as");
+            asn = this.extractAsnFromEventLocation(event.location);
 
             match = event.location_name.match(/^(.+?) -- (.+)$/)
             if (queryType === 'geoasn-region') {
@@ -326,7 +326,7 @@ class IODAChannel extends PollChannel {
         } else if (queryType === 'asn-country') {
             isOutageEvent = true;
             isAsnScoped = true;
-            asn = event.location.replace(/.*asn\//, "as");
+            asn = this.extractAsnFromEventLocation(event.location);
              
             match = event.location_name.match(/^(AS[\w\d]+) \((.+)\)$/);
             entityLevel = 'AS';
@@ -405,6 +405,18 @@ class IODAChannel extends PollChannel {
             secs.toString().padStart(2, '0'),
         ].join(':');
     }
+
+    extractAsnFromEventLocation(eventLocation) {
+        if (!eventLocation || typeof eventLocation !== 'string') return null;
+        const slashIdx = eventLocation.indexOf('/');
+        if (slashIdx === -1) return null;
+        const rest = eventLocation.substring(slashIdx + 1); 
+        const dashIdx = rest.indexOf('-');
+        const numStr = dashIdx === -1 ? rest : rest.substring(0, dashIdx);
+        return 'as' + numStr;
+    }
+
+
 }
 
 
