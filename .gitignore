@@ -25,6 +25,7 @@ Thumbs.db
 .c9revisions
 .settings
 server-prefs.json
+geoScopes.json
 
 backend/migrations/.migrate
 .migrate

@@ -24,6 +24,7 @@ import FormikInput from "../../components/FormikInput";
 import FormikMultiCombobox from "../../components/FormikMultiCombobox";
 import FormikSwitch from "../../components/FormikSwitch";
 import FormikWithSchema from "../../components/FormikWithSchema";
+import { getGeoScopes } from "../../api/geoscope";
 
 const incidentSchema = Yup.object().shape({
   title: Yup.string().required("Group name required"),
@@ -66,6 +67,7 @@ const CreateEditIncidentForm = ({
 }: IProps) => {
   const { data: users } = useQuery(["users"], getUsers);
   const { data: asns } = useQuery<AsnInfo[]>(["asns"], getAllAsns);
+  const { data: geoOptions } = useQuery(["geoScopes"], getGeoScopes);
 
   return (
     <>
@@ -177,10 +179,7 @@ const CreateEditIncidentForm = ({
             label='Impacted Geographic Areas'
             icon={faCompass}
             list={
-              (group?.impactedGeoScopes || []).map((g) => ({
-                key: g,
-                value: g,
-              })) || []
+              geoOptions?.map((g) => ({ key: g.key, value: g.value })) || []
             }
           />
         )}
