@@ -15,6 +15,8 @@ import { Field } from "formik";
 import * as Yup from "yup";
 import { PUBLISHED_OPTIONS, Group, GroupEditableData } from "../../api/groups/types";
 import { getUsers } from "../../api/users";
+import { getAllAsns } from "../../api/asn";
+import type { AsnInfo } from "../../api/asn/types";
 
 import FormikDateTime from "../../components/FormikDateTime";
 import FormikDropdown from "../../components/FormikDropdown";
@@ -25,7 +27,7 @@ import FormikWithSchema from "../../components/FormikWithSchema";
 
 const incidentSchema = Yup.object().shape({
   title: Yup.string().required("Group name required"),
-  locationName: Yup.string(),
+  locationName: Yup.string(), //keep in schema for backward compatibility
   closed: Yup.boolean(),
   verification_status: Yup.string(),
   confirmation_status: Yup.string(),
@@ -45,6 +47,8 @@ const incidentSchema = Yup.object().shape({
   notes: Yup.string(),
   incidentStartedAt: Yup.date(),
   incidentEndedAt: Yup.date(),
+  impactedAsns: Yup.array().of(Yup.string()).optional().default([]),
+  impactedGeoScopes: Yup.array().of(Yup.string()).optional().default([]),
 });
 
 interface IProps {
@@ -61,6 +65,7 @@ const CreateEditIncidentForm = ({
   isLoading,
 }: IProps) => {
   const { data: users } = useQuery(["users"], getUsers);
+  const { data: asns } = useQuery<AsnInfo[]>(["asns"], getAllAsns);
 
   return (
     <>
@@ -76,6 +81,8 @@ const CreateEditIncidentForm = ({
           notes: group?.notes || "",
           incidentStartedAt: group?.incidentStartedAt || "",
           incidentEndedAt: group?.incidentEndedAt || "",
+          impactedAsns: group?.impactedAsns || [],
+          impactedGeoScopes: group?.impactedGeoScopes || [],
         }}
         schema={incidentSchema}
         onSubmit={(values: GroupEditableData) => {
@@ -140,6 +147,43 @@ const CreateEditIncidentForm = ({
             return { key: i, value: i };
           })}
         />
+        {/* show asn edit box only in edit mode */}
+        {group && (
+          <FormikMultiCombobox
+            name='impactedAsns'
+            unitLabel='ASN'
+            label='Impacted ASNs'
+            icon={faMagnifyingGlassChart}
+            list={
+              asns?.map((a) => {
+                const num = a.number ?? Number(a.asn.replace(/^as/i, ""));
+                const parts = [
+                  `AS${num}`,
+                  a.name || undefined,
+                ].filter(Boolean);
+                return {
+                  key: a.asn,             // form: "as58303"
+                  value: parts.join(" — "), // label shown in UI
+                };
+              }) || [{ key: "", value: "Loading ASNs…" }]
+            }
+          />
+        )}
+        {/* show geoScope edit box only in edit mode */}
+        {group && (
+          <FormikMultiCombobox
+            name='impactedGeoScopes'
+            unitLabel='area'
+            label='Impacted Geographic Areas'
+            icon={faCompass}
+            list={
+              (group?.impactedGeoScopes || []).map((g) => ({
+                key: g,
+                value: g,
+              })) || []
+            }
+          />
+        )}
         <FormikDateTime
           name='incidentStartedAt'
           label='Incident Start Time (UTC)'
@@ -150,7 +194,7 @@ const CreateEditIncidentForm = ({
           label='Incident End Time (UTC)'
           icon={faForwardStep}
         />
-        <FormikInput name='locationName' label='Location' icon={faCompass} />
+        {/* <FormikInput name='locationName' label='Location' icon={faCompass} /> hide from UI */}
 
         <label>
           <span className='text-slate-600 dark:text-gray-400'>Description:</span>

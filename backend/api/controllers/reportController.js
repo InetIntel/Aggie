@@ -583,7 +583,7 @@ exports.reports_tags_clear = (req, res) => {
 
 
 //Helper: calculate and add impacted ASN/GeoScope to corresponding incident
-function addImpactedFromReport(group, report) {
+function addImpactedFromReportToGroup(group, report) {
   if (!report.isOutageEvent) return;
 
   if (!Array.isArray(group.impactedAsns)) group.impactedAsns = [];
