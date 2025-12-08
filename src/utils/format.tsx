@@ -105,4 +105,31 @@ export function shortenString(s: string, left = 10, right = 10) {
     return s;
   } 
 }
-  
+
+export function formatIsoTime(iso: string | Date) {
+  if (!iso) return "Unknown Date";
+  const date = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Unknown Date";
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const hour = String(date.getUTCHours()).padStart(2, "0");
+  const minute = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
+
+export function formatDurationFromSeconds(seconds?: number | null) {
+  if (seconds == null || seconds <= 0) return "Ongoing";
+
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  const parts: string[] = [];
+  if (days) parts.push(`${days}d`);
+  if (hours) parts.push(`${hours}h`);
+  if (minutes || (!days && !hours)) parts.push(`${minutes}m`);
+
+  return parts.join(" ");
+}
