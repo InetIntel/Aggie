@@ -6,6 +6,13 @@ export const getUsers = async () => {
   return data;
 };
 
+
+export const getManageableUsers = async () => {
+  const { data } = await axios.get<User[] | undefined>("/api/user/manageable");
+  return data;
+};
+
+
 export const getUser = async (id: string) => {
   const { data } = await axios.get<User | undefined>("/api/user/" + id);
   return data;

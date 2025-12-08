@@ -250,6 +250,22 @@ class IODAChannel extends PollChannel {
      */
     async parseEvent(event, queryType) {
 
+        // Enriched attributes
+        let entityLevel = null;
+        let entityScope = null;
+        let entityName = null;
+        let match = null;
+        let isOutageEvent = null;
+        let isAsnScoped = null;
+        let asn  = null;
+        let outageStartedAt = null;
+        let outageEndedAt = null;
+        let geoScope = null;
+
+        let linkedPage = null;
+        let image = null;
+
+
         // Extract event timing
         const eventStartedAtSeconds = event.start;
         const eventDurationAtSeconds = event.duration;
@@ -258,6 +274,8 @@ class IODAChannel extends PollChannel {
         const eventStartedAt = new Date(eventStartedAtSeconds * 1000).toISOString();
         const eventEndedAt = new Date(eventEndedAtSeconds * 1000).toISOString();
         const eventDuration = this.formatDuration(eventDurationAtSeconds);
+        outageStartedAt = new Date(eventStartedAtSeconds * 1000);
+        outageEndedAt = new Date(eventEndedAtSeconds * 1000);
 
         // Construct content
         const dataSource = DATA_SOURCES.IODA[event.datasource];
@@ -281,7 +299,7 @@ class IODAChannel extends PollChannel {
         if (queryType === 'geoasn-region' || queryType === 'geoasn-country') {
             entityCode = entityCode.substring(3);
         }
-        const linkedPage = `${API_LINKED_PAGE_URLS.IODA.BASE}/${entityCode}?from=${urlFromTime}&until=${urlToTime}`;
+        linkedPage = `${API_LINKED_PAGE_URLS.IODA.BASE}/${entityCode}?from=${urlFromTime}&until=${urlToTime}`;
         
         const guid = `${queryType}-${event.start}-${event.location}-${event.datasource}`;
         if (!guid) {
@@ -289,35 +307,43 @@ class IODAChannel extends PollChannel {
             return;
         }
 
-        // Extract entity
-        let entityLevel = null;
-        let entityScope = null;
-        let entityName = null;
-        let match = null;
         if (queryType.startsWith('geoasn')) {
+            isOutageEvent = true;
+            isAsnScoped = true;
+            asn = this.extractAsnFromEventLocation(event.location);
+
             match = event.location_name.match(/^(.+?) -- (.+)$/)
             if (queryType === 'geoasn-region') {
                 entityLevel = 'AS - Region';
-                entityScope = match[2]
+                entityScope = match[2];
+                geoScope = entityScope;
             } else {
                 entityLevel = 'AS'
                 entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
+                geoScope = entityScope;
             }
             entityName = `${match[1]} - ${entityScope}`;
         } else if (queryType === 'asn-country') {
+            isOutageEvent = true;
+            isAsnScoped = true;
+            asn = this.extractAsnFromEventLocation(event.location);
+             
             match = event.location_name.match(/^(AS[\w\d]+) \((.+)\)$/);
             entityLevel = 'AS';
             entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
             entityName = `${match?.[2] ?? ' '} - ${entityScope}`;
+            geoScope = entityScope;
         } else {
+            isOutageEvent = true;
+            isAsnScoped = false;
+
             entityLevel = 'Region';
             entityScope = event.location_name;
             entityName = `${entityLevel} - ${entityScope}`;
-
+            geoScope = entityScope;
         }
 
         // Fetch and de-duplicate image as svg string
-        let image = null;
         if (this.linkedPageCache[linkedPage]) {
             image = this.linkedPageCache[linkedPage];
         } else {
@@ -332,8 +358,7 @@ class IODAChannel extends PollChannel {
 
         }
 
-
-        return  new SocialMediaPost({
+        const post =  new SocialMediaPost({
             authoredAt: eventStartedAt,
             fetchedAt: null,
             author: entityName,
@@ -355,6 +380,15 @@ class IODAChannel extends PollChannel {
             }
         });
 
+            
+        post.isOutageEvent = isOutageEvent;
+        post.isAsnScoped = isAsnScoped;
+        post.asn = asn;
+        post.outageStartedAt = outageStartedAt;
+        post.outageEndedAt = outageEndedAt;
+        post.geoScope = geoScope;
+
+        return post;
     }
 
     /**
@@ -371,6 +405,18 @@ class IODAChannel extends PollChannel {
             secs.toString().padStart(2, '0'),
         ].join(':');
     }
+
+    extractAsnFromEventLocation(eventLocation) {
+        if (!eventLocation || typeof eventLocation !== 'string') return null;
+        const slashIdx = eventLocation.indexOf('/');
+        if (slashIdx === -1) return null;
+        const rest = eventLocation.substring(slashIdx + 1); 
+        const dashIdx = rest.indexOf('-');
+        const numStr = dashIdx === -1 ? rest : rest.substring(0, dashIdx);
+        return 'as' + numStr;
+    }
+
+
 }
 
 

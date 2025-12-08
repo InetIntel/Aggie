@@ -39,6 +39,8 @@ export interface Group extends hasId {
   comments?: GroupComment[];
   incidentStartedAt: Date;
   incidentEndedAt: Date;
+  impactedAsns?: string[]; 
+  impactedGeoScopes?: string[];
 }
 
 export interface Groups {
@@ -59,6 +61,8 @@ export interface GroupEditableData extends Partial<hasId> {
   escalated: boolean;
   incidentStartedAt: Date;
   incidentEndedAt: Date;
+  impactedAsns?: string[]; 
+  impactedGeoScopes?: string[];
 }
 
 export interface GroupCreateData extends GroupEditableData {

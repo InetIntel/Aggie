@@ -160,22 +160,32 @@ const FormikMultiCombobox = ({
                 </AggieButton>
               )}
 
-              <div className='bg-white dark:bg-gray-800 divide-y divide-slate-200 max-h-[15em] overflow-y-auto'>
-                {filteredList.length > 0 ? (
-                  filteredList?.map((item) => (
-                    <button
-                      key={item.key}
-                      type='button'
-                      onClick={() => addRemoveItem(item.key)}
-                      className={`hover:bg-slate-50 dark:hover:bg-gray-900 py-1 px-2 flex justify-between items-center w-full`}
-                    >
-                      {item.value}
-                      {value && value?.includes(item.key) && (
-                        <FontAwesomeIcon icon={faCheck} />
-                      )}
-                    </button>
-                  ))
-                ) : (
+      <div className='bg-white dark:bg-gray-800 divide-y divide-slate-200 max-h-[15em] overflow-y-auto'>
+        {filteredList.length > 0 ? (
+          filteredList.map((item) => {
+            const isSelected = Array.isArray(value) && value.includes(item.key);
+
+            return (
+              <button
+                key={item.key}
+                type='button'
+                onClick={() => addRemoveItem(item.key)}
+                className={`hover:bg-slate-50 dark:hover:bg-gray-900 py-2 px-2 w-full text-left flex justify-between gap-2`}
+              >
+
+                <span className='flex-1 text-sm leading-tight text-left'>
+                  {item.value}
+                </span>
+
+                {isSelected && (
+                  <span className='shrink-0 self-start mt-[2px] text-slate-700 dark:text-gray-300'>
+                    <FontAwesomeIcon icon={faCheck} />
+                  </span>
+                )}
+              </button>
+            );
+          })
+        ) : (
                   <p className='py-1 px-2'>No Results Found</p>
                 )}
               </div>

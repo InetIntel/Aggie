@@ -247,73 +247,167 @@ exports.reports_irrelevant_update = (req, res) => {
 }
 
 // Link selected reports to one group
-exports.reports_group_update = (req, res) => {
-  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Report.find({ _id: { $in: req.body.ids } }, (err, reports) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (reports.length === 0) return res.sendStatus(200);
-    let remaining = reports.length;
-    reports.forEach((report) => {
-      //  report.read = true;
-      let prevGroupId = null;
-      // remove report from previous group, if any
-      if(report._group) {
-        prevGroupId = report._group;
-        Group.findById(prevGroupId, (err, group) => {
-          if (err) {
-            if (!res.headersSent) {
-              return res.status(err.status).send(err.message);
-            }
-            return;
-          }
-          group._reports.pull(report._id);
-          group.save((err) => {
-            if (err) {
-              if (!res.headersSent) return res.status(err.status).send(err.message)
-              return;
-            }
-          })
-        })
-      }
-      // map report with group
-      report._group = req.body.group._id;
-      report.read = true;
-      report.save((err) => {
-        if (err) {
-          if (!res.headersSent) return res.status(err.status).send(err.message)
-          return;
-        }
-        Group.findById(req.body.group._id, (err, group) => {
-          if (err) {
-            if (!res.headersSent) {
-              return res.status(err.status).send(err.message);
-            }
-            return;
-          }
-          group._reports.push(report._id);
-          group.save((err) => {
-            if (err) {
-              if (!res.headersSent) return res.status(err.status).send(err.message)
-              return;
-            }
-            if (--remaining === 0) {
-              eventRouter.publish('groups:update', { ids: [req.body.group._id], update: { _reports: group._reports } }).then(() => {
-                return res.sendStatus(200)
-              });
-            }
-          })
-        })
-        
-        if (--remaining === 0) {
-          eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id, read: true } }).then(() => {
-            return res.sendStatus(200)
-          });
+exports.reports_group_update = async (req, res) => {
+  try {
+    const ids = req.body.ids;
+    const groupPayload = req.body.group;
 
-        };
-      });
+    if (!ids || !ids.length) return res.sendStatus(200);
+    if (!groupPayload || !groupPayload._id) {
+      return res.status(400).send('Target group is required');
+    }
+
+    const targetGroupId = groupPayload._id.toString();
+
+    const reports = await Report.find({ _id: { $in: ids } });
+    if (!reports.length) return res.sendStatus(200);
+
+    const prevGroupIds = [
+      ...new Set(
+        reports
+          .filter(
+            (r) =>
+              r._group &&
+              r._group.toString() !== targetGroupId
+          )
+          .map((r) => r._group.toString())
+      ),
+    ];
+
+    if (prevGroupIds.length) {
+      const prevGroups = await Group.find({ _id: { $in: prevGroupIds } });
+
+      for (const prevGroup of prevGroups) {
+        if (!Array.isArray(prevGroup._reports) || !prevGroup._reports.length) continue;
+
+        prevGroup._reports = prevGroup._reports.filter(
+          (id) => !ids.some((rid) => id.equals(rid))
+        );
+        
+        //TODO: currently we use a conservative deletion design 
+        //  i.e. without removing ASN/geoScope from origianl incident, only manual delete
+        await prevGroup.save();
+      }
+    }
+
+    const group = await Group.findById(targetGroupId);
+    if (!group) {
+      return res.status(404).send('Group not found');
+    }
+
+    if (!Array.isArray(group._reports)) group._reports = [];
+    const reportIdSet = new Set(group._reports.map((id) => id.toString()));
+
+    if (!Array.isArray(group.impactedAsns)) group.impactedAsns = [];
+    if (!Array.isArray(group.impactedGeoScopes)) group.impactedGeoScopes = [];
+
+    for (const report of reports) {
+      report._group = targetGroupId;
+      report.read = true;
+      await report.save(); 
+
+      const rid = report._id.toString();
+      if (!reportIdSet.has(rid)) {
+        group._reports.push(report._id);
+        reportIdSet.add(rid);
+      }
+
+      addImpactedFromReportToGroup(group, report);
+    }
+
+    await group.save();
+
+    await eventRouter.publish('groups:update', {
+      ids: [group._id],
+      update: {
+        _reports: group._reports,
+        impactedAsns: group.impactedAsns || [],
+        impactedGeoScopes: group.impactedGeoScopes || [],
+      },
     });
-  });
-}
+
+    await eventRouter.publish('reports:update', {
+      ids: req.body.ids,
+      update: { _group: group._id, read: true },
+    });
+
+    return res.sendStatus(200);
+  } catch (err) {
+    console.error('Error in reports_group_update', err);
+    if (!res.headersSent) {
+      res
+        .status(err.status || 500)
+        .send(err.message || 'Error updating report groups');
+    }
+  }
+};
+// exports.reports_group_update = (req, res) => {
+//   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+//   Report.find({ _id: { $in: req.body.ids } }, (err, reports) => {
+//     if (err) return res.status(err.status).send(err.message);
+//     if (reports.length === 0) return res.sendStatus(200);
+//     let remaining = reports.length;
+//     reports.forEach((report) => {
+//       //  report.read = true;
+//       let prevGroupId = null;
+//       // remove report from previous group, if any
+//       if(report._group) {
+//         prevGroupId = report._group;
+//         Group.findById(prevGroupId, (err, group) => {
+//           if (err) {
+//             if (!res.headersSent) {
+//               return res.status(err.status).send(err.message);
+//             }
+//             return;
+//           }
+//           group._reports.pull(report._id);
+//           group.save((err) => {
+//             if (err) {
+//               if (!res.headersSent) return res.status(err.status).send(err.message)
+//               return;
+//             }
+//           })
+//         })
+//       }
+//       // map report with group
+//       report._group = req.body.group._id;
+//       report.read = true;
+//       report.save((err) => {
+//         if (err) {
+//           if (!res.headersSent) return res.status(err.status).send(err.message)
+//           return;
+//         }
+//         Group.findById(req.body.group._id, (err, group) => {
+//           if (err) {
+//             if (!res.headersSent) {
+//               return res.status(err.status).send(err.message);
+//             }
+//             return;
+//           }
+//           group._reports.push(report._id);
+//           group.save((err) => {
+//             if (err) {
+//               if (!res.headersSent) return res.status(err.status).send(err.message)
+//               return;
+//             }
+//             if (--remaining === 0) {
+//               eventRouter.publish('groups:update', { ids: [req.body.group._id], update: { _reports: group._reports } }).then(() => {
+//                 return res.sendStatus(200)
+//               });
+//             }
+//           })
+//         })
+        
+//         if (--remaining === 0) {
+//           eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id, read: true } }).then(() => {
+//             return res.sendStatus(200)
+//           });
+
+//         };
+//       });
+//     });
+//   });
+// }
 // remove selected reports from one group
 exports.reports_group_remove = (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
@@ -346,7 +440,14 @@ exports.reports_group_remove = (req, res) => {
 
             }
             if (--remaining === 0) {
-              eventRouter.publish('groups:update', { ids: [req.body.group._id], update: { _reports: group._reports } }).then(() => {
+              eventRouter.publish('groups:update', { 
+                  ids: [req.body.group._id], 
+                  update: { 
+                    _reports: group._reports,
+                    impactedAsns: group.impactedAsns || [],
+                    impactedGeoScopes: group.impactedGeoScopes || [],
+                  } 
+                }).then(() => {
                 return res.sendStatus(200)
               });
             }
@@ -479,4 +580,25 @@ exports.reports_tags_clear = (req, res) => {
   });
 }
 
+
+
+//Helper: calculate and add impacted ASN/GeoScope to corresponding incident
+function addImpactedFromReportToGroup(group, report) {
+  if (!report.isOutageEvent) return;
+
+  if (!Array.isArray(group.impactedAsns)) group.impactedAsns = [];
+  if (!Array.isArray(group.impactedGeoScopes)) group.impactedGeoScopes = [];
+
+  if (report.isAsnScoped && typeof report.asn === 'string' && report.asn.length > 0) {
+    if (!group.impactedAsns.includes(report.asn)) {
+      group.impactedAsns.push(report.asn);
+    }
+  }
+
+  if (typeof report.geoScope === 'string' && report.geoScope.length > 0) {
+    if (!group.impactedGeoScopes.includes(report.geoScope)) {
+      group.impactedGeoScopes.push(report.geoScope);
+    }
+  }
+}
 
