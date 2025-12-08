@@ -90,29 +90,76 @@ exports.group_details = (req, res) => {
 };
 
 // Update a Group
-exports.group_update = (req, res, next) => {
-  // Find group to update
-  Group.findById(req.params._id, (err, group) => {
-    if (err) return res.status(err.status).send(err.message);
+exports.group_update = async (req, res) => {
+  try {
+    const group = await Group.findById(req.params._id);
     if (!group) return res.sendStatus(404);
-    // Update the actual values
 
-    group = _.extend(group, _.omit(req.body, 'creator'));
-    // Save group
-    group.save(function (err, numberAffected) {
-      if (err) {
-        res.status(err.status).send(err.message);
-      } else if (!numberAffected) {
-        res.sendStatus(404);
-      } else {
-        
-        eventRouter.publish('groups:update', { ids: group._id, update: group }).then(() => {
-          res.status(200).send(group);
-        });
-      }
+    const getTimeOrNull = (v) => {
+      if (!v) return null;
+      const d = v instanceof Date ? v : new Date(v);
+      const t = d.getTime();
+      return Number.isNaN(t) ? null : t;
+    };
+
+    const prevStartTs = getTimeOrNull(group.incidentStartedAt);
+    const prevEndTs   = getTimeOrNull(group.incidentEndedAt);
+
+    const safeBody = _.omit(req.body, ['creator', 'incidentDurationMs']);
+    _.extend(group, safeBody);
+
+    const newStartTs = getTimeOrNull(group.incidentStartedAt);
+    const newEndTs   = getTimeOrNull(group.incidentEndedAt);
+
+    let durationMs = null;
+    if (newStartTs !== null && newEndTs !== null && newEndTs >= newStartTs) {
+      durationMs = newEndTs - newStartTs;
+    }
+
+    group.incidentDurationMs = durationMs;
+
+    const saved = await group.save();
+    if (!saved) {
+      return res.sendStatus(404);
+    }
+
+    await eventRouter.publish('groups:update', {
+      ids: group._id,
+      update: group,   
     });
-  });
+
+    return res.status(200).send(group);
+  } catch (err) {
+    console.error('Error in group_update:', err);
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Error updating group');
+  }
 };
+
+// exports.group_update = (req, res, next) => {
+//   // Find group to update
+//   Group.findById(req.params._id, (err, group) => {
+//     if (err) return res.status(err.status).send(err.message);
+//     if (!group) return res.sendStatus(404);
+//     // Update the actual values
+
+//     group = _.extend(group, _.omit(req.body, 'creator'));
+//     // Save group
+//     group.save(function (err, numberAffected) {
+//       if (err) {
+//         res.status(err.status).send(err.message);
+//       } else if (!numberAffected) {
+//         res.sendStatus(404);
+//       } else {
+        
+//         eventRouter.publish('groups:update', { ids: group._id, update: group }).then(() => {
+//           res.status(200).send(group);
+//         });
+//       }
+//     });
+//   });
+// };
 
 // Delete selected groups
 exports.group_selected_delete = (req, res) => {

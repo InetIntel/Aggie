@@ -4,6 +4,9 @@ const { mongoose } = require('../../database');
 const REGION_CODES = require('../../config/fetching/channels/iodaMappings');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
 const extractCleanSVGFromPage = require('../utils/iodaUtils');
+const {  recomputeIncidentDurationForGroups } = require('../../api/utils/incidentDuration');
+const Group = require('../../models/group');
+const Report = require('../../models/report');
 const { chromium } = require('playwright');
 const countries = require('i18n-iso-countries');
 require('dotenv').config();
@@ -146,6 +149,7 @@ class IODAChannel extends PollChannel {
                 this.linkedPageCache = {}; // avoid duplicately extract graph components
 
                 const collection = mongoose.connection.db.collection('reports');
+                const affectedGroupIds = new Set();
 
                 // Parse and transform each event 
                 for (const event of events) {
@@ -171,24 +175,30 @@ class IODAChannel extends PollChannel {
 
                     // De-duplicate fetched report for downstream tasks
                     try {
-
-                        const existingReport = await collection.findOne({ guid: formattedEvent.platformID });
+                        const existingReport = await Report.findOne({ guid: formattedEvent.platformID });
 
                         if (existingReport) {
+                            const prevEnd = existingReport.outageEndedAt
+                            ? existingReport.outageEndedAt.getTime()
+                            : null;
+                            const newEnd = formattedEvent.outageEndedAt
+                            ? formattedEvent.outageEndedAt.getTime()
+                            : null;
 
-                            await collection.updateOne(
-                                { guid: formattedEvent.platformID },
-                                {
-                                    // update existing report if fields updated (such as endDate confirmed)
-                                    $set: {
-                                        content: formattedEvent.content,
-                                        url: formattedEvent.url,
-                                        'metadata.rawAPIResponse': formattedEvent.raw,
-                                    }
-                                }
-                            );
+                            const endChanged = prevEnd !== newEnd;
 
+                            // update fields
+                            existingReport.content = formattedEvent.content;
+                            existingReport.url = formattedEvent.url;
+                            existingReport.metadata.rawAPIResponse = formattedEvent.raw;
+                            existingReport.outageEndedAt = formattedEvent.outageEndedAt;
+
+                            await existingReport.save();
                             existedReportCount += 1;
+
+                            if (endChanged && existingReport._group) {
+                                affectedGroupIds.add(existingReport._group.toString());
+                            }
 
                         } else {
                             // Add new report to downstream hooks
@@ -206,6 +216,11 @@ class IODAChannel extends PollChannel {
 
                 console.log(`[Fetching-channel-IODA] Success - Parsed and formatted data from url: ${url}, total records: ${events.length}, new records: ${newReportCount}, existed records: ${existedReportCount}, irrelevant region records: ${irrelevantRegionReportCount}.`);
 
+                if (affectedGroupIds.size > 0) {
+                    // console.log(`[IODA] Recomputing duration for ${affectedGroupIds.size} affected incidents`);
+                    await recomputeIncidentDurationForGroups([...affectedGroupIds]);
+                }
+
             } catch (e) {
                 console.error(`[Fetching-channel-IODA] Failed - Failed parsing and formating data: ${this.options.media} - ${queryType}.`);
             }
@@ -221,8 +236,7 @@ class IODAChannel extends PollChannel {
 
         return outages;
 
-    } finally {
-
+    } finally {       
         await this.browser.close(); // ensure closing headerless browser 
     }
 } 
