@@ -148,8 +148,12 @@ class CloudflareChannel extends PollChannel {
                         // update fields
                         existingReport.content = formattedEvent.content;
                         existingReport.url = formattedEvent.url;
-                        existingReport.metadata.rawAPIResponse = formattedEvent.raw;
                         existingReport.outageEndedAt = formattedEvent.outageEndedAt;
+                        // update whole metadata.rawAPIResponse object
+                        existingReport.metadata = existingReport.metadata || {};
+                        existingReport.metadata.rawAPIResponse = formattedEvent.raw;
+                        existingReport.markModified('metadata');
+
 
                         await existingReport.save();
                         existedReportCount += 1;

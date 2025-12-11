@@ -111,12 +111,13 @@ exports.group_update = async (req, res) => {
     const newStartTs = getTimeOrNull(group.incidentStartedAt);
     const newEndTs   = getTimeOrNull(group.incidentEndedAt);
 
-    let durationMs = null;
+    let durationSeconds = null;
     if (newStartTs !== null && newEndTs !== null && newEndTs >= newStartTs) {
-      durationMs = newEndTs - newStartTs;
+      const durationMs = newEndTs - newStartTs;
+      durationSeconds = Math.floor(durationMs / 1000); 
     }
-
-    group.incidentDurationMs = durationMs;
+    
+    group.incidentDurationSeconds = durationSeconds;
 
     const saved = await group.save();
     if (!saved) {
