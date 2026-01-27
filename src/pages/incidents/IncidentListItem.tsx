@@ -144,11 +144,11 @@ const IncidentListItem = ({ item }: IProps) => {
                 </>
               )}
             </p>
-            <p className='text-xs overflow-hidden max-w-full flex gap-1 items-baseline text-ellipsis mr-1'>
+            {/* <p className='text-xs overflow-hidden max-w-full flex gap-1 items-baseline text-ellipsis mr-1'>
               {" "}
               <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
               {item.creator && <UserToken id={getUserId(item.creator)} />}
-            </p>
+            </p> */}
           </div>
         </header>
         <div className='hidden lg:block col-span-2 '>
