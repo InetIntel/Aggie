@@ -21,6 +21,7 @@ import UserToken from "../../../components/UserToken";
 import { IncidentOverallStatus, IncidentStatuses } from "../IncidentStatuses";
 import { getAsnsByIds } from "../../../api/asn";
 import type { AsnInfoMap } from "../../../api/asn/types";
+import { formatDurationFromSeconds } from "../../../utils/format";
 
 
 interface IProps {
@@ -233,6 +234,22 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             </p>
           ) : (
             <p className='italic text-slate-600 dark:text-gray-400'>No Date Set</p>
+          )}
+        </PlaceholderDiv>
+      </div>
+
+      <div className='flex gap-2 items-center pt-2'>
+        <span className='whitespace-nowrap'>Incident Duration:</span>
+        <PlaceholderDiv
+          loading={isLoading}
+          className='flex flex-wrap gap-x-2 gap-y-1 items-center '
+        >
+          {typeof group?.incidentDurationSeconds === "number" && group.incidentDurationSeconds >= 0 ? (
+            <p className='whitespace-pre-line max-w-prose text-black dark:text-gray-300'>
+              {formatDurationFromSeconds(group.incidentDurationSeconds)}
+            </p>
+          ) : (
+            <p className='italic text-slate-600 dark:text-gray-400'>Ongoing</p>
           )}
         </PlaceholderDiv>
       </div>

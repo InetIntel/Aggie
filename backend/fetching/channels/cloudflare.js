@@ -5,6 +5,9 @@ const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { mongoose } = require('../../database');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS, API_MAX_RESULTS } = require('../../config/fetching/externalApis');
 const { decryptSecretsObject } = require('../utils/decryption');
+const {  recomputeIncidentDurationForGroups } = require('../../api/utils/incidentDuration');
+const Group = require('../../models/group');
+const Report = require('../../models/report');
 require('dotenv').config();
 
 const countries = require('i18n-iso-countries');
@@ -105,6 +108,7 @@ class CloudflareChannel extends PollChannel {
             let irrelevantRegionReportCount = 0;
             
             const collection = mongoose.connection.db.collection('reports');
+            const affectedGroupIds = new Set();
 
             // Parse and transform each event 
             for (const event of events) {
@@ -129,23 +133,34 @@ class CloudflareChannel extends PollChannel {
                 // De-duplicate fetched report for downstream tasks
                 try {
 
-                    const existingReport = await collection.findOne({ guid: formattedEvent.platformID });
+                    const existingReport = await Report.findOne({ guid: formattedEvent.platformID });
 
                     if (existingReport) {
+                        const prevEnd = existingReport.outageEndedAt
+                        ? existingReport.outageEndedAt.getTime()
+                        : null;
+                        const newEnd = formattedEvent.outageEndedAt
+                        ? formattedEvent.outageEndedAt.getTime()
+                        : null;
 
-                        await collection.updateOne(
-                            { guid: formattedEvent.platformID },
-                            {
-                                // update existing report if fields updated (such as endDate confirmed)
-                                $set: {
-                                    content: formattedEvent.content,
-                                    url: formattedEvent.url,
-                                    'metadata.rawAPIResponse': formattedEvent.raw,
-                                }
-                            }
-                        );
+                        const endChanged = prevEnd !== newEnd;
 
+                        // update fields
+                        existingReport.content = formattedEvent.content;
+                        existingReport.url = formattedEvent.url;
+                        existingReport.outageEndedAt = formattedEvent.outageEndedAt;
+                        // update whole metadata.rawAPIResponse object
+                        existingReport.metadata = existingReport.metadata || {};
+                        existingReport.metadata.rawAPIResponse = formattedEvent.raw;
+                        existingReport.markModified('metadata');
+
+
+                        await existingReport.save();
                         existedReportCount += 1;
+
+                        if (endChanged && existingReport._group) {
+                            affectedGroupIds.add(existingReport._group.toString());
+                        }
 
                     } else {
 
@@ -164,6 +179,12 @@ class CloudflareChannel extends PollChannel {
             }
 
             console.log(`[Fetching-channel-Cloudflare] Success - Parsed and formatted data from url: ${url}, total records: ${events.length}, new records: ${newReportCount}, existed records: ${existedReportCount}, irrelevant region records: ${irrelevantRegionReportCount}.`);
+            
+            if (affectedGroupIds.size > 0) {
+                // console.log(`[Cloudflare] Recomputing duration for ${affectedGroupIds.size} affected incidents`);
+                await recomputeIncidentDurationForGroups([...affectedGroupIds]);
+            }
+
         } catch (e) {
             console.error(`[Fetching-channel-Cloudflare] Failed - Failed parsing and formating data: ${this.options.media}.`);
         }

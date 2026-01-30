@@ -66,6 +66,7 @@ let schema = new mongoose.Schema({
   storedAt: { type: Date, index: true },
   incidentStartedAt: {type: Date, index: true},
   incidentEndedAt: { type: Date, index: true },
+  incidentDurationSeconds: { type: Number, default: null },
   impactedAsns: { type: [String], default:[] },
   impactedGeoScopes:{ type: [String], default:[] },
   tags: { type: [String], default: [] },

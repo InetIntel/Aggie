@@ -149,8 +149,9 @@ const CreateEditIncidentForm = ({
             return { key: i, value: i };
           })}
         />
-        {/* show asn edit box only in edit mode */}
+        {/* show only in edit mode */}
         {group && (
+          <>
           <FormikMultiCombobox
             name='impactedAsns'
             unitLabel='ASN'
@@ -170,9 +171,6 @@ const CreateEditIncidentForm = ({
               }) || [{ key: "", value: "Loading ASNs…" }]
             }
           />
-        )}
-        {/* show geoScope edit box only in edit mode */}
-        {group && (
           <FormikMultiCombobox
             name='impactedGeoScopes'
             unitLabel='area'
@@ -182,17 +180,19 @@ const CreateEditIncidentForm = ({
               geoOptions?.map((g) => ({ key: g.key, value: g.value })) || []
             }
           />
+          <FormikDateTime
+            name='incidentStartedAt'
+            label='Incident Start Time (UTC)'
+            icon={faBackwardStep}
+          />
+          <FormikDateTime
+            name='incidentEndedAt'
+            label='Incident End Time (UTC)'
+            icon={faForwardStep}
+          />
+          </>
         )}
-        <FormikDateTime
-          name='incidentStartedAt'
-          label='Incident Start Time (UTC)'
-          icon={faBackwardStep}
-        />
-        <FormikDateTime
-          name='incidentEndedAt'
-          label='Incident End Time (UTC)'
-          icon={faForwardStep}
-        />
+
         {/* <FormikInput name='locationName' label='Location' icon={faCompass} /> hide from UI */}
 
         <label>

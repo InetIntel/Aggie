@@ -39,6 +39,7 @@ export interface Group extends hasId {
   comments?: GroupComment[];
   incidentStartedAt: Date;
   incidentEndedAt: Date;
+  incidentDurationSeconds?: number | null; 
   impactedAsns?: string[]; 
   impactedGeoScopes?: string[];
 }
