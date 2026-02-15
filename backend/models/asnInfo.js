@@ -14,6 +14,10 @@ let AsnInfoSchema = new Schema({
   country: { type: String, index: true,},  // Optional ISO country code
   source: { type: String,},
   raw: { type: Schema.Types.Mixed },
+  populationCoverageTotal: { type: Number, default: null },
+  populationCoverageDirect: { type: Number, default: null },
+  populationCoverageIndirect: { type: Number, default: null },
+  asCoverageTotal: { type: Number, default: null },
   firstSeenAt: { type: Date, default: Date.now,},
   lastUpdatedAt: { type: Date, default: Date.now,},
 });
@@ -35,7 +39,20 @@ AsnInfoSchema.pre('save', function (next) {
 AsnInfoSchema.statics.upsertFromIngestion = async function (data) {
   const AsnInfo = this;
 
-  const { asn, number, name, country, source, raw } = data;
+
+  const {
+    asn,
+    number,
+    name,
+    country,
+    source,
+    raw,
+    populationCoverageTotal,
+    populationCoverageDirect,
+    populationCoverageIndirect,
+    asCoverageTotal,
+  } = data;
+
 
   if (!asn || typeof number !== 'number') {
     throw new Error('AsnInfo.upsertFromIngestion: asn (string) and number (number) are required');
@@ -53,6 +70,10 @@ AsnInfoSchema.statics.upsertFromIngestion = async function (data) {
         country: country || null,
         source: source || null,
         raw,
+        populationCoverageTotal: populationCoverageTotal || null,
+        populationCoverageDirect: populationCoverageDirect || null,
+        populationCoverageIndirect: populationCoverageIndirect || null,
+        asCoverageTotal: asCoverageTotal || null,
         lastUpdatedAt: now,
       },
       $setOnInsert: {
