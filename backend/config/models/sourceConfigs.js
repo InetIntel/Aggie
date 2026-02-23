@@ -2,7 +2,7 @@ const sourceMediaValues = [
     'ioda', 
     'cloudflare',
     'junkipedia',
-    'telegram',
+    'telegramBot',
 ]
 
 module.exports = sourceMediaValues;

@@ -2,7 +2,7 @@ const credentialsTypes = [
   'ioda',
   'cloudflare',
   'junkipedia',
-  'telegram',
+  'telegramBot',
 ];
 
 module.exports = credentialsTypes;
