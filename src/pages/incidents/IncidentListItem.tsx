@@ -48,7 +48,7 @@ const IncidentListItem = ({ item }: IProps) => {
       return "border-black dark:border-gray-200";
     }
     if (value <= 0.25) {
-      return "border-orange-500 dark:border-orange-400";
+      return "border-orange-400 dark:border-orange-300";
     }
     return "border-red-500 dark:border-red-400";
   };

@@ -6,6 +6,9 @@ import {
 import {
   faArrowRight,
   faMinusCircle,
+  faSort,
+  faSortDown,
+  faSortUp,
   faTrash,
   faUserEdit,
   faWarning,
@@ -32,6 +35,13 @@ interface IProps {
 const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   const [isStatusClicked, setIsStatusClicked] = useState(false);
   const [isStatusHovered, setIsStatusHovered] = useState(false);
+  const [asnSort, setAsnSort] = useState<{
+    key: "asn" | "direct" | "indirect";
+    direction: "asc" | "desc";
+  }>({
+    key: "direct",
+    direction: "desc",
+  });
 
   const impactedAsns = group?.impactedAsns ?? [];
   const impactedGeoScopes = group?.impactedGeoScopes ?? [];
@@ -77,16 +87,67 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   );
 
   const sortedImpactedAsns = [...impactedAsns].sort((a, b) => {
-    const aDirect = getAsnInfo(a)?.populationCoverageDirect;
-    const bDirect = getAsnInfo(b)?.populationCoverageDirect;
-    const aHas = typeof aDirect === "number";
-    const bHas = typeof bDirect === "number";
+    const aInfo = getAsnInfo(a);
+    const bInfo = getAsnInfo(b);
 
-    if (aHas && bHas) return bDirect - aDirect;
+    if (asnSort.key === "asn") {
+      const aLabel = String(aInfo?.number ?? a.replace(/^as/i, ""));
+      const bLabel = String(bInfo?.number ?? b.replace(/^as/i, ""));
+      const aNum = Number(aLabel);
+      const bNum = Number(bLabel);
+
+      const sortByString = aLabel.localeCompare(bLabel, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      const sortByNumber = Number.isFinite(aNum) && Number.isFinite(bNum)
+        ? aNum - bNum
+        : sortByString;
+
+      return asnSort.direction === "asc" ? sortByNumber : -sortByNumber;
+    }
+
+    const aCoverage =
+      asnSort.key === "direct"
+        ? aInfo?.populationCoverageDirect
+        : aInfo?.populationCoverageIndirect;
+    const bCoverage =
+      asnSort.key === "direct"
+        ? bInfo?.populationCoverageDirect
+        : bInfo?.populationCoverageIndirect;
+
+    const aHas = typeof aCoverage === "number";
+    const bHas = typeof bCoverage === "number";
+
+    if (aHas && bHas) {
+      const diff = (aCoverage as number) - (bCoverage as number);
+      return asnSort.direction === "asc" ? diff : -diff;
+    }
+
     if (aHas) return -1;
     if (bHas) return 1;
     return a.localeCompare(b);
   });
+
+  const updateAsnSort = (key: "asn" | "direct" | "indirect") => {
+    setAsnSort((prev) => {
+      if (prev.key !== key) {
+        return {
+          key,
+          direction: key === "asn" ? "asc" : "desc",
+        };
+      }
+      return {
+        key,
+        direction: prev.direction === "asc" ? "desc" : "asc",
+      };
+    });
+  };
+
+  const getAsnSortIcon = (key: "asn" | "direct" | "indirect") => {
+    if (asnSort.key !== key) return faSort;
+    return asnSort.direction === "asc" ? faSortUp : faSortDown;
+  };
 
   
   function formatIsoTime (iso : string | Date) {
@@ -141,24 +202,54 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           );
         })}
         </div> */}
-      <div className="w-full max-h-72 overflow-auto">
-        <table className="min-w-[24rem] w-full text-sm border border-slate-200 dark:border-slate-600 bg-transparent">
-          <thead className="bg-transparent">
+      <div className="w-full max-h-72 overflow-auto rounded-lg border border-slate-300 bg-white dark:bg-gray-800 dark:border-slate-600">
+        <table className="min-w-[24rem] w-full text-sm">
+          <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-gray-700 border-b border-slate-300 dark:border-slate-600">
             <tr className="text-center text-slate-600 dark:text-gray-300">
-              <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0">
-                ASN
+              <th className="px-3 py-2 w-30 font-medium text-black dark:text-gray-300 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
+                  onClick={() => updateAsnSort("asn")}
+                >
+                  ASN
+                  <FontAwesomeIcon
+                    icon={getAsnSortIcon("asn")}
+                    className="text-slate-500 dark:text-gray-400"
+                  />
+                </button>
               </th>
-              <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+              <th className="px-3 py-2 font-medium text-black dark:text-gray-300 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
                 Organization
               </th>
               {/* <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0">
                 Country
               </th> */}
-              <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0 w-[25%]">
-                Direct Population Coverage
+              <th className="px-3 py-2 font-medium text-black dark:text-gray-300 w-[25%] border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
+                  onClick={() => updateAsnSort("direct")}
+                >
+                  Direct Population Coverage
+                  <FontAwesomeIcon
+                    icon={getAsnSortIcon("direct")}
+                    className="text-slate-500 dark:text-gray-400"
+                  />
+                </button>
               </th>
-              <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0 w-[25%]">
-                Indirect Population Coverage
+              <th className="px-3 py-2 font-medium text-black dark:text-gray-300 w-[25%] border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
+                  onClick={() => updateAsnSort("indirect")}
+                >
+                  Indirect Population Coverage
+                  <FontAwesomeIcon
+                    icon={getAsnSortIcon("indirect")}
+                    className="text-slate-500 dark:text-gray-400"
+                  />
+                </button>
               </th>
             </tr>
           </thead>
@@ -170,20 +261,20 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
               // const country = info?.country?.toUpperCase();
 
               return (
-                <tr key={asn} className="border-b border-slate-100 dark:border-slate-700">
-                  <td className="px-2 py-2 font-medium whitespace-nowrap border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                <tr key={asn} className="border-b border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-gray-700 last:border-b-0">
+                  <td className="px-3 py-2 font-medium whitespace-nowrap border-r border-slate-300 dark:border-slate-600 last:border-r-0">
                     {`AS${labelNumber}`}
                   </td>
-                  <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                  <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
                     {labelName || "—"}
                   </td>
                   {/* <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
                     {country || "—"}
                   </td> */}
-                  <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                  <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
                     {formatCoveragePercent(info?.populationCoverageDirect)}
                   </td>
-                  <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                  <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
                     {formatCoveragePercent(info?.populationCoverageIndirect)}
                   </td>
                 </tr>
