@@ -13,7 +13,7 @@ const RSSChannel = require('./channels/rss');
 const IODAChannel = require('./channels/ioda');
 const CloudflareChannel = require('./channels/cloudflare');
 const JunkipediaChannel = require('./channels/junkipedia');
-
+const TelegramBotChannel = require('./channels/telegramBot');
 
 // const { TwitterPageChannel, JunkipediaChannel } = builtin;
 
@@ -143,12 +143,12 @@ function createChannel(source) {
             console.log(options)
             channel = new TwitterPageChannel(options);
             break;
-        case 'telegram':
+        case 'telegramBot':
             options = {
                 ...options,
-                botAPIToken: credentials.secrets.botAPIToken,
+                botAPIToken: credentials,
             };
-            channel = new TelegramChannel(options);
+            channel = new TelegramBotChannel(options);
             break;
         case 'junkipedia':
             // Special case of 
