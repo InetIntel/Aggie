@@ -79,6 +79,7 @@
     "morgan": "^1.10.0",
     "multer": "^2.0.1",
     "nconf": "^0.10.0",
+    "node-telegram-bot-api": "^0.67.0",
     "otpauth": "^9.4.1",
     "passport": "^0.4.1",
     "passport-jwt": "^4.0.0",
