@@ -2,6 +2,7 @@
 'use strict';
 
 var Group = require('../../models/group');
+const AsnInfo = require('../../models/asnInfo');
 const _ = require('lodash');
 var tags = require('../../shared/tags');
 const Report = require('../../models/report');
@@ -63,9 +64,22 @@ exports.group_groups = (req, res) => {
         { path: 'assignedTo', select: 'username' },
       ],
     },
-    (err, groups) => {
-      if (err) res.status(err.status).send(err.message);
-      else res.status(200).send(groups);
+    async (err, groups) => {
+      if (err) {
+        res.status(err.status).send(err.message);
+        return;
+      }
+
+      try {
+        const enrichedResults = await addDirectPopulationCoverageToGroups(groups.results || []);
+        res.status(200).send({
+          ...groups,
+          results: enrichedResults,
+        });
+      } catch (coverageErr) {
+        console.error('Error enriching groups with direct population coverage:', coverageErr);
+        res.status(200).send(groups);
+      }
     }
   );
 };
@@ -75,16 +89,24 @@ exports.group_details = (req, res) => {
   Group.findById(req.params._id)
     .populate({ path: 'creator', select: 'username' })
     .populate({ path: 'assignedTo', select: 'username' })
-    .exec((err, group) => {
-      if (err) res.status(err.status).send(err.message);
-      else if (!group) res.sendStatus(404);
-      else {
+    .exec(async (err, group) => {
+      if (err) {
+        res.status(err.status).send(err.message);
+      } else if (!group) {
+        res.sendStatus(404);
+      } else {
         if (
           !(referer.split('/')[referer.split('/').length - 1] === 'reports')
         ) {
           
         }
-        res.status(200).send(group);
+        try {
+          const [enrichedGroup] = await addDirectPopulationCoverageToGroups([group]);
+          res.status(200).send(enrichedGroup);
+        } catch (coverageErr) {
+          console.error('Error enriching group with direct population coverage:', coverageErr);
+          res.status(200).send(group);
+        }
       }
     });
 };
@@ -728,4 +750,61 @@ const validateAttachments = (attachments) => {
     }
 
     return true;
+}
+
+async function addDirectPopulationCoverageToGroups(groups) {
+  if (!Array.isArray(groups) || groups.length === 0) return groups;
+  const normalizeAsn = (asn) => (typeof asn === 'string' ? asn.trim().toLowerCase() : '');
+
+  const allImpactedAsns = new Set();
+  for (const group of groups) {
+    const impactedAsns = Array.isArray(group.impactedAsns) ? group.impactedAsns : [];
+    for (const asn of impactedAsns) {
+      const normalizedAsn = normalizeAsn(asn);
+      if (normalizedAsn.length > 0) {
+        allImpactedAsns.add(normalizedAsn);
+      }
+    }
+  }
+
+  if (allImpactedAsns.size === 0) {
+    return groups.map((group) => ({
+      ...(typeof group.toObject === 'function' ? group.toObject() : group),
+      directPopulationCoverageScore: null,
+    }));
+  }
+
+  const asnDocs = await AsnInfo.find({ asn: { $in: Array.from(allImpactedAsns) } })
+    .select('asn populationCoverageDirect')
+    .lean()
+    .exec();
+
+  const asnCoverageByAsn = new Map();
+  for (const doc of asnDocs) {
+    const score = typeof doc.populationCoverageDirect === 'number' ? doc.populationCoverageDirect : null;
+    asnCoverageByAsn.set(normalizeAsn(doc.asn), score);
+  }
+
+  return groups.map((group) => {
+    const normalizedGroup = typeof group.toObject === 'function' ? group.toObject() : group;
+    const impactedAsns = Array.isArray(normalizedGroup.impactedAsns) ? normalizedGroup.impactedAsns : [];
+
+    let total = 0;
+    let count = 0;
+    for (const asn of impactedAsns) {
+      const score = asnCoverageByAsn.get(normalizeAsn(asn));
+      if (typeof score === 'number') {
+        total += score;
+        count += 1;
+      }
+    }
+
+    return {
+      ...normalizedGroup,
+      // directPopulationCoverageScore: count > 0 ? total / count : null,
+      directPopulationCoverageScore: count > 0 ? 
+      (total>1? 1:total):
+      null,
+    };
+  });
 }

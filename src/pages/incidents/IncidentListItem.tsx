@@ -43,6 +43,11 @@ interface IProps {
 }
 
 const IncidentListItem = ({ item }: IProps) => {
+  const directCoveragePercent =
+    typeof item.directPopulationCoverageScore === "number"
+      ? `${(item.directPopulationCoverageScore * 100).toFixed(1)}%`
+      : "N/A";
+
   const navigate = useNavigate();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -122,7 +127,13 @@ const IncidentListItem = ({ item }: IProps) => {
             </span>
             <IncidentOverallStatus group={item} className='px-1 py-1 rounded-full font-medium text-sm text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit'/>
           </h2>
-          <div className='grid grid-cols-4 flex-grow items-end font-medium'>
+          <div className='flex items-center gap-2 text-black dark:text-gray-300 font-medium text-sm'>
+            <span>Direct population coverage:</span>
+            <span className='border border-red-500 text-black-600 px-1.5 py-1 rounded leading-none'>
+              {directCoveragePercent}
+            </span>
+          </div>
+          <div className='grid grid-cols-4 flex-grow items-end font-medium mt-2'>
             <p>
               <FontAwesomeIcon icon={faFileLines} size='sm' />{" "}
               {item._reports?.length}{" "}

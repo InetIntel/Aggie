@@ -42,6 +42,7 @@ export interface Group extends hasId {
   incidentDurationSeconds?: number | null; 
   impactedAsns?: string[]; 
   impactedGeoScopes?: string[];
+  directPopulationCoverageScore?: number | null;
 }
 
 export interface Groups {

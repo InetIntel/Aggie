@@ -45,6 +45,36 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
     enabled: impactedAsns.length > 0,
   });
 
+  const asnMapByLower = Object.fromEntries(
+    Object.entries(asnMap ?? {}).map(([asn, info]) => [asn.toLowerCase(), info])
+  );
+
+  const getAsnInfo = (asn: string) => asnMapByLower[asn.toLowerCase()];
+
+  const formatCoveragePercent = (value?: number | null) =>
+    typeof value === "number" ? `${(value * 100).toFixed(1)}%` : "N/A";
+
+  const directPopulationCoverageSum = impactedAsns.reduce((sum, asn) => {
+    const direct = getAsnInfo(asn)?.populationCoverageDirect;
+    return typeof direct === "number" ? sum + direct : sum;
+  }, 0);
+
+  const hasDirectPopulationCoverage = impactedAsns.some(
+    (asn) => typeof getAsnInfo(asn)?.populationCoverageDirect === "number"
+  );
+
+  const sortedImpactedAsns = [...impactedAsns].sort((a, b) => {
+    const aDirect = getAsnInfo(a)?.populationCoverageDirect;
+    const bDirect = getAsnInfo(b)?.populationCoverageDirect;
+    const aHas = typeof aDirect === "number";
+    const bHas = typeof bDirect === "number";
+
+    if (aHas && bHas) return bDirect - aDirect;
+    if (aHas) return -1;
+    if (bHas) return 1;
+    return a.localeCompare(b);
+  });
+
   
   function formatIsoTime (iso : string | Date) {
     if (!iso) return "Unknown Date";
@@ -75,14 +105,14 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
     }
 
     return (
-      <div className="flex flex-wrap gap-2">
+      <div>
+            {/* <div className="flex flex-wrap gap-2">
         {impactedAsns.map((asn) => {
           const info = asnMap?.[asn];
           const labelNumber = info?.number ?? asn.replace(/^as/i, "");
           const labelName = info?.name?.trim();
           const country = info?.country?.toUpperCase();
-
-          const labelParts = [
+                    const labelParts = [
             `AS${labelNumber}`,
             labelName || undefined,
             country ? `(${country})` : undefined,
@@ -97,6 +127,58 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             </span>
           );
         })}
+        </div> */}
+      <div className="w-full overflow-x-auto">
+        <table className="min-w-[24rem] w-full text-sm border border-slate-200 dark:border-slate-600 bg-transparent">
+          <thead className="bg-transparent">
+            <tr className="text-center text-slate-600 dark:text-gray-300">
+              <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                ASN
+              </th>
+              <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                Organization
+              </th>
+              {/* <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                Country
+              </th> */}
+              <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0 w-[25%]">
+                Direct Population Coverage
+              </th>
+              <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0 w-[25%]">
+                Indirect Population Coverage
+              </th>
+            </tr>
+          </thead>
+          <tbody className="text-center text-slate-800 dark:text-gray-200">
+            {sortedImpactedAsns.map((asn) => {
+              const info = getAsnInfo(asn);
+              const labelNumber = info?.number ?? asn.replace(/^as/i, "");
+              const labelName = info?.name?.trim();
+              // const country = info?.country?.toUpperCase();
+
+              return (
+                <tr key={asn} className="border-b border-slate-100 dark:border-slate-700">
+                  <td className="px-2 py-2 font-medium whitespace-nowrap border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                    {`AS${labelNumber}`}
+                  </td>
+                  <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                    {labelName || "—"}
+                  </td>
+                  {/* <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                    {country || "—"}
+                  </td> */}
+                  <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                    {formatCoveragePercent(info?.populationCoverageDirect)}
+                  </td>
+                  <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                    {formatCoveragePercent(info?.populationCoverageIndirect)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       </div>
     );
   };
@@ -254,13 +336,27 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
         </PlaceholderDiv>
       </div>
 
-      <div className="flex gap-2 items-start pt-2">
+      <div className="flex flex-col gap-2 pt-2">
         <span className="whitespace-nowrap">Impacted ASNs:</span>
         <PlaceholderDiv
           loading={isLoading}
           className="flex flex-wrap gap-x-2 gap-y-1 items-center "
         >
           {renderImpactedAsns()}
+        </PlaceholderDiv>
+      </div>
+
+      <div className="flex gap-2 items-start pt-2">
+        <span className="whitespace-nowrap">Direct Population Coverage:</span>
+        <PlaceholderDiv
+          loading={isLoading}
+          className="flex flex-wrap gap-x-2 gap-y-1 items-center "
+        >
+          <span className="inline-flex items-center px-2 py-0.5 border rounded border-red-400 text-black  text-sm font-medium dark:border-red-400 dark:text-black-300 ">
+            {hasDirectPopulationCoverage
+              ? `${(directPopulationCoverageSum * 100).toFixed(1)}%`
+              : "N/A"}
+          </span>
         </PlaceholderDiv>
       </div>
 

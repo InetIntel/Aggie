@@ -4,6 +4,10 @@ export interface AsnInfo {
     name?: string;      // "IR-RasanaPishtaz ..."
     country?: string;   // "ir"
     source?: string;    // "IHR" | "ripe" 
+    populationCoverageTotal?: number | null;
+    populationCoverageDirect?: number | null;
+    populationCoverageIndirect?: number | null;
+    asCoverageTotal?: number | null;
   }
   
   export type AsnInfoMap = Record<string, AsnInfo>; 
