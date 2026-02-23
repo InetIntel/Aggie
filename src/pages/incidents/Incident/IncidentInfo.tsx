@@ -54,6 +54,16 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   const formatCoveragePercent = (value?: number | null) =>
     typeof value === "number" ? `${(value * 100).toFixed(1)}%` : "N/A";
 
+  const getCoverageBorderClass = (value?: number | null) => {
+    if (typeof value !== "number" || value < 0.1) {
+      return "border-black dark:border-gray-200";
+    }
+    if (value <= 0.25) {
+      return "border-orange-400 dark:border-orange-300";
+    }
+    return "border-red-500 dark:border-red-400";
+  };
+
   const directPopulationCoverageSum = impactedAsns.reduce((sum, asn) => {
     const direct = getAsnInfo(asn)?.populationCoverageDirect;
     return typeof direct === "number" ? sum + direct : sum;
@@ -61,6 +71,9 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
 
   const hasDirectPopulationCoverage = impactedAsns.some(
     (asn) => typeof getAsnInfo(asn)?.populationCoverageDirect === "number"
+  );
+  const directPopulationCoverageBorderClass = getCoverageBorderClass(
+    hasDirectPopulationCoverage ? directPopulationCoverageSum : null
   );
 
   const sortedImpactedAsns = [...impactedAsns].sort((a, b) => {
@@ -128,7 +141,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           );
         })}
         </div> */}
-      <div className="w-full overflow-x-auto">
+      <div className="w-full max-h-72 overflow-auto">
         <table className="min-w-[24rem] w-full text-sm border border-slate-200 dark:border-slate-600 bg-transparent">
           <thead className="bg-transparent">
             <tr className="text-center text-slate-600 dark:text-gray-300">
@@ -352,7 +365,9 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           loading={isLoading}
           className="flex flex-wrap gap-x-2 gap-y-1 items-center "
         >
-          <span className="inline-flex items-center px-2 py-0.5 border rounded border-red-400 text-black  text-sm font-medium dark:border-red-400 dark:text-black-300 ">
+          <span
+            className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${directPopulationCoverageBorderClass}`}
+          >
             {hasDirectPopulationCoverage
               ? `${(directPopulationCoverageSum * 100).toFixed(1)}%`
               : "N/A"}

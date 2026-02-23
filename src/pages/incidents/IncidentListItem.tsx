@@ -43,10 +43,23 @@ interface IProps {
 }
 
 const IncidentListItem = ({ item }: IProps) => {
+  const getCoverageBorderClass = (value?: number | null) => {
+    if (typeof value !== "number" || value < 0.1) {
+      return "border-black dark:border-gray-200";
+    }
+    if (value <= 0.25) {
+      return "border-orange-500 dark:border-orange-400";
+    }
+    return "border-red-500 dark:border-red-400";
+  };
+
   const directCoveragePercent =
     typeof item.directPopulationCoverageScore === "number"
       ? `${(item.directPopulationCoverageScore * 100).toFixed(1)}%`
       : "N/A";
+  const directCoverageBorderClass = getCoverageBorderClass(
+    item.directPopulationCoverageScore
+  );
 
   const navigate = useNavigate();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -129,7 +142,9 @@ const IncidentListItem = ({ item }: IProps) => {
           </h2>
           <div className='flex items-center gap-2 text-black dark:text-gray-300 font-medium text-sm'>
             <span>Direct population coverage:</span>
-            <span className='border border-red-500 text-black-600 px-1.5 py-1 rounded leading-none'>
+            <span
+              className={`border px-1.5 py-1 rounded leading-none ${directCoverageBorderClass}`}
+            >
               {directCoveragePercent}
             </span>
           </div>
