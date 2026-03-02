@@ -71,13 +71,13 @@ exports.group_groups = (req, res) => {
       }
 
       try {
-        const enrichedResults = await addDirectPopulationCoverageToGroups(groups.results || []);
+        const enrichedResults = await addPopulationCoverageToGroups(groups.results || []);
         res.status(200).send({
           ...groups,
           results: enrichedResults,
         });
       } catch (coverageErr) {
-        console.error('Error enriching groups with direct population coverage:', coverageErr);
+        console.error('Error enriching groups with population coverage:', coverageErr);
         res.status(200).send(groups);
       }
     }
@@ -101,10 +101,10 @@ exports.group_details = (req, res) => {
           
         }
         try {
-          const [enrichedGroup] = await addDirectPopulationCoverageToGroups([group]);
+          const [enrichedGroup] = await addPopulationCoverageToGroups([group]);
           res.status(200).send(enrichedGroup);
         } catch (coverageErr) {
-          console.error('Error enriching group with direct population coverage:', coverageErr);
+          console.error('Error enriching group with population coverage:', coverageErr);
           res.status(200).send(group);
         }
       }
@@ -752,7 +752,7 @@ const validateAttachments = (attachments) => {
     return true;
 }
 
-async function addDirectPopulationCoverageToGroups(groups) {
+async function addPopulationCoverageToGroups(groups) {
   if (!Array.isArray(groups) || groups.length === 0) return groups;
   const normalizeAsn = (asn) => (typeof asn === 'string' ? asn.trim().toLowerCase() : '');
 
@@ -771,40 +771,51 @@ async function addDirectPopulationCoverageToGroups(groups) {
     return groups.map((group) => ({
       ...(typeof group.toObject === 'function' ? group.toObject() : group),
       directPopulationCoverageScore: null,
+      indirectPopulationCoverageScore: null,
     }));
   }
 
   const asnDocs = await AsnInfo.find({ asn: { $in: Array.from(allImpactedAsns) } })
-    .select('asn populationCoverageDirect')
+    .select('asn populationCoverageDirect populationCoverageIndirect')
     .lean()
     .exec();
 
   const asnCoverageByAsn = new Map();
   for (const doc of asnDocs) {
-    const score = typeof doc.populationCoverageDirect === 'number' ? doc.populationCoverageDirect : null;
-    asnCoverageByAsn.set(normalizeAsn(doc.asn), score);
+    asnCoverageByAsn.set(normalizeAsn(doc.asn), {
+      direct: typeof doc.populationCoverageDirect === 'number' ? doc.populationCoverageDirect : null,
+      indirect: typeof doc.populationCoverageIndirect === 'number' ? doc.populationCoverageIndirect : null,
+    });
   }
 
   return groups.map((group) => {
     const normalizedGroup = typeof group.toObject === 'function' ? group.toObject() : group;
     const impactedAsns = Array.isArray(normalizedGroup.impactedAsns) ? normalizedGroup.impactedAsns : [];
 
-    let total = 0;
-    let count = 0;
+    let directTotal = 0;
+    let directCount = 0;
+    let indirectTotal = 0;
+    let indirectCount = 0;
     for (const asn of impactedAsns) {
-      const score = asnCoverageByAsn.get(normalizeAsn(asn));
-      if (typeof score === 'number') {
-        total += score;
-        count += 1;
+      const coverage = asnCoverageByAsn.get(normalizeAsn(asn));
+      if (typeof coverage?.direct === 'number') {
+        directTotal += coverage.direct;
+        directCount += 1;
+      }
+      if (typeof coverage?.indirect === 'number') {
+        indirectTotal += coverage.indirect;
+        indirectCount += 1;
       }
     }
 
     return {
       ...normalizedGroup,
-      // directPopulationCoverageScore: count > 0 ? total / count : null,
-      directPopulationCoverageScore: count > 0 ? 
-      (total>1? 1:total):
-      null,
+      directPopulationCoverageScore: directCount > 0 ?
+        (directTotal > 1 ? 1 : directTotal) :
+        null,
+      indirectPopulationCoverageScore: indirectCount > 0 ?
+        (indirectTotal > 1 ? 1 : indirectTotal) :
+        null,
     };
   });
 }

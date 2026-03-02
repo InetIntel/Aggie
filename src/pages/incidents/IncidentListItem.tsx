@@ -44,8 +44,11 @@ interface IProps {
 
 const IncidentListItem = ({ item }: IProps) => {
   const getCoverageBorderClass = (value?: number | null) => {
-    if (typeof value !== "number" || value < 0.1) {
+    if (typeof value !== "number" ) {
       return "border-black dark:border-gray-200";
+    }
+    if (value < 0.1) {
+      return "border-yellow-400 dark:border-yellow-300";
     }
     if (value <= 0.25) {
       return "border-orange-400 dark:border-orange-300";
@@ -55,10 +58,17 @@ const IncidentListItem = ({ item }: IProps) => {
 
   const directCoveragePercent =
     typeof item.directPopulationCoverageScore === "number"
-      ? `${(item.directPopulationCoverageScore * 100).toFixed(1)}%`
+      ? `${(item.directPopulationCoverageScore * 100).toFixed(2)}%`
       : "N/A";
   const directCoverageBorderClass = getCoverageBorderClass(
     item.directPopulationCoverageScore
+  );
+  const indirectCoveragePercent =
+    typeof item.indirectPopulationCoverageScore === "number"
+      ? `${(item.indirectPopulationCoverageScore * 100).toFixed(2)}%`
+      : "N/A";
+  const indirectCoverageBorderClass = getCoverageBorderClass(
+    item.indirectPopulationCoverageScore
   );
 
   const navigate = useNavigate();
@@ -141,11 +151,19 @@ const IncidentListItem = ({ item }: IProps) => {
             <IncidentOverallStatus group={item} className='px-1 py-1 rounded-full font-medium text-sm text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit'/>
           </h2>
           <div className='flex items-center gap-2 text-black dark:text-gray-300 font-medium text-sm'>
-            <span>Direct population coverage:</span>
+            <span>DPC:</span>
             <span
               className={`border px-1.5 py-1 rounded leading-none ${directCoverageBorderClass}`}
             >
               {directCoveragePercent}
+            </span>
+          </div>
+          <div className='flex items-center gap-2 text-black dark:text-gray-300 font-medium text-sm mt-1'>
+            <span>IPC:</span>
+            <span
+              className={`border px-1.5 py-1 rounded leading-none ${indirectCoverageBorderClass}`}
+            >
+              {indirectCoveragePercent}
             </span>
           </div>
           <div className='grid grid-cols-4 flex-grow items-end font-medium mt-2'>

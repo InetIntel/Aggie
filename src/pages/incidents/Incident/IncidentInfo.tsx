@@ -62,11 +62,14 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   const getAsnInfo = (asn: string) => asnMapByLower[asn.toLowerCase()];
 
   const formatCoveragePercent = (value?: number | null) =>
-    typeof value === "number" ? `${(value * 100).toFixed(1)}%` : "N/A";
+    typeof value === "number" ? `${(value * 100).toFixed(2)}%` : "N/A";
 
   const getCoverageBorderClass = (value?: number | null) => {
-    if (typeof value !== "number" || value < 0.1) {
+    if (typeof value !== "number" ) {
       return "border-black dark:border-gray-200";
+    }
+    if (value < 0.1) {
+      return "border-yellow-400 dark:border-yellow-300";
     }
     if (value <= 0.25) {
       return "border-orange-400 dark:border-orange-300";
@@ -84,6 +87,18 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   );
   const directPopulationCoverageBorderClass = getCoverageBorderClass(
     hasDirectPopulationCoverage ? directPopulationCoverageSum : null
+  );
+
+  const indirectPopulationCoverageSum = impactedAsns.reduce((sum, asn) => {
+    const indirect = getAsnInfo(asn)?.populationCoverageIndirect;
+    return typeof indirect === "number" ? sum + indirect : sum;
+  }, 0);
+
+  const hasIndirectPopulationCoverage = impactedAsns.some(
+    (asn) => typeof getAsnInfo(asn)?.populationCoverageIndirect === "number"
+  );
+  const indirectPopulationCoverageBorderClass = getCoverageBorderClass(
+    hasIndirectPopulationCoverage ? indirectPopulationCoverageSum : null
   );
 
   const sortedImpactedAsns = [...impactedAsns].sort((a, b) => {
@@ -460,7 +475,23 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${directPopulationCoverageBorderClass}`}
           >
             {hasDirectPopulationCoverage
-              ? `${(directPopulationCoverageSum * 100).toFixed(1)}%`
+              ? `${(directPopulationCoverageSum * 100).toFixed(2)}%`
+              : "N/A"}
+          </span>
+        </PlaceholderDiv>
+      </div>
+
+      <div className="flex gap-2 items-start pt-2">
+        <span className="whitespace-nowrap">Indirect Population Coverage:</span>
+        <PlaceholderDiv
+          loading={isLoading}
+          className="flex flex-wrap gap-x-2 gap-y-1 items-center "
+        >
+          <span
+            className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${indirectPopulationCoverageBorderClass}`}
+          >
+            {hasIndirectPopulationCoverage
+              ? `${(indirectPopulationCoverageSum * 100).toFixed(2)}%`
               : "N/A"}
           </span>
         </PlaceholderDiv>
