@@ -28,6 +28,8 @@ module.exports = async function postToReport(post, next) {
         post._media = [ 'facebook' ];
     } else if (platform === 'instagramdirect') {
         post._media = [ 'instagram' ];
+    } else if (platform === 'telegramBot') {
+        post._media = [ 'telegram' ];
     } else {
         post._media = [ platform ];
     }
