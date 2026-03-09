@@ -794,7 +794,7 @@ async function addPopulationCoverageToGroups(groups) {
 
     let directTotal = 0;
     let directCount = 0;
-    let indirectTotal = 0;
+    let indirectMax = 0;
     let indirectCount = 0;
     for (const asn of impactedAsns) {
       const coverage = asnCoverageByAsn.get(normalizeAsn(asn));
@@ -803,7 +803,7 @@ async function addPopulationCoverageToGroups(groups) {
         directCount += 1;
       }
       if (typeof coverage?.indirect === 'number') {
-        indirectTotal += coverage.indirect;
+        indirectMax = Math.max(indirectMax, coverage.indirect);
         indirectCount += 1;
       }
     }
@@ -814,7 +814,7 @@ async function addPopulationCoverageToGroups(groups) {
         (directTotal > 1 ? 1 : directTotal) :
         null,
       indirectPopulationCoverageScore: indirectCount > 0 ?
-        (indirectTotal > 1 ? 1 : indirectTotal) :
+        (indirectMax > 1 ? 1 : indirectMax) :
         null,
     };
   });

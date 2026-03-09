@@ -64,6 +64,8 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   const formatCoveragePercent = (value?: number | null) =>
     typeof value === "number" ? `${(value * 100).toFixed(2)}%` : "N/A";
 
+  const clampCoverageTotal = (value: number) => Math.min(value, 1);
+
   const getCoverageBorderClass = (value?: number | null) => {
     if (typeof value !== "number" ) {
       return "border-black dark:border-gray-200";
@@ -89,16 +91,18 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
     hasDirectPopulationCoverage ? directPopulationCoverageSum : null
   );
 
-  const indirectPopulationCoverageSum = impactedAsns.reduce((sum, asn) => {
-    const indirect = getAsnInfo(asn)?.populationCoverageIndirect;
-    return typeof indirect === "number" ? sum + indirect : sum;
-  }, 0);
+  const indirectPopulationCoverageMax = clampCoverageTotal(
+    impactedAsns.reduce((max, asn) => {
+      const indirect = getAsnInfo(asn)?.populationCoverageIndirect;
+      return typeof indirect === "number" ? Math.max(max, indirect) : max;
+    }, 0)
+  );
 
   const hasIndirectPopulationCoverage = impactedAsns.some(
     (asn) => typeof getAsnInfo(asn)?.populationCoverageIndirect === "number"
   );
   const indirectPopulationCoverageBorderClass = getCoverageBorderClass(
-    hasIndirectPopulationCoverage ? indirectPopulationCoverageSum : null
+    hasIndirectPopulationCoverage ? indirectPopulationCoverageMax : null
   );
 
   const sortedImpactedAsns = [...impactedAsns].sort((a, b) => {
@@ -491,7 +495,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${indirectPopulationCoverageBorderClass}`}
           >
             {hasIndirectPopulationCoverage
-              ? `${(indirectPopulationCoverageSum * 100).toFixed(2)}%`
+              ? `${(indirectPopulationCoverageMax * 100).toFixed(2)}%`
               : "N/A"}
           </span>
         </PlaceholderDiv>
