@@ -3,6 +3,7 @@ const credentialsTypes = [
   'cloudflare',
   'junkipedia',
   'telegramBot',
+  'telegramUser',
 ];
 
 module.exports = credentialsTypes;

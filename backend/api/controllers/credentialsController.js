@@ -5,11 +5,58 @@ const Credentials = require('../../models/credentials');
 const Source = require('../../models/source');
 const { encryptSecrectsObject } = require('../utils/encryption');
 
+const { TelegramClient } = require('telegram');
+const { StringSession } = require('telegram/sessions');
+const { Api } = require('telegram/tl');
+
+const {
+  createTelegramAuthSession,
+  getTelegramAuthSessionOrThrow,
+  updateTelegramAuthSession,
+  deleteTelegramAuthSession,
+} = require('../utils/telegramUtils');
+
+const TelegramAuthSession = require('../../models/telegeramAuthSession');
+
   // Create new credentials
+  /**
+   * body: if it's for telegram user api, send body with "authRequestId" instead of "secrets"
+   * 
+   */
 exports.credential_create = async (req, res) => {
   try {
       
       const data = {...req.body};
+      if (data.type == 'telegramUser') {
+        
+        if (!data.authRequestId) {
+          res.sned(400).send('Missing required field');
+        }
+
+        const authSession = await getTelegramAuthSessionOrThrow(data.authRequestId);
+
+        if (authSession.status !== 'AUTHORIZED') {
+          return res.status(400).send('telegram_not_authorized');
+        }
+
+        data.secrets = {
+          apiId: String(authSession.apiId),     
+          apiHash: authSession.apiHash,
+          sessionString: authSession.sessionString,
+        };
+
+        delete data.authRequestId;
+
+        const encryptedData = { ...data };
+        encryptedData.secrets = encryptSecrectsObject(encryptedData.secrets);
+  
+        const credentials = await Credentials.create(encryptedData);
+  
+        await deleteTelegramAuthSession(data.authRequestId);
+        credentials.stripSecrets();
+        return res.status(200).send(credentials);
+
+      }
       if(data.secrets && typeof data.secrets === 'object') {
           data.secrets = encryptSecrectsObject(data.secrets);
       }
@@ -66,3 +113,190 @@ exports.credential_details = async (req, res) => {
       res.status(err.status).send(err.message);
   }
 }
+
+// Telegram User API Credential Creation Workflows - authStart, verifyCode, verifyPassword
+
+async function makeClient({ apiId, apiHash, sessionString = '' }) {
+  const session = new StringSession(sessionString);
+  const client = new TelegramClient(session, Number(apiId), apiHash, {
+    connectionRetries: 5,
+  });
+  await client.connect();
+  return { client, session };
+}
+
+
+/**
+ * Start a telegram temporary auth session
+ * body: apiId, apiHash, phone
+ * 
+ */
+exports.telegramUserAuthStart = async (req, res, next) => {
+  try {
+    const { apiId, apiHash, phone } = req.body || {};
+    if (!apiId || !apiHash || !phone) {
+      return res.status(400).json({ error: 'Missing_required_fields', fields: ['apiId', 'apiHash', 'phone'] });
+    }
+
+    const { client, session } = await makeClient({ apiId, apiHash });
+
+    try {
+      const result = await client.invoke(
+        new Api.auth.SendCode({
+          phoneNumber: phone,
+          apiId: Number(apiId),
+          apiHash: apiHash,
+          settings: new Api.CodeSettings({}),
+        })
+      );
+
+      const userId = req.user?._id || req.user?.id || null;
+
+      const tempAuthSession = await createTelegramAuthSession({
+        userId,
+        apiId,
+        apiHash,
+        phone,
+        phoneCodeHash: result.phoneCodeHash,
+        sessionString: session.save(),
+        ttlMinutes: 5,
+      });
+
+      return res.json({ authRequestId: tempAuthSession.authRequestId });
+    } finally {
+      await client.disconnect().catch(() => {});
+    }
+  } catch (err) {
+    return next(err);
+  }
+};
+
+
+
+/**
+ * Verify sign-in with user provided code and authRequestId
+ * body: authRequestId, code
+ * return: authorization status ("AUTHORIZED" / "PASSWORD_REQUIRED")
+ */
+
+exports.telegramUserAuthVerifyCode = async function telegramUserAuthVerifyCode(req, res, next) {
+  try {
+    const { authRequestId, code } = req.body || {};
+    if (!authRequestId || !code) {
+      return res.status(400).json({ error: 'missing_required_fields', fields: ['authRequestId', 'code'] });
+    }
+
+    const authSession = await getTelegramAuthSessionOrThrow(authRequestId);
+
+    const { client, session } = await makeClient({
+      apiId: authSession.apiId,
+      apiHash: authSession.apiHash,
+      sessionString: authSession.sessionString,
+    });
+
+    try {
+      try {
+        await client.invoke(
+          new Api.auth.SignIn({
+            phoneNumber: authSession.phone,
+            phoneCodeHash: authSession.phoneCodeHash,
+            phoneCode: code,
+          })
+        );
+
+        // Authorized successfully
+        await updateTelegramAuthSession(authRequestId, {
+          status: 'AUTHORIZED',
+          sessionString: session.save(), // final session
+        });
+
+        return res.json({ status: 'AUTHORIZED' });
+      } catch (e) {
+        const msg = String(e?.message || e);
+
+        // Telegram requires 2FA password
+        if (msg.includes('SESSION_PASSWORD_NEEDED')) {
+          await updateTelegramAuthSession(authRequestId, {
+            status: 'PASSWORD_REQUIRED',
+            sessionString: session.save(), 
+          });
+          return res.json({ status: 'PASSWORD_REQUIRED' });
+        }
+
+        // common “bad code” errors
+        if (msg.includes('PHONE_CODE_INVALID')) {
+          return res.status(400).json({ error: 'Invalid_code' });
+        }
+        if (msg.includes('PHONE_CODE_EXPIRED')) {
+          // delete temp session, other sessions rely on ttl deletion
+          await deleteTelegramAuthSession(authRequestId).catch(() => {});
+          return res.status(400).json({ error: 'Code_expired' });
+        }
+
+        throw e;
+      }
+    } finally {
+      await client.disconnect().catch(() => {});
+    }
+  } catch (err) {
+    return next(err);
+  }
+};
+
+
+
+/**
+ * Verify sign-in when telegram 2FA password is required
+ * body: authRequestId, password
+ * return "AUTHORIZED" (or error)
+ */
+
+exports.telegramUserAuthVerifyPassword = async function telegramUserAuthVerifyPassword(req, res, next) {
+  try {
+    const { authRequestId, password } = req.body || {};
+    if (!authRequestId || !password) {
+      return res.status(400).json({ error: 'missing_required_fields', fields: ['authRequestId', 'password'] });
+    }
+
+    const authSession = await getTelegramAuthSessionOrThrow(authRequestId);
+
+    if (authSession.status !== 'PASSWORD_REQUIRED') {
+      // If already authorized, return OK; otherwise user is out of order.
+      if (authSession.status === 'AUTHORIZED') return res.json({ status: 'AUTHORIZED' });
+      return res.status(400).json({ error: 'password_not_expected', status: authSession.status });
+    }
+
+    const { client, session } = await makeClient({
+      apiId: authSession.apiId,
+      apiHash: authSession.apiHash,
+      sessionString: authSession.sessionString,
+    });
+
+    try {
+      const pwd = await client.invoke(new Api.account.GetPassword());
+
+      await client.invoke(
+        new Api.auth.CheckPassword({
+          password: await client.computePasswordHash(pwd, password),
+        })
+      );
+
+      await updateTelegramAuthSession(authRequestId, {
+        status: 'AUTHORIZED',
+        sessionString: session.save(), // final session
+      });
+
+      return res.json({ status: 'AUTHORIZED' });
+    } catch (e) {
+      const msg = String(e?.message || e);
+      if (msg.includes('PASSWORD_HASH_INVALID')) {
+        return res.status(400).json({ error: 'invalid_password' });
+      }
+      throw e;
+    } finally {
+      await client.disconnect().catch(() => {});
+    }
+  } catch (err) {
+    return next(err);
+  }
+};

@@ -3,6 +3,7 @@ const sourceMediaValues = [
     'cloudflare',
     'junkipedia',
     'telegramBot',
+    'telegramUser',
 ]
 
 module.exports = sourceMediaValues;

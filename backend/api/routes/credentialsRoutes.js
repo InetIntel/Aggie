@@ -16,4 +16,13 @@ router.delete('/:_id', User.can('change settings'), credentialsController.creden
 // Get a set of (stripped) credentials by its ID
 router.get('/:_id', User.can('change settings'), credentialsController.credential_details);
 
+// Create a telegram user signin verification workflow
+router.post('', User.can('change settings', credentialsController.telegramUserAuthStart));
+
+// Verify a telegram user signin with verification code
+router.post('', User.can('change settings', credentialsController.telegramUserAuthVerifyCode));
+
+// Verify a telegram user signin with 2fa password
+router.post('', User.can('change settings', credentialsController.telegramUserAuthVerifyPassword));
+
 module.exports = router;
