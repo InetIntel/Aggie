@@ -21,9 +21,9 @@ const parseQueryData = (queryString) => {
     'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
   
   if (!query.media && query.alerts === 'true') {
-     query.media = { $in: ['ioda', 'cloudflare'] };
+    query.isOutageEvent = true;
   } else if (!query.media && query.alerts === 'false') {
-      query.media = { $nin: ['ioda', 'cloudflare'] };
+    query.isOutageEvent = {$ne: true};
   } 
   
   
