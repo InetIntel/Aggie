@@ -22,7 +22,7 @@ interface IProps {
 }
 const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   const [credentialType, setCredentialType] =
-    useState<CredentialOption>("ioda");
+    useState<CredentialOption>((source?.media as CredentialOption) || "ioda");
 
   const queryClient = useQueryClient();
 
@@ -105,6 +105,46 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
           }) || [{ _id: "", label: "loading" }]
         }
         label={"API Credentials"}
+        name={"credentials"}
+      />
+    </FormikWithSchema>
+  );
+
+  const telegramBotSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    credentials: Yup.string().required(
+      "A credential is required to create a source"
+    ),
+  });
+  type ITelegramBotSchema = Yup.InferType<typeof telegramBotSchema>;
+
+  const telegramBotForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "",
+      }}
+      schema={telegramBotSchema}
+      onSubmit={(values: ITelegramBotSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikDropdown
+        list={
+          credentialsList?.map((i) => {
+            return { _id: i._id, label: i.name };
+          }) || [{ _id: "", label: "loading" }]
+        }
+        label={"Bot Credentials"}
         name={"credentials"}
       />
     </FormikWithSchema>
@@ -315,6 +355,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         </Listbox.Options>
       </Listbox>
       {credentialType === "junkipedia" && JunkipediaForm}
+      {credentialType === "telegramBot" && telegramBotForm}
       {/*credentialType === "rss" && RSSForm*/}
       {/*credentialType === "twitter" && TwitterForm*/}
       {credentialType === "ioda" && iodaForm}

@@ -59,6 +59,33 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
     </FormikWithSchema>
   );
 
+  const telegramBotSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required"),
+    botAPIToken: Yup.string().required("Bot API token required"),
+  });
+  type ITelegramBotSchema = Yup.InferType<typeof telegramBotSchema>;
+
+  const telegramBotForm = (
+    <FormikWithSchema
+      schema={telegramBotSchema}
+      onSubmit={(values: ITelegramBotSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "telegramBot",
+          secrets: {
+            botAPIToken: values.botAPIToken,
+          },
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Credential Name' />
+      <FormikInput name='botAPIToken' label='Telegram Bot API Token' />
+    </FormikWithSchema>
+  );
+
   const iodaSchema = Yup.object().shape({
     name: Yup.string().required("Credentials name required")
   });
@@ -209,6 +236,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
         </Listbox.Options>
       </Listbox>
       {credentialType === "junkipedia" && junkipediaForm}
+      {credentialType === "telegramBot" && telegramBotForm}
       {/*credentialType === "rss" && rssForm*/}
       {/*credentialType === "twitter" && twitterForm*/}
       {credentialType === "ioda" && iodaForm}

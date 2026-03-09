@@ -24,7 +24,11 @@ const parseQueryData = (queryString) => {
      query.media = { $in: ['ioda', 'cloudflare'] };
   } else if (!query.media && query.alerts === 'false') {
       query.media = { $nin: ['ioda', 'cloudflare'] };
-  } 
+  }
+
+  if (query.media === 'telegram' || query.media === 'telegramBot') {
+    query.media = { $in: ['telegram', 'telegramBot'] };
+  }
   
   
   if (query.dataSources) query.dataSources = query.dataSources.split(",").filter(Boolean);
@@ -637,4 +641,3 @@ function addImpactedFromReportToGroup(group, report) {
     }
   }
 }
-

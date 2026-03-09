@@ -1,7 +1,7 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { MediaOptions } from "../../api/common";
 import {
   faTwitter,
+  faTelegram,
   faCloudflare,
   type IconDefinition as BrandsDef,
 } from "@fortawesome/free-brands-svg-icons";
@@ -9,7 +9,7 @@ import { faQuestionCircle } from "@fortawesome/free-regular-svg-icons";
 import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { faRss } from "@fortawesome/free-solid-svg-icons";
 
-const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
+const mediaIcons: Record<string, IconDefinition | BrandsDef> = {
   // tiktok: faTiktok,
   // instagram: faInstagram,
   // youtube: faYoutube,
@@ -17,6 +17,8 @@ const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
   // facebook: faFacebook,
   // truthsocial: faQuestionCircle,
   twitter: faTwitter,
+  telegram: faTelegram,
+  telegramBot: faTelegram,
   ioda: faQuestionCircle,
   cloudflare: faCloudflare,
 };
@@ -24,7 +26,7 @@ const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
 const SocialMediaIcon = ({
   mediaKey,
 }: {
-  mediaKey: MediaOptions | undefined;
+  mediaKey: string | undefined;
 }) => {
   if (!!mediaKey && mediaKey in mediaIcons) {
     if (mediaKey == "ioda") {
