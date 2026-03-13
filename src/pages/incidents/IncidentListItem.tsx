@@ -59,14 +59,14 @@ const IncidentListItem = ({ item }: IProps) => {
   const directCoveragePercent =
     typeof item.directPopulationCoverageScore === "number"
       ? `${(item.directPopulationCoverageScore * 100).toFixed(2)}%`
-      : "N/A";
+      : "0.00%";
   const directCoverageBorderClass = getCoverageBorderClass(
     item.directPopulationCoverageScore
   );
   const indirectCoveragePercent =
     typeof item.indirectPopulationCoverageScore === "number"
       ? `${(item.indirectPopulationCoverageScore * 100).toFixed(2)}%`
-      : "N/A";
+      : "0.00%";
   const indirectCoverageBorderClass = getCoverageBorderClass(
     item.indirectPopulationCoverageScore
   );

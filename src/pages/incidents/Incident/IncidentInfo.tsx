@@ -62,7 +62,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   const getAsnInfo = (asn: string) => asnMapByLower[asn.toLowerCase()];
 
   const formatCoveragePercent = (value?: number | null) =>
-    typeof value === "number" ? `${(value * 100).toFixed(2)}%` : "N/A";
+    typeof value === "number" ? `${(value * 100).toFixed(2)}%` : "0.00%";
 
   const clampCoverageTotal = (value: number) => Math.min(value, 1);
 
@@ -277,6 +277,12 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
               const info = getAsnInfo(asn);
               const labelNumber = info?.number ?? asn.replace(/^as/i, "");
               const labelName = info?.name?.trim();
+              const directCoverageBorderClass = getCoverageBorderClass(
+                info?.populationCoverageDirect
+              );
+              const indirectCoverageBorderClass = getCoverageBorderClass(
+                info?.populationCoverageIndirect
+              );
               // const country = info?.country?.toUpperCase();
 
               return (
@@ -291,10 +297,18 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
                     {country || "—"}
                   </td> */}
                   <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                    {formatCoveragePercent(info?.populationCoverageDirect)}
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${directCoverageBorderClass}`}
+                    >
+                      {formatCoveragePercent(info?.populationCoverageDirect)}
+                    </span>
                   </td>
                   <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                    {formatCoveragePercent(info?.populationCoverageIndirect)}
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${indirectCoverageBorderClass}`}
+                    >
+                      {formatCoveragePercent(info?.populationCoverageIndirect)}
+                    </span>
                   </td>
                 </tr>
               );
@@ -480,7 +494,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           >
             {hasDirectPopulationCoverage
               ? `${(directPopulationCoverageSum * 100).toFixed(2)}%`
-              : "N/A"}
+              : "0.00%"}
           </span>
         </PlaceholderDiv>
       </div>
@@ -496,7 +510,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           >
             {hasIndirectPopulationCoverage
               ? `${(indirectPopulationCoverageMax * 100).toFixed(2)}%`
-              : "N/A"}
+              : "0.00%"}
           </span>
         </PlaceholderDiv>
       </div>
