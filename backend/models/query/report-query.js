@@ -32,6 +32,7 @@ function ReportQuery(options) {
   this.notes = options.notes;
   this.isRelevantReports = options.isRelevantReports;
   this.irrelevant = options.irrelevant;
+  this.isOutageEvent = options.isOutageEvent;
 
 }
 
@@ -59,6 +60,7 @@ ReportQuery.prototype.toMongooseFilter = function () {
     escalated: this.escalated,
     veracity: this.veracity,
     aitagnames: this.aitagnames,
+    isOutageEvent: this.isOutageEvent,
   }
   if (this.groupId === "none") filter._group = { $eq: null }
   if (this.escalated === 'unescalated') filter.escalated = false;
