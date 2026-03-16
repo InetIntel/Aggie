@@ -7,6 +7,7 @@ import { useQueryParams } from "../../hooks/useQueryParams";
 import { formatPageCount } from "../../utils/format";
 import { getReports } from "../../api/reports";
 import type { ReportQueryState } from "../../api/reports/types";
+import { ALERT_MEDIA_OPTIONS, SOCIAL_MEDIA_OPTIONS } from "../../api/common";
 
 import ReportListItem from "./components/ReportListItem";
 import ReportsFilters from "./components/ReportsFilters";
@@ -55,6 +56,10 @@ const AllReportsList = ({ alerts }: IProps) => {
     navigate({ pathname: `${id}`, search: searchParams.toString() });
   }
 
+  const platformOptions = alerts
+    ? [...ALERT_MEDIA_OPTIONS]
+    : [...SOCIAL_MEDIA_OPTIONS];
+
   return (
     <>
       <div className='px-1 py-2 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm sticky top-0 z-10 '>
@@ -62,6 +67,9 @@ const AllReportsList = ({ alerts }: IProps) => {
           reportCount={reports && reports.total}
           isFetching={isFetching}
           refetch={refetch}
+          platformOptions={platformOptions}
+          showEntityLevelFilter={alerts}
+          showSignalSourcesFilter={alerts}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton

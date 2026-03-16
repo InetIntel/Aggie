@@ -32,6 +32,9 @@ interface IReportFilters {
   fromGroup?: string;
   refetch: () => void;
   isFetching: boolean;
+  platformOptions?: string[];
+  showEntityLevelFilter?: boolean;
+  showSignalSourcesFilter?: boolean;
 }
 
 const ReportFilters = ({
@@ -42,6 +45,9 @@ const ReportFilters = ({
   fromGroup,
   refetch,
   isFetching,
+  platformOptions = [...MEDIA_OPTIONS],
+  showEntityLevelFilter = true,
+  showSignalSourcesFilter = true,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -172,23 +178,27 @@ const ReportFilters = ({
           />
           <FilterListbox
             label='Platforms'
-            options={[...MEDIA_OPTIONS]}
+            options={platformOptions}
             value={getParam("media") as string}
             onChange={(e) => setParams({ media: e as string})}
           />
-          <FilterListbox
-            label='Entity Level'
-            options={[...ENTITY_LEVEL_OPTIONS]}
-            value={getParam("entityLevel") as string}
-            onChange={(e) => setParams({ entityLevel: e as string})}
-          />
-          <FilterListbox
-            label='Signal Sources'
-            options={[...DATA_SOURCE_OPTIONS]}
-            value={getParam("dataSources") ? getParam("dataSources").split(",") as string[] : []}
-            onChange={(e) => setParams({ dataSources: e as string[]})}
-            isMultiSelect={true}
-          />
+          {showEntityLevelFilter && (
+            <FilterListbox
+              label='Entity Level'
+              options={[...ENTITY_LEVEL_OPTIONS]}
+              value={getParam("entityLevel") as string}
+              onChange={(e) => setParams({ entityLevel: e as string})}
+            />
+          )}
+          {showSignalSourcesFilter && (
+            <FilterListbox
+              label='Signal Sources'
+              options={[...DATA_SOURCE_OPTIONS]}
+              value={getParam("dataSources") ? getParam("dataSources").split(",") as string[] : []}
+              onChange={(e) => setParams({ dataSources: e as string[]})}
+              isMultiSelect={true}
+            />
+          )}
           {/* <FilterComboBox
             label='Sources'
             list={sourcesList(sources)}

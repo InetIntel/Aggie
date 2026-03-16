@@ -22,6 +22,21 @@ export const MEDIA_OPTIONS = [
 ] as const;
 export type MediaOptions = (typeof MEDIA_OPTIONS)[number];
 
+export const SOCIAL_MEDIA_OPTIONS = [
+  "twitter",
+  // "tiktok",
+  // "instagram",
+  // "RSS",
+  // "truthsocial",
+  // "youtube",
+  // "facebook",
+] as const satisfies readonly MediaOptions[];
+
+export const ALERT_MEDIA_OPTIONS = [
+  "ioda",
+  "cloudflare",
+] as const satisfies readonly MediaOptions[];
+
 export const DATA_SOURCE_OPTIONS = [
   "Active Probing",
   "BGP",
