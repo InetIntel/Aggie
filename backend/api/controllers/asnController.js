@@ -13,7 +13,7 @@ exports.asn_list = async (req, res) => {
   try {
 
     const asns = await AsnInfo.find({})
-      .select("asn number name")
+      .select("asn number name country source populationCoverageTotal populationCoverageDirect populationCoverageIndirect asCoverageTotal")
       .sort({ number: 1, name: 1 })
       .lean()
       .exec();
@@ -42,7 +42,7 @@ exports.asn_bulk = async (req, res) => {
     }
 
     const docs = await AsnInfo.find({ asn: { $in: asns } })
-      .select("asn number name")
+      .select("asn number name country source populationCoverageTotal populationCoverageDirect populationCoverageIndirect asCoverageTotal")
       .lean()
       .exec();
 
