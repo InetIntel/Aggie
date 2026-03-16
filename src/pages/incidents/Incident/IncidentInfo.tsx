@@ -6,6 +6,9 @@ import {
 import {
   faArrowRight,
   faMinusCircle,
+  faSort,
+  faSortDown,
+  faSortUp,
   faTrash,
   faUserEdit,
   faWarning,
@@ -32,6 +35,13 @@ interface IProps {
 const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   const [isStatusClicked, setIsStatusClicked] = useState(false);
   const [isStatusHovered, setIsStatusHovered] = useState(false);
+  const [asnSort, setAsnSort] = useState<{
+    key: "asn" | "direct" | "indirect";
+    direction: "asc" | "desc";
+  }>({
+    key: "direct",
+    direction: "desc",
+  });
 
   const impactedAsns = group?.impactedAsns ?? [];
   const impactedGeoScopes = group?.impactedGeoScopes ?? [];
@@ -44,6 +54,119 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
     queryFn: () => getAsnsByIds(impactedAsns),
     enabled: impactedAsns.length > 0,
   });
+
+  const asnMapByLower = Object.fromEntries(
+    Object.entries(asnMap ?? {}).map(([asn, info]) => [asn.toLowerCase(), info])
+  );
+
+  const getAsnInfo = (asn: string) => asnMapByLower[asn.toLowerCase()];
+
+  const formatCoveragePercent = (value?: number | null) =>
+    typeof value === "number" ? `${(value * 100).toFixed(2)}%` : "0.00%";
+
+  const clampCoverageTotal = (value: number) => Math.min(value, 1);
+
+  const getCoverageBorderClass = (value?: number | null) => {
+    if (typeof value !== "number" ) {
+      return "border-black dark:border-gray-200";
+    }
+    if (value < 0.1) {
+      return "border-yellow-400 dark:border-yellow-300";
+    }
+    if (value <= 0.25) {
+      return "border-orange-400 dark:border-orange-300";
+    }
+    return "border-red-500 dark:border-red-400";
+  };
+
+  const directPopulationCoverageSum = impactedAsns.reduce((sum, asn) => {
+    const direct = getAsnInfo(asn)?.populationCoverageDirect;
+    return typeof direct === "number" ? sum + direct : sum;
+  }, 0);
+
+  const hasDirectPopulationCoverage = impactedAsns.some(
+    (asn) => typeof getAsnInfo(asn)?.populationCoverageDirect === "number"
+  );
+  const directPopulationCoverageBorderClass = getCoverageBorderClass(
+    hasDirectPopulationCoverage ? directPopulationCoverageSum : null
+  );
+
+  const indirectPopulationCoverageMax = clampCoverageTotal(
+    impactedAsns.reduce((max, asn) => {
+      const indirect = getAsnInfo(asn)?.populationCoverageIndirect;
+      return typeof indirect === "number" ? Math.max(max, indirect) : max;
+    }, 0)
+  );
+
+  const hasIndirectPopulationCoverage = impactedAsns.some(
+    (asn) => typeof getAsnInfo(asn)?.populationCoverageIndirect === "number"
+  );
+  const indirectPopulationCoverageBorderClass = getCoverageBorderClass(
+    hasIndirectPopulationCoverage ? indirectPopulationCoverageMax : null
+  );
+
+  const sortedImpactedAsns = [...impactedAsns].sort((a, b) => {
+    const aInfo = getAsnInfo(a);
+    const bInfo = getAsnInfo(b);
+
+    if (asnSort.key === "asn") {
+      const aLabel = String(aInfo?.number ?? a.replace(/^as/i, ""));
+      const bLabel = String(bInfo?.number ?? b.replace(/^as/i, ""));
+      const aNum = Number(aLabel);
+      const bNum = Number(bLabel);
+
+      const sortByString = aLabel.localeCompare(bLabel, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      const sortByNumber = Number.isFinite(aNum) && Number.isFinite(bNum)
+        ? aNum - bNum
+        : sortByString;
+
+      return asnSort.direction === "asc" ? sortByNumber : -sortByNumber;
+    }
+
+    const aCoverage =
+      asnSort.key === "direct"
+        ? aInfo?.populationCoverageDirect
+        : aInfo?.populationCoverageIndirect;
+    const bCoverage =
+      asnSort.key === "direct"
+        ? bInfo?.populationCoverageDirect
+        : bInfo?.populationCoverageIndirect;
+
+    const aHas = typeof aCoverage === "number";
+    const bHas = typeof bCoverage === "number";
+
+    if (aHas && bHas) {
+      const diff = (aCoverage as number) - (bCoverage as number);
+      return asnSort.direction === "asc" ? diff : -diff;
+    }
+
+    if (aHas) return -1;
+    if (bHas) return 1;
+    return a.localeCompare(b);
+  });
+
+  const updateAsnSort = (key: "asn" | "direct" | "indirect") => {
+    setAsnSort((prev) => {
+      if (prev.key !== key) {
+        return {
+          key,
+          direction: key === "asn" ? "asc" : "desc",
+        };
+      }
+      return {
+        key,
+        direction: prev.direction === "asc" ? "desc" : "asc",
+      };
+    });
+  };
+
+  const getAsnSortIcon = (key: "asn" | "direct" | "indirect") => {
+    if (asnSort.key !== key) return faSort;
+    return asnSort.direction === "asc" ? faSortUp : faSortDown;
+  };
 
   
   function formatIsoTime (iso : string | Date) {
@@ -75,14 +198,14 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
     }
 
     return (
-      <div className="flex flex-wrap gap-2">
+      <div>
+            {/* <div className="flex flex-wrap gap-2">
         {impactedAsns.map((asn) => {
           const info = asnMap?.[asn];
           const labelNumber = info?.number ?? asn.replace(/^as/i, "");
           const labelName = info?.name?.trim();
           const country = info?.country?.toUpperCase();
-
-          const labelParts = [
+                    const labelParts = [
             `AS${labelNumber}`,
             labelName || undefined,
             country ? `(${country})` : undefined,
@@ -97,6 +220,102 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
             </span>
           );
         })}
+        </div> */}
+      <div className="w-full max-h-72 overflow-auto rounded-lg border border-slate-300 bg-white dark:bg-gray-800 dark:border-slate-600">
+        <table className="min-w-[24rem] w-full text-sm">
+          <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-gray-700 border-b border-slate-300 dark:border-slate-600">
+            <tr className="text-center text-slate-600 dark:text-gray-300">
+              <th className="px-3 py-2 w-30 font-medium text-black dark:text-gray-300 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
+                  onClick={() => updateAsnSort("asn")}
+                >
+                  ASN
+                  <FontAwesomeIcon
+                    icon={getAsnSortIcon("asn")}
+                    className="text-slate-500 dark:text-gray-400"
+                  />
+                </button>
+              </th>
+              <th className="px-3 py-2 font-medium text-black dark:text-gray-300 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                Organization
+              </th>
+              {/* <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                Country
+              </th> */}
+              <th className="px-3 py-2 font-medium text-black dark:text-gray-300 w-[25%] border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
+                  onClick={() => updateAsnSort("direct")}
+                >
+                  Direct Population Coverage
+                  <FontAwesomeIcon
+                    icon={getAsnSortIcon("direct")}
+                    className="text-slate-500 dark:text-gray-400"
+                  />
+                </button>
+              </th>
+              <th className="px-3 py-2 font-medium text-black dark:text-gray-300 w-[25%] border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
+                  onClick={() => updateAsnSort("indirect")}
+                >
+                  Indirect Population Coverage
+                  <FontAwesomeIcon
+                    icon={getAsnSortIcon("indirect")}
+                    className="text-slate-500 dark:text-gray-400"
+                  />
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="text-center text-slate-800 dark:text-gray-200">
+            {sortedImpactedAsns.map((asn) => {
+              const info = getAsnInfo(asn);
+              const labelNumber = info?.number ?? asn.replace(/^as/i, "");
+              const labelName = info?.name?.trim();
+              const directCoverageBorderClass = getCoverageBorderClass(
+                info?.populationCoverageDirect
+              );
+              const indirectCoverageBorderClass = getCoverageBorderClass(
+                info?.populationCoverageIndirect
+              );
+              // const country = info?.country?.toUpperCase();
+
+              return (
+                <tr key={asn} className="border-b border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-gray-700 last:border-b-0">
+                  <td className="px-3 py-2 font-medium whitespace-nowrap border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                    {`AS${labelNumber}`}
+                  </td>
+                  <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                    {labelName || "—"}
+                  </td>
+                  {/* <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+                    {country || "—"}
+                  </td> */}
+                  <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${directCoverageBorderClass}`}
+                    >
+                      {formatCoveragePercent(info?.populationCoverageDirect)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${indirectCoverageBorderClass}`}
+                    >
+                      {formatCoveragePercent(info?.populationCoverageIndirect)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       </div>
     );
   };
@@ -254,13 +473,45 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
         </PlaceholderDiv>
       </div>
 
-      <div className="flex gap-2 items-start pt-2">
+      <div className="flex flex-col gap-2 pt-2">
         <span className="whitespace-nowrap">Impacted ASNs:</span>
         <PlaceholderDiv
           loading={isLoading}
           className="flex flex-wrap gap-x-2 gap-y-1 items-center "
         >
           {renderImpactedAsns()}
+        </PlaceholderDiv>
+      </div>
+
+      <div className="flex gap-2 items-start pt-2">
+        <span className="whitespace-nowrap">Direct Population Coverage:</span>
+        <PlaceholderDiv
+          loading={isLoading}
+          className="flex flex-wrap gap-x-2 gap-y-1 items-center "
+        >
+          <span
+            className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${directPopulationCoverageBorderClass}`}
+          >
+            {hasDirectPopulationCoverage
+              ? `${(directPopulationCoverageSum * 100).toFixed(2)}%`
+              : "0.00%"}
+          </span>
+        </PlaceholderDiv>
+      </div>
+
+      <div className="flex gap-2 items-start pt-2">
+        <span className="whitespace-nowrap">Indirect Population Coverage:</span>
+        <PlaceholderDiv
+          loading={isLoading}
+          className="flex flex-wrap gap-x-2 gap-y-1 items-center "
+        >
+          <span
+            className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${indirectPopulationCoverageBorderClass}`}
+          >
+            {hasIndirectPopulationCoverage
+              ? `${(indirectPopulationCoverageMax * 100).toFixed(2)}%`
+              : "0.00%"}
+          </span>
         </PlaceholderDiv>
       </div>
 

@@ -21,14 +21,10 @@ const parseQueryData = (queryString) => {
     'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
   
   if (!query.media && query.alerts === 'true') {
-     query.media = { $in: ['ioda', 'cloudflare'] };
+    query.isOutageEvent = true;
   } else if (!query.media && query.alerts === 'false') {
-      query.media = { $nin: ['ioda', 'cloudflare'] };
-  }
-
-  if (query.media === 'telegram' || query.media === 'telegramBot') {
-    query.media = { $in: ['telegram', 'telegramBot'] };
-  }
+    query.isOutageEvent = {$ne: true};
+  } 
   
   
   if (query.dataSources) query.dataSources = query.dataSources.split(",").filter(Boolean);

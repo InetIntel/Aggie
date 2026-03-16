@@ -21,23 +21,35 @@ const RIPE_BASE_URL = 'https://stat.ripe.net';
 // ---- Helpers ----
 
 /**
- * Compute IHR timebin for "one day before current fetch date" at 00:00:00Z.
+ * Compute IHR start and ending timebin for past N days data.
+ * e.g. on 2026-02-16, to fetch data for past 3 days
+ *      timebin_ltd = 2026-02-15T23:59:59Z
+ *      timbine_gte = 2026-02-12T23:59:59Z
  */
-function computeIhrTimebin() {
+function computeIhrTimebinRange(days = 3) {
   const now = new Date();
 
-  const todayUtcMidnight = new Date(Date.UTC(
+  const end = new Date(Date.UTC(
     now.getUTCFullYear(),
     now.getUTCMonth(),
-    now.getUTCDate()
+    now.getUTCDate() - 1, 
+    23, 59, 59
   ));
 
-  // Set as One day before
-  todayUtcMidnight.setUTCDate(todayUtcMidnight.getUTCDate() - 1);
+  const start = new Date(end.getTime());
+  start.setUTCDate(start.getUTCDate() - days);
 
-  const iso = todayUtcMidnight.toISOString(); // e.g. "2025-11-29T00:00:00.000Z"
-  const withoutMs = iso.split('.')[0] + 'Z';
-  return withoutMs;
+  const toIsoNoMs = (d) => {
+    const iso = d.toISOString(); 
+    return iso.split('.')[0] + 'Z';
+  };
+
+  return {
+    timebin_gte: toIsoNoMs(start),
+    timebin_lte: toIsoNoMs(end),
+    startDate: start,
+    endDate: end,
+  };
 }
 
 function asnStringFromNumber(num) {
@@ -53,14 +65,37 @@ function parseAsnNumber(asnStr) {
   return n;
 }
 
+function normalizeWeightscheme(ws) {
+  return (ws == null ? '' : String(ws)).toLowerCase();
+}
+
+function normalizeTransitonly(v) {
+
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'string') return v.toLowerCase() === 'true';
+  if (typeof v === 'number') return v !== 0;
+  return false;
+}
+
+function toNumberOrNull(v) {
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function avgFromSumCount(sum, count) {
+  if (!count) return null;
+  return sum / count;
+}
+
 
 // ---- Fetch IHR data ----
-async function fetchIhrAsns(countryCode, timebin) {
-  console.log(`[ASN-INGEST-IHR] Fetching ASN data for country=${countryCode}, timebin=${timebin}`);
+async function fetchIhrAsns(countryCode, timebin_gte, timebin_lte) {
+  console.log(`[ASN-INGEST-IHR] Fetching ASN data for country=${countryCode}, timebin_gte=${timebin_gte}, timebin_lte=${timebin_lte}`);
 
   const params = {
     country: countryCode,
-    timebin,
+    timebin_gte: timebin_gte,
+    timebin_lte: timebin_lte,
   };
 
   const { data } = await axios.get(IHR_HEGEMONY_URL, { params });
@@ -122,7 +157,7 @@ async function ingestAsnMetadata() {
 
   console.log(`[ASN-INGEST] Starting ingestion for country=${country} at ${now.toISOString()}`);
 
-  const ihrTimebin = computeIhrTimebin();
+  const {timebin_gte, timebin_lte, endDate: ihrWindowEndDate} = computeIhrTimebinRange(3);
 
   const todaysAsns = new Map();
 
@@ -130,11 +165,12 @@ async function ingestAsnMetadata() {
 
   let ihrResults = [];
   try {
-    ihrResults = await fetchIhrAsns(country, ihrTimebin);
+    ihrResults = await fetchIhrAsns(country, timebin_gte, timebin_lte);
   } catch (err) {
     console.error('[ASN-INGEST-IHR] Error fetching data:', err.message || err);
   }
 
+  const ihrAgg = new Map(); // de-duplicate ihr asn-level data and aggregate for 3-day average calcualtion
   for (const rec of ihrResults) {
     const num = parseAsnNumber(rec.asn);
     if (num == null) {
@@ -143,26 +179,101 @@ async function ingestAsnMetadata() {
     }
 
     const asnStr = asnStringFromNumber(num);
-    if (todaysAsns.has(asnStr)) {
-      continue;
+    const ws = normalizeWeightscheme(rec.weightscheme);
+    const transitonly = normalizeTransitonly(rec.transitonly);
+
+    const recTime = rec.timebin ? new Date(rec.timebin): null;
+
+    let agg = ihrAgg.get(asnStr);
+    if (!agg) {
+      agg = {
+        asn: asnStr,
+        number: num,
+        name: null,
+        country: null,
+        source: 'IHR',
+        lastestRecTime: null,
+        latestRaw: null,
+
+        popTotalSum: 0, 
+        popTotalCnt: 0,
+        popDirectSum: 0, 
+        popDirectCnt: 0,
+        popIndirectSum: 0, 
+        popIndirectCnt: 0,
+        asTotalSum: 0, 
+        asTotalCnt: 0,
+      }
+      ihrAgg.set(asnStr, agg);
     }
 
-    // timebin is snapshot date for AsnDailyStats
-    const snapshotDate = rec.timebin ? new Date(rec.timebin) : null;
-    const name = typeof rec.asn_name === 'string' ? rec.asn_name.trim() : null;
-    const recCountry = (rec.country || country || '').toLowerCase();
+    // update document fields & calculate averages
+    if (!agg.name && typeof rec.asn_name === 'string' ){
+      agg.name = rec.asn_name.trim();
+    }
 
+    if (!agg.country) {
+      const recCountry = (rec.country || counry || '').toLowerCase();
+      agg.country = recCountry || null;
+    }
+
+    if (recTime instanceof Date && !Number.isNaN(recTime.getTime())){
+      if (!agg.lastestRecTime || recTime > agg.lastestRecTime) {
+        agg.lastestRecTime = recTime;
+        agg.latestRaw = rec;
+      }
+    } else if (!agg.latestRaw){
+      agg.latestRaw = rec;
+    }
+
+    if (ws === "eyeball"){
+      const hege = toNumberOrNull(rec.hege);
+      let weight = toNumberOrNull(rec.weight);
+      if (weight != null) {
+        weight = weight / 100.0;  // the API data gives weight in 1% unit
+      }
+
+      if (transitonly === false && hege != null) {
+        agg.popTotalSum += hege; 
+        agg.popTotalCnt += 1;  
+      } else if (transitonly === true && hege != null) {
+        agg.popIndirectSum += hege; 
+        agg.popIndirectCnt += 1;     
+      }
+
+      if (weight != null) {
+        agg.popDirectSum += weight;
+        agg.popDirectCnt += 1;
+      }
+
+    } else if (ws === "as") {
+      if (transitonly === false){
+        const hege = toNumberOrNull(rec.hege);
+        agg.asTotalSum += hege;
+        agg.asTotalCnt += 1;
+      }
+    }
+
+  }
+
+  for (const agg of ihrAgg.values()) {
     const normalized = {
-      asn: asnStr,
-      number: num,
-      name,
-      country: recCountry,
+      asn: agg.asn,
+      number: agg.number,
+      name: agg.name,
+      country: agg.country,
       source: 'IHR',
-      raw: rec,
-      snapshotDate,
+      raw: agg.latestRaw, 
+      
+      populationCoverageTotal: avgFromSumCount(agg.popTotalSum, agg.popTotalCnt),
+      populationCoverageDirect: avgFromSumCount(agg.popDirectSum, agg.popDirectCnt),
+      populationCoverageIndirect: avgFromSumCount(agg.popIndirectSum, agg.popIndirectCnt),
+      asCoverageTotal: avgFromSumCount(agg.asTotalSum, agg.asTotalCnt),
+
+      snapshotDate: ihrWindowEndDate,
     };
 
-    todaysAsns.set(asnStr, normalized);
+    todaysAsns.set(agg.asn, normalized);
   }
 
   console.log(`[ASN-INGEST] IHR provided ${todaysAsns.size} unique ASNs`);
@@ -210,6 +321,12 @@ async function ingestAsnMetadata() {
       country, 
       source: 'ripe',
       raw: overview,
+
+      populationCoverageTotal: null,
+      populationCoverageDirect: null,
+      populationCoverageIndirect: null,
+      asCoverageTotal: null,
+
       snapshotDate: ripeSnapshotDate,
     };
 
@@ -231,6 +348,11 @@ async function ingestAsnMetadata() {
       country: rec.country,
       source: rec.source,
       raw: rec.raw,
+
+      populationCoverageTotal: rec.populationCoverageTotal,
+      populationCoverageDirect: rec.populationCoverageDirect,
+      populationCoverageIndirect: rec.populationCoverageIndirect,
+      asCoverageTotal: rec.asCoverageTotal,
     };
 
     const infoPromise = AsnInfo.upsertFromIngestion(infoPayload);
@@ -245,6 +367,11 @@ async function ingestAsnMetadata() {
         country: rec.country,
         source: rec.source,
         raw: rec.raw,
+
+        populationCoverageTotal: rec.populationCoverageTotal,
+        populationCoverageDirect: rec.populationCoverageDirect,
+        populationCoverageIndirect: rec.populationCoverageIndirect,
+        asCoverageTotal: rec.asCoverageTotal,
       });
     }
 

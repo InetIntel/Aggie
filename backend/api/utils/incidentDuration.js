@@ -14,6 +14,9 @@ function computeIncidentTimeBoundsFromReports(reports) {
   let maxEnd = null;
 
   for (const r of reports) {
+
+    if (!r.isOutageEvent) {continue};
+
     const start = r.outageStartedAt || r.authoredAt || null;
     if (start instanceof Date && !Number.isNaN(start.getTime())) {
       if (!minStart || start < minStart) {
@@ -59,7 +62,7 @@ async function recomputeIncidentDurationForGroup(groupId) {
   }
 
   const reports = await Report.find({ _id: { $in: group._reports } })
-    .select('outageStartedAt outageEndedAt authoredAt')
+    .select('isOutageEvent outageStartedAt outageEndedAt authoredAt')
     .lean()
     .exec();
 

@@ -20,6 +20,10 @@ const AsnDailyStatsSchema = new Schema({
   country: { type: String, index: true,},  // Optional ISO country code
   source: { type: String,},
   raw: { type: Schema.Types.Mixed },
+  populationCoverageTotal: { type: Number, default: null },
+  populationCoverageDirect: { type: Number, default: null },
+  populationCoverageIndirect: { type: Number, default: null },
+  asCoverageTotal: { type: Number, default: null },
   createdAt: { type: Date, default: Date.now,},
   updatedAt: { type: Date, default: Date.now,},
 });
@@ -40,7 +44,19 @@ AsnDailyStatsSchema.pre('save', function (next) {
  */
 AsnDailyStatsSchema.statics.upsertDailyStats = async function (data) {
     const AsnDailyStats = this;
-    const { asn, snapshotDate, number, name, country, source, raw } = data;
+    const {
+      asn,
+      snapshotDate,
+      number,
+      name,
+      country,
+      source,
+      raw,
+      populationCoverageTotal,
+      populationCoverageDirect,
+      populationCoverageIndirect,
+      asCoverageTotal,
+    } = data;
   
     if (!asn || !(snapshotDate instanceof Date)) {
       throw new Error(
@@ -67,6 +83,10 @@ AsnDailyStatsSchema.statics.upsertDailyStats = async function (data) {
           country: country || null,
           source: source || null,
           raw,
+          populationCoverageTotal: populationCoverageTotal || null,
+          populationCoverageDirect: populationCoverageDirect || null,
+          populationCoverageIndirect: populationCoverageIndirect || null,
+          asCoverageTotal: asCoverageTotal || null,
           updatedAt: now,
         },
         $setOnInsert: {
