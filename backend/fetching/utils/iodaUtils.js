@@ -56,14 +56,14 @@ function normalizeAsn(value) {
 }
 
 function buildEventAggKeyBase({ asn, geoScope }) {
-    const normalizedAsn = this.normalizeAsn(asn);
-    const normalizedGeoScope = this.normalizeScope(geoScope);
+    const normalizedAsn = normalizeAsn(asn);
+    const normalizedGeoScope = normalizeScope(geoScope);
 
     return `${normalizedAsn}|${normalizedGeoScope}`;
 }
 
 function buildEventIdentifier({ asn, geoScope, outageStartedAt }) {
-    const eventAggKeyBase = this.buildEventAggKeyBase({ asn, geoScope });
+    const eventAggKeyBase = buildEventAggKeyBase({ asn, geoScope });
 
     if (!outageStartedAt) {
         return `${eventAggKeyBase}|na`;
