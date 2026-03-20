@@ -28,9 +28,16 @@ const parseQueryData = (queryString) => {
   
   
   if (query.dataSources) query.dataSources = query.dataSources.split(",").filter(Boolean);
+  if (query.entityLevel) query.entityLevel = query.entityLevel.split(',').map(s => s.trim()).filter(Boolean);
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 }
+
+// Detemine whether should dedup overlapping reports
+const shouldDedupByEventIdentifier = (entityLevel) => {
+  if (!entityLevel || entityLevel.length === 0) return true;
+  return entityLevel.includes('AS') && entityLevel.includes('AS - Country');
+};
 
 // Get a list of queried Reports
 exports.report_reports = (req, res) => {
@@ -39,14 +46,21 @@ exports.report_reports = (req, res) => {
   const queryData = parseQueryData(req.query);
   if (queryData) {
     let query = new ReportQuery(queryData);
-    // Query for reports using fti
-    Report.queryReports(query, req.query.page, (err, reports) => {
-      if (err) return res.status(err.status).send(err.message);
-      else {
-        
-        return res.send(reports);
-      }
-    });
+
+    const entityLevel = queryData.entityLevel;
+    const useDedup = shouldDedupByEventIdentifier(entityLevel);
+
+    const handler = (err, reports) => {
+      if (err) return res.status(err.status || 500).send(err.message);
+      return res.send(reports);
+    };
+
+    if (useDedup) {
+      Report.queryReportsDeduped(query, req.query.page, handler);
+    } else {
+      Report.queryReports(query, req.query.page, handler);
+    }
+
   } else {
     // Return all reports using pagination
     Report.findSortedPage({}, page, (err, reports) => {
