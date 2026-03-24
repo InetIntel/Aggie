@@ -96,10 +96,15 @@ module.exports = async function postToReport(post, next) {
     } else if (
         platform === 'ioda' ||
         platform === 'cloudflare' ||
-        platform === 'telegramBot' ||
-        platform === 'telegramUser'
+        platform === 'telegramBot'
     ) {
         metadata = {rawAPIResponse: raw} || null;
+    } else if (platform === 'telegramUser') {
+        metadata = {
+            accountHandle: raw?.senderHandle || raw?.chatHandle || null,
+            accountUrl: raw?.senderUrl || raw?.chatUrl || null,
+            rawAPIResponse: raw,
+        };
     } else {
         metadata = parseJunkipediaPostMetadata(raw);
     };

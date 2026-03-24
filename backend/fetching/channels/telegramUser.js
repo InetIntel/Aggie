@@ -12,6 +12,7 @@ function parseListsToEntities(lists) {
   if (!lists || typeof lists !== 'string') return [];
   return lists
     .split(/[\n,]+/)
+
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 }
@@ -50,6 +51,76 @@ function normalizeTelegramValue(value) {
   }
 
   return value;
+}
+
+function getEntityDisplayName(entity) {
+  if (!entity || typeof entity !== 'object') return '';
+
+  if (entity.title) return entity.title;
+
+  const fullName = [entity.firstName, entity.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  if (fullName) return fullName;
+  if (entity.username) return `@${entity.username}`;
+  if (entity.id != null) return `id:${String(entity.id)}`;
+
+  return '';
+}
+
+function getEntityHandle(entity) {
+  if (entity?.username) return `@${entity.username}`;
+  return '';
+}
+
+function getEntityUrl(entity) {
+  if (entity?.username) return `https://t.me/${entity.username}`;
+  return '';
+}
+
+function getChatKind(chat) {
+  if (!chat || typeof chat !== 'object') return '';
+  if (chat.broadcast) return 'channel';
+  if (chat.megagroup || chat.className === 'Chat') return 'group';
+  if (chat.className === 'User') return 'user';
+  return '';
+}
+
+function formatTelegramAuthor({ chat, sender, postAuthor }) {
+  const chatName = getEntityDisplayName(chat);
+  const senderName = getEntityDisplayName(sender);
+  const chatHandle = getEntityHandle(chat);
+  const senderHandle = getEntityHandle(sender);
+  const chatKind = getChatKind(chat);
+
+  if (chatKind === 'channel' && chatName) {
+    // return `${chatName} (channel)${chatHandle ? ` ${chatHandle}` : ''}`;
+    return `${chatName} (channel)`;
+  }
+
+  if (chatKind === 'group' && chatName) {
+    const groupLabel = `${chatName} (group)`;
+    if (senderName) return `${groupLabel} ${senderName}`;
+    if (postAuthor) return `${groupLabel} ${postAuthor}`;
+    if (senderHandle) return `${groupLabel} ${senderHandle}`;
+
+
+    return groupLabel;
+  }
+
+  if (chatKind === 'user') {
+    if (senderName) return senderName;
+    if (senderHandle) return senderHandle;
+  }
+
+  if (postAuthor) return postAuthor;
+  if (chatName) return `${chatName}${chatKind ? ` (${chatKind})` : ''}${chatHandle ? ` ${chatHandle}` : ''}`;
+  if (senderName) return senderName;
+  if (senderHandle) return senderHandle;
+
+  return '';
 }
 
 /**
@@ -205,7 +276,7 @@ class TelegramUserChannel extends Channel {
     let entityMaxDate = null;
 
     for (const m of fresh) {
-      const item = this.parse(m, { entity });
+      const item = await this.parse(m, { entity });
       if (item != null) {
         this.enqueue(item);
 
@@ -236,7 +307,7 @@ class TelegramUserChannel extends Channel {
     return e;
   }
 
-  parse(message, { entity }) {
+  async parse(message, { entity }) {
     const text = message?.message;
     if (!text) return;
 
@@ -249,11 +320,30 @@ class TelegramUserChannel extends Channel {
 
     const authoredAt = messageDate.toISOString();
 
-    let author = '';
-    if (message.senderId) author = `sender:${message.senderId}`;
+    let sender = message.sender;
+    let chat = message.chat;
+
+    if (!sender && typeof message.getSender === 'function') {
+      sender = await message.getSender().catch(() => undefined);
+    }
+
+    if (!chat && typeof message.getChat === 'function') {
+      chat = await message.getChat().catch(() => undefined);
+    }
+
+    const senderHandle = getEntityHandle(sender);
+    const chatHandle = getEntityHandle(chat);
+    const senderUrl = getEntityUrl(sender);
+    const chatUrl = getEntityUrl(chat);
+    const author =
+      formatTelegramAuthor({
+        chat,
+        sender,
+        postAuthor: message.postAuthor,
+      }) || (message.senderId ? `sender:${message.senderId}` : `entity:${entity}`);
 
     const platformID = String(message.id);
-    const url = '';
+    const url = senderUrl || chatUrl || '';
 
     // build guid = peerKey + message.id, telegram message.id is unique only within specific chat, not globally.
     const peerKey = getPeerKey(message, entity);
@@ -273,9 +363,32 @@ class TelegramUserChannel extends Channel {
         id: message.id,
         date: message.date,
         message: message.message,
+        postAuthor: message.postAuthor,
         senderId: message.senderId,
+        sender: sender
+          ? {
+              id: sender.id,
+              username: sender.username,
+              title: sender.title,
+              firstName: sender.firstName,
+              lastName: sender.lastName,
+            }
+          : null,
         peerId: message.peerId,
+        chat: chat
+          ? {
+              id: chat.id,
+              username: chat.username,
+              title: chat.title,
+              firstName: chat.firstName,
+              lastName: chat.lastName,
+            }
+          : null,
         peerKey, 
+        senderHandle,
+        senderUrl,
+        chatHandle,
+        chatUrl,
       }),
     };
   }
