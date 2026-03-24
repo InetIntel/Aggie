@@ -93,7 +93,12 @@ module.exports = async function postToReport(post, next) {
                     likeCount: like_count ? like_count : 0,
                     rawAPIResponse: raw,
                 }
-    } else if (platform === 'ioda' || platform === 'cloudflare' || platform === 'telegramBot') {
+    } else if (
+        platform === 'ioda' ||
+        platform === 'cloudflare' ||
+        platform === 'telegramBot' ||
+        platform === 'telegramUser'
+    ) {
         metadata = {rawAPIResponse: raw} || null;
     } else {
         metadata = parseJunkipediaPostMetadata(raw);

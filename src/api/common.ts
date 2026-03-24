@@ -18,6 +18,7 @@ export const MEDIA_OPTIONS = [
   // "youtube",
   // "facebook",
   "telegram",
+  "telegramUser",
   "ioda",
   "cloudflare",
 ] as const;
@@ -50,6 +51,7 @@ export type TernaryOptions = (typeof TERNARY_OPTIONS)[number];
 export const CREDENTIAL_OPTIONS = [
   "junkipedia",
   "telegramBot",
+  "telegramUser",
   "ioda",
   "cloudflare",
 ] as const;

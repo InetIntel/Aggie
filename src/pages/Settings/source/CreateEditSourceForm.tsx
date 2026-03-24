@@ -150,6 +150,59 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     </FormikWithSchema>
   );
 
+  const telegramUserSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    credentials: Yup.string().required(
+      "A credential is required to create a source"
+    ),
+    lists: Yup.string().required(
+      "At least one Telegram chat, channel, or user is required"
+    ),
+  });
+  type ITelegramUserSchema = Yup.InferType<typeof telegramUserSchema>;
+
+  const telegramUserForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "",
+      }}
+      schema={telegramUserSchema}
+      onSubmit={(values: ITelegramUserSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikDropdown
+        list={
+          credentialsList?.map((i) => {
+            return { _id: i._id, label: i.name };
+          }) || [{ _id: "", label: "loading" }]
+        }
+        label={"Telegram User Credentials"}
+        name={"credentials"}
+      />
+      <div className='flex flex-col gap-1'>
+        <FormikInput
+          name='lists'
+          label='Chats / Channels / Users'
+          placeholder='Comma-separated Telegram entities, e.g. @channel_one, @channel_two'
+        />
+        <p className='text-xs text-slate-500 dark:text-gray-400'>
+          Enter the Telegram entities this account can access. Separate multiple entries with commas.
+        </p>
+      </div>
+    </FormikWithSchema>
+  );
+
 
   const iodaSchema = Yup.object().shape({
     nickname: Yup.string().required("Source Name is required"),
@@ -356,6 +409,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       </Listbox>
       {credentialType === "junkipedia" && JunkipediaForm}
       {credentialType === "telegramBot" && telegramBotForm}
+      {credentialType === "telegramUser" && telegramUserForm}
       {/*credentialType === "rss" && RSSForm*/}
       {/*credentialType === "twitter" && TwitterForm*/}
       {credentialType === "ioda" && iodaForm}

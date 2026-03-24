@@ -19,6 +19,7 @@ const mediaIcons: Record<string, IconDefinition | BrandsDef> = {
   twitter: faTwitter,
   telegram: faTelegram,
   telegramBot: faTelegram,
+  telegramUser: faTelegram,
   ioda: faQuestionCircle,
   cloudflare: faCloudflare,
 };

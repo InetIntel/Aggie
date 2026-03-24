@@ -1,9 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import * as Yup from "yup";
-import { newCredential } from "../../../api/credentials";
+import {
+  newCredential,
+  telegramUserAuthStart,
+  telegramUserAuthVerifyCode,
+  telegramUserAuthVerifyPassword,
+} from "../../../api/credentials";
 
 import { Listbox } from "@headlessui/react";
+import AxiosErrorCard from "../../../components/AxiosErrorCard";
+import AggieButton from "../../../components/AggieButton";
 import FormikInput from "../../../components/FormikInput";
 import FormikWithSchema from "../../../components/FormikWithSchema";
 
@@ -16,11 +23,18 @@ import { CredentialOption, CREDENTIAL_OPTIONS } from "../../../api/common";
 interface IProps {
   onClose: () => void;
 }
+
+type TelegramUserStep = "start" | "code" | "password";
+
 const CreateCredentialForm = ({ onClose }: IProps) => {
   const [
     credentialType,
     setCredentialType
   ] = useState<CredentialOption>("ioda");
+  const [telegramUserStep, setTelegramUserStep] =
+    useState<TelegramUserStep>("start");
+  const [telegramUserName, setTelegramUserName] = useState("");
+  const [telegramAuthRequestId, setTelegramAuthRequestId] = useState("");
 
   const queryClient = useQueryClient();
   const doCreateCredential = useMutation(newCredential, {
@@ -29,6 +43,55 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       onClose();
     },
   });
+  const doTelegramUserAuthStart = useMutation(telegramUserAuthStart, {
+    onSuccess: (data) => {
+      setTelegramAuthRequestId(data.authRequestId);
+      setTelegramUserStep("code");
+    },
+  });
+  const doTelegramUserAuthVerifyCode = useMutation(telegramUserAuthVerifyCode, {
+    onSuccess: async (data) => {
+      if (data.status === "PASSWORD_REQUIRED") {
+        setTelegramUserStep("password");
+        return;
+      }
+
+      await doCreateCredential.mutateAsync({
+        credentials: {},
+        name: telegramUserName,
+        type: "telegramUser",
+        authRequestId: telegramAuthRequestId,
+      });
+    },
+  });
+  const doTelegramUserAuthVerifyPassword = useMutation(
+    telegramUserAuthVerifyPassword,
+    {
+      onSuccess: async () => {
+        await doCreateCredential.mutateAsync({
+          credentials: {},
+          name: telegramUserName,
+          type: "telegramUser",
+          authRequestId: telegramAuthRequestId,
+        });
+      },
+    }
+  );
+
+  const resetTelegramUserFlow = () => {
+    setTelegramUserStep("start");
+    setTelegramUserName("");
+    setTelegramAuthRequestId("");
+    doTelegramUserAuthStart.reset();
+    doTelegramUserAuthVerifyCode.reset();
+    doTelegramUserAuthVerifyPassword.reset();
+  };
+
+  const telegramUserError =
+    doTelegramUserAuthStart.error ||
+    doTelegramUserAuthVerifyCode.error ||
+    doTelegramUserAuthVerifyPassword.error ||
+    doCreateCredential.error;
 
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
@@ -84,6 +147,131 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       <FormikInput name='name' label='Credential Name' />
       <FormikInput name='botAPIToken' label='Telegram Bot API Token' />
     </FormikWithSchema>
+  );
+
+  const telegramUserStartSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required"),
+    apiId: Yup.string().required("Telegram API ID required"),
+    apiHash: Yup.string().required("Telegram API hash required"),
+    phone: Yup.string().required("Telegram phone number required"),
+  });
+  type ITelegramUserStartSchema = Yup.InferType<typeof telegramUserStartSchema>;
+
+  const telegramUserCodeSchema = Yup.object().shape({
+    code: Yup.string().required("Telegram verification code required"),
+  });
+  type ITelegramUserCodeSchema = Yup.InferType<typeof telegramUserCodeSchema>;
+
+  const telegramUserPasswordSchema = Yup.object().shape({
+    password: Yup.string().required("Telegram password required"),
+  });
+  type ITelegramUserPasswordSchema =
+    Yup.InferType<typeof telegramUserPasswordSchema>;
+
+  const telegramUserForm = (
+    <div className='flex flex-col gap-3'>
+      <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+        <p>Telegram User uses your Telegram app API ID, API hash, and phone login.</p>
+        <p>Enter the login code Telegram sends you. If 2FA is enabled, you will be asked for your password next.</p>
+      </div>
+
+      {telegramUserError && <AxiosErrorCard error={telegramUserError} />}
+
+      {telegramUserStep === "start" && (
+        <FormikWithSchema
+          schema={telegramUserStartSchema}
+          onSubmit={(values: ITelegramUserStartSchema) => {
+            doTelegramUserAuthVerifyCode.reset();
+            doTelegramUserAuthVerifyPassword.reset();
+            setTelegramUserName(values.name);
+            doTelegramUserAuthStart.mutate({
+              apiId: values.apiId,
+              apiHash: values.apiHash,
+              phone: values.phone,
+            });
+          }}
+          loading={doTelegramUserAuthStart.isLoading}
+          onClose={onClose}
+          onSubmitText='Send Code'
+        >
+          <FormikInput name='name' label='Credential Name' />
+          <FormikInput name='apiId' label='Telegram App API ID' />
+          <FormikInput name='apiHash' label='Telegram App API Hash' />
+          <FormikInput
+            name='phone'
+            label='Telegram Phone Number'
+            placeholder='Include country code, e.g. +15551234567'
+          />
+        </FormikWithSchema>
+      )}
+
+      {telegramUserStep === "code" && (
+        <>
+          <div className='rounded border border-slate-300 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+            <p>Credential: <span className='font-medium'>{telegramUserName}</span></p>
+            <p>Auth session created. Enter the Telegram login code to continue.</p>
+          </div>
+          <FormikWithSchema
+            schema={telegramUserCodeSchema}
+            onSubmit={(values: ITelegramUserCodeSchema) => {
+              doTelegramUserAuthVerifyCode.reset();
+              doTelegramUserAuthVerifyCode.mutate({
+                authRequestId: telegramAuthRequestId,
+                code: values.code,
+              });
+            }}
+            loading={
+              doTelegramUserAuthVerifyCode.isLoading ||
+              doCreateCredential.isLoading
+            }
+            onClose={onClose}
+            onSubmitText='Verify Code'
+          >
+            <FormikInput name='code' label='Telegram Verification Code' />
+          </FormikWithSchema>
+          <div className='flex justify-end'>
+            <AggieButton variant='secondary' onClick={resetTelegramUserFlow}>
+              Start Over
+            </AggieButton>
+          </div>
+        </>
+      )}
+
+      {telegramUserStep === "password" && (
+        <>
+          <div className='rounded border border-slate-300 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+            <p>Telegram requires your account password to finish sign-in.</p>
+          </div>
+          <FormikWithSchema
+            schema={telegramUserPasswordSchema}
+            onSubmit={(values: ITelegramUserPasswordSchema) => {
+              doTelegramUserAuthVerifyPassword.reset();
+              doTelegramUserAuthVerifyPassword.mutate({
+                authRequestId: telegramAuthRequestId,
+                password: values.password,
+              });
+            }}
+            loading={
+              doTelegramUserAuthVerifyPassword.isLoading ||
+              doCreateCredential.isLoading
+            }
+            onClose={onClose}
+            onSubmitText='Verify Password'
+          >
+            <FormikInput
+              name='password'
+              label='Telegram 2FA Password'
+              type='password'
+            />
+          </FormikWithSchema>
+          <div className='flex justify-end'>
+            <AggieButton variant='secondary' onClick={resetTelegramUserFlow}>
+              Start Over
+            </AggieButton>
+          </div>
+        </>
+      )}
+    </div>
   );
 
   const iodaSchema = Yup.object().shape({
@@ -237,6 +425,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       </Listbox>
       {credentialType === "junkipedia" && junkipediaForm}
       {credentialType === "telegramBot" && telegramBotForm}
+      {credentialType === "telegramUser" && telegramUserForm}
       {/*credentialType === "rss" && rssForm*/}
       {/*credentialType === "twitter" && twitterForm*/}
       {credentialType === "ioda" && iodaForm}

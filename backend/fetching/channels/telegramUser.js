@@ -2,6 +2,7 @@
 
 const { Channel } = require('downstream');
 const { TelegramClient } = require('telegram');
+const { Logger } = require('telegram/extensions');
 const { StringSession } = require('telegram/sessions');
 const { decryptSecretsObject } = require('../utils/decryption');
 const Source = require('../../models/source');
@@ -26,6 +27,29 @@ function getPeerKey(message, entity) {
   }
 
   return `entity:${String(entity)}`;
+}
+
+function normalizeTelegramValue(value) {
+  if (typeof value === 'bigint') return value.toString();
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeTelegramValue(item));
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        normalizeTelegramValue(nestedValue),
+      ])
+    );
+  }
+
+  return value;
 }
 
 /**
@@ -70,7 +94,8 @@ class TelegramUserChannel extends Channel {
     }
 
     this.entities = parseListsToEntities(options.lists);
-    this.interval = Number(process.env.API_FETCH_INTERVAL ?? 300000);
+    // this.interval = Number(process.env.API_FETCH_INTERVAL ?? 300000);
+    this.interval = Number(10000);
 
     // prevent overlapping polling cycles
     this._tickRunning = false;
@@ -85,6 +110,7 @@ class TelegramUserChannel extends Channel {
 
     const session = new StringSession(sessionString);
     this.#client = new TelegramClient(session, Number(apiId), apiHash, {
+      baseLogger: new Logger('none'),
       connectionRetries: 5,
     });
 
@@ -226,7 +252,7 @@ class TelegramUserChannel extends Channel {
     let author = '';
     if (message.senderId) author = `sender:${message.senderId}`;
 
-    const platformID = message.id;
+    const platformID = String(message.id);
     const url = '';
 
     // build guid = peerKey + message.id, telegram message.id is unique only within specific chat, not globally.
@@ -242,7 +268,7 @@ class TelegramUserChannel extends Channel {
       platform: 'telegramUser',
       platformID,
       guid, 
-      raw: {
+      raw: normalizeTelegramValue({
         entity,
         id: message.id,
         date: message.date,
@@ -250,7 +276,7 @@ class TelegramUserChannel extends Channel {
         senderId: message.senderId,
         peerId: message.peerId,
         peerKey, 
-      },
+      }),
     };
   }
 }

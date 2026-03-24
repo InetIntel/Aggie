@@ -17,12 +17,24 @@ router.delete('/:_id', User.can('change settings'), credentialsController.creden
 router.get('/:_id', User.can('change settings'), credentialsController.credential_details);
 
 // Create a telegram user signin verification workflow
-router.post('', User.can('change settings', credentialsController.telegramUserAuthStart));
+router.post(
+  '/telegram-user/auth/start',
+  User.can('change settings'),
+  credentialsController.telegramUserAuthStart
+);
 
 // Verify a telegram user signin with verification code
-router.post('', User.can('change settings', credentialsController.telegramUserAuthVerifyCode));
+router.post(
+  '/telegram-user/auth/verify-code',
+  User.can('change settings'),
+  credentialsController.telegramUserAuthVerifyCode
+);
 
 // Verify a telegram user signin with 2fa password
-router.post('', User.can('change settings', credentialsController.telegramUserAuthVerifyPassword));
+router.post(
+  '/telegram-user/auth/verify-password',
+  User.can('change settings'),
+  credentialsController.telegramUserAuthVerifyPassword
+);
 
 module.exports = router;
