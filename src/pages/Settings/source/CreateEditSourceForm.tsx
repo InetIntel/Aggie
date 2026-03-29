@@ -379,7 +379,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         value={credentialType}
         onChange={setCredentialType}
         as='div'
-        className='relative font-medium mb-3'
+        className='relative z-20 font-medium mb-3'
       >
         <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200 dark:ui-active:bg-gray-600  rounded'>
           {credentialType || "Select Credential"}
@@ -388,7 +388,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
             className='ui-active:rotate-180 text-slate-400 dark:text-gray-400'
           />
         </Listbox.Button>
-        <Listbox.Options className='absolute left-0 mt-1 right-0 shadow-md border border-slate-300 bg-white dark:bg-gray-800 rounded'>
+        <Listbox.Options className='absolute left-0 right-0 z-30 mt-1 rounded border border-slate-300 bg-white shadow-md dark:bg-gray-800'>
           {[...CREDENTIAL_OPTIONS].map((item) => (
             <Listbox.Option
               key={item}
