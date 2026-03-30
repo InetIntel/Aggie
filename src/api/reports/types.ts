@@ -50,7 +50,8 @@ export interface ReportQueryState {
   groupId?: string;
   media?: string;
   dataSources?: string[];
-  entityLevel?: string;
+  entityLevel?: string[];
+  hideDuplicateASNs?: string; // 'true' or 'false'
   sourceId?: string;
   list?: string;
   before?: Date | string;

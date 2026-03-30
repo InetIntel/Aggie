@@ -76,12 +76,50 @@ const ReportFilters = ({
     return array;
   }
 
+  // normalize entity level array and dedup toggle rules
+  const currentEntityLevel = getParam("entityLevel")
+    ? getParam("entityLevel").split(",").filter(Boolean)
+    : ["Region", "AS - Region", "AS - Country"];
+
+  const currentHideDuplicateASNs = (() => {
+    const raw = getParam("hideDuplicateASNs");
+    // If user explicitly set it, use that value
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    // Otherwise, auto-default to true if both AS and AS-Country are selected
+    const shouldDefaultOn =
+      currentEntityLevel.includes("AS") &&
+      currentEntityLevel.includes("AS - Country");
+    return shouldDefaultOn;
+  })();
+
   function setParams(values: ReportQueryState) {
     if (!("page" in values)) {
       values = { ...values, page: undefined };
     }
-    console.log(values);
-    setParamsQuery(values);
+
+    const requestedEntityLevel =
+      values.entityLevel && Array.isArray(values.entityLevel)
+        ? values.entityLevel
+        : currentEntityLevel;
+
+    const autoHideDuplicate =
+      requestedEntityLevel.includes("AS") &&
+      requestedEntityLevel.includes("AS - Country");
+
+    // If user explicitly toggles it, use that value; otherwise use auto value
+    let dedupValue = values.hideDuplicateASNs;
+    if (!dedupValue) {
+      dedupValue = autoHideDuplicate ? "true" : "false";
+    }
+
+    const formattedValues = {
+      ...values,
+      entityLevel: requestedEntityLevel,
+      hideDuplicateASNs: dedupValue,
+    };
+
+    setParamsQuery(formattedValues);
   }
 
   // const dataSourceParam = getParam("dataSources");
@@ -179,8 +217,16 @@ const ReportFilters = ({
           <FilterListbox
             label='Entity Level'
             options={[...ENTITY_LEVEL_OPTIONS]}
-            value={getParam("entityLevel") as string}
-            onChange={(e) => setParams({ entityLevel: e as string})}
+            value={
+              getParam("entityLevel")
+                ? getParam("entityLevel").split(",").filter(Boolean) as string[]
+                : currentEntityLevel
+            }
+            onChange={(e) => setParams({ entityLevel: e as string[] })}
+            isMultiSelect={true}
+            toggleLabel='Hide Duplicate ASNs'
+            toggleValue={currentHideDuplicateASNs}
+            onToggleChange={(value) => setParams({ hideDuplicateASNs: value ? "true" : "false" })}
           />
           <FilterListbox
             label='Signal Sources'

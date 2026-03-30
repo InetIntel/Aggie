@@ -48,7 +48,15 @@ exports.report_reports = (req, res) => {
     let query = new ReportQuery(queryData);
 
     const entityLevel = queryData.entityLevel;
-    const useDedup = shouldDedupByEventIdentifier(entityLevel);
+    const hideDuplicateASNsParam = req.query.hideDuplicateASNs;
+    
+    // Determine if we should deduplicate
+    let useDedup = shouldDedupByEventIdentifier(entityLevel);
+    
+    // If user explicitly set the toggle, use that value
+    if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {
+      useDedup = hideDuplicateASNsParam === 'true';
+    }
 
     const handler = (err, reports) => {
       if (err) return res.status(err.status || 500).send(err.message);

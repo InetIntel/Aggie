@@ -31,9 +31,10 @@ export const DATA_SOURCE_OPTIONS = [
 export type DataSourceOptions = (typeof DATA_SOURCE_OPTIONS)[number];
 
 export const ENTITY_LEVEL_OPTIONS = [
-  "AS",
   "Region",
   "AS - Region",
+  "AS - Country",
+  "AS",
 ]
 export type ENTITY_LEVEL_OPTIONS = (typeof ENTITY_LEVEL_OPTIONS)[number];
 
