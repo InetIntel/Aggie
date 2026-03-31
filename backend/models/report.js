@@ -229,6 +229,7 @@ Report.queryReports = function (query, page, callback) {
     callback = page;
     page = 0;
   }
+  if (page === undefined || page === null || Number.isNaN(Number(page))) page = 0;
   if (page < 0) page = 0;
 
   const filter = query.toMongooseFilter();
@@ -266,6 +267,7 @@ Report.queryReportsDeduped = async function (query, page, callback) {
       callback = page;
       page = 0;
     }
+    if (page === undefined || page === null || Number.isNaN(Number(page))) page = 0;
     if (page < 0) page = 0;
 
     const filter = query.toMongooseFilter();
