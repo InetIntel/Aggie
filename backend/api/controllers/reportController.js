@@ -659,4 +659,3 @@ function addImpactedFromReportToGroup(group, report) {
     }
   }
 }
-

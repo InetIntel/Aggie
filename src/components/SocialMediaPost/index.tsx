@@ -41,7 +41,7 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
         return (
           <>
             <SocialMediaAuthor
-              username={report.metadata.accountHandle}
+              username={report.metadata.accountHandle || report.author}
               createdAt={report.authoredAt}
               url={report.metadata.accountUrl}
             />
@@ -117,14 +117,16 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
         {/* <TagsList values={report.smtcTags} /> */}
         <div className=' font-medium  '>{renderAuthor(contentType)}</div>
         <div className='flex items-center gap-2 h-fit pr-1'>
-          <a
-            target='_blank'
-            href={report.url}
-            className='ml-1 px-2 py-1 rounded-full border border-slate-200 font-medium text-xs inline-flex gap-1 items-center bg-slate-100 dark:bg-gray-700 hover:bg-white dark:hover:bg-gray-800 text-nowrap '
-          >
-            <span>Open Post</span>
-            <FontAwesomeIcon icon={faExternalLink} />
-          </a>
+          {!!report.url && (
+            <a
+              target='_blank'
+              href={report.url}
+              className='ml-1 px-2 py-1 rounded-full border border-slate-200 font-medium text-xs inline-flex gap-1 items-center bg-slate-100 dark:bg-gray-700 hover:bg-white dark:hover:bg-gray-800 text-nowrap '
+            >
+              <span>Open Post</span>
+              <FontAwesomeIcon icon={faExternalLink} />
+            </a>
+          )}
           <p className='text-slate-600 dark:text-gray-400'>
             <SocialMediaIcon mediaKey={report._media[0]} />
           </p>

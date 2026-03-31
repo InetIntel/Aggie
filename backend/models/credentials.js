@@ -30,7 +30,16 @@ const secretsValidator = function(secrets) {
       && isValidString(secrets.accessToken)
       && isValidString(secrets.accessTokenSecret)
     );
+  case 'junkipedia':
+    return isValidString(secrets.junkipediaAPIKey);
+  case 'cloudflare':
+    return isValidString(secrets.cloudflareApiToken);
+  case 'telegramBot':
+    return isValidString(secrets.botAPIToken);
+  case 'ioda':
+    return true;
   default:
+    return true;
   }
 };
 

@@ -9,3 +9,11 @@ export interface Credential extends hasId {
   };
   __v: number;
 }
+
+export interface TelegramUserAuthStartResponse {
+  authRequestId: string;
+}
+
+export interface TelegramUserAuthVerifyResponse {
+  status: "AUTHORIZED" | "PASSWORD_REQUIRED";
+}

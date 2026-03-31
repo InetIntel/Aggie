@@ -28,6 +28,8 @@ module.exports = async function postToReport(post, next) {
         post._media = [ 'facebook' ];
     } else if (platform === 'instagramdirect') {
         post._media = [ 'instagram' ];
+    } else if (platform === 'telegramBot') {
+        post._media = [ 'telegram' ];
     } else {
         post._media = [ platform ];
     }
@@ -91,8 +93,18 @@ module.exports = async function postToReport(post, next) {
                     likeCount: like_count ? like_count : 0,
                     rawAPIResponse: raw,
                 }
-    } else if (platform === 'ioda' || platform === 'cloudflare') {
+    } else if (
+        platform === 'ioda' ||
+        platform === 'cloudflare' ||
+        platform === 'telegramBot'
+    ) {
         metadata = {rawAPIResponse: raw} || null;
+    } else if (platform === 'telegramUser') {
+        metadata = {
+            accountHandle: raw?.senderHandle || raw?.chatHandle || null,
+            accountUrl: raw?.senderUrl || raw?.chatUrl || null,
+            rawAPIResponse: raw,
+        };
     } else {
         metadata = parseJunkipediaPostMetadata(raw);
     };
