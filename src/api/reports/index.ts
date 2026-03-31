@@ -159,10 +159,15 @@ export function urlFromReportsQuery(
   if (!("irrelevant" in queryState)) {
     url.set("irrelevant", "all");
   }
-  if (!("entityLevel" in queryState) || !queryState.entityLevel || queryState.entityLevel.length === 0) {
+  if (
+    alerts &&
+    (!("entityLevel" in queryState) ||
+      !queryState.entityLevel ||
+      queryState.entityLevel.length === 0)
+  ) {
     url.set("entityLevel", "Region,AS - Region,AS - Country");
   }
-  if (!("hideDuplicateASNs" in queryState)) {
+  if (alerts && !("hideDuplicateASNs" in queryState)) {
     url.set("hideDuplicateASNs", "false");
   }
   if (typeof alerts !== "undefined") url.set("alerts", alerts.toString());
