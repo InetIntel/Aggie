@@ -408,7 +408,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         </Listbox.Options>
       </Listbox>
       {credentialType === "junkipedia" && JunkipediaForm}
-      {credentialType === "telegramBot" && telegramBotForm}
+      {/* {credentialType === "telegramBot" && telegramBotForm} */}
       {credentialType === "telegramUser" && telegramUserForm}
       {/*credentialType === "rss" && RSSForm*/}
       {/*credentialType === "twitter" && TwitterForm*/}

@@ -17,7 +17,7 @@ export const MEDIA_OPTIONS = [
   // "truthsocial",
   // "youtube",
   // "facebook",
-  "telegram",
+  // "telegram",
   "telegramUser",
   "ioda",
   "cloudflare",
@@ -26,7 +26,7 @@ export type MediaOptions = (typeof MEDIA_OPTIONS)[number];
 
 export const SOCIAL_MEDIA_OPTIONS = [
   "twitter",
-  "telegram",
+  // "telegram",
   "telegramUser",
   // "tiktok",
   // "instagram",
@@ -68,7 +68,7 @@ export type TernaryOptions = (typeof TERNARY_OPTIONS)[number];
 
 export const CREDENTIAL_OPTIONS = [
   "junkipedia",
-  "telegramBot",
+  // "telegramBot",
   "telegramUser",
   "ioda",
   "cloudflare",

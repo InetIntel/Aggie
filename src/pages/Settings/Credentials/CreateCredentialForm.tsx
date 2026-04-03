@@ -424,7 +424,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
         </Listbox.Options>
       </Listbox>
       {credentialType === "junkipedia" && junkipediaForm}
-      {credentialType === "telegramBot" && telegramBotForm}
+      {/* {credentialType === "telegramBot" && telegramBotForm} */}
       {credentialType === "telegramUser" && telegramUserForm}
       {/*credentialType === "rss" && rssForm*/}
       {/*credentialType === "twitter" && twitterForm*/}
