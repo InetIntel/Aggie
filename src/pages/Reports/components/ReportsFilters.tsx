@@ -241,6 +241,7 @@ const ReportFilters = ({
               onChange={(e) => setParams({ entityLevel: e as string[] })}
               isMultiSelect={true}
               toggleLabel='Hide Duplicate ASNs'
+              toggleDescription='Show unique ASNs only. Duplicates shared by AS and AS Country are hidden.'
               toggleValue={currentHideDuplicateASNs}
               onToggleChange={(value) => setParams({ hideDuplicateASNs: value ? "true" : "false" })}
             />

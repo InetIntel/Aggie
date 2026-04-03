@@ -11,6 +11,7 @@ interface IProps<T> {
   onChange: (item: T | T[]) => void;
   isMultiSelect?: boolean;
   toggleLabel?: string;
+  toggleDescription?: string;
   toggleValue?: boolean;
   onToggleChange?: (value: boolean) => void;
 }
@@ -22,6 +23,7 @@ const FilterListBox = <T extends string>({
   onChange,
   isMultiSelect = false,
   toggleLabel,
+  toggleDescription,
   toggleValue = false,
   onToggleChange,
 }: IProps<T>) => {
@@ -73,13 +75,20 @@ const FilterListBox = <T extends string>({
               </Listbox.Option>
             ))}
             {toggleLabel && onToggleChange && (
-              <div className='px-2 py-2 border-t border-slate-300 dark:border-gray-600 flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-750'>
-                <AggieSwitch
-                  checked={toggleValue}
-                  onChange={() => onToggleChange(!toggleValue)}
-                  label={toggleLabel}
-                />
-                <label className='text-sm cursor-pointer flex-1'>{toggleLabel}</label>
+              <div className='px-2 py-2 border-t border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-750'>
+                <div className='flex items-center gap-2'>
+                  <AggieSwitch
+                    checked={toggleValue}
+                    onChange={() => onToggleChange(!toggleValue)}
+                    label={toggleLabel}
+                  />
+                  <label className='text-sm text-slate-500 dark:text-gray-400 cursor-pointer flex-1'>{toggleLabel}</label>
+                </div>
+                {toggleDescription && (
+                  <p className='mt-1 text-[10px] italic leading-tight text-slate-500 dark:text-gray-400'>
+                    {toggleDescription}
+                  </p>
+                )}
               </div>
             )}
           </Listbox.Options>

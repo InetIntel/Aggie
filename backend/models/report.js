@@ -311,7 +311,26 @@ Report.queryReportsDeduped = async function (query, page, callback) {
 
     const pageResults = deduped.slice(start, end);
 
-    const total = await Report.countDocuments(filter);
+    const [{ total = 0 } = {}] = await Report.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ['$eventIdentifier', null] },
+                  { $ne: ['$eventIdentifier', ''] }
+                ]
+              },
+              '$eventIdentifier',
+              '$_id'
+            ]
+          }
+        }
+      },
+      { $count: 'total' }
+    ]);
 
     callback(null, {
       total,
