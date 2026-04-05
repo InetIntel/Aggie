@@ -45,4 +45,42 @@ async function extractCleanSVGFromPage(browser, linkedPageUrl, queryType) {
     }
 }
 
-module.exports = extractCleanSVGFromPage;
+function normalizeScope(value) {
+    if (!value) return 'na';
+    return String(value).trim().toLowerCase();
+}
+
+function normalizeAsn(value) {
+    if (!value) return 'na';
+    return String(value).trim().toLowerCase();
+}
+
+function buildEventAggKeyBase({ asn, geoScope }) {
+    const normalizedAsn = normalizeAsn(asn);
+    const normalizedGeoScope = normalizeScope(geoScope);
+
+    return `${normalizedAsn}|${normalizedGeoScope}`;
+}
+
+function buildEventIdentifier({ asn, geoScope, outageStartedAt }) {
+    const eventAggKeyBase = buildEventAggKeyBase({ asn, geoScope });
+
+    if (!outageStartedAt) {
+        return `${eventAggKeyBase}|na`;
+    }
+
+    const startedAtIso =
+        outageStartedAt instanceof Date
+            ? outageStartedAt.toISOString()
+            : new Date(outageStartedAt).toISOString();
+
+    return `${eventAggKeyBase}|${startedAtIso}`;
+}
+
+module.exports = {
+    extractCleanSVGFromPage,
+    normalizeScope,
+    normalizeAsn,
+    buildEventAggKeyBase,
+    buildEventIdentifier
+};

@@ -13,7 +13,8 @@ const RSSChannel = require('./channels/rss');
 const IODAChannel = require('./channels/ioda');
 const CloudflareChannel = require('./channels/cloudflare');
 const JunkipediaChannel = require('./channels/junkipedia');
-
+const TelegramBotChannel = require('./channels/telegramBot');
+const TelegramUserChannel = require('./channels/telegramUser');
 
 // const { TwitterPageChannel, JunkipediaChannel } = builtin;
 
@@ -72,7 +73,7 @@ function deleteChannel(source) {
     const { _id: sourceID } = source;
     const channelID = sourceChannelJoin[sourceID];
     downstream.unregister(channelID);
-    delete sourceChannelJoin[sourceChannelJoin];
+    delete sourceChannelJoin[sourceID];
 }
 
 /**
@@ -143,12 +144,21 @@ function createChannel(source) {
             console.log(options)
             channel = new TwitterPageChannel(options);
             break;
-        case 'telegram':
+        case 'telegramBot':
             options = {
                 ...options,
-                botAPIToken: credentials.secrets.botAPIToken,
+                botAPIToken: credentials,
             };
-            channel = new TelegramChannel(options);
+            channel = new TelegramBotChannel(options);
+            break;
+        case 'telegramUser':
+            options = {
+                ...options,
+                source: source,
+                credentials: credentials,
+                lists: lists,
+            };
+            channel = new TelegramUserChannel(options);
             break;
         case 'junkipedia':
             // Special case of 
@@ -206,6 +216,7 @@ function createChannel(source) {
                 credentials: credentials,
             }
             channel = new CloudflareChannel(options);
+            break;
         default:
     }
 

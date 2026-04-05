@@ -22,7 +22,7 @@ interface IProps {
 }
 const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   const [credentialType, setCredentialType] =
-    useState<CredentialOption>("ioda");
+    useState<CredentialOption>((source?.media as CredentialOption) || "ioda");
 
   const queryClient = useQueryClient();
 
@@ -107,6 +107,99 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         label={"API Credentials"}
         name={"credentials"}
       />
+    </FormikWithSchema>
+  );
+
+  const telegramBotSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    credentials: Yup.string().required(
+      "A credential is required to create a source"
+    ),
+  });
+  type ITelegramBotSchema = Yup.InferType<typeof telegramBotSchema>;
+
+  const telegramBotForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "",
+      }}
+      schema={telegramBotSchema}
+      onSubmit={(values: ITelegramBotSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikDropdown
+        list={
+          credentialsList?.map((i) => {
+            return { _id: i._id, label: i.name };
+          }) || [{ _id: "", label: "loading" }]
+        }
+        label={"Bot Credentials"}
+        name={"credentials"}
+      />
+    </FormikWithSchema>
+  );
+
+  const telegramUserSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    credentials: Yup.string().required(
+      "A credential is required to create a source"
+    ),
+    lists: Yup.string().required(
+      "At least one Telegram chat, channel, or user is required"
+    ),
+  });
+  type ITelegramUserSchema = Yup.InferType<typeof telegramUserSchema>;
+
+  const telegramUserForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "",
+      }}
+      schema={telegramUserSchema}
+      onSubmit={(values: ITelegramUserSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikDropdown
+        list={
+          credentialsList?.map((i) => {
+            return { _id: i._id, label: i.name };
+          }) || [{ _id: "", label: "loading" }]
+        }
+        label={"Telegram User Credentials"}
+        name={"credentials"}
+      />
+      <div className='flex flex-col gap-1'>
+        <FormikInput
+          name='lists'
+          label='Chats / Channels / Users'
+          placeholder='Comma-separated Telegram entities, e.g. @channel_one, @channel_two'
+        />
+        <p className='text-xs text-slate-500 dark:text-gray-400'>
+          Enter the Telegram entities this account can access. Separate multiple entries with commas.
+        </p>
+      </div>
     </FormikWithSchema>
   );
 
@@ -286,7 +379,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         value={credentialType}
         onChange={setCredentialType}
         as='div'
-        className='relative font-medium mb-3'
+        className='relative z-20 font-medium mb-3'
       >
         <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200 dark:ui-active:bg-gray-600  rounded'>
           {credentialType || "Select Credential"}
@@ -295,7 +388,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
             className='ui-active:rotate-180 text-slate-400 dark:text-gray-400'
           />
         </Listbox.Button>
-        <Listbox.Options className='absolute left-0 mt-1 right-0 shadow-md border border-slate-300 bg-white dark:bg-gray-800 rounded'>
+        <Listbox.Options className='absolute left-0 right-0 z-30 mt-1 rounded border border-slate-300 bg-white shadow-md dark:bg-gray-800'>
           {[...CREDENTIAL_OPTIONS].map((item) => (
             <Listbox.Option
               key={item}
@@ -315,6 +408,8 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         </Listbox.Options>
       </Listbox>
       {credentialType === "junkipedia" && JunkipediaForm}
+      {/* {credentialType === "telegramBot" && telegramBotForm} */}
+      {credentialType === "telegramUser" && telegramUserForm}
       {/*credentialType === "rss" && RSSForm*/}
       {/*credentialType === "twitter" && TwitterForm*/}
       {credentialType === "ioda" && iodaForm}

@@ -19,6 +19,8 @@ let schema = new Schema({
   outageStartedAt: { type: Date,},
   outageEndedAt: { type: Date},
   geoScope: {type: String},
+  eventIdentifier: { type: String }, // an identifier derived from asn, geoScope, and outageStartedAt
+  eventAggKeyBase: { type: String }, // an aggregation key base, derived from asn and geoScope, combined with dynamic time interval bucket in aggregation layer
   content: { type: String },
   author: { type: String },
   veracity: { type: String, default: 'Unconfirmed', enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'], index: true },
@@ -62,6 +64,8 @@ schema.index({ geoScope: 1 });
 schema.index({ outageStartedAt: 1 });
 schema.index({ outageEndedAt: 1 });
 schema.index({ irrelevant: 1 });
+schema.index({ eventIdentifier: 1 }, { sparse: true }); // sparse index (i.e. only docs with field are indexed)
+schema.index({ eventAggKeyBase: 1 }, { sparse: true });
 schema.path('_group').set(function (_group) {
   this._prevGroup = this._group;
   return _group;
@@ -225,6 +229,7 @@ Report.queryReports = function (query, page, callback) {
     callback = page;
     page = 0;
   }
+  if (page === undefined || page === null || Number.isNaN(Number(page))) page = 0;
   if (page < 0) page = 0;
 
   const filter = query.toMongooseFilter();
@@ -255,6 +260,87 @@ Report.queryReports = function (query, page, callback) {
 };
 
 
+// Dedup reports based on eventidentifier(if exist), general findPage() does not apply to this 
+Report.queryReportsDeduped = async function (query, page, callback) {
+  try {
+    if (typeof page === 'function') {
+      callback = page;
+      page = 0;
+    }
+    if (page === undefined || page === null || Number.isNaN(Number(page))) page = 0;
+    if (page < 0) page = 0;
+
+    const filter = query.toMongooseFilter();
+
+    // same extra filters as queryReports
+    if (query.escalated === 'escalated') filter.escalated = true;
+    if (query.escalated === 'unescalated') filter.escalated = false;
+    if (query.veracity === 'confirmed true') filter.veracity = 'Confirmed True';
+    if (query.veracity === 'confirmed false') filter.veracity = 'Confirmed False';
+    if (query.veracity === 'unconfirmed') filter.veracity = 'Unconfirmed';
+
+    const PAGE_LIMIT = 50; // Note: This should be the same as `perPage` in config.js.
+
+    const targetUnique = (page + 1) * PAGE_LIMIT;
+    const rawFetchLimit = targetUnique * 2; // fetch extra rows, worst case 2 * page size
+
+    // fetch raw candidates
+    const rawReports = await Report.find(filter)
+      .sort({ authoredAt: -1 })
+      .limit(rawFetchLimit)
+      .lean();
+
+    const seen = new Set();
+    const deduped = [];
+
+    for (const report of rawReports) {
+      const key = report.eventIdentifier;
+
+      if (!key) {
+        deduped.push(report);
+      } else if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(report);
+      }
+
+      if (deduped.length >= targetUnique) break;
+    }
+
+    const start = page * PAGE_LIMIT;
+    const end = start + PAGE_LIMIT;
+
+    const pageResults = deduped.slice(start, end);
+
+    const [{ total = 0 } = {}] = await Report.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ['$eventIdentifier', null] },
+                  { $ne: ['$eventIdentifier', ''] }
+                ]
+              },
+              '$eventIdentifier',
+              '$_id'
+            ]
+          }
+        }
+      },
+      { $count: 'total' }
+    ]);
+
+    callback(null, {
+      total,
+      results: pageResults
+    });
+
+  } catch (err) {
+    callback(err);
+  }
+};
 
 Report.findSortedPage = function (filter, page, callback) {
   Report.findPage(filter, page, { sort: '-authoredAt' }, function (err, reports) {

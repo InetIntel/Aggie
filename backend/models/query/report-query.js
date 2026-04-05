@@ -130,11 +130,17 @@ ReportQuery.prototype.toMongooseFilter = function () {
       {"metadata.rawAPIResponse.dataSource": {$in: this.dataSources}},
     ]
   }
-  if (this.entityLevel) {
+  if (this.entityLevel && this.entityLevel.length > 0) {
+    // accepts this.entityLevel as an array
+    const entityLevelFilter = 
+      this.entityLevel.length === 1
+        ? this.entityLevel[0]
+        : { $in: this.entityLevel };
+
     filter.$and = [
       ...(filter.$and || []),
       {"metadata.rawAPIResponse.entityLevel": {$exists: true}},
-      {"metadata.rawAPIResponse.entityLevel": this.entityLevel},
+      {"metadata.rawAPIResponse.entityLevel": entityLevelFilter},
     ]
   }
   return filter;

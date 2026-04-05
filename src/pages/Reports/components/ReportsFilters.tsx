@@ -32,6 +32,9 @@ interface IReportFilters {
   fromGroup?: string;
   refetch: () => void;
   isFetching: boolean;
+  platformOptions?: string[];
+  showEntityLevelFilter?: boolean;
+  showSignalSourcesFilter?: boolean;
 }
 
 const ReportFilters = ({
@@ -42,6 +45,9 @@ const ReportFilters = ({
   fromGroup,
   refetch,
   isFetching,
+  platformOptions = [...MEDIA_OPTIONS],
+  showEntityLevelFilter = true,
+  showSignalSourcesFilter = true,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -76,12 +82,59 @@ const ReportFilters = ({
     return array;
   }
 
+  // normalize entity level array and dedup toggle rules
+  const currentEntityLevel = getParam("entityLevel")
+    ? getParam("entityLevel").split(",").filter(Boolean)
+    : showEntityLevelFilter
+      ? ["Region", "AS - Region", "AS - Country"]
+      : [];
+
+  const currentHideDuplicateASNs = (() => {
+    const raw = getParam("hideDuplicateASNs");
+    // If user explicitly set it, use that value
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    // Otherwise, auto-default to true if both AS and AS-Country are selected
+    const shouldDefaultOn =
+      currentEntityLevel.includes("AS") &&
+      currentEntityLevel.includes("AS - Country");
+    return shouldDefaultOn;
+  })();
+
   function setParams(values: ReportQueryState) {
     if (!("page" in values)) {
       values = { ...values, page: undefined };
     }
-    console.log(values);
-    setParamsQuery(values);
+
+    const formattedValues: ReportQueryState = { ...values };
+
+    if (showEntityLevelFilter) {
+      const requestedEntityLevel =
+        values.entityLevel && Array.isArray(values.entityLevel)
+          ? values.entityLevel
+          : currentEntityLevel;
+
+      const autoHideDuplicate =
+        requestedEntityLevel.includes("AS") &&
+        requestedEntityLevel.includes("AS - Country");
+
+      let dedupValue = values.hideDuplicateASNs;
+      if (!dedupValue) {
+        dedupValue = autoHideDuplicate ? "true" : "false";
+      }
+
+      formattedValues.entityLevel = requestedEntityLevel;
+      formattedValues.hideDuplicateASNs = dedupValue;
+    } else {
+      formattedValues.entityLevel = undefined;
+      formattedValues.hideDuplicateASNs = undefined;
+    }
+
+    if (!showSignalSourcesFilter) {
+      formattedValues.dataSources = undefined;
+    }
+
+    setParamsQuery(formattedValues);
   }
 
   // const dataSourceParam = getParam("dataSources");
@@ -172,23 +225,36 @@ const ReportFilters = ({
           />
           <FilterListbox
             label='Platforms'
-            options={[...MEDIA_OPTIONS]}
+            options={platformOptions}
             value={getParam("media") as string}
             onChange={(e) => setParams({ media: e as string})}
           />
-          <FilterListbox
-            label='Entity Level'
-            options={[...ENTITY_LEVEL_OPTIONS]}
-            value={getParam("entityLevel") as string}
-            onChange={(e) => setParams({ entityLevel: e as string})}
-          />
-          <FilterListbox
-            label='Signal Sources'
-            options={[...DATA_SOURCE_OPTIONS]}
-            value={getParam("dataSources") ? getParam("dataSources").split(",") as string[] : []}
-            onChange={(e) => setParams({ dataSources: e as string[]})}
-            isMultiSelect={true}
-          />
+          {showEntityLevelFilter && (
+            <FilterListbox
+              label='Entity Level'
+              options={[...ENTITY_LEVEL_OPTIONS]}
+              value={
+                getParam("entityLevel")
+                  ? getParam("entityLevel").split(",").filter(Boolean) as string[]
+                  : currentEntityLevel
+              }
+              onChange={(e) => setParams({ entityLevel: e as string[] })}
+              isMultiSelect={true}
+              toggleLabel='Hide Duplicate ASNs'
+              toggleDescription='Show unique ASNs only. Duplicates shared by AS and AS Country are hidden.'
+              toggleValue={currentHideDuplicateASNs}
+              onToggleChange={(value) => setParams({ hideDuplicateASNs: value ? "true" : "false" })}
+            />
+          )}
+          {showSignalSourcesFilter && (
+            <FilterListbox
+              label='Signal Sources'
+              options={[...DATA_SOURCE_OPTIONS]}
+              value={getParam("dataSources") ? getParam("dataSources").split(",") as string[] : []}
+              onChange={(e) => setParams({ dataSources: e as string[]})}
+              isMultiSelect={true}
+            />
+          )}
           {/* <FilterComboBox
             label='Sources'
             list={sourcesList(sources)}

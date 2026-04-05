@@ -11,6 +11,7 @@ const Report = require('../../models/report');
 require('dotenv').config();
 
 const countries = require('i18n-iso-countries');
+const { buildEventAggKeyBase, buildEventIdentifier } = require('../utils/iodaUtils');
 countries.registerLocale(require('i18n-iso-countries/langs/en.json'))
 
 /**
@@ -172,7 +173,7 @@ class CloudflareChannel extends PollChannel {
                     }
 
                 } catch (err) {
-                    console.error(`Error processing report for guid ${guid}:`, err);
+                    console.error(`Error processing report for guid ${formattedEvent.platformID}:`, err);
                 }
 
 
@@ -294,12 +295,6 @@ class CloudflareChannel extends PollChannel {
         const post = new SocialMediaPost({
             authoredAt: eventStartedAt,
             fetchedAt: null,
-            isOutageEvent: isOutageEvent,
-            isAsnScoped: isAsnScoped,
-            asn: asn,
-            outageStartedAt: outageStartedAt,
-            outageEndedAt: outageEndedAt,
-            geoScope: geoScope,
             author: entityName,
             content: content,
             url: linkedPage,
@@ -318,13 +313,26 @@ class CloudflareChannel extends PollChannel {
             }
         });
 
+        const eventAggKeyBase = buildEventAggKeyBase({
+            asn,
+            geoScope,
+        });
+    
+        const eventIdentifier = buildEventIdentifier({
+            asn,
+            geoScope,
+            outageStartedAt,
+        });
+
         post.isOutageEvent = isOutageEvent;
         post.isAsnScoped = isAsnScoped;
         post.asn = asn;
         post.outageStartedAt = outageStartedAt;
         post.outageEndedAt = outageEndedAt;
         post.geoScope = geoScope;
-        
+        post.eventAggKeyBase = eventAggKeyBase;
+        post.eventIdentifier = eventIdentifier;
+
         return post;
 
     }

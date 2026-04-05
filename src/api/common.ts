@@ -17,10 +17,29 @@ export const MEDIA_OPTIONS = [
   // "truthsocial",
   // "youtube",
   // "facebook",
+  // "telegram",
+  "telegramUser",
   "ioda",
   "cloudflare",
 ] as const;
 export type MediaOptions = (typeof MEDIA_OPTIONS)[number];
+
+export const SOCIAL_MEDIA_OPTIONS = [
+  "twitter",
+  // "telegram",
+  "telegramUser",
+  // "tiktok",
+  // "instagram",
+  // "RSS",
+  // "truthsocial",
+  // "youtube",
+  // "facebook",
+] as const satisfies readonly MediaOptions[];
+
+export const ALERT_MEDIA_OPTIONS = [
+  "ioda",
+  "cloudflare",
+] as const satisfies readonly MediaOptions[];
 
 export const DATA_SOURCE_OPTIONS = [
   "Active Probing",
@@ -31,9 +50,10 @@ export const DATA_SOURCE_OPTIONS = [
 export type DataSourceOptions = (typeof DATA_SOURCE_OPTIONS)[number];
 
 export const ENTITY_LEVEL_OPTIONS = [
-  "AS",
   "Region",
   "AS - Region",
+  "AS - Country",
+  "AS",
 ]
 export type ENTITY_LEVEL_OPTIONS = (typeof ENTITY_LEVEL_OPTIONS)[number];
 
@@ -46,7 +66,13 @@ export type ClosedOptions = (typeof CLOSED_OPTIONS)[number];
 export const TERNARY_OPTIONS = ["true", "maybe", "false"] as const;
 export type TernaryOptions = (typeof TERNARY_OPTIONS)[number];
 
-export const CREDENTIAL_OPTIONS = ["junkipedia", "ioda", "cloudflare"] as const;
+export const CREDENTIAL_OPTIONS = [
+  "junkipedia",
+  // "telegramBot",
+  "telegramUser",
+  "ioda",
+  "cloudflare",
+] as const;
 export type CredentialOption = (typeof CREDENTIAL_OPTIONS)[number];
 
 export const GROUP_SORTBY = [

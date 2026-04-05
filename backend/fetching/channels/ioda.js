@@ -3,7 +3,11 @@ const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { mongoose } = require('../../database');
 const REGION_CODES = require('../../config/fetching/channels/iodaMappings');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
-const extractCleanSVGFromPage = require('../utils/iodaUtils');
+const {
+    extractCleanSVGFromPage,
+    buildEventAggKeyBase,
+    buildEventIdentifier
+} = require('../utils/iodaUtils');
 const {  recomputeIncidentDurationForGroups } = require('../../api/utils/incidentDuration');
 const Group = require('../../models/group');
 const Report = require('../../models/report');
@@ -112,10 +116,6 @@ class IODAChannel extends PollChannel {
                 } else if (queryType === 'geoasn-country') {
                     url.searchParams.append('entityType', 'geoasn');
                     url.searchParams.append('relatedTo', `country/${this.countryCode}`);
-                // Remove as current ioda api support regional AS signal via geoasn-region
-                // } else if (queryType === 'asn-region') {
-                //     url.searchParams.append('entityType', 'asn');
-                //     url.searchParams.append('relatedTo', `region`);
                 } else if (queryType === 'asn-country') {
                     url.searchParams.append('entityType', 'asn');
                     url.searchParams.append('relatedTo', `country/${this.countryCode}`);
@@ -335,7 +335,7 @@ class IODAChannel extends PollChannel {
                 entityScope = match[2];
                 geoScope = entityScope;
             } else {
-                entityLevel = 'AS'
+                entityLevel = 'AS - Country'
                 entityScope = countries.getName(this.countryCode, "en") || this.countryCode;
                 geoScope = entityScope;
             }
@@ -375,6 +375,8 @@ class IODAChannel extends PollChannel {
 
         }
 
+
+
         const post =  new SocialMediaPost({
             authoredAt: eventStartedAt,
             fetchedAt: null,
@@ -397,13 +399,25 @@ class IODAChannel extends PollChannel {
             }
         });
 
-            
+        const eventAggKeyBase = buildEventAggKeyBase({
+            asn,
+            geoScope,
+        });
+    
+        const eventIdentifier = buildEventIdentifier({
+            asn,
+            geoScope,
+            outageStartedAt,
+        });
+
         post.isOutageEvent = isOutageEvent;
         post.isAsnScoped = isAsnScoped;
         post.asn = asn;
         post.outageStartedAt = outageStartedAt;
         post.outageEndedAt = outageEndedAt;
         post.geoScope = geoScope;
+        post.eventAggKeyBase = eventAggKeyBase;
+        post.eventIdentifier = eventIdentifier;
 
         return post;
     }
