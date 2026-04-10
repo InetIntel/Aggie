@@ -23,7 +23,7 @@ const parseQueryData = (queryString) => {
   if (!query.media && query.alerts === 'true') {
     query.isOutageEvent = true;
   } else if (!query.media && query.alerts === 'false') {
-    query.isOutageEvent = {$ne: true};
+    query.isOutageEvent = false;
   } 
   
   
