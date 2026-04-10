@@ -23,8 +23,8 @@ const RIPE_BASE_URL = 'https://stat.ripe.net';
 /**
  * Compute IHR start and ending timebin for past N days data.
  * e.g. on 2026-02-16, to fetch data for past 3 days
- *      timebin_ltd = 2026-02-15T23:59:59Z
- *      timbine_gte = 2026-02-12T23:59:59Z
+ *      timebin__lte = 2026-02-15T23:59:59Z
+ *      timebin__gte = 2026-02-12T23:59:59Z
  */
 function computeIhrTimebinRange(days = 3) {
   const now = new Date();
@@ -45,8 +45,8 @@ function computeIhrTimebinRange(days = 3) {
   };
 
   return {
-    timebin_gte: toIsoNoMs(start),
-    timebin_lte: toIsoNoMs(end),
+    timebin__gte: toIsoNoMs(start),
+    timebin__lte: toIsoNoMs(end),
     startDate: start,
     endDate: end,
   };
@@ -89,13 +89,13 @@ function avgFromSumCount(sum, count) {
 
 
 // ---- Fetch IHR data ----
-async function fetchIhrAsns(countryCode, timebin_gte, timebin_lte) {
-  console.log(`[ASN-INGEST-IHR] Fetching ASN data for country=${countryCode}, timebin_gte=${timebin_gte}, timebin_lte=${timebin_lte}`);
+async function fetchIhrAsns(countryCode, timebin__gte, timebin__lte) {
+  console.log(`[ASN-INGEST-IHR] Fetching ASN data for country=${countryCode}, timebin__gte=${timebin__gte}, timebin__lte=${timebin__lte}`);
 
   const params = {
     country: countryCode,
-    timebin_gte: timebin_gte,
-    timebin_lte: timebin_lte,
+    timebin__gte: timebin__gte,
+    timebin__lte: timebin__lte,
   };
 
   const { data } = await axios.get(IHR_HEGEMONY_URL, { params });
@@ -157,7 +157,7 @@ async function ingestAsnMetadata() {
 
   console.log(`[ASN-INGEST] Starting ingestion for country=${country} at ${now.toISOString()}`);
 
-  const {timebin_gte, timebin_lte, endDate: ihrWindowEndDate} = computeIhrTimebinRange(3);
+  const {timebin__gte, timebin__lte, endDate: ihrWindowEndDate} = computeIhrTimebinRange(3);
 
   const todaysAsns = new Map();
 
@@ -165,7 +165,7 @@ async function ingestAsnMetadata() {
 
   let ihrResults = [];
   try {
-    ihrResults = await fetchIhrAsns(country, timebin_gte, timebin_lte);
+    ihrResults = await fetchIhrAsns(country, timebin__gte, timebin__lte);
   } catch (err) {
     console.error('[ASN-INGEST-IHR] Error fetching data:', err.message || err);
   }
