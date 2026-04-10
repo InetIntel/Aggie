@@ -27,6 +27,7 @@ import Report from "./pages/Reports/Report";
 import NewIncident from "./pages/incidents/NewIncident";
 import FetchIndicator from "./components/FetchIndicator";
 import Settings from "./pages/Settings";
+import Dashboard from "./pages/Dashboard";
 import { useQueryClient } from "@tanstack/react-query";
 import AllReportsList from "./pages/Reports/AllReportsList";
 import Style from "./pages/Style";
@@ -84,6 +85,7 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
         <Route path=':id' element={<Report />}></Route>
       </Route>
 
+      <Route path='/dashboard' element={<Dashboard />} />
       <Route path='/incidents' element={<Incidents />} />
       <Route path='/incidents/:id' element={<Incident />} />
       <Route path='/incidents/new' element={<NewIncident />} />
