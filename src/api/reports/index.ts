@@ -2,6 +2,7 @@ import axios from "axios";
 import type { Report, ReportQueryState, Reports } from "./types";
 
 import type { hasId, TernaryOptions, VeracityOptions } from "../common";
+import { ENTITY_LEVEL_OPTIONS } from "../common";
 import { isString } from "lodash";
 
 export const getReports = async (
@@ -165,10 +166,10 @@ export function urlFromReportsQuery(
       !queryState.entityLevel ||
       queryState.entityLevel.length === 0)
   ) {
-    url.set("entityLevel", "Region,AS - Region,AS - Country");
+    url.set("entityLevel", ENTITY_LEVEL_OPTIONS.join(","));
   }
   if (alerts && !("hideDuplicateASNs" in queryState)) {
-    url.set("hideDuplicateASNs", "false");
+    url.set("hideDuplicateASNs", "true");
   }
   if (typeof alerts !== "undefined") url.set("alerts", alerts.toString());
   if (tagIds && tagIds.length > 0) {

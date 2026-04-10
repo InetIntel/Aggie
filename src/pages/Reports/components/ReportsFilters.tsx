@@ -35,6 +35,8 @@ interface IReportFilters {
   platformOptions?: string[];
   showEntityLevelFilter?: boolean;
   showSignalSourcesFilter?: boolean;
+  showDedupToggle?: boolean;
+  autoEnableDedup?: boolean;
 }
 
 const ReportFilters = ({
@@ -48,6 +50,8 @@ const ReportFilters = ({
   platformOptions = [...MEDIA_OPTIONS],
   showEntityLevelFilter = true,
   showSignalSourcesFilter = true,
+  showDedupToggle = true,
+  autoEnableDedup = true,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -86,7 +90,7 @@ const ReportFilters = ({
   const currentEntityLevel = getParam("entityLevel")
     ? getParam("entityLevel").split(",").filter(Boolean)
     : showEntityLevelFilter
-      ? ["Region", "AS - Region", "AS - Country"]
+      ? [...ENTITY_LEVEL_OPTIONS]
       : [];
 
   const currentHideDuplicateASNs = (() => {
@@ -94,6 +98,7 @@ const ReportFilters = ({
     // If user explicitly set it, use that value
     if (raw === "true") return true;
     if (raw === "false") return false;
+    if (!autoEnableDedup) return false;
     // Otherwise, auto-default to true if both AS and AS-Country are selected
     const shouldDefaultOn =
       currentEntityLevel.includes("AS") &&
@@ -115,6 +120,7 @@ const ReportFilters = ({
           : currentEntityLevel;
 
       const autoHideDuplicate =
+        autoEnableDedup &&
         requestedEntityLevel.includes("AS") &&
         requestedEntityLevel.includes("AS - Country");
 
@@ -240,10 +246,10 @@ const ReportFilters = ({
               }
               onChange={(e) => setParams({ entityLevel: e as string[] })}
               isMultiSelect={true}
-              toggleLabel='Hide Duplicate ASNs'
-              toggleDescription='Show unique ASNs only. Duplicates shared by AS and AS Country are hidden.'
-              toggleValue={currentHideDuplicateASNs}
-              onToggleChange={(value) => setParams({ hideDuplicateASNs: value ? "true" : "false" })}
+              toggleLabel={showDedupToggle ? 'Hide Duplicate ASNs' : undefined}
+              toggleDescription={showDedupToggle ? 'Show unique ASNs only. Duplicates shared by AS and AS Country are hidden.' : undefined}
+              toggleValue={showDedupToggle ? currentHideDuplicateASNs : undefined}
+              onToggleChange={showDedupToggle ? (value) => setParams({ hideDuplicateASNs: value ? "true" : "false" }) : undefined}
             />
           )}
           {showSignalSourcesFilter && (
