@@ -18,6 +18,7 @@ const User = require('./models/user');
 var readLineSync = require('readline-sync');
 var { version: packageVersion } = require('../package.json');
 const cors = require('cors');
+const { getMediaRoot } = require('./fetching/utils/socialImageStorage');
 // Extend global error class
 require('./error');
 require('dotenv').config();
@@ -92,6 +93,10 @@ if (process.env.ENVIRONMENT === 'development') {
     '/incidents/uploads',
     auth.authenticate(),
     express.static(path.join(__dirname,'..', 'public', 'uploads'))
+  );
+  app.use(
+    '/media',
+    express.static(getMediaRoot())
   );
   app.use(function (req, res, next) {
     res.header('Access-Control-Allow-Credentials', true);
@@ -180,6 +185,10 @@ if (process.env.ENVIRONMENT === 'production') {
     '/incidents/uploads',
     auth.authenticate(),
     express.static(path.join(__dirname,'..', 'public', 'uploads'))
+  );
+  app.use(
+    '/media',
+    express.static(getMediaRoot())
   );
   app.get('/manifest.json', (req, res) => {
     res.sendFile(path.resolve(__dirname, '..', 'build', 'manifest.json'));

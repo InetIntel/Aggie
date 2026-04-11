@@ -12,6 +12,7 @@ var tags = require('../../shared/tags');
 const Group = require("../../models/group");
 const eventRouter = require('../sockets/event-router');
 const {  recomputeIncidentDurationForGroups } = require('../utils/incidentDuration');
+const { buildMediaUrl } = require('../../fetching/utils/socialImageStorage');
 
 // Determine the search keywords
 const parseQueryData = (queryString) => {
@@ -40,6 +41,49 @@ const shouldDedupByEventIdentifier = (entityLevel, groupId) => {
   return entityLevel.includes('AS') && entityLevel.includes('AS - Country');
 };
 
+const serializeReport = (report) => {
+  if (!report) return report;
+
+  const plainReport = typeof report.toObject === 'function'
+    ? report.toObject()
+    : report;
+
+  const attachments = Array.isArray(plainReport?.metadata?.attachments)
+    ? plainReport.metadata.attachments.map((attachment) => ({
+        ...attachment,
+        // Thumbnail URLs are intended for list/feed cards and should be lazy-loaded by the frontend.
+        thumbnailUrl: buildMediaUrl(attachment.thumbnailKey),
+        // Full image URLs are intended for report detail/full-view rendering.
+        imageUrl: buildMediaUrl(attachment.imageKey),
+      }))
+    : plainReport?.metadata?.attachments;
+
+  return {
+    ...plainReport,
+    metadata: plainReport?.metadata
+      ? {
+          ...plainReport.metadata,
+          attachments,
+        }
+      : plainReport?.metadata,
+  };
+};
+
+const serializeReportResponse = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload.map(serializeReport);
+  }
+
+  if (payload && Array.isArray(payload.results)) {
+    return {
+      ...payload,
+      results: payload.results.map(serializeReport),
+    };
+  }
+
+  return serializeReport(payload);
+};
+
 // Get a list of queried Reports
 exports.report_reports = (req, res) => {
   // Parse query string
@@ -61,7 +105,7 @@ exports.report_reports = (req, res) => {
 
     const handler = (err, reports) => {
       if (err) return res.status(err.status || 500).send(err.message);
-      return res.send(reports);
+      return res.send(serializeReportResponse(reports));
     };
 
     if (useDedup) {
@@ -120,7 +164,7 @@ exports.report_details = (req, res) => {
     else if (!report) res.sendStatus(404);
     else {
       
-      res.status(200).send(report);
+      res.status(200).send(serializeReport(report));
     }
   });
 }
