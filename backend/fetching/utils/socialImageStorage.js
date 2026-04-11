@@ -10,7 +10,7 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 
 const MEDIA_ROUTE_PREFIX = '/media';
-const MEDIA_ROOT = process.env.MEDIA_ROOT || path.join(__dirname, '../../public/media');
+const MEDIA_ROOT = process.env.MEDIA_ROOT || path.join(__dirname, '../../../public/media');
 const THUMBNAIL_MAX_SIZE = Number(process.env.SOCIAL_IMAGE_THUMB_SIZE || 320);
 
 function normalizeKey(key) {
