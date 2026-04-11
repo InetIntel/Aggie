@@ -4,6 +4,7 @@ const sourceMediaValues = [
     'junkipedia',
     'telegramBot',
     'telegramUser',
+    'mastodon',
 ]
 
 module.exports = sourceMediaValues;
