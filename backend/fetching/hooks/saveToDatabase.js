@@ -1,6 +1,7 @@
 // Saves each Report to the Aggie database
 
 const Report = require('../../models/report');
+const { deleteSocialAttachments } = require('../utils/socialImageStorage');
 module.exports = async function saveToDatabase(report, next) {
 
     try {
@@ -12,6 +13,7 @@ module.exports = async function saveToDatabase(report, next) {
         }
         
     } catch (error) {
+        await deleteSocialAttachments(report?.metadata?.attachments);
         console.error(`[Fetching-saveToDatabase] Failed - Failed saving reports: ${error.message}.`)
     }
     
