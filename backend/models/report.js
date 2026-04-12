@@ -319,8 +319,7 @@ Report.queryReportsDeduped = async function (query, page, callback) {
             $cond: [
               {
                 $and: [
-                  { $ne: ['$eventIdentifier', null] },
-                  { $ne: ['$eventIdentifier', ''] }
+                  { $ne: [{ $type: "$eventIdentifier" }, "missing"] },
                 ]
               },
               '$eventIdentifier',

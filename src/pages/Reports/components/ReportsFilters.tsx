@@ -35,6 +35,9 @@ interface IReportFilters {
   platformOptions?: string[];
   showEntityLevelFilter?: boolean;
   showSignalSourcesFilter?: boolean;
+  showDedupToggle?: boolean;
+  autoEnableDedup?: boolean;
+  defaultEntityLevelSelection?: string[];
 }
 
 const ReportFilters = ({
@@ -48,6 +51,9 @@ const ReportFilters = ({
   platformOptions = [...MEDIA_OPTIONS],
   showEntityLevelFilter = true,
   showSignalSourcesFilter = true,
+  showDedupToggle = true,
+  autoEnableDedup = true,
+  defaultEntityLevelSelection,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -82,18 +88,21 @@ const ReportFilters = ({
     return array;
   }
 
+  const entityLevelDefaults = defaultEntityLevelSelection ?? (
+    showEntityLevelFilter ? [...ENTITY_LEVEL_OPTIONS] : []
+  );
+
   // normalize entity level array and dedup toggle rules
   const currentEntityLevel = getParam("entityLevel")
     ? getParam("entityLevel").split(",").filter(Boolean)
-    : showEntityLevelFilter
-      ? ["Region", "AS - Region", "AS - Country"]
-      : [];
+    : entityLevelDefaults;
 
   const currentHideDuplicateASNs = (() => {
     const raw = getParam("hideDuplicateASNs");
     // If user explicitly set it, use that value
     if (raw === "true") return true;
     if (raw === "false") return false;
+    if (!autoEnableDedup) return false;
     // Otherwise, auto-default to true if both AS and AS-Country are selected
     const shouldDefaultOn =
       currentEntityLevel.includes("AS") &&
@@ -112,9 +121,12 @@ const ReportFilters = ({
       const requestedEntityLevel =
         values.entityLevel && Array.isArray(values.entityLevel)
           ? values.entityLevel
-          : currentEntityLevel;
+          : getParam("entityLevel")
+            ? getParam("entityLevel").split(",").filter(Boolean)
+            : entityLevelDefaults;
 
       const autoHideDuplicate =
+        autoEnableDedup &&
         requestedEntityLevel.includes("AS") &&
         requestedEntityLevel.includes("AS - Country");
 
@@ -123,7 +135,8 @@ const ReportFilters = ({
         dedupValue = autoHideDuplicate ? "true" : "false";
       }
 
-      formattedValues.entityLevel = requestedEntityLevel;
+      formattedValues.entityLevel =
+        requestedEntityLevel.length > 0 ? requestedEntityLevel : undefined;
       formattedValues.hideDuplicateASNs = dedupValue;
     } else {
       formattedValues.entityLevel = undefined;
@@ -240,10 +253,10 @@ const ReportFilters = ({
               }
               onChange={(e) => setParams({ entityLevel: e as string[] })}
               isMultiSelect={true}
-              toggleLabel='Hide Duplicate ASNs'
-              toggleDescription='Show unique ASNs only. Duplicates shared by AS and AS Country are hidden.'
-              toggleValue={currentHideDuplicateASNs}
-              onToggleChange={(value) => setParams({ hideDuplicateASNs: value ? "true" : "false" })}
+              toggleLabel={showDedupToggle ? 'Hide Duplicate ASNs' : undefined}
+              toggleDescription={showDedupToggle ? 'Show unique ASNs only. Duplicates shared by AS and AS Country are hidden.' : undefined}
+              toggleValue={showDedupToggle ? currentHideDuplicateASNs : undefined}
+              onToggleChange={showDedupToggle ? (value) => setParams({ hideDuplicateASNs: value ? "true" : "false" }) : undefined}
             />
           )}
           {showSignalSourcesFilter && (

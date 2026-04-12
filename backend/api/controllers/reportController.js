@@ -23,7 +23,7 @@ const parseQueryData = (queryString) => {
   if (!query.media && query.alerts === 'true') {
     query.isOutageEvent = true;
   } else if (!query.media && query.alerts === 'false') {
-    query.isOutageEvent = {$ne: true};
+    query.isOutageEvent = false;
   } 
   
   
@@ -34,7 +34,8 @@ const parseQueryData = (queryString) => {
 }
 
 // Detemine whether should dedup overlapping reports
-const shouldDedupByEventIdentifier = (entityLevel) => {
+const shouldDedupByEventIdentifier = (entityLevel, groupId) => {
+  if (groupId) return false;
   if (!entityLevel || entityLevel.length === 0) return true;
   return entityLevel.includes('AS') && entityLevel.includes('AS - Country');
 };
@@ -51,7 +52,7 @@ exports.report_reports = (req, res) => {
     const hideDuplicateASNsParam = req.query.hideDuplicateASNs;
     
     // Determine if we should deduplicate
-    let useDedup = shouldDedupByEventIdentifier(entityLevel);
+    let useDedup = shouldDedupByEventIdentifier(entityLevel, queryData.groupId);
     
     // If user explicitly set the toggle, use that value
     if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {

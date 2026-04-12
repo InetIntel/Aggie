@@ -64,7 +64,8 @@ const Incident = () => {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { searchParams, getAllParams } = useQueryParams<ReportQueryState>();
+  const { searchParams, getAllParams, getParam, setParams } =
+    useQueryParams<ReportQueryState>();
   const { doUpdate, doSetClosed } = useIncidentMutations();
   const [deleteModal, setDeleteModal] = useState(false);
 
@@ -135,6 +136,19 @@ const Incident = () => {
       behavior: "smooth",
     });
   }, [searchParams]);
+
+  useEffect(() => {
+    const alerts = getParam("alerts");
+    const hideDuplicateASNs = getParam("hideDuplicateASNs");
+
+    if (!alerts && !hideDuplicateASNs) return;
+
+    setParams({
+      alerts: undefined,
+      hideDuplicateASNs: undefined,
+    });
+  }, [getParam, setParams]);
+
   function onNewIncidentFromReports() {
     const params = new URLSearchParams({
       reports: multiSelect.selection.map((i) => i._id).join(":"),
@@ -296,6 +310,9 @@ const Incident = () => {
           fromGroup={id}
           refetch={groupRefetch}
           isFetching={groupIsFetching}
+          showDedupToggle={false}
+          autoEnableDedup={false}
+          defaultEntityLevelSelection={[]}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton
