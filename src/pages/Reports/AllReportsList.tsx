@@ -27,25 +27,43 @@ const AllReportsList = ({ alerts }: IProps) => {
   const { searchParams, getAllParams, setParams, getParam } =
     useQueryParams<ReportQueryState>();
 
+  const platformOptions: string[] = [
+    ...(alerts ? ALERT_MEDIA_OPTIONS : SOCIAL_MEDIA_OPTIONS),
+  ];
+  const currentMedia = getParam("media");
+  const entityLevelParam = getParam("entityLevel");
+  const dataSourcesParam = getParam("dataSources");
+  const hideDuplicateASNsParam = getParam("hideDuplicateASNs");
+  const shouldClearMedia = !!currentMedia && !platformOptions.includes(currentMedia);
+  const shouldResetSocialFilters =
+    !alerts &&
+    (shouldClearMedia ||
+      !!entityLevelParam ||
+      !!dataSourcesParam ||
+      !!hideDuplicateASNsParam);
+  const reportsQueryKey = [
+    "reports",
+    alerts ? "alerts" : "mediaposts",
+    searchParams.toString(),
+  ];
+
   const {
     data: reports,
     refetch,
     isLoading,
     isFetching,
-  } = useQuery(["reports"], () => getReports(getAllParams(searchParams), alerts), {
+  } = useQuery(reportsQueryKey, () => getReports(getAllParams(searchParams), alerts), {
     refetchInterval: 120000,
+    enabled: !shouldResetSocialFilters,
   });
   useEffect(() => {
     document.title = alerts ? "Alerts - Aggie" : "Social Media Posts - Aggie";
-    // refetch on filter change
     multiSelect.set([]);
-    // apparanty not the way its supposed to be done but i cant do it another way
-    refetch();
     document.getElementById("main_view")?.scrollTo({
       top: 0,
       behavior: "smooth",
     });
-  }, [searchParams]);
+  }, [alerts, searchParams]);
 
   const multiSelect = useMultiSelect({
     allItems: reports?.results,
@@ -56,30 +74,16 @@ const AllReportsList = ({ alerts }: IProps) => {
     navigate({ pathname: `${id}`, search: searchParams.toString() });
   }
 
-  const platformOptions: string[] = alerts
-    ? [...ALERT_MEDIA_OPTIONS]
-    : [...SOCIAL_MEDIA_OPTIONS];
-
   useEffect(() => {
-    if (alerts) return;
+    if (!shouldResetSocialFilters) return;
 
-    const currentMedia = getParam("media");
-    const shouldClearMedia = currentMedia && !platformOptions.includes(currentMedia);
-
-    if (
-      shouldClearMedia ||
-      getParam("entityLevel") ||
-      getParam("dataSources") ||
-      getParam("hideDuplicateASNs")
-    ) {
-      setParams({
-        media: shouldClearMedia ? undefined : currentMedia,
-        entityLevel: undefined,
-        dataSources: undefined,
-        hideDuplicateASNs: undefined,
-      });
-    }
-  }, [alerts, getParam, platformOptions, setParams]);
+    setParams({
+      media: shouldClearMedia ? undefined : currentMedia,
+      entityLevel: undefined,
+      dataSources: undefined,
+      hideDuplicateASNs: undefined,
+    });
+  }, [currentMedia, setParams, shouldClearMedia, shouldResetSocialFilters]);
 
   return (
     <>
@@ -126,7 +130,7 @@ const AllReportsList = ({ alerts }: IProps) => {
                 Mark {multiSelect.selection.length} report{"(s)"} as:
               </p>
               <MultiSelectActions
-                queryKey={["reports"]}
+                queryKey={reportsQueryKey}
                 selection={multiSelect.selection}
                 disabled={!multiSelect.any()}
                 currentPageId={currentPageId}
@@ -149,6 +153,7 @@ const AllReportsList = ({ alerts }: IProps) => {
             >
               <ReportListItem
                 report={report}
+                queryKey={reportsQueryKey}
                 isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
                 onCheckChange={() => multiSelect.addRemove(report)}
