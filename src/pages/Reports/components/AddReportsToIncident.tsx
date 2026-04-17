@@ -29,7 +29,7 @@ import { Link, useNavigate } from "react-router-dom";
 interface IAddReportsToIncidents {
   isOpen: boolean;
   selection?: Report[];
-  queryKey: any[];
+  queryKey: readonly unknown[];
   onSuccess?: () => void;
   onClose: () => void;
   addRemove: (r: Report) => void;

@@ -14,7 +14,7 @@ export function useUpdateQueryData() {
    * @returns pass reference to old and new data objects
    */
   function update<T extends object>(
-    queryKey: string[],
+    queryKey: readonly unknown[],
     updateFn: (data: T) => { [key in keyof T]?: T[keyof T] }
   ) {
     const previousData = queryClient.getQueryData<T>(queryKey);

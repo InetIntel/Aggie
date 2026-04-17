@@ -37,6 +37,7 @@ interface IReportFilters {
   showSignalSourcesFilter?: boolean;
   showDedupToggle?: boolean;
   autoEnableDedup?: boolean;
+  defaultEntityLevelSelection?: string[];
 }
 
 const ReportFilters = ({
@@ -52,6 +53,7 @@ const ReportFilters = ({
   showSignalSourcesFilter = true,
   showDedupToggle = true,
   autoEnableDedup = true,
+  defaultEntityLevelSelection,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -86,12 +88,14 @@ const ReportFilters = ({
     return array;
   }
 
+  const entityLevelDefaults = defaultEntityLevelSelection ?? (
+    showEntityLevelFilter ? [...ENTITY_LEVEL_OPTIONS] : []
+  );
+
   // normalize entity level array and dedup toggle rules
   const currentEntityLevel = getParam("entityLevel")
     ? getParam("entityLevel").split(",").filter(Boolean)
-    : showEntityLevelFilter
-      ? [...ENTITY_LEVEL_OPTIONS]
-      : [];
+    : entityLevelDefaults;
 
   const currentHideDuplicateASNs = (() => {
     const raw = getParam("hideDuplicateASNs");
@@ -117,7 +121,9 @@ const ReportFilters = ({
       const requestedEntityLevel =
         values.entityLevel && Array.isArray(values.entityLevel)
           ? values.entityLevel
-          : currentEntityLevel;
+          : getParam("entityLevel")
+            ? getParam("entityLevel").split(",").filter(Boolean)
+            : entityLevelDefaults;
 
       const autoHideDuplicate =
         autoEnableDedup &&
@@ -129,7 +135,8 @@ const ReportFilters = ({
         dedupValue = autoHideDuplicate ? "true" : "false";
       }
 
-      formattedValues.entityLevel = requestedEntityLevel;
+      formattedValues.entityLevel =
+        requestedEntityLevel.length > 0 ? requestedEntityLevel : undefined;
       formattedValues.hideDuplicateASNs = dedupValue;
     } else {
       formattedValues.entityLevel = undefined;

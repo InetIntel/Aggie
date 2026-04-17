@@ -26,19 +26,38 @@ const Reports = ({ children }: IProps) => {
     if (message.event !== "reports:update") return;
     console.log("sockets", message);
     const key = location.pathname.includes("batch") ? ["batch"] : ["reports"];
-    queryData.update<IReports>(key, (data) => {
-      const updateData = updateByIds(
-        message.data.ids,
-        data.results,
-        message.data.update
-      );
-      return {
-        results: updateData,
-      };
-    });
+    if (key.includes("batch")) {
+      queryData.update<IReports>(key, (data) => {
+        const updateData = updateByIds(
+          message.data.ids,
+          data.results,
+          message.data.update
+        );
+        return {
+          results: updateData,
+        };
+      });
+    } else {
+      const reportListQueries = queryData.queryClient.getQueriesData<IReports>({
+        queryKey: ["reports"],
+      });
+      reportListQueries.forEach(([queryKey, data]) => {
+        if (!data || !Array.isArray(queryKey) || queryKey.length !== 3) return;
+
+        const updateData = updateByIds(
+          message.data.ids,
+          data.results,
+          message.data.update
+        );
+        queryData.queryClient.setQueryData(queryKey, {
+          ...data,
+          results: updateData,
+        });
+      });
+    }
     // update single report
     if (pageId) {
-      queryData.update<Report>([...key, pageId], (data) => {
+      queryData.update<Report>(["reports", pageId], (data) => {
         return message.data.update;
       });
     }

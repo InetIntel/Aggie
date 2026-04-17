@@ -27,6 +27,7 @@ import MultiSelectListItem from "../../../components/MultiSelectListItem";
 //TODO: refactor and clean up tech debt
 interface IProps {
   report: Report;
+  queryKey?: readonly unknown[];
   isChecked: boolean;
   isSelectMode: boolean;
   onCheckChange: () => void;
@@ -36,6 +37,7 @@ interface IProps {
 
 const ReportListItem = ({
   report,
+  queryKey,
   isChecked,
   isSelectMode,
   onCheckChange,
@@ -45,9 +47,10 @@ const ReportListItem = ({
   const { getParam } = useQueryParams<ReportQueryState>();
 
   const isBatchMode = getParam("batch") === "true";
+  const reportsQueryKey = queryKey ?? (isBatchMode ? ["batch"] : ["reports"]);
 
   const { setRead, setIrrelevance } = useReportMutations({
-    key: isBatchMode ? ["batch"] : ["reports"],
+    key: reportsQueryKey,
   });
 
   const { data: incident } = useQuery(
@@ -198,7 +201,7 @@ const ReportListItem = ({
         <AddReportsToIncidents
           selection={[report]}
           isOpen={openAttachModal}
-          queryKey={[isBatchMode ? "batch" : "reports"]}
+          queryKey={reportsQueryKey}
           onClose={() => setOpenAttachModal(false)}
           addRemove={() => setOpenAttachModal(false)}
         />

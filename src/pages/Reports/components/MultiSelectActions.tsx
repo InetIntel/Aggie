@@ -27,7 +27,7 @@ interface IProps {
   disabled: boolean;
   selection: Report[];
   currentPageId: string | undefined;
-  queryKey: string[];
+  queryKey: readonly unknown[];
   addRemoveSelection: (r: Report) => void;
 }
 

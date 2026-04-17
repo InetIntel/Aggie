@@ -138,9 +138,15 @@ const Incident = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    if (getParam("hideDuplicateASNs") !== "true") return;
+    const alerts = getParam("alerts");
+    const hideDuplicateASNs = getParam("hideDuplicateASNs");
 
-    setParams({ hideDuplicateASNs: "false" });
+    if (!alerts && !hideDuplicateASNs) return;
+
+    setParams({
+      alerts: undefined,
+      hideDuplicateASNs: undefined,
+    });
   }, [getParam, setParams]);
 
   function onNewIncidentFromReports() {
@@ -306,6 +312,7 @@ const Incident = () => {
           isFetching={groupIsFetching}
           showDedupToggle={false}
           autoEnableDedup={false}
+          defaultEntityLevelSelection={[]}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useUpdateQueryData } from "../../../hooks/useUpdateQueryData";
 import { useReportMutations } from "../useReportMutations";
@@ -39,10 +39,18 @@ const Report = () => {
   const { setParams, getParam } = useQueryParams<ReportQueryState>();
 
   const isBatchMode = getParam("batch") === "true";
+  const location = useLocation();
+  const listQueryKey = isBatchMode
+    ? ["batch"]
+    : [
+        "reports",
+        location.pathname.startsWith("/mediaposts") ? "mediaposts" : "alerts",
+        location.search.startsWith("?") ? location.search.slice(1) : location.search,
+      ];
 
   const navigate = useNavigate();
   const { setRead, setIrrelevance, doSetTags } = useReportMutations({
-    key: isBatchMode ? ["batch"] : ["reports"],
+    key: listQueryKey,
   });
 
   const { data: tags } = useQuery(["tags"], getTags);
@@ -120,7 +128,7 @@ const Report = () => {
       <AddReportsToIncidents
         selection={report ? [report] : undefined}
         isOpen={addReportModal}
-        queryKey={[isBatchMode ? "batch" : "reports"]}
+        queryKey={listQueryKey}
         onClose={() => setAddReportModal(false)}
         addRemove={() => setAddReportModal(false)}
       />
