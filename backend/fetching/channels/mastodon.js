@@ -168,6 +168,10 @@ class MastodonChannel extends Channel {
       return;
     }
 
+    if (this.mode === MASTODON_MODE_HOME) {
+      return;
+    }
+
     if (!this.modeValue) {
       throw new Error(`Missing Mastodon source value for mode=${this.mode}.`);
     }

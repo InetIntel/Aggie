@@ -1,6 +1,8 @@
 import axios from "axios";
 import {
   Credential,
+  MastodonAuthStartResponse,
+  MastodonAuthStatusResponse,
   TelegramUserAuthStartResponse,
   TelegramUserAuthVerifyResponse,
 } from "./types";
@@ -49,6 +51,21 @@ export const telegramUserAuthVerifyPassword = async (values: {
   const { data } = await axios.post<TelegramUserAuthVerifyResponse>(
     "/api/credential/telegram-user/auth/verify-password",
     values
+  );
+  return data;
+};
+
+export const mastodonAuthStart = async (values: { serverUrl: string }) => {
+  const { data } = await axios.post<MastodonAuthStartResponse>(
+    "/api/credential/mastodon/auth/start",
+    values
+  );
+  return data;
+};
+
+export const mastodonAuthStatus = async (authRequestId: string) => {
+  const { data } = await axios.get<MastodonAuthStatusResponse>(
+    `/api/credential/mastodon/auth/status/${authRequestId}`
   );
   return data;
 };

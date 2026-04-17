@@ -1,7 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Yup from "yup";
 import {
+  mastodonAuthStart,
+  mastodonAuthStatus,
   newCredential,
   telegramUserAuthStart,
   telegramUserAuthVerifyCode,
@@ -25,6 +27,9 @@ interface IProps {
 }
 
 type TelegramUserStep = "start" | "code" | "password";
+type MastodonStep = "start" | "authorizing";
+
+const CREDENTIAL_NAME_PLACEHOLDER = "Enter credential name (<20 chars)";
 
 const CreateCredentialForm = ({ onClose }: IProps) => {
   const [
@@ -35,6 +40,12 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
     useState<TelegramUserStep>("start");
   const [telegramUserName, setTelegramUserName] = useState("");
   const [telegramAuthRequestId, setTelegramAuthRequestId] = useState("");
+  const [mastodonStep, setMastodonStep] = useState<MastodonStep>("start");
+  const [mastodonCredentialName, setMastodonCredentialName] = useState("");
+  const [mastodonAuthRequestId, setMastodonAuthRequestId] = useState("");
+  const [mastodonServerUrl, setMastodonServerUrl] = useState("");
+  const mastodonPopupRef = useRef<Window | null>(null);
+  const mastodonPollRef = useRef<number | null>(null);
 
   const queryClient = useQueryClient();
   const doCreateCredential = useMutation(newCredential, {
@@ -77,6 +88,18 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       },
     }
   );
+  const doMastodonAuthStart = useMutation(mastodonAuthStart, {
+    onSuccess: (data) => {
+      setMastodonAuthRequestId(data.authRequestId);
+      setMastodonStep("authorizing");
+
+      mastodonPopupRef.current = window.open(
+        data.authUrl,
+        "aggie-mastodon-auth",
+        "popup=yes,width=640,height=800"
+      );
+    },
+  });
 
   const resetTelegramUserFlow = () => {
     setTelegramUserStep("start");
@@ -87,11 +110,93 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
     doTelegramUserAuthVerifyPassword.reset();
   };
 
+  const stopMastodonPolling = () => {
+    if (mastodonPollRef.current) {
+      window.clearInterval(mastodonPollRef.current);
+      mastodonPollRef.current = null;
+    }
+  };
+
+  const resetMastodonFlow = () => {
+    stopMastodonPolling();
+    mastodonPopupRef.current?.close();
+    mastodonPopupRef.current = null;
+    setMastodonStep("start");
+    setMastodonCredentialName("");
+    setMastodonAuthRequestId("");
+    setMastodonServerUrl("");
+    doMastodonAuthStart.reset();
+  };
+
+  useEffect(() => {
+    if (!mastodonAuthRequestId) return;
+
+    const checkStatus = async () => {
+      const status = await mastodonAuthStatus(mastodonAuthRequestId);
+      if (status.status !== "AUTHORIZED") return;
+
+      stopMastodonPolling();
+      mastodonPopupRef.current?.close();
+      mastodonPopupRef.current = null;
+
+      await doCreateCredential.mutateAsync({
+        credentials: {},
+        name: mastodonCredentialName,
+        type: "mastodon",
+        authRequestId: mastodonAuthRequestId,
+      });
+    };
+
+    mastodonPollRef.current = window.setInterval(() => {
+      checkStatus().catch(() => {});
+    }, 2000);
+
+    return () => {
+      stopMastodonPolling();
+    };
+  }, [mastodonAuthRequestId, mastodonCredentialName]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "aggie-mastodon-auth-complete") return;
+      if (!event.data?.authRequestId) return;
+      if (event.data.authRequestId !== mastodonAuthRequestId) return;
+
+      mastodonAuthStatus(event.data.authRequestId)
+        .then(async (status) => {
+          if (status.status !== "AUTHORIZED") return;
+
+          stopMastodonPolling();
+          mastodonPopupRef.current?.close();
+          mastodonPopupRef.current = null;
+
+          await doCreateCredential.mutateAsync({
+            credentials: {},
+            name: mastodonCredentialName,
+            type: "mastodon",
+            authRequestId: event.data.authRequestId,
+          });
+        })
+        .catch(() => {});
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [mastodonAuthRequestId, mastodonCredentialName]);
+
+  useEffect(() => {
+    return () => {
+      stopMastodonPolling();
+      mastodonPopupRef.current?.close();
+    };
+  }, []);
+
   const telegramUserError =
     doTelegramUserAuthStart.error ||
     doTelegramUserAuthVerifyCode.error ||
     doTelegramUserAuthVerifyPassword.error ||
     doCreateCredential.error;
+  const mastodonError = doMastodonAuthStart.error || doCreateCredential.error;
 
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
@@ -117,7 +222,11 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
+      <FormikInput
+        name='name'
+        label='Credential Name'
+        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
+      />
       <FormikInput name='junkipediaAPIKey' label='Junkipedia API Token' />
     </FormikWithSchema>
   );
@@ -144,7 +253,11 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
+      <FormikInput
+        name='name'
+        label='Credential Name'
+        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
+      />
       <FormikInput name='botAPIToken' label='Telegram Bot API Token' />
     </FormikWithSchema>
   );
@@ -194,7 +307,11 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
           onClose={onClose}
           onSubmitText='Send Code'
         >
-          <FormikInput name='name' label='Credential Name' />
+          <FormikInput
+            name='name'
+            label='Credential Name'
+            placeholder={CREDENTIAL_NAME_PLACEHOLDER}
+          />
           <FormikInput name='apiId' label='Telegram App API ID' />
           <FormikInput name='apiHash' label='Telegram App API Hash' />
           <FormikInput
@@ -292,7 +409,11 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
+      <FormikInput
+        name='name'
+        label='Credential Name'
+        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
+      />
     </FormikWithSchema>
   );
 
@@ -318,9 +439,93 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
+      <FormikInput
+        name='name'
+        label='Credential Name'
+        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
+      />
       <FormikInput name='cloudflareApiToken' label='Cloudflare API Token' />
     </FormikWithSchema>
+  );
+
+  const mastodonSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required"),
+    serverUrl: Yup.string()
+      .url("Enter a valid Mastodon server URL")
+      .required("Mastodon server URL required"),
+  });
+  type IMastodonSchema = Yup.InferType<typeof mastodonSchema>;
+
+  const mastodonForm = (
+    <div className='flex flex-col gap-3'>
+      {/* <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+        <p>Mastodon credentials are created through your Mastodon server's OAuth flow.</p>
+        <p>Use the server base URL, for example `https://mastodon.social/@username`.</p>
+      </div> */}
+
+      {mastodonError && <AxiosErrorCard error={mastodonError} />}
+
+      {mastodonStep === "start" && (
+        <FormikWithSchema
+          schema={mastodonSchema}
+          onSubmit={(values: IMastodonSchema) => {
+            setMastodonCredentialName(values.name);
+            setMastodonServerUrl(values.serverUrl);
+            doMastodonAuthStart.mutate({
+              serverUrl: values.serverUrl,
+            });
+          }}
+          loading={doMastodonAuthStart.isLoading}
+          onClose={onClose}
+          onSubmitText='Authorize Mastodon'
+        >
+          <FormikInput
+            name='name'
+            label='Credential Name'
+            placeholder={CREDENTIAL_NAME_PLACEHOLDER}
+          />
+          <FormikInput
+            name='serverUrl'
+            label='Mastodon Server URL'
+            placeholder='e.g., https://mastodon.social/@username'
+          />
+        </FormikWithSchema>
+      )}
+
+      {mastodonStep === "authorizing" && (
+        <>
+          <div className='rounded border border-slate-300 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+            <p>Credential: <span className='font-medium'>{mastodonCredentialName}</span></p>
+            <p>Server: <span className='font-medium'>{mastodonServerUrl}</span></p>
+            <p>Finish authorization in the popup, then this credential will be saved automatically.</p>
+          </div>
+          <div className='flex justify-between'>
+            <AggieButton
+              variant='secondary'
+              type='button'
+              onClick={() => {
+                const popup = mastodonPopupRef.current;
+                if (popup && !popup.closed) {
+                  popup.focus();
+                  return;
+                }
+                if (!doMastodonAuthStart.data?.authUrl) return;
+                mastodonPopupRef.current = window.open(
+                  doMastodonAuthStart.data.authUrl,
+                  "aggie-mastodon-auth",
+                  "popup=yes,width=640,height=800"
+                );
+              }}
+            >
+              Open Authorization Window
+            </AggieButton>
+            <AggieButton variant='secondary' onClick={resetMastodonFlow}>
+              Start Over
+            </AggieButton>
+          </div>
+        </>
+      )}
+    </div>
   );
 
   // rss credential
@@ -343,7 +548,11 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
+      <FormikInput
+        name='name'
+        label='Credential Name'
+        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
+      />
     </FormikWithSchema>
   );
 
@@ -426,6 +635,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       {credentialType === "junkipedia" && junkipediaForm}
       {/* {credentialType === "telegramBot" && telegramBotForm} */}
       {credentialType === "telegramUser" && telegramUserForm}
+      {credentialType === "mastodon" && mastodonForm}
       {/*credentialType === "rss" && rssForm*/}
       {/*credentialType === "twitter" && twitterForm*/}
       {credentialType === "ioda" && iodaForm}
