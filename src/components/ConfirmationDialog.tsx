@@ -1,5 +1,6 @@
 // this is the goofy goober implementation of a confirmation dialog
 // if u need a more flexiable dialog, use AggieDialog.tsx
+import { useEffect } from "react";
 import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { Dialog } from "@headlessui/react";
@@ -34,13 +35,24 @@ const ConfirmationDialog = ({
   confirmText,
   className,
 }: IProps) => {
+  useEffect(() => {
+    if (!isOpen || disabled) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [disabled, isOpen, onClose]);
+
   if (!isOpen) return <></>;
 
   return (
     <Dialog
       static
       open
-      onClose={() => !disabled && onClose()}
+      onClose={() => {}}
       className='relative z-50 '
     >
       <div className='fixed inset-0 bg-black/30 dark:bg-white/20' aria-hidden='true' />

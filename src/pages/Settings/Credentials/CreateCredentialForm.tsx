@@ -29,8 +29,6 @@ interface IProps {
 type TelegramUserStep = "start" | "code" | "password";
 type MastodonStep = "start" | "authorizing";
 
-const CREDENTIAL_NAME_PLACEHOLDER = "Enter credential name (<20 chars)";
-
 const CreateCredentialForm = ({ onClose }: IProps) => {
   const [
     credentialType,
@@ -222,11 +220,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput
-        name='name'
-        label='Credential Name'
-        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
-      />
+      <FormikInput name='name' label='Credential Name' />
       <FormikInput name='junkipediaAPIKey' label='Junkipedia API Token' />
     </FormikWithSchema>
   );
@@ -253,11 +247,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput
-        name='name'
-        label='Credential Name'
-        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
-      />
+      <FormikInput name='name' label='Credential Name' />
       <FormikInput name='botAPIToken' label='Telegram Bot API Token' />
     </FormikWithSchema>
   );
@@ -307,11 +297,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
           onClose={onClose}
           onSubmitText='Send Code'
         >
-          <FormikInput
-            name='name'
-            label='Credential Name'
-            placeholder={CREDENTIAL_NAME_PLACEHOLDER}
-          />
+          <FormikInput name='name' label='Credential Name' />
           <FormikInput name='apiId' label='Telegram App API ID' />
           <FormikInput name='apiHash' label='Telegram App API Hash' />
           <FormikInput
@@ -409,11 +395,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput
-        name='name'
-        label='Credential Name'
-        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
-      />
+      <FormikInput name='name' label='Credential Name' />
     </FormikWithSchema>
   );
 
@@ -439,11 +421,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput
-        name='name'
-        label='Credential Name'
-        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
-      />
+      <FormikInput name='name' label='Credential Name' />
       <FormikInput name='cloudflareApiToken' label='Cloudflare API Token' />
     </FormikWithSchema>
   );
@@ -479,11 +457,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
           onClose={onClose}
           onSubmitText='Authorize Mastodon'
         >
-          <FormikInput
-            name='name'
-            label='Credential Name'
-            placeholder={CREDENTIAL_NAME_PLACEHOLDER}
-          />
+          <FormikInput name='name' label='Credential Name' />
           <FormikInput
             name='serverUrl'
             label='Mastodon Server URL'
@@ -548,11 +522,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput
-        name='name'
-        label='Credential Name'
-        placeholder={CREDENTIAL_NAME_PLACEHOLDER}
-      />
+      <FormikInput name='name' label='Credential Name' />
     </FormikWithSchema>
   );
 
