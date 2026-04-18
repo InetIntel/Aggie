@@ -6,6 +6,7 @@ const { Logger } = require('telegram/extensions');
 const { StringSession } = require('telegram/sessions');
 const { decryptSecretsObject } = require('../utils/decryption');
 const {
+  deleteSocialAttachments,
   detectImageMimeType,
   persistSocialImage,
 } = require('../utils/socialImageStorage');
@@ -32,6 +33,23 @@ function getPeerKey(message, entity) {
   }
 
   return `entity:${String(entity)}`;
+}
+
+function getMessageDate(message) {
+  return message?.date instanceof Date
+    ? message.date
+    : new Date(message.date * 1000);
+}
+
+function getTelegramGroupedId(message) {
+  const groupedId = message?.groupedId;
+  if (groupedId == null) return null;
+  return groupedId?.toString?.() || String(groupedId);
+}
+
+function isTelegramPhotoMessage(message) {
+  const media = message?.media;
+  return media?.className === 'MessageMediaPhoto' && !!media?.photo;
 }
 
 function normalizeTelegramValue(value) {
@@ -256,38 +274,40 @@ class TelegramUserChannel extends Channel {
 
   // fetch message from one entity (channel/chat/group)
   async pollEntity(entity, checkpoint) {
-    const limit = 50;
+    const limit = 100;
     const msgs = await this.#client.getMessages(entity, { limit });
 
     const fresh = msgs
       .filter((m) => {
         if (!m?.date) return false;
-
-        const messageDate = m.date instanceof Date
-          ? m.date
-          : new Date(m.date * 1000);
-
-        return messageDate > checkpoint;
+        return getMessageDate(m) > checkpoint;
       })
       .sort((a, b) => {
-        const aDate = a.date instanceof Date ? a.date : new Date(a.date * 1000);
-        const bDate = b.date instanceof Date ? b.date : new Date(b.date * 1000);
-        return aDate - bDate;
+        const dateDelta = getMessageDate(a) - getMessageDate(b);
+        if (dateDelta !== 0) return dateDelta;
+        return Number(a.id || 0) - Number(b.id || 0);
       });
 
     if (!fresh.length) return null;
 
     let entityMaxDate = null;
 
-    for (const m of fresh) {
+    for (const group of this.groupFreshMessages(fresh)) {
       try {
-        const item = await this.parse(m, { entity });
+        const item = group.groupedId
+          ? await this.parseGroupedMessages(group.messages, {
+              entity,
+              groupedId: group.groupedId,
+            })
+          : await this.parse(group.messages[0], { entity });
+
         if (item != null) {
           this.enqueue(item);
 
-          const messageDate = m.date instanceof Date
-            ? m.date
-            : new Date(m.date * 1000);
+          const messageDate = group.messages.reduce((latest, message) => {
+            const currentDate = getMessageDate(message);
+            return currentDate > latest ? currentDate : latest;
+          }, getMessageDate(group.messages[0]));
 
           if (!entityMaxDate || messageDate > entityMaxDate) {
             entityMaxDate = messageDate;
@@ -296,10 +316,32 @@ class TelegramUserChannel extends Channel {
       } catch (err) {
         this.emit('error', this.normalizeTelegramError(err, entity));
       }
-      console.log('[Fetching-TelegramUser-pollentitysuccess.')
     }
 
     return entityMaxDate;
+  }
+
+  groupFreshMessages(messages) {
+    const groups = [];
+    const groupedIndexes = new Map();
+
+    for (const message of messages) {
+      const groupedId = getTelegramGroupedId(message);
+
+      if (!groupedId) {
+        groups.push({ groupedId: null, messages: [message] });
+        continue;
+      }
+
+      if (!groupedIndexes.has(groupedId)) {
+        groupedIndexes.set(groupedId, groups.length);
+        groups.push({ groupedId, messages: [] });
+      }
+
+      groups[groupedIndexes.get(groupedId)].messages.push(message);
+    }
+
+    return groups;
   }
 
   normalizeTelegramError(err, entity) {
@@ -319,18 +361,14 @@ class TelegramUserChannel extends Channel {
   async parse(message, { entity }) {
     const text = message?.message || '';
     const media = message?.media;
-    const isPhoto = media?.className === 'MessageMediaPhoto' && !!media?.photo;
+    const isPhoto = isTelegramPhotoMessage(message);
 
     if (!text && !isPhoto) return;
     if (media && !isPhoto) return;
 
     const now = new Date();
 
-    const messageDate =
-      message.date instanceof Date
-        ? message.date
-        : new Date(message.date * 1000);
-
+    const messageDate = getMessageDate(message);
     const authoredAt = messageDate.toISOString();
 
     let sender = message.sender;
@@ -411,6 +449,100 @@ class TelegramUserChannel extends Channel {
     };
   }
 
+  async parseGroupedMessages(messages, { entity, groupedId }) {
+    if (!Array.isArray(messages) || !messages.length) return;
+
+    const hasUnsupportedMedia = messages.some((message) => {
+      return message?.media && !isTelegramPhotoMessage(message);
+    });
+
+    if (hasUnsupportedMedia) return;
+
+    const photoMessages = messages.filter(isTelegramPhotoMessage);
+    if (!photoMessages.length) return;
+
+    const captionMessage =
+      messages.find((message) => (message?.message || '').trim()) ||
+      photoMessages[0];
+
+    const text = captionMessage?.message || '';
+    const now = new Date();
+    const authoredAt = getMessageDate(captionMessage).toISOString();
+
+    let sender = captionMessage.sender;
+    let chat = captionMessage.chat;
+
+    if (!sender && typeof captionMessage.getSender === 'function') {
+      sender = await captionMessage.getSender().catch(() => undefined);
+    }
+
+    if (!chat && typeof captionMessage.getChat === 'function') {
+      chat = await captionMessage.getChat().catch(() => undefined);
+    }
+
+    const senderHandle = getEntityHandle(sender);
+    const chatHandle = getEntityHandle(chat);
+    const senderUrl = getEntityUrl(sender);
+    const chatUrl = getEntityUrl(chat);
+    const author =
+      formatTelegramAuthor({
+        chat,
+        sender,
+        postAuthor: captionMessage.postAuthor,
+      }) || (captionMessage.senderId ? `sender:${captionMessage.senderId}` : `entity:${entity}`);
+
+    const peerKey = getPeerKey(captionMessage, entity);
+    const guid = `${peerKey}:album:${String(groupedId)}`;
+    const attachments = await this.downloadPhotoAttachments(photoMessages);
+
+    return {
+      authoredAt,
+      fetchedAt: now,
+      author,
+      content: text || '[photo]',
+      url: senderUrl || chatUrl || '',
+      platform: 'telegramUser',
+      platformID: `album:${String(groupedId)}`,
+      guid,
+      attachments,
+      raw: normalizeTelegramValue({
+        entity,
+        groupedId,
+        ids: messages.map((message) => message.id),
+        date: captionMessage.date,
+        message: text,
+        postAuthor: captionMessage.postAuthor,
+        hasPhoto: true,
+        attachmentCount: attachments.length,
+        senderId: captionMessage.senderId,
+        sender: sender
+          ? {
+              id: sender.id,
+              username: sender.username,
+              title: sender.title,
+              firstName: sender.firstName,
+              lastName: sender.lastName,
+            }
+          : null,
+        peerId: captionMessage.peerId,
+        chat: chat
+          ? {
+              id: chat.id,
+              username: chat.username,
+              title: chat.title,
+              firstName: chat.firstName,
+              lastName: chat.lastName,
+            }
+          : null,
+        peerKey,
+        senderHandle,
+        senderUrl,
+        chatHandle,
+        chatUrl,
+      }),
+    };
+  }
+
   async downloadPhotoAttachment(message) {
     const mediaBuffer = await message.downloadMedia({});
     const mimeType = detectImageMimeType(mediaBuffer);
@@ -424,6 +556,21 @@ class TelegramUserChannel extends Channel {
       mimeType,
       sourcePlatform: 'telegramUser',
     });
+  }
+
+  async downloadPhotoAttachments(messages) {
+    const attachments = [];
+
+    try {
+      for (const message of messages) {
+        attachments.push(await this.downloadPhotoAttachment(message));
+      }
+    } catch (error) {
+      await deleteSocialAttachments(attachments);
+      throw error;
+    }
+
+    return attachments;
   }
 }
 
