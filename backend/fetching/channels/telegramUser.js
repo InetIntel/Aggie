@@ -22,6 +22,60 @@ function parseListsToEntities(lists) {
     .filter((s) => s.length > 0);
 }
 
+function normalizeEntityLookupValue(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^@/, '')
+    .toLowerCase();
+}
+
+function getTelegramEntityIdentifier(input) {
+  const value = String(input || '').trim();
+  if (!value) return value;
+
+  const urlValue = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+
+  try {
+    const url = new URL(urlValue);
+    const hostname = url.hostname.replace(/^www\./, '').toLowerCase();
+    if (hostname !== 't.me' && hostname !== 'telegram.me') return value;
+
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (segments[0] === 'c' && segments[1]) {
+      return `-100${segments[1]}`;
+    }
+
+    return segments[0] || value;
+  } catch (_) {
+    return value;
+  }
+}
+
+function addEntityLookupCandidate(candidates, value) {
+  const normalized = normalizeEntityLookupValue(value);
+  if (normalized) candidates.add(normalized);
+}
+
+function getDialogLookupCandidates(dialog) {
+  const candidates = new Set();
+  const entity = dialog?.entity;
+
+  addEntityLookupCandidate(candidates, dialog?.id?.toString?.());
+  addEntityLookupCandidate(candidates, dialog?.title);
+  addEntityLookupCandidate(candidates, dialog?.name);
+  addEntityLookupCandidate(candidates, entity?.id?.toString?.());
+  addEntityLookupCandidate(candidates, entity?.username);
+  addEntityLookupCandidate(candidates, entity?.username ? `@${entity.username}` : '');
+
+  if (entity?.id != null) {
+    const id = String(entity.id);
+    if (entity.className === 'Channel') addEntityLookupCandidate(candidates, `-100${id}`);
+    if (entity.className === 'Chat') addEntityLookupCandidate(candidates, `-${id}`);
+  }
+
+  return candidates;
+}
+
 // extract first part of guid identifier, identify the chat/channel/user
 function getPeerKey(message, entity) {
   const peer = message?.peerId;
@@ -162,6 +216,7 @@ class TelegramUserChannel extends Channel {
   #decryptedSecrets;
   #client;
   #timer;
+  #dialogEntityCache;
 
   constructor(options) {
     super(options);
@@ -189,6 +244,7 @@ class TelegramUserChannel extends Channel {
     this.entities = parseListsToEntities(options.lists);
     // this.interval = Number(process.env.API_FETCH_INTERVAL ?? 300000);
     this.interval = Number(10000);
+    this.#dialogEntityCache = null;
 
     // prevent overlapping polling cycles
     this._tickRunning = false;
@@ -275,7 +331,7 @@ class TelegramUserChannel extends Channel {
   // fetch message from one entity (channel/chat/group)
   async pollEntity(entity, checkpoint) {
     const limit = 100;
-    const msgs = await this.#client.getMessages(entity, { limit });
+    const msgs = await this.getMessagesForEntity(entity, { limit });
 
     const fresh = msgs
       .filter((m) => {
@@ -319,6 +375,45 @@ class TelegramUserChannel extends Channel {
     }
 
     return entityMaxDate;
+  }
+
+  async getDialogEntityCache() {
+    if (this.#dialogEntityCache) return this.#dialogEntityCache;
+
+    const dialogs = await this.#client.getDialogs({ limit: 500 });
+    const lookup = new Map();
+
+    for (const dialog of dialogs) {
+      for (const candidate of getDialogLookupCandidates(dialog)) {
+        if (!lookup.has(candidate)) {
+          lookup.set(candidate, dialog.inputEntity || dialog.entity || dialog);
+        }
+      }
+    }
+
+    this.#dialogEntityCache = lookup;
+    return lookup;
+  }
+
+  async resolveEntity(entity) {
+    const identifier = getTelegramEntityIdentifier(entity);
+
+    try {
+      return await this.#client.getInputEntity(identifier);
+    } catch (directError) {
+      const lookup = await this.getDialogEntityCache();
+      const resolved = lookup.get(normalizeEntityLookupValue(identifier));
+
+      if (resolved) return resolved;
+
+      directError.message = `Unable to resolve Telegram entity "${entity}". For private groups/channels, the logged-in account must already be a member and the source should use the dialog id, -100 channel id, exact title, or username. ${directError.message}`;
+      throw directError;
+    }
+  }
+
+  async getMessagesForEntity(entity, options) {
+    const resolvedEntity = await this.resolveEntity(entity);
+    return this.#client.getMessages(resolvedEntity, options);
   }
 
   groupFreshMessages(messages) {
