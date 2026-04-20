@@ -4,6 +4,7 @@
 const Credentials = require('../../models/credentials');
 const Source = require('../../models/source');
 const { encryptSecrectsObject } = require('../utils/encryption');
+const axios = require('axios');
 
 const { TelegramClient } = require('telegram');
 const { Logger } = require('telegram/extensions');
@@ -17,6 +18,15 @@ const {
   updateTelegramAuthSession,
   deleteTelegramAuthSession,
 } = require('../utils/telegramUtils');
+const {
+  buildMastodonAuthorizeUrl,
+  createMastodonAuthSession,
+  deleteMastodonAuthSession,
+  getMastodonAuthSessionByStateOrThrow,
+  getMastodonAuthSessionOrThrow,
+  normalizeMastodonServerUrl,
+  updateMastodonAuthSession,
+} = require('../utils/mastodonUtils');
 
   // Create new credentials
   /**
@@ -56,6 +66,41 @@ exports.credential_create = async (req, res) => {
         credentials.stripSecrets();
         return res.status(200).send(credentials);
 
+      }
+      if (data.type === 'mastodon') {
+        const { authRequestId } = data;
+
+        if (!authRequestId) {
+          return res.status(400).send('Missing required field');
+        }
+
+        const authSession = await getMastodonAuthSessionOrThrow(authRequestId);
+
+        if (authSession.status !== 'AUTHORIZED' || !authSession.accessToken) {
+          return res.status(400).send('mastodon_not_authorized');
+        }
+
+        data.secrets = {
+          serverUrl: authSession.serverUrl,
+          clientId: authSession.clientId,
+          clientSecret: authSession.clientSecret,
+          accessToken: authSession.accessToken,
+          accountId: authSession.account?.id || '',
+          accountUsername: authSession.account?.username || '',
+          accountAcct: authSession.account?.acct || '',
+          accountUrl: authSession.account?.url || '',
+        };
+
+        delete data.authRequestId;
+
+        const encryptedData = { ...data };
+        encryptedData.secrets = encryptSecrectsObject(encryptedData.secrets);
+
+        const credentials = await Credentials.create(encryptedData);
+
+        await deleteMastodonAuthSession(authRequestId);
+        credentials.stripSecrets();
+        return res.status(200).send(credentials);
       }
       if (data.secrets && typeof data.secrets === 'object') {
           data.secrets = encryptSecrectsObject(data.secrets);
@@ -295,6 +340,175 @@ exports.telegramUserAuthVerifyPassword = async function telegramUserAuthVerifyPa
     } finally {
       await client.disconnect().catch(() => {});
     }
+  } catch (err) {
+    return next(err);
+  }
+};
+
+function getMastodonRedirectUri(req) {
+  const configuredOrigin = process.env.ORIGIN || `${req.protocol}://${req.get('host')}`;
+  return `${configuredOrigin}/api/credential/mastodon/auth/callback`;
+}
+
+exports.mastodonAuthStart = async (req, res, next) => {
+  try {
+    const { serverUrl } = req.body || {};
+    if (!serverUrl) {
+      return res.status(400).json({ error: 'missing_required_fields', fields: ['serverUrl'] });
+    }
+
+    const normalizedServerUrl = normalizeMastodonServerUrl(serverUrl);
+    const redirectUri = getMastodonRedirectUri(req);
+    const scopes = 'read read:accounts read:statuses read:search';
+
+    const formData = new URLSearchParams({
+      client_name: 'Aggie',
+      redirect_uris: redirectUri,
+      scopes,
+      website: process.env.ORIGIN || `${req.protocol}://${req.get('host')}`,
+    });
+
+    const appResponse = await axios.post(
+      `${normalizedServerUrl}/api/v1/apps`,
+      formData.toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    const userId = req.user?._id || req.user?.id || null;
+    const authSession = await createMastodonAuthSession({
+      userId,
+      serverUrl: normalizedServerUrl,
+      clientId: appResponse.data.client_id,
+      clientSecret: appResponse.data.client_secret,
+      redirectUri,
+      scopes,
+    });
+
+    const authUrl = buildMastodonAuthorizeUrl({
+      serverUrl: normalizedServerUrl,
+      clientId: authSession.clientId,
+      redirectUri,
+      scopes,
+      state: authSession.state,
+    });
+
+    return res.json({
+      authRequestId: authSession.authRequestId,
+      authUrl,
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.mastodonAuthCallback = async (req, res, next) => {
+  try {
+    const { code, state, error, error_description: errorDescription } = req.query || {};
+
+    if (error) {
+      return res.status(400).send(errorDescription || String(error));
+    }
+
+    if (!code || !state) {
+      return res.status(400).send('Missing required Mastodon callback query parameters.');
+    }
+
+    const authSession = await getMastodonAuthSessionByStateOrThrow(String(state));
+
+    const tokenPayload = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: String(code),
+      client_id: authSession.clientId,
+      client_secret: authSession.clientSecret,
+      redirect_uri: authSession.redirectUri,
+      scope: authSession.scopes,
+    });
+
+    const tokenResponse = await axios.post(
+      `${authSession.serverUrl}/oauth/token`,
+      tokenPayload.toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    const accessToken = tokenResponse.data.access_token;
+
+    const accountResponse = await axios.get(
+      `${authSession.serverUrl}/api/v1/accounts/verify_credentials`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    const account = accountResponse.data || {};
+
+    await updateMastodonAuthSession(authSession.authRequestId, 'AUTHORIZED', {
+      accessToken,
+      account: {
+        id: account.id || '',
+        username: account.username || '',
+        acct: account.acct || '',
+        url: account.url || '',
+        displayName: account.display_name || '',
+      },
+    });
+
+    return res.status(200).send(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Mastodon Authorization Complete</title>
+          <style>
+            body { font-family: sans-serif; margin: 2rem; color: #0f172a; }
+            .card { max-width: 32rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; padding: 1rem 1.25rem; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Mastodon authorization complete</h1>
+            <p>You can return to Aggie and finish saving this credential.</p>
+            <p>This window can be closed.</p>
+          </div>
+          <script>
+            try {
+              if (window.opener) {
+                window.opener.postMessage(
+                  {
+                    type: 'aggie-mastodon-auth-complete',
+                    authRequestId: ${JSON.stringify(authSession.authRequestId)}
+                  },
+                  '*'
+                );
+              }
+            } catch (e) {}
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.mastodonAuthStatus = async (req, res, next) => {
+  try {
+    const authSession = await getMastodonAuthSessionOrThrow(req.params.authRequestId);
+
+    return res.status(200).json({
+      status: authSession.status,
+      authRequestId: authSession.authRequestId,
+      account: authSession.account || null,
+    });
   } catch (err) {
     return next(err);
   }

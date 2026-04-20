@@ -108,6 +108,15 @@ module.exports = async function postToReport(post, next) {
         if (Array.isArray(post.attachments) && post.attachments.length > 0) {
             metadata.attachments = post.attachments;
         }
+    } else if (platform === 'mastodon') {
+        metadata = {
+            accountHandle: raw?.account?.acct ? `@${raw.account.acct}` : null,
+            accountUrl: raw?.account?.url || null,
+            rawAPIResponse: raw,
+        };
+        if (Array.isArray(post.attachments) && post.attachments.length > 0) {
+            metadata.attachments = post.attachments;
+        }
     } else {
         metadata = parseJunkipediaPostMetadata(raw);
     };
