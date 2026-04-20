@@ -18,7 +18,7 @@ const { buildMediaUrl } = require('../../fetching/utils/socialImageStorage');
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
   // Data passed through URL parameters
-  var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before', 'media','dataSources', 'entityLevel',
+  var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before', 'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media','dataSources', 'entityLevel',
     'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
   
   if (!query.media && query.alerts === 'true') {

@@ -19,6 +19,9 @@ function ReportQuery(options) {
   this.tags = options.tags;
   this.after = options.after;
   this.before = options.before;
+  this.outageAfter = options.outageAfter;
+  this.outageBefore = options.outageBefore;
+  this.eventAggKeyBase = options.eventAggKeyBase;
   this.sourceId = options.sourceId;
   this.media = options.media;
   this.dataSources = options.dataSources;
@@ -61,6 +64,7 @@ ReportQuery.prototype.toMongooseFilter = function () {
     veracity: this.veracity,
     aitagnames: this.aitagnames,
     isOutageEvent: this.isOutageEvent,
+    eventAggKeyBase: this.eventAggKeyBase,
   }
   if (this.groupId === "none") filter._group = { $eq: null }
   if (this.escalated === 'unescalated') filter.escalated = false;
@@ -69,6 +73,8 @@ ReportQuery.prototype.toMongooseFilter = function () {
   filter = _.omitBy(filter, _.isNil);
   if (this.before) filter.authoredAt = { $lte: this.before }
   if (this.after) filter.authoredAt = Object.assign({}, filter.authoredAt, { $gte: this.after });
+  if (this.outageBefore) filter.outageStartedAt = { $lt: this.outageBefore }
+  if (this.outageAfter) filter.outageStartedAt = Object.assign({}, filter.outageStartedAt, { $gte: this.outageAfter });
   //Two step search for content/author. First search for any terms in content or author using the indexed $text search.
   //Second step is to match exact phrase using regex in the returned superset of the documents from first step.
   // if (this.author || this.keywords) filter.author = [{$text: { $search: `${this.author || ""}` }}];
