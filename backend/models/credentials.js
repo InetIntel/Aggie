@@ -36,6 +36,13 @@ const secretsValidator = function(secrets) {
     return isValidString(secrets.cloudflareApiToken);
   case 'telegramBot':
     return isValidString(secrets.botAPIToken);
+  case 'mastodon':
+    return (
+      isValidString(secrets.serverUrl)
+      && isValidString(secrets.clientId)
+      && isValidString(secrets.clientSecret)
+      && isValidString(secrets.accessToken)
+    );
   case 'ioda':
     return true;
   default:

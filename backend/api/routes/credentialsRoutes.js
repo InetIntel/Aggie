@@ -37,4 +37,22 @@ router.post(
   credentialsController.telegramUserAuthVerifyPassword
 );
 
+router.post(
+  '/mastodon/auth/start',
+  User.can('change settings'),
+  credentialsController.mastodonAuthStart
+);
+
+router.get(
+  '/mastodon/auth/callback',
+  User.can('change settings'),
+  credentialsController.mastodonAuthCallback
+);
+
+router.get(
+  '/mastodon/auth/status/:authRequestId',
+  User.can('change settings'),
+  credentialsController.mastodonAuthStatus
+);
+
 module.exports = router;

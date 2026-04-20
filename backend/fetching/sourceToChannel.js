@@ -15,6 +15,7 @@ const CloudflareChannel = require('./channels/cloudflare');
 const JunkipediaChannel = require('./channels/junkipedia');
 const TelegramBotChannel = require('./channels/telegramBot');
 const TelegramUserChannel = require('./channels/telegramUser');
+const MastodonChannel = require('./channels/mastodon');
 
 // const { TwitterPageChannel, JunkipediaChannel } = builtin;
 
@@ -159,6 +160,15 @@ function createChannel(source) {
                 lists: lists,
             };
             channel = new TelegramUserChannel(options);
+            break;
+        case 'mastodon':
+            options = {
+                ...options,
+                source: source,
+                credentials: credentials,
+                lists: lists,
+            };
+            channel = new MastodonChannel(options);
             break;
         case 'junkipedia':
             // Special case of 
