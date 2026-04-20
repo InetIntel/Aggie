@@ -19,6 +19,7 @@ export const MEDIA_OPTIONS = [
   // "facebook",
   // "telegram",
   "telegramUser",
+  "mastodon",
   "ioda",
   "cloudflare",
 ] as const;
@@ -28,6 +29,7 @@ export const SOCIAL_MEDIA_OPTIONS = [
   "twitter",
   // "telegram",
   "telegramUser",
+  "mastodon",
   // "tiktok",
   // "instagram",
   // "RSS",
@@ -70,6 +72,7 @@ export const CREDENTIAL_OPTIONS = [
   "junkipedia",
   // "telegramBot",
   "telegramUser",
+  "mastodon",
   "ioda",
   "cloudflare",
 ] as const;

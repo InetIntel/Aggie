@@ -15,7 +15,7 @@ import type {
 } from "../../api/reports/types";
 
 interface IOptions {
-  key: any[];
+  key: readonly unknown[];
 }
 const defaultOptions: IOptions = {
   key: ["reports"],
@@ -27,6 +27,8 @@ export const useReportMutations = (
   const queryData = useUpdateQueryData();
 
   const options = { ...defaultOptions, ...userOptions };
+  const getReportQueryKey = (reportId: string) =>
+    options.key.includes("batch") ? [...options.key, reportId] : ["reports", reportId];
   
   // this is an exmaple of optimistic mutation
 
@@ -51,7 +53,7 @@ export const useReportMutations = (
       // update single report
       if (params.currentPageId) {
         contextReport = queryData.update<Report>(
-          [...options.key, params.currentPageId],
+          getReportQueryKey(params.currentPageId),
           (data) => {
             return {
               read: params.read,
@@ -73,7 +75,7 @@ export const useReportMutations = (
       queryData.queryClient.setQueryData(options.key, context.reports);
       if (context.reportId && context.report)
         queryData.queryClient.setQueryData(
-          [...options.key, context.reportId],
+          getReportQueryKey(context.reportId),
           context.report
         );
     },
@@ -98,7 +100,7 @@ export const useReportMutations = (
       // update single report
       if (params.currentPageId) {
         queryData.update<Report>(
-          [...options.key, params.currentPageId],
+          getReportQueryKey(params.currentPageId),
           (data) => {
             return {
               irrelevant: params.irrelevant,
@@ -131,7 +133,7 @@ export const useReportMutations = (
       // update single report
       if (params.currentPageId) {
         queryData.update<Report>(
-          [...options.key, params.currentPageId],
+          getReportQueryKey(params.currentPageId),
           (data) => {
             return {
               smtcTags: params.tagIds,

@@ -6,7 +6,6 @@ import {
   faImages,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { isString } from "lodash";
 import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
 import AggieToken from "../AggieToken";
@@ -19,6 +18,7 @@ import {
 import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
 import { parseYoutube } from "../SocialMediaPost/YoutubePost";
+import { getReportImages } from "../SocialMediaPost/mediaAttachments";
 import TagsList from "../Tags/TagsList";
 
 interface IProps {
@@ -31,8 +31,6 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const contentType = parseContentType(report);
   const { imagePreview, imagesCount } = renderImage(contentType, report);
   const [signal, bgColor] = signalToNameColor(report?.metadata?.rawAPIResponse?.rawEvent?.datasource);
-
-  const imageUrl = isString(imagePreview) ? imagePreview : imagePreview?.url;
   return (
     <>
       <header className='flex justify-between mb-2 relative '>
@@ -79,7 +77,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <div className='w-24 h-24 flex-0 justify-self-end relative'>
             <img
               loading='lazy'
-              src={imageUrl}
+              src={imagePreview}
               className='w-full rounded h-full object-cover bg-slate-100 dark:bg-gray-700 border border-slate-200 '
               alt='image preview'
             />
@@ -113,6 +111,8 @@ function renderAuthor(
       return "IODA";
     case "cloudflare":
       return report?.metadata?.rawAPIResponse?.dataSource;
+    case "mastodon":
+      return report.metadata.accountHandle || report.author;
     default:
       return report.author;
   }
@@ -127,10 +127,10 @@ function renderImage(
     );
     if (results && results.length > 0) {
       const imagePreview = results[0].url;
-      return { imagePreview, imagesCount: 1 };
+      return { imagePreview, imagesCount: results.length };
     }
     const { imagePreview, imagesCount } = twitterParsing(report);
-    return { imagePreview, imagesCount };
+    return { imagePreview: imagePreview?.url, imagesCount };
   }
   if (type.includes("youtube")) {
     const imagePreview = (report.metadata?.rawAPIResponse?.attributes as any)
@@ -138,8 +138,9 @@ function renderImage(
     const imagesCount = imagePreview ? 1 : 0;
     return { imagePreview, imagesCount };
   }
-  const imagePreview = report.metadata?.mediaUrl;
-  const imagesCount = imagePreview ? 1 : 0;
+  const images = getReportImages(report);
+  const imagePreview = images[0]?.previewUrl;
+  const imagesCount = images.length;
   return { imagePreview, imagesCount };
 }
 function renderText(type: ReturnType<typeof parseContentType>, report: Report) {

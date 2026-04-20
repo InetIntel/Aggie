@@ -1,5 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faMastodon,
   faTwitter,
   faTelegram,
   faCloudflare,
@@ -20,6 +21,7 @@ const mediaIcons: Record<string, IconDefinition | BrandsDef> = {
   telegram: faTelegram,
   telegramBot: faTelegram,
   telegramUser: faTelegram,
+  mastodon: faMastodon,
   ioda: faQuestionCircle,
   cloudflare: faCloudflare,
 };

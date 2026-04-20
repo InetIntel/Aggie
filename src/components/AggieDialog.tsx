@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 // a more generic dialog
 import { Dialog } from "@headlessui/react";
 
@@ -19,9 +21,25 @@ const AggieDialog = ({
   data,
   className,
 }: IProps) => {
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
   if (isOpen)
     return (
-      <Dialog static open onClose={() => onClose()} className='relative z-50'>
+      <Dialog
+        static
+        open
+        onClose={() => {}}
+        className='relative z-50'
+      >
         <div className='fixed inset-0 bg-black/30 dark:bg-white/20' aria-hidden='true' />
         <div className='fixed inset-0 w-screen overflow-y-auto'>
           <div className='flex min-h-full items-center justify-center p-4'>

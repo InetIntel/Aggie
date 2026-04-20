@@ -70,10 +70,21 @@ export interface BaseMetadata {
   channelId: number;
   accountHandle: string;
   accountUrl: any;
-  mediaUrl: string;
+  mediaUrl: string | null;
+  attachments?: SocialAttachment[];
   actualStatistics: Statistics;
   rawAPIResponse: RawApiResponse;
   testingFlagForPotentialDeletion: boolean;
+}
+
+export interface SocialAttachment {
+  type: string;
+  imageKey?: string;
+  thumbnailKey?: string;
+  mimeType?: string | null;
+  sourcePlatform?: string | null;
+  imageUrl?: string;
+  thumbnailUrl?: string;
 }
 
 interface RawApiResponse {

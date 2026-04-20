@@ -2,6 +2,7 @@ import * as Yup from "yup";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useField } from "formik";
 
 import { getCredentials } from "../../../api/credentials";
 import { editSource, newSource } from "../../../api/sources";
@@ -20,6 +21,35 @@ interface IProps {
   source?: Source;
   onClose: () => void;
 }
+
+const MastodonConditionalFields = () => {
+  const [, meta] = useField<string>("keywords");
+  const mode = meta.value;
+  const keywordLabel = mode === "hashtag" ? "Hashtag" : "Keyword";
+
+  return (
+    <>
+      {(mode === "hashtag" || mode === "keyword") && (
+        <FormikInput
+          name='lists'
+          label={keywordLabel}
+          placeholder={`Required for ${keywordLabel.toLowerCase()} mode`}
+        />
+      )}
+      {mode === "public" && (
+        <FormikDropdown
+          list={[
+            { _id: "local", label: "Local public timeline" },
+            { _id: "public", label: "Federated public timeline" },
+          ]}
+          label={"Public Timeline Scope"}
+          name={"regex"}
+        />
+      )}
+    </>
+  );
+};
+
 const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   const [credentialType, setCredentialType] =
     useState<CredentialOption>((source?.media as CredentialOption) || "ioda");
@@ -194,10 +224,12 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         <FormikInput
           name='lists'
           label='Chats / Channels / Users'
-          placeholder='Comma-separated Telegram entities, e.g. @channel_one, @channel_two'
+          placeholder='Comma-separated Telegram entities, e.g. @channel_one, -1001234567890'
         />
         <p className='text-xs text-slate-500 dark:text-gray-400'>
-          Enter the Telegram entities this account can access. Separate multiple entries with commas.
+          Enter the Telegram entities this account can access, such as public usernames
+          like @channel_one or private chat/channel IDs like -1001234567890. Separate
+          multiple entries with commas.
         </p>
       </div>
     </FormikWithSchema>
@@ -272,6 +304,91 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         }
         label={"Two-Letter Country Code"}
         name={"keywords"}
+      />
+    </FormikWithSchema>
+  );
+
+  const mastodonSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    credentials: Yup.string().required(
+      "A credential is required to create a source"
+    ),
+    keywords: Yup.string()
+      .oneOf(["public", "home", "hashtag", "keyword"])
+      .required("A Mastodon mode is required"),
+    lists: Yup.string().when("keywords", {
+      is: (value: string) => value === "hashtag" || value === "keyword",
+      then: (schema) =>
+        schema.required("A hashtag or keyword value is required"),
+      otherwise: (schema) => schema.optional(),
+    }),
+    regex: Yup.string().when("keywords", {
+      is: "public",
+      then: (schema) =>
+        schema
+          .oneOf(["local", "public"])
+          .required("A public timeline scope is required"),
+      otherwise: (schema) => schema.optional(),
+    }),
+  });
+  type IMastodonSchema = Yup.InferType<typeof mastodonSchema>;
+
+  const mastodonForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex:
+          source?.media === "mastodon"
+            ? source?.regex || "local"
+            : "local",
+        keywords:
+          source?.media === "mastodon"
+            ? source?.keywords || "public"
+            : "public",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "",
+      }}
+      schema={mastodonSchema}
+      onSubmit={(values: IMastodonSchema) => {
+        const payload = {
+          ...values,
+          lists:
+            values.keywords === "hashtag" || values.keywords === "keyword"
+              ? values.lists
+              : "",
+          regex: values.keywords === "public" ? values.regex : "",
+        };
+        onSubmit(payload);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikDropdown
+        list={
+          [
+            { _id: "public", label: "Public timeline" },
+            { _id: "home", label: "Home timeline" },
+            { _id: "hashtag", label: "Hashtag" },
+            { _id: "keyword", label: "Keyword search" },
+          ]
+        }
+        label={"Mastodon Mode"}
+        name={"keywords"}
+      />
+      <MastodonConditionalFields />
+      <FormikDropdown
+        list={
+          credentialsList?.map((i) => {
+            return { _id: i._id, label: i.name };
+          }) || [{ _id: "", label: "loading" }]
+        }
+        label={"Mastodon Credentials"}
+        name={"credentials"}
       />
     </FormikWithSchema>
   );
@@ -410,6 +527,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       {credentialType === "junkipedia" && JunkipediaForm}
       {/* {credentialType === "telegramBot" && telegramBotForm} */}
       {credentialType === "telegramUser" && telegramUserForm}
+      {credentialType === "mastodon" && mastodonForm}
       {/*credentialType === "rss" && RSSForm*/}
       {/*credentialType === "twitter" && TwitterForm*/}
       {credentialType === "ioda" && iodaForm}
