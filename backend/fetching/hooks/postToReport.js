@@ -105,6 +105,9 @@ module.exports = async function postToReport(post, next) {
             accountUrl: raw?.senderUrl || raw?.chatUrl || null,
             rawAPIResponse: raw,
         };
+        if (Array.isArray(post.attachments) && post.attachments.length > 0) {
+            metadata.attachments = post.attachments;
+        }
     } else {
         metadata = parseJunkipediaPostMetadata(raw);
     };

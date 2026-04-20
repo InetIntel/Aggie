@@ -5,6 +5,10 @@ const { TelegramClient } = require('telegram');
 const { Logger } = require('telegram/extensions');
 const { StringSession } = require('telegram/sessions');
 const { decryptSecretsObject } = require('../utils/decryption');
+const {
+  detectImageMimeType,
+  persistSocialImage,
+} = require('../utils/socialImageStorage');
 const Source = require('../../models/source');
 
 // supports comma-separated lists
@@ -276,18 +280,23 @@ class TelegramUserChannel extends Channel {
     let entityMaxDate = null;
 
     for (const m of fresh) {
-      const item = await this.parse(m, { entity });
-      if (item != null) {
-        this.enqueue(item);
+      try {
+        const item = await this.parse(m, { entity });
+        if (item != null) {
+          this.enqueue(item);
 
-        const messageDate = m.date instanceof Date
-          ? m.date
-          : new Date(m.date * 1000);
+          const messageDate = m.date instanceof Date
+            ? m.date
+            : new Date(m.date * 1000);
 
-        if (!entityMaxDate || messageDate > entityMaxDate) {
-          entityMaxDate = messageDate;
+          if (!entityMaxDate || messageDate > entityMaxDate) {
+            entityMaxDate = messageDate;
+          }
         }
+      } catch (err) {
+        this.emit('error', this.normalizeTelegramError(err, entity));
       }
+      console.log('[Fetching-TelegramUser-pollentitysuccess.')
     }
 
     return entityMaxDate;
@@ -308,8 +317,12 @@ class TelegramUserChannel extends Channel {
   }
 
   async parse(message, { entity }) {
-    const text = message?.message;
-    if (!text) return;
+    const text = message?.message || '';
+    const media = message?.media;
+    const isPhoto = media?.className === 'MessageMediaPhoto' && !!media?.photo;
+
+    if (!text && !isPhoto) return;
+    if (media && !isPhoto) return;
 
     const now = new Date();
 
@@ -348,22 +361,27 @@ class TelegramUserChannel extends Channel {
     // build guid = peerKey + message.id, telegram message.id is unique only within specific chat, not globally.
     const peerKey = getPeerKey(message, entity);
     const guid = `${peerKey}:${String(message.id)}`;
+    const attachments = isPhoto
+      ? [await this.downloadPhotoAttachment(message)]
+      : undefined;
 
     return {
       authoredAt,
       fetchedAt: now,
       author,
-      content: text,
+      content: text || '[photo]',
       url,
       platform: 'telegramUser',
       platformID,
-      guid, 
+      guid,
+      attachments,
       raw: normalizeTelegramValue({
         entity,
         id: message.id,
         date: message.date,
         message: message.message,
         postAuthor: message.postAuthor,
+        hasPhoto: isPhoto,
         senderId: message.senderId,
         sender: sender
           ? {
@@ -391,6 +409,21 @@ class TelegramUserChannel extends Channel {
         chatUrl,
       }),
     };
+  }
+
+  async downloadPhotoAttachment(message) {
+    const mediaBuffer = await message.downloadMedia({});
+    const mimeType = detectImageMimeType(mediaBuffer);
+
+    if (!Buffer.isBuffer(mediaBuffer) || !mimeType) {
+      throw new Error('Failed to download Telegram photo media.');
+    }
+
+    return persistSocialImage({
+      buffer: mediaBuffer,
+      mimeType,
+      sourcePlatform: 'telegramUser',
+    });
   }
 }
 

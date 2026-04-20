@@ -32,6 +32,7 @@ backend/migrations/.migrate
 
 public/css/styles.css
 public/uploads
+public/media
 
 buildAssets
 docs/_build
