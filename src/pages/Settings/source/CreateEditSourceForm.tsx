@@ -224,10 +224,12 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         <FormikInput
           name='lists'
           label='Chats / Channels / Users'
-          placeholder='Comma-separated Telegram entities, e.g. @channel_one, @channel_two'
+          placeholder='Comma-separated Telegram entities, e.g. @channel_one, -1001234567890'
         />
         <p className='text-xs text-slate-500 dark:text-gray-400'>
-          Enter the Telegram entities this account can access. Separate multiple entries with commas.
+          Enter the Telegram entities this account can access, such as public usernames
+          like @channel_one or private chat/channel IDs like -1001234567890. Separate
+          multiple entries with commas.
         </p>
       </div>
     </FormikWithSchema>
