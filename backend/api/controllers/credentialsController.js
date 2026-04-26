@@ -346,8 +346,21 @@ exports.telegramUserAuthVerifyPassword = async function telegramUserAuthVerifyPa
 };
 
 function getMastodonRedirectUri(req) {
-  const configuredOrigin = process.env.ORIGIN || `${req.protocol}://${req.get('host')}`;
-  return `${configuredOrigin}/api/credential/mastodon/auth/callback`;
+  return `${getPublicAppBaseUrl(req)}/api/credential/mastodon/auth/callback`;
+}
+
+function getPublicAppBaseUrl(req) {
+  const origin = process.env.ORIGIN || `${req.protocol}://${req.get('host')}`;
+  const basePath = process.env.APP_BASE_PATH || req.get('x-forwarded-prefix') || '';
+  return `${origin}${normalizeBasePath(basePath)}`.replace(/\/$/, '');
+}
+
+function normalizeBasePath(basePath) {
+  if (!basePath || basePath === '/') {
+    return '';
+  }
+
+  return `/${basePath.replace(/^\/+|\/+$/g, '')}`;
 }
 
 exports.mastodonAuthStart = async (req, res, next) => {
@@ -365,7 +378,7 @@ exports.mastodonAuthStart = async (req, res, next) => {
       client_name: 'Aggie',
       redirect_uris: redirectUri,
       scopes,
-      website: process.env.ORIGIN || `${req.protocol}://${req.get('host')}`,
+      website: getPublicAppBaseUrl(req),
     });
 
     const appResponse = await axios.post(
