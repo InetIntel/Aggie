@@ -112,6 +112,28 @@ async function removeReportsFromGroup(reportIds, groupId) {
   return updatedGroup;
 }
 
+async function clearGroupFromReports(reportIds) {
+  const ids = normalizeIds(reportIds);
+  if (!ids.length) return [];
+
+  const reports = await Report.find({ _id: { $in: ids } });
+  if (!reports.length) return [];
+
+  for (const report of reports) {
+    report._group = undefined;
+    await report.save();
+  }
+
+  await eventRouter.publish('reports:update', {
+    ids,
+    update: { _group: null },
+  });
+
+  await syncNotableActivityIncidentContext(ids);
+
+  return ids;
+}
+
 function addImpactedFromReportToGroup(group, report) {
   if (!report.isOutageEvent) return;
 
@@ -233,5 +255,6 @@ function withStatus(err, status) {
 
 module.exports = {
   attachReportsToGroup,
+  clearGroupFromReports,
   removeReportsFromGroup,
 };

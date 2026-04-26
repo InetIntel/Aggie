@@ -235,6 +235,8 @@ socketHandler.addListeners(
   })
 );
 
+socketHandler.addListeners('analytics', streamer);
+
 
 // Defer local listeners until inter-process listeners have been set up to avoid binding conflicts
 setTimeout(function () {

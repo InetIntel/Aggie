@@ -10,6 +10,7 @@ const eventRouter = require('../sockets/event-router');
 const { saveFile, deleteFile } = require('../utils/fileStorage');
 const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../../config/models/groupConfigs');
 const path = require('path');
+const { clearGroupFromReports } = require('../utils/reportGroupActions');
 
 exports.group_create = (req, res) => {
   req.body.creator = req.user;
@@ -185,26 +186,21 @@ exports.group_update = async (req, res) => {
 // };
 
 // Delete selected groups
-exports.group_selected_delete = (req, res) => {
+exports.group_selected_delete = async (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, function (err, groups) {
-    if (err) return res.status(err.status).send(err.message);
+
+  try {
+    const groups = await Group.find({ _id: { $in: req.body.ids } });
     if (groups.length === 0) return res.sendStatus(200);
-    var remaining = groups.length;
-    groups.forEach(function (group) {
-      // Delete each group explicitly to catch it in model
-      group.remove((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        
-        if (--remaining === 0) {
-          res.sendStatus(200);
-        }
-      });
-    });
-  });
+
+    for (const group of groups) {
+      await deleteGroupAndUnlinkReports(group);
+    }
+
+    return res.sendStatus(200);
+  } catch (err) {
+    return res.status(err.status || 500).send(err.message);
+  }
 };
 
 exports.group_tags_add = (req, res) => {
@@ -679,7 +675,7 @@ exports.group_delete = async (req, res, next) => {
     });
 
     await Promise.all(deletedPaths.map(deleteFile));
-    await group.remove();
+    await deleteGroupAndUnlinkReports(group);
     await eventRouter.publish('groups:delete', group);
     
     res.sendStatus(200);
@@ -708,23 +704,19 @@ exports.group_delete = async (req, res, next) => {
 // };
 
 // Delete all Groups
-exports.group_all_delete = (req, res) => {
-  Group.find(function (err, groups) {
-    if (err) return res.status(err.status).send(err.message);
+exports.group_all_delete = async (req, res) => {
+  try {
+    const groups = await Group.find();
     if (groups.length === 0) return res.sendStatus(200);
-    var remaining = groups.length;
-    groups.forEach(function (group) {
-      // Delete each group explicitly to catch it in model
-      group.remove((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        
-        if (--remaining === 0) return res.sendStatus(200);
-      });
-    });
-  });
+
+    for (const group of groups) {
+      await deleteGroupAndUnlinkReports(group);
+    }
+
+    return res.sendStatus(200);
+  } catch (err) {
+    return res.status(err.status || 500).send(err.message);
+  }
 };
 
 const parseQueryData = (queryString) => {
@@ -818,4 +810,13 @@ async function addPopulationCoverageToGroups(groups) {
         null,
     };
   });
+}
+
+async function deleteGroupAndUnlinkReports(group) {
+  const reportIds = Array.isArray(group._reports) ? group._reports : [];
+  if (reportIds.length) {
+    await clearGroupFromReports(reportIds);
+  }
+
+  await group.remove();
 }

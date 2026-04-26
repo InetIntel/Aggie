@@ -12,6 +12,7 @@ const {
 } = require('./analyticsTime');
 
 const DEFAULT_CACHE_TTL_MINUTES = DEFAULT_REFRESH_SNAP_MINUTES;
+const DEFAULT_SNAPSHOT_TTL_MINUTES = DEFAULT_CACHE_TTL_MINUTES + 1;
 
 async function getMaterializedNotableActivities(options = {}) {
   const timeWindow = options.timeWindow || resolveAnalyticsTimeWindow(options);
@@ -43,14 +44,17 @@ async function getMaterializedNotableActivities(options = {}) {
     timeWindow,
   });
   const computedAt = now;
-  const expiresAt = getExpiresAt(computedAt, options.cacheTtlMinutes);
+  const cacheExpiresAt = getExpiresAt(computedAt, options.cacheTtlMinutes);
+  const snapshotExpiresAt = getExpiresAt(computedAt, options.snapshotTtlMinutes, {
+    defaultTtlMinutes: DEFAULT_SNAPSHOT_TTL_MINUTES,
+  });
 
   await replaceCachedNotableActivities({
     cacheKey,
     timeWindow,
     notableActivities,
     computedAt,
-    expiresAt,
+    expiresAt: snapshotExpiresAt,
   });
 
   await upsertAnalyticsCacheWindow({
@@ -59,7 +63,7 @@ async function getMaterializedNotableActivities(options = {}) {
     filters,
     resultCount: notableActivities.length,
     computedAt,
-    expiresAt,
+    expiresAt: cacheExpiresAt,
   });
 
   return buildMaterializedResponse({
@@ -67,7 +71,7 @@ async function getMaterializedNotableActivities(options = {}) {
     cacheKey,
     notableActivities,
     computedAt,
-    expiresAt,
+    expiresAt: cacheExpiresAt,
     cacheStatus: 'miss',
   });
 }
@@ -213,12 +217,16 @@ function buildAnalyticsCacheKey(timeWindow, filters = {}) {
   });
 }
 
-function getExpiresAt(computedAt, cacheTtlMinutes) {
-  const ttlMinutes = Number(cacheTtlMinutes || DEFAULT_CACHE_TTL_MINUTES);
-  if (!Number.isFinite(ttlMinutes) || ttlMinutes <= 0) {
-    throw new Error('cacheTtlMinutes must be a positive number');
+function getExpiresAt(computedAt, ttlMinutes, options = {}) {
+  const defaultTtlMinutes =
+    typeof options.defaultTtlMinutes === 'number'
+      ? options.defaultTtlMinutes
+      : DEFAULT_CACHE_TTL_MINUTES;
+  const normalizedTtlMinutes = Number(ttlMinutes || defaultTtlMinutes);
+  if (!Number.isFinite(normalizedTtlMinutes) || normalizedTtlMinutes <= 0) {
+    throw new Error('cache ttl must be a positive number');
   }
-  return new Date(computedAt.getTime() + ttlMinutes * 60 * 1000);
+  return new Date(computedAt.getTime() + normalizedTtlMinutes * 60 * 1000);
 }
 
 function normalizeFilters(filters) {
@@ -246,6 +254,7 @@ function normalizeDate(value, fieldName) {
 
 module.exports = {
   DEFAULT_CACHE_TTL_MINUTES,
+  DEFAULT_SNAPSHOT_TTL_MINUTES,
   buildAnalyticsCacheKey,
   getMaterializedNotableActivities,
   findCachedNotableActivities,
