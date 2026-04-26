@@ -16,13 +16,7 @@ async function attachReportsToGroup(reportIds, groupId, options = {}) {
   const reports = await Report.find({ _id: { $in: ids } });
   if (!reports.length) return null;
 
-  const prevGroupIds = [
-    ...new Set(
-      reports
-        .filter((report) => report._group && report._group.toString() !== targetGroupId)
-        .map((report) => report._group.toString())
-    ),
-  ];
+  const prevGroupIds = getPreviousGroupIds(reports, targetGroupId);
 
   if (prevGroupIds.length) {
     const prevGroups = await Group.find({ _id: { $in: prevGroupIds } });
@@ -42,9 +36,7 @@ async function attachReportsToGroup(reportIds, groupId, options = {}) {
     throw withStatus(new Error('Group not found'), 404);
   }
 
-  if (!Array.isArray(group._reports)) group._reports = [];
-  if (!Array.isArray(group.impactedAsns)) group.impactedAsns = [];
-  if (!Array.isArray(group.impactedGeoScopes)) group.impactedGeoScopes = [];
+  normalizeGroupReportState(group);
 
   const reportIdSet = new Set(group._reports.map((id) => id.toString()));
 
@@ -69,26 +61,7 @@ async function attachReportsToGroup(reportIds, groupId, options = {}) {
     await recomputeIncidentDurationForGroups([...groupIdsToRecompute]);
   }
 
-  const updatedGroup = await Group.findById(targetGroupId)
-    .select(
-      '_id _reports impactedAsns impactedGeoScopes incidentStartedAt incidentEndedAt incidentDurationSeconds'
-    )
-    .lean()
-    .exec();
-
-  if (updatedGroup) {
-    await eventRouter.publish('groups:update', {
-      ids: [updatedGroup._id],
-      update: {
-        _reports: updatedGroup._reports,
-        impactedAsns: updatedGroup.impactedAsns || [],
-        impactedGeoScopes: updatedGroup.impactedGeoScopes || [],
-        incidentStartedAt: updatedGroup.incidentStartedAt || null,
-        incidentEndedAt: updatedGroup.incidentEndedAt || null,
-        incidentDurationSeconds: updatedGroup.incidentDurationSeconds ?? null,
-      },
-    });
-  }
+  const updatedGroup = await publishUpdatedGroup(targetGroupId);
 
   await eventRouter.publish('reports:update', {
     ids,
@@ -119,7 +92,7 @@ async function removeReportsFromGroup(reportIds, groupId) {
     throw withStatus(new Error('Group not found'), 404);
   }
 
-  if (!Array.isArray(group._reports)) group._reports = [];
+  normalizeGroupReportState(group);
 
   const idsSet = new Set(ids.map((id) => id.toString()));
   group._reports = group._reports.filter((rid) => !idsSet.has(rid.toString()));
@@ -127,26 +100,7 @@ async function removeReportsFromGroup(reportIds, groupId) {
   await group.save();
   await recomputeIncidentDurationForGroups([targetGroupId]);
 
-  const updatedGroup = await Group.findById(targetGroupId)
-    .select(
-      '_id _reports impactedAsns impactedGeoScopes incidentStartedAt incidentEndedAt incidentDurationSeconds'
-    )
-    .lean()
-    .exec();
-
-  if (updatedGroup) {
-    await eventRouter.publish('groups:update', {
-      ids: [updatedGroup._id],
-      update: {
-        _reports: updatedGroup._reports,
-        impactedAsns: updatedGroup.impactedAsns || [],
-        impactedGeoScopes: updatedGroup.impactedGeoScopes || [],
-        incidentStartedAt: updatedGroup.incidentStartedAt || null,
-        incidentEndedAt: updatedGroup.incidentEndedAt || null,
-        incidentDurationSeconds: updatedGroup.incidentDurationSeconds ?? null,
-      },
-    });
-  }
+  const updatedGroup = await publishUpdatedGroup(targetGroupId);
 
   await eventRouter.publish('reports:update', {
     ids,
@@ -161,8 +115,7 @@ async function removeReportsFromGroup(reportIds, groupId) {
 function addImpactedFromReportToGroup(group, report) {
   if (!report.isOutageEvent) return;
 
-  if (!Array.isArray(group.impactedAsns)) group.impactedAsns = [];
-  if (!Array.isArray(group.impactedGeoScopes)) group.impactedGeoScopes = [];
+  normalizeGroupReportState(group);
 
   if (report.isAsnScoped && typeof report.asn === 'string' && report.asn.length > 0) {
     if (!group.impactedAsns.includes(report.asn)) {
@@ -181,11 +134,59 @@ function normalizeIds(ids) {
   return Array.isArray(ids) ? ids.map((id) => id.toString()) : [];
 }
 
+function getPreviousGroupIds(reports, targetGroupId) {
+  return [
+    ...new Set(
+      reports
+        .filter(function (report) {
+          return report._group && report._group.toString() !== targetGroupId;
+        })
+        .map(function (report) {
+          return report._group.toString();
+        })
+    ),
+  ];
+}
+
 function normalizeId(value, fieldName) {
   if (!value) {
     throw withStatus(new Error(`${fieldName} is required`), 400);
   }
   return value.toString();
+}
+
+function normalizeGroupReportState(group) {
+  if (!Array.isArray(group._reports)) group._reports = [];
+  if (!Array.isArray(group.impactedAsns)) group.impactedAsns = [];
+  if (!Array.isArray(group.impactedGeoScopes)) group.impactedGeoScopes = [];
+}
+
+async function publishUpdatedGroup(groupId) {
+  const updatedGroup = await Group.findById(groupId)
+    .select(
+      '_id _reports impactedAsns impactedGeoScopes incidentStartedAt incidentEndedAt incidentDurationSeconds'
+    )
+    .lean()
+    .exec();
+
+  if (!updatedGroup) return null;
+
+  await eventRouter.publish('groups:update', {
+    ids: [updatedGroup._id],
+    update: {
+      _reports: updatedGroup._reports,
+      impactedAsns: updatedGroup.impactedAsns || [],
+      impactedGeoScopes: updatedGroup.impactedGeoScopes || [],
+      incidentStartedAt: updatedGroup.incidentStartedAt || null,
+      incidentEndedAt: updatedGroup.incidentEndedAt || null,
+      incidentDurationSeconds:
+        typeof updatedGroup.incidentDurationSeconds === 'number'
+          ? updatedGroup.incidentDurationSeconds
+          : null,
+    },
+  });
+
+  return updatedGroup;
 }
 
 async function syncNotableActivityIncidentContext(reportIds) {

@@ -18,11 +18,11 @@ async function getMaterializedNotableActivities(options = {}) {
   const filters = normalizeFilters(options.filters);
   const cacheKey = options.cacheKey || buildAnalyticsCacheKey(timeWindow, filters);
   const now = normalizeDate(options.now || new Date(), 'now');
+  const forceRefresh = options.forceRefresh === true;
 
-  const cachedWindow = await AnalyticsAggregationCache.findOne({
-    cacheKey,
-    expiresAt: { $gt: now },
-  }).lean().exec();
+  const cachedWindow = forceRefresh
+    ? null
+    : await findFreshAnalyticsCache(cacheKey, now);
 
   if (cachedWindow) {
     const cachedActivities = await findCachedNotableActivities(cacheKey, now);
@@ -53,23 +53,14 @@ async function getMaterializedNotableActivities(options = {}) {
     expiresAt,
   });
 
-  await AnalyticsAggregationCache.findOneAndUpdate(
-    { cacheKey },
-    {
-      $set: {
-        cacheKey,
-        rangePreset: timeWindow.rangePreset,
-        rangeStart: timeWindow.rangeStartUtc,
-        rangeEnd: timeWindow.rangeEndUtc,
-        bucketSizeMinutes: timeWindow.bucketSizeMinutes,
-        filters,
-        resultCount: notableActivities.length,
-        computedAt,
-        expiresAt,
-      },
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  ).exec();
+  await upsertAnalyticsCacheWindow({
+    cacheKey,
+    timeWindow,
+    filters,
+    resultCount: notableActivities.length,
+    computedAt,
+    expiresAt,
+  });
 
   return buildMaterializedResponse({
     timeWindow,
@@ -97,15 +88,13 @@ async function replaceCachedNotableActivities({
   computedAt,
   expiresAt,
 }) {
-  const docs = notableActivities.map((activity) => ({
-    ...activity,
+  const docs = buildCachedNotableActivityDocs({
+    notableActivities,
     cacheKey,
-    rangePreset: timeWindow.rangePreset,
-    rangeStart: timeWindow.rangeStartUtc,
-    rangeEnd: timeWindow.rangeEndUtc,
+    timeWindow,
     computedAt,
     expiresAt,
-  }));
+  });
 
   if (!docs.length) {
     await NotableActivity.deleteMany({ cacheKey }).exec();
@@ -126,10 +115,67 @@ async function replaceCachedNotableActivities({
     { ordered: false }
   );
 
+  const currentEventAggKeys = docs.map(function (doc) {
+    return doc.eventAggKey;
+  });
   await NotableActivity.deleteMany({
     cacheKey,
-    eventAggKey: { $nin: docs.map((doc) => doc.eventAggKey) },
+    eventAggKey: { $nin: currentEventAggKeys },
   }).exec();
+}
+
+async function findFreshAnalyticsCache(cacheKey, now) {
+  return AnalyticsAggregationCache.findOne({
+    cacheKey,
+    expiresAt: { $gt: now },
+  }).lean().exec();
+}
+
+async function upsertAnalyticsCacheWindow({
+  cacheKey,
+  timeWindow,
+  filters,
+  resultCount,
+  computedAt,
+  expiresAt,
+}) {
+  return AnalyticsAggregationCache.findOneAndUpdate(
+    { cacheKey },
+    {
+      $set: {
+        cacheKey,
+        rangePreset: timeWindow.rangePreset,
+        rangeStart: timeWindow.rangeStartUtc,
+        rangeEnd: timeWindow.rangeEndUtc,
+        bucketSizeMinutes: timeWindow.bucketSizeMinutes,
+        filters,
+        resultCount,
+        computedAt,
+        expiresAt,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).exec();
+}
+
+function buildCachedNotableActivityDocs({
+  notableActivities,
+  cacheKey,
+  timeWindow,
+  computedAt,
+  expiresAt,
+}) {
+  return notableActivities.map(function (activity) {
+    return {
+      ...activity,
+      cacheKey,
+      rangePreset: timeWindow.rangePreset,
+      rangeStart: timeWindow.rangeStartUtc,
+      rangeEnd: timeWindow.rangeEndUtc,
+      computedAt,
+      expiresAt,
+    };
+  });
 }
 
 function buildMaterializedResponse({
@@ -180,7 +226,7 @@ function normalizeFilters(filters) {
 
   return Object.keys(filters)
     .sort()
-    .reduce((normalized, key) => {
+    .reduce(function (normalized, key) {
       const value = filters[key];
       if (typeof value === 'undefined' || value === null || value === '') {
         return normalized;
@@ -204,4 +250,5 @@ module.exports = {
   getMaterializedNotableActivities,
   findCachedNotableActivities,
   replaceCachedNotableActivities,
+  findFreshAnalyticsCache,
 };

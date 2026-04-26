@@ -25,10 +25,27 @@ function buildOutageReportMatch(timeWindow) {
 
 async function aggregateNotableActivities(options = {}) {
   const timeWindow = options.timeWindow || resolveAnalyticsTimeWindow(options);
-  const bucketMs = timeWindow.bucketSizeMinutes * 60 * 1000;
   const match = buildOutageReportMatch(timeWindow);
+  const pipeline = buildAggregationPipeline(match, timeWindow.bucketSizeMinutes);
 
-  const pipeline = [
+  const rows = await Report.aggregate(pipeline).exec();
+  const notableActivities = rows.map(function (row) {
+    return formatNotableActivity(row, timeWindow);
+  });
+
+  notableActivities.sort(compareNotableActivities);
+
+  if (typeof options.limit === 'number' && options.limit >= 0) {
+    return notableActivities.slice(0, options.limit);
+  }
+
+  return notableActivities;
+}
+
+function buildAggregationPipeline(match, bucketSizeMinutes) {
+  const bucketMs = bucketSizeMinutes * 60 * 1000;
+
+  return [
     { $match: match },
     {
       $addFields: {
@@ -61,17 +78,6 @@ async function aggregateNotableActivities(options = {}) {
       },
     },
   ];
-
-  const rows = await Report.aggregate(pipeline).exec();
-  const notableActivities = rows.map((row) => formatNotableActivity(row, timeWindow));
-
-  notableActivities.sort(compareNotableActivities);
-
-  if (typeof options.limit === 'number' && options.limit >= 0) {
-    return notableActivities.slice(0, options.limit);
-  }
-
-  return notableActivities;
 }
 
 function formatNotableActivity(row, timeWindow) {
@@ -121,7 +127,7 @@ function compareNotableActivities(a, b) {
 
 function flattenArrayValues(values) {
   if (!Array.isArray(values)) return [];
-  return values.reduce((acc, value) => {
+  return values.reduce(function (acc, value) {
     if (Array.isArray(value)) return acc.concat(value);
     acc.push(value);
     return acc;
@@ -130,18 +136,12 @@ function flattenArrayValues(values) {
 
 function countDistinct(values) {
   if (!Array.isArray(values)) return 0;
-  return new Set(
-    values
-      .filter((value) => value !== null && typeof value !== 'undefined' && value !== '')
-      .map((value) => value.toString())
-  ).size;
+  return getDistinctNonEmptyStrings(values).length;
 }
 
 function getSingleDisplayValue(values) {
   if (!Array.isArray(values)) return undefined;
-  const distinctValues = values.filter(
-    (value) => value !== null && typeof value !== 'undefined' && value !== ''
-  );
+  const distinctValues = getNonEmptyValues(values);
   return distinctValues.length === 1 ? distinctValues[0] : undefined;
 }
 
@@ -150,15 +150,21 @@ function getSingleIncidentId(values) {
   const hasUnassignedValue = values.some(
     (value) => value === null || typeof value === 'undefined' || value === ''
   );
-  const distinctValues = [
-    ...new Set(
-      values
-        .filter((value) => value !== null && typeof value !== 'undefined' && value !== '')
-        .map((value) => value.toString())
-    ),
-  ];
+  const distinctValues = getDistinctNonEmptyStrings(values);
 
   return !hasUnassignedValue && distinctValues.length === 1 ? distinctValues[0] : null;
+}
+
+function getNonEmptyValues(values) {
+  return values.filter(function (value) {
+    return value !== null && typeof value !== 'undefined' && value !== '';
+  });
+}
+
+function getDistinctNonEmptyStrings(values) {
+  return [...new Set(getNonEmptyValues(values).map(function (value) {
+    return value.toString();
+  }))];
 }
 
 module.exports = {
