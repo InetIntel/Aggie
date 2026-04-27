@@ -33,6 +33,7 @@ var SocketHandler = function (app, server, auth) {
 
   // available listener bindings
   this.bindings = {
+    analytics: this._addAnalyticsListeners,
     report: this._addReportLocalListeners,
     sourceLocal: this._addSourceLocalListeners,
     source: this._addSourceListeners,
@@ -122,6 +123,7 @@ SocketHandler.prototype._connect = function (socket) {
   this._streamerQueryListen('groupQuery', GroupQuery, socket);
   this._streamerQueryCheck('reports', ReportQuery, socket);
   this._streamerQueryCheck('groups', GroupQuery, socket);
+  this._analyticsListen(socket);
 
   this.streamerSocketForward('sourceErrorCountUpdated', socket);
   this.streamerSocketForward('trend', socket);
@@ -147,6 +149,9 @@ SocketHandler.prototype._connect = function (socket) {
   // Remove client from query list
   socket.on('disconnect', function () {
     self.removeClient(self.clientQuery, socket.id);
+    if (socket.analyticsCacheKey) {
+      streamer.removeAnalyticsQuery(socket.analyticsCacheKey, socket.id);
+    }
   });
 };
 
@@ -178,6 +183,22 @@ SocketHandler.prototype._streamerQueryCheck = function (event, QueryType, socket
       self.queryGroups[clientQuery.hash].has(socket.id)) {
       socket.emit(event, data);
     }
+  });
+};
+
+SocketHandler.prototype._analyticsListen = function (socket) {
+  socket.on('analytics', function (queryData) {
+    if (socket.analyticsCacheKey) {
+      streamer.removeAnalyticsQuery(socket.analyticsCacheKey, socket.id);
+    }
+
+    if (!queryData || !queryData.cacheKey) {
+      socket.analyticsCacheKey = null;
+      return;
+    }
+
+    socket.analyticsCacheKey = queryData.cacheKey;
+    streamer.addAnalyticsQuery(queryData, socket.id);
   });
 };
 
@@ -270,10 +291,25 @@ SocketHandler.prototype._addTrendsListeners = function (emitter) {
   });
 };
 
+SocketHandler.prototype._addAnalyticsListeners = function (emitter) {
+  var self = this;
+  emitter.removeAllListeners('analytics:update');
+  emitter.on('analytics:update', function (payload) {
+    if (!payload || !payload.cacheKey) return;
+    self.io.sockets
+      .in(getAnalyticsRoom(payload.cacheKey))
+      .emit('analytics:update', payload);
+  });
+};
+
 function emitAllSources(emitter) {
   Source.find({}, '-events', { lean: true }, function (err, sources) {
     if (!err && sources) emitter.emit('sources', sources);
   });
+}
+
+function getAnalyticsRoom(cacheKey) {
+  return `analytics:${cacheKey}`;
 }
 
 
