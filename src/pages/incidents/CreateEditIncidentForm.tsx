@@ -26,6 +26,13 @@ import FormikSwitch from "../../components/FormikSwitch";
 import FormikWithSchema from "../../components/FormikWithSchema";
 import { getGeoScopes } from "../../api/geoscope";
 
+export type IncidentFormValues = Partial<
+  Omit<GroupEditableData, "verification_status" | "confirmation_status">
+> & {
+  verification_status?: string | boolean | null;
+  confirmation_status?: string | boolean | null;
+};
+
 const incidentSchema = Yup.object().shape({
   title: Yup.string().required("Group name required"),
   locationName: Yup.string(), //keep in schema for backward compatibility
@@ -54,6 +61,7 @@ const incidentSchema = Yup.object().shape({
 
 interface IProps {
   group?: Group;
+  initialValues?: IncidentFormValues;
   onSubmit: (values: Partial<GroupEditableData>) => void;
   onCancel: () => void;
   isLoading: boolean;
@@ -61,6 +69,7 @@ interface IProps {
 
 const CreateEditIncidentForm = ({
   group,
+  initialValues,
   onSubmit,
   onCancel,
   isLoading,
@@ -73,18 +82,31 @@ const CreateEditIncidentForm = ({
     <>
       <FormikWithSchema
         initialValues={{
-          title: group?.title || "",
-          locationName: group?.locationName || "",
-          closed: group?.closed || false,
-          verification_status: group?.verification_status || "maybe",
-          confirmation_status: group?.confirmation_status || "maybe",
-          publication_status: group?.publication_status || ["Not Published"],
-          assignedTo: group?.assignedTo?.map((i) => i._id) || [],
-          notes: group?.notes || "",
-          incidentStartedAt: group?.incidentStartedAt || "",
-          incidentEndedAt: group?.incidentEndedAt || "",
-          impactedAsns: group?.impactedAsns || [],
-          impactedGeoScopes: group?.impactedGeoScopes || [],
+          title: initialValues?.title || group?.title || "",
+          locationName: initialValues?.locationName || group?.locationName || "",
+          closed: initialValues?.closed ?? group?.closed ?? false,
+          verification_status:
+            initialValues?.verification_status ||
+            group?.verification_status ||
+            "maybe",
+          confirmation_status:
+            initialValues?.confirmation_status ||
+            group?.confirmation_status ||
+            "maybe",
+          publication_status:
+            initialValues?.publication_status ||
+            group?.publication_status ||
+            ["Not Published"],
+          assignedTo:
+            initialValues?.assignedTo ||
+            group?.assignedTo?.map((i) => i._id) ||
+            [],
+          notes: initialValues?.notes || group?.notes || "",
+          incidentStartedAt: initialValues?.incidentStartedAt || group?.incidentStartedAt || "",
+          incidentEndedAt: initialValues?.incidentEndedAt || group?.incidentEndedAt || "",
+          impactedAsns: initialValues?.impactedAsns || group?.impactedAsns || [],
+          impactedGeoScopes:
+            initialValues?.impactedGeoScopes || group?.impactedGeoScopes || [],
         }}
         schema={incidentSchema}
         onSubmit={(values: GroupEditableData) => {

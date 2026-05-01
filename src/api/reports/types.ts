@@ -54,6 +54,7 @@ export interface ReportQueryState {
   hideDuplicateASNs?: string; // 'true' or 'false'
   sourceId?: string;
   list?: string;
+  reportIds?: string;
   before?: Date | string;
   after?: Date | string;
   tagNames?: string[];

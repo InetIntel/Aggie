@@ -23,7 +23,7 @@ const parseQueryData = (queryString) => {
   if (!queryString) return {};
   // Data passed through URL parameters
   var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before', 'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media','dataSources', 'entityLevel',
-    'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
+    'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
   
   if (!query.media && query.alerts === 'true') {
     query.isOutageEvent = true;
@@ -34,6 +34,7 @@ const parseQueryData = (queryString) => {
   
   if (query.dataSources) query.dataSources = query.dataSources.split(",").filter(Boolean);
   if (query.entityLevel) query.entityLevel = query.entityLevel.split(',').map(s => s.trim()).filter(Boolean);
+  if (query.reportIds) query.reportIds = query.reportIds.split(',').map(s => s.trim()).filter(Boolean);
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 }
@@ -103,7 +104,9 @@ exports.report_reports = (req, res) => {
     let useDedup = shouldDedupByEventIdentifier(entityLevel, queryData.groupId);
     
     // If user explicitly set the toggle, use that value
-    if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {
+    if (queryData.reportIds && queryData.reportIds.length > 0) {
+      useDedup = false;
+    } else if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {
       useDedup = hideDuplicateASNsParam === 'true';
     }
 
@@ -535,5 +538,4 @@ exports.reports_tags_clear = (req, res) => {
     });
   });
 }
-
 

@@ -22,6 +22,7 @@ function ReportQuery(options) {
   this.outageAfter = options.outageAfter;
   this.outageBefore = options.outageBefore;
   this.eventAggKeyBase = options.eventAggKeyBase;
+  this.reportIds = options.reportIds;
   this.sourceId = options.sourceId;
   this.media = options.media;
   this.dataSources = options.dataSources;
@@ -65,6 +66,9 @@ ReportQuery.prototype.toMongooseFilter = function () {
     aitagnames: this.aitagnames,
     isOutageEvent: this.isOutageEvent,
     eventAggKeyBase: this.eventAggKeyBase,
+  }
+  if (this.reportIds && this.reportIds.length > 0) {
+    filter._id = { $in: this.reportIds };
   }
   if (this.groupId === "none") filter._group = { $eq: null }
   if (this.escalated === 'unescalated') filter.escalated = false;

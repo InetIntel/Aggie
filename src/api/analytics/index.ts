@@ -2,8 +2,11 @@ import axios from "axios";
 import type {
   AnalyticsOverview,
   AnalyticsQueryState,
+  CreateNotableActivityIncidentPayload,
   NotableActivitiesResponse,
+  UpdateNotableActivityIncidentPayload,
 } from "./types";
+import type { Group } from "../groups/types";
 
 function buildAnalyticsQuery(params: AnalyticsQueryState = {}) {
   const searchParams = new URLSearchParams();
@@ -34,5 +37,25 @@ export const getNotableActivities = async (
     ? `/api/analytics/notable-activities?${query}`
     : "/api/analytics/notable-activities";
   const { data } = await axios.get<NotableActivitiesResponse>(url);
+  return data;
+};
+
+export const createNotableActivityIncident = async (
+  payload: CreateNotableActivityIncidentPayload
+) => {
+  const { data } = await axios.post<Group>(
+    "/api/analytics/notable-activities/incident",
+    payload
+  );
+  return data;
+};
+
+export const updateNotableActivityIncident = async (
+  payload: UpdateNotableActivityIncidentPayload
+) => {
+  const { data } = await axios.patch<Partial<Group>>(
+    "/api/analytics/notable-activities/incident",
+    payload
+  );
   return data;
 };

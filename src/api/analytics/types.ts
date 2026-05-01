@@ -10,6 +10,49 @@ export interface AnalyticsQueryState {
   limit?: number;
 }
 
+export interface AnalyticsIncidentBasePayload {
+  cacheKey: string;
+  eventAggKey: string;
+}
+
+export interface CreateNotableActivityIncidentPayload
+  extends AnalyticsIncidentBasePayload {
+  group: {
+    title: string;
+    notes?: string;
+    locationName?: string;
+    closed?: boolean;
+    verification_status?: string | boolean | null;
+    confirmation_status?: string | boolean | null;
+    publication_status?: string[];
+    assignedTo?: string[];
+    public?: boolean;
+    escalated?: boolean;
+  };
+}
+
+export interface UpdateNotableActivityIncidentPayload
+  extends AnalyticsIncidentBasePayload {
+  mode: "add" | "remove";
+  groupId?: string;
+}
+
+export interface AnalyticsSocketQuery {
+  cacheKey: string;
+  rangePreset: AnalyticsRangePreset;
+  bucketPreset: AnalyticsBucketPreset;
+  bucketSizeMinutes: number;
+  rangeStartUtc: string;
+  rangeEndUtc: string;
+}
+
+export interface AnalyticsUpdateEvent {
+  cacheKey: string;
+  rangePreset: AnalyticsRangePreset;
+  bucketPreset: AnalyticsBucketPreset;
+  computedAt: string;
+}
+
 export interface AnalyticsTimeSeriesBucket {
   bucketStart: string;
   bucketEnd: string;

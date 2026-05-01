@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBell,
@@ -9,15 +9,27 @@ import {
   faLink,
   faPlus,
   faRotateLeft,
+  faSpinner,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import { getAnalyticsOverview, getNotableActivities } from "../api/analytics";
+import {
+  createNotableActivityIncident,
+  getAnalyticsOverview,
+  getNotableActivities,
+} from "../api/analytics";
 import type {
+  AnalyticsSocketQuery,
+  AnalyticsUpdateEvent,
   AnalyticsBucketPreset,
   AnalyticsOverview,
   AnalyticsRangePreset,
   NotableActivity,
 } from "../api/analytics/types";
+import { SocketContext, SocketEvent, useSocketSubscribe } from "../hooks/WebsocketProvider";
+import AggieDialog from "../components/AggieDialog";
+import CreateEditIncidentForm from "./incidents/CreateEditIncidentForm";
+import type { IncidentFormValues } from "./incidents/CreateEditIncidentForm";
+import type { GroupEditableData } from "../api/groups/types";
 
 const fallbackTimeSeries = [
   "2026-02-26T10:00:00.000Z",
@@ -67,10 +79,16 @@ const chartFrame = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { socket } = useContext(SocketContext);
   const [range, setRange] = useState<AnalyticsRangePreset>("today");
   const [bucket, setBucket] = useState<AnalyticsBucketPreset>("1h");
   const [dismissedActivityKeys, setDismissedActivityKeys] = useState<string[]>([]);
   const [notablePage, setNotablePage] = useState(0);
+  const [activityToPromote, setActivityToPromote] = useState<NotableActivity | null>(
+    null
+  );
 
   useEffect(() => {
     document.title = "Dashboard - Aggie";
@@ -106,6 +124,57 @@ const Dashboard = () => {
     queryFn: () => getNotableActivities({ range, bucket }),
     keepPreviousData: true,
   });
+
+  const createIncidentMutation = useMutation({
+    mutationFn: createNotableActivityIncident,
+    onSuccess: (group) => {
+      setActivityToPromote(null);
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      if (group?._id) {
+        navigate(`/incidents/${group._id}`);
+      }
+    },
+  });
+
+  const handleAnalyticsUpdate = useCallback(
+    (message: (SocketEvent & { data: AnalyticsUpdateEvent }) | AnalyticsUpdateEvent) => {
+      const payload = "data" in message && "event" in message ? message.data : message;
+      if (!payload?.cacheKey) return;
+      if (payload.cacheKey !== notableActivitiesQuery.data?.cacheKey) return;
+
+      queryClient.invalidateQueries({ queryKey: ["analytics", "overview", range, bucket] });
+      queryClient.invalidateQueries({
+        queryKey: ["analytics", "notable-activities", range, bucket],
+      });
+    },
+    [bucket, notableActivitiesQuery.data?.cacheKey, queryClient, range]
+  );
+
+  useSocketSubscribe("analytics:update", handleAnalyticsUpdate);
+
+  useEffect(() => {
+    const data = notableActivitiesQuery.data;
+    if (!socket || !data?.cacheKey) return;
+
+    const room = getAnalyticsRoom(data.cacheKey);
+    const analyticsQuery: AnalyticsSocketQuery = {
+      cacheKey: data.cacheKey,
+      rangePreset: data.rangePreset,
+      bucketPreset: data.bucketPreset,
+      bucketSizeMinutes: data.bucketSizeMinutes,
+      rangeStartUtc: data.rangeStartUtc,
+      rangeEndUtc: data.rangeEndUtc,
+    };
+
+    socket.emit("join", room);
+    socket.emit("analytics", analyticsQuery);
+
+    return () => {
+      socket.emit("leave", room);
+      socket.emit("analytics", null);
+    };
+  }, [notableActivitiesQuery.data, socket]);
 
   const metricItems = overviewQuery.data
     ? [
@@ -174,6 +243,20 @@ const Dashboard = () => {
     setDismissedActivityKeys((currentKeys) =>
       currentKeys.includes(activityKey) ? currentKeys : [...currentKeys, activityKey]
     );
+  }
+
+  function createIncidentFromActivity(values: Partial<GroupEditableData>) {
+    const cacheKey = notableActivitiesQuery.data?.cacheKey;
+    if (!cacheKey || !activityToPromote) return;
+
+    createIncidentMutation.mutate({
+      cacheKey,
+      eventAggKey: activityToPromote.eventAggKey,
+      group: {
+        ...values,
+        title: values.title || buildIncidentTitle(activityToPromote),
+      },
+    });
   }
 
   return (
@@ -428,7 +511,13 @@ const Dashboard = () => {
             <NotableActivityCard
               key={activity.eventAggKey}
               activity={activity}
+              cacheKey={notableActivitiesQuery.data?.cacheKey || ""}
               onDismiss={() => dismissActivity(activity.eventAggKey)}
+              onCreateIncident={() => setActivityToPromote(activity)}
+              isCreatingIncident={
+                createIncidentMutation.isLoading &&
+                activityToPromote?.eventAggKey === activity.eventAggKey
+              }
             />
           ))}
         </div>
@@ -467,16 +556,57 @@ const Dashboard = () => {
           </div>
         )}
       </section>
+
+      <AggieDialog
+        isOpen={!!activityToPromote}
+        onClose={() => {
+          if (!createIncidentMutation.isLoading) setActivityToPromote(null);
+        }}
+        data={{ title: "Create Incident" }}
+        className='w-full max-w-2xl p-5'
+      >
+        {activityToPromote && (
+          <div className='max-h-[78vh] overflow-y-auto pr-1'>
+            <div className='mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'>
+              <div className='font-medium text-slate-900 dark:text-white'>
+                {formatActivityWindow(
+                  activityToPromote.bucketStart,
+                  activityToPromote.bucketEnd
+                )}
+              </div>
+              <div className='mt-1 flex flex-wrap gap-x-4 gap-y-1'>
+                <span>{activityToPromote.totalReports} reports</span>
+                <span>{activityToPromote.sourceCnt} sources</span>
+                <span>{activityToPromote.signalCnt} signals</span>
+              </div>
+            </div>
+            <CreateEditIncidentForm
+              initialValues={buildIncidentInitialValues(activityToPromote)}
+              onSubmit={createIncidentFromActivity}
+              onCancel={() => {
+                if (!createIncidentMutation.isLoading) setActivityToPromote(null);
+              }}
+              isLoading={createIncidentMutation.isLoading}
+            />
+          </div>
+        )}
+      </AggieDialog>
     </section>
   );
 };
 
 function NotableActivityCard({
   activity,
+  cacheKey,
   onDismiss,
+  onCreateIncident,
+  isCreatingIncident,
 }: {
   activity: NotableActivity;
+  cacheKey: string;
   onDismiss: () => void;
+  onCreateIncident: () => void;
+  isCreatingIncident: boolean;
 }) {
   const locationSummary = [activity.asn, activity.geoScope].filter(Boolean).join(" / ");
 
@@ -566,16 +696,21 @@ function NotableActivityCard({
             <span>Open Linked Incident</span>
           </Link>
         ) : (
-          <Link
-            to={`/incidents/new?reports=${activity.reportIds.join(":")}`}
-            className='flex w-full items-center justify-center gap-2 rounded-md bg-[#166534] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#14532d]'
+          <button
+            type='button'
+            onClick={onCreateIncident}
+            disabled={!cacheKey || isCreatingIncident}
+            className='flex w-full items-center justify-center gap-2 rounded-md bg-[#166534] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#14532d] disabled:cursor-not-allowed disabled:opacity-60'
           >
-            <FontAwesomeIcon icon={faPlus} />
-            <span>Create New Incident</span>
-          </Link>
+            <FontAwesomeIcon
+              icon={isCreatingIncident ? faSpinner : faPlus}
+              className={isCreatingIncident ? "animate-spin" : undefined}
+            />
+            <span>{isCreatingIncident ? "Creating Incident" : "Create New Incident"}</span>
+          </button>
         )}
         <Link
-          to={`/alerts?list=${activity.reportIds.join(",")}&alerts=true`}
+          to={`/alerts?reportIds=${activity.reportIds.join(",")}&alerts=true`}
           className='flex w-full items-center justify-center gap-2 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800'
         >
           <FontAwesomeIcon icon={faBell} />
@@ -584,6 +719,43 @@ function NotableActivityCard({
       </div>
     </article>
   );
+}
+
+function getAnalyticsRoom(cacheKey: string) {
+  return `analytics:${cacheKey}`;
+}
+
+function buildIncidentTitle(activity: NotableActivity) {
+  const locationSummary = getActivityLocationSummary(activity);
+  const prefix = locationSummary
+    ? `[Notable Activity] ${locationSummary}`
+    : "[Notable Activity]";
+  return `${prefix}: ${formatActivityWindow(activity.bucketStart, activity.bucketEnd)}`;
+}
+
+function buildIncidentInitialValues(activity: NotableActivity): IncidentFormValues {
+  return {
+    title: buildIncidentTitle(activity),
+    notes:"",
+    // notes: [
+    //   "Created from dashboard notable activity.",
+    //   `Reports: ${activity.totalReports}`,
+    //   `Sources: ${activity.sourceCnt}`,
+    //   `Signals: ${activity.signalCnt}`,
+    // ].join("\n"),
+    locationName: getActivityLocationSummary(activity),
+    closed: false,
+    verification_status: "maybe",
+    confirmation_status: "maybe",
+    publication_status: ["Not Published"],
+    assignedTo: [],
+    public: false,
+    escalated: activity.isHighConfidence,
+  };
+}
+
+function getActivityLocationSummary(activity: NotableActivity) {
+  return [activity.asn, activity.geoScope].filter(Boolean).join(" / ");
 }
 
 function getChartX(index: number, totalPoints: number) {
