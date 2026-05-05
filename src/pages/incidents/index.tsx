@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import _ from "lodash";
@@ -6,7 +6,7 @@ import _ from "lodash";
 import { getGroups } from "../../api/groups";
 import type { Group, GroupQueryState, Groups } from "../../api/groups/types";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigationType } from "react-router-dom";
 import IncidentsFilters from "./IncidentsFilters";
 import IncidentListItem from "./IncidentListItem";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -18,10 +18,13 @@ import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
 import { updateByIds } from "../../utils/immutable";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
 
+let savedScrollTop: number | null = null;
+
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
     useQueryParams<GroupQueryState>();
   const queryData = useUpdateQueryData();
+  const navigationType = useNavigationType();
 
   const { data, refetch, isLoading, isFetching } = useQuery(
     ["groups"],
@@ -35,11 +38,29 @@ const Incidents = () => {
     document.title = "Incidents - Aggie";
     // refetch on filter change
     refetch();
-    document.getElementById("main_view")?.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    if (navigationType !== "POP") {
+      document.getElementById("main_view")?.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
   }, [searchParams]);
+
+  useEffect(() => {
+    const main = document.getElementById("main_view");
+    if (!main) return;
+    const onScroll = () => {
+      savedScrollTop = main.scrollTop;
+    };
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => main.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (navigationType === "POP" && savedScrollTop != null && data?.total) {
+      document.getElementById("main_view")?.scrollTo({ top: savedScrollTop });
+    }
+  }, [data, navigationType]);
 
   interface GroupUpdateEvent extends SocketEvent {
     data: {
