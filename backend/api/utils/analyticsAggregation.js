@@ -83,8 +83,10 @@ function buildAggregationPipeline(match, bucketSizeMinutes) {
 function formatNotableActivity(row, timeWindow) {
   const bucketStart = new Date(row._id.bucketStartMs);
   const bucketEnd = getBucketEndUtc(bucketStart, timeWindow.bucketSizeMinutes);
-  const sourceCnt = countDistinct(flattenArrayValues(row.mediaValues));
-  const signalCnt = countDistinct(row.signalSourceValues);
+  const sources = getDistinctNonEmptyStrings(flattenArrayValues(row.mediaValues)).sort();
+  const signals = getDistinctNonEmptyStrings(row.signalSourceValues).sort();
+  const sourceCnt = sources.length;
+  const signalCnt = signals.length;
   const incidentId = getSingleIncidentId(row.incidentValues);
 
   return {
@@ -98,7 +100,9 @@ function formatNotableActivity(row, timeWindow) {
     bucketEnd,
     bucketSizeMinutes: timeWindow.bucketSizeMinutes,
     sourceCnt,
+    sources,
     signalCnt,
+    signals,
     totalReports: row.totalReports || 0,
     reportIds: row.reportIds || [],
     isHighConfidence:
