@@ -19,7 +19,9 @@ const notableActivitySchema = new Schema({
   bucketSizeMinutes: { type: Number, required: true, index: true },
 
   sourceCnt: { type: Number, required: true, default: 0 },
+  sources: { type: [String], default: [] },
   signalCnt: { type: Number, required: true, default: 0 },
+  signals: { type: [String], default: [] },
   totalReports: { type: Number, required: true, default: 0 },
   reportIds: {
     type: [{ type: SchemaTypes.ObjectId, ref: 'Report' }],
