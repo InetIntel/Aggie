@@ -1,4 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -25,6 +26,7 @@ import type {
   AnalyticsRangePreset,
   NotableActivity,
 } from "../api/analytics/types";
+import { DATA_SOURCE_OPTIONS } from "../api/common";
 import { SocketContext, SocketEvent, useSocketSubscribe } from "../hooks/WebsocketProvider";
 import AggieDialog from "../components/AggieDialog";
 import CreateEditIncidentForm from "./incidents/CreateEditIncidentForm";
@@ -71,6 +73,11 @@ const bucketLabels: Record<AnalyticsBucketPreset, string> = {
 const trendColor = "#F4C44E";
 // const maxNotableCards = 6;
 const notableCardsPerPage = 9;
+const notableActivitySourceOptions = ["ioda", "cloudflare"];
+const sourceLabels: Record<string, string> = {
+  ioda: "IODA",
+  cloudflare: "Cloudflare",
+};
 const chartFrame = {
   left: 30,
   top: 8,
@@ -613,16 +620,21 @@ function NotableActivityCard({
   return (
     <article className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800'>
       <div className='flex items-start justify-between gap-3'>
-        <span
-          className={[
-            "inline-flex items-center rounded-full px-4 py-1 text-sm font-medium",
-            activity.isHighConfidence
-              ? "border border-red-300 bg-red-100 text-red-700"
-              : "border border-amber-300 bg-amber-100 text-amber-700",
-          ].join(" ")}
-        >
-          {activity.isHighConfidence ? "High" : "Medium"}
-        </span>
+        <div className='flex flex-wrap items-center gap-2'>
+          <span
+            className={[
+              "inline-flex items-center rounded-full px-4 py-1 text-sm font-medium",
+              activity.isHighConfidence
+                ? "border border-red-300 bg-red-100 text-red-700"
+                : "border border-amber-300 bg-amber-100 text-amber-700",
+            ].join(" ")}
+          >
+            {activity.isHighConfidence ? "High" : "Medium"}
+          </span>
+          <span className='inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'>
+            {activity.totalReports} report{activity.totalReports === 1 ? "" : "s"}
+          </span>
+        </div>
         <button
           type='button'
           onClick={onDismiss}
@@ -642,21 +654,18 @@ function NotableActivityCard({
 
       <div className='my-5 h-px bg-slate-200 dark:bg-gray-700' />
 
-      <div>
-        <p className='text-lg font-medium text-slate-900 dark:text-white'>
-          Aggregation
-        </p>
-        <div className='mt-3 flex flex-wrap gap-2'>
-          <span className='rounded-full border border-lime-400 bg-lime-100 px-3 py-1 text-sm text-slate-700'>
-            {activity.sourceCnt} source{activity.sourceCnt === 1 ? "" : "s"}
-          </span>
-          <span className='rounded-full border border-lime-400 bg-lime-100 px-3 py-1 text-sm text-slate-700'>
-            {activity.signalCnt} signal{activity.signalCnt === 1 ? "" : "s"}
-          </span>
-          <span className='rounded-full border border-lime-400 bg-lime-100 px-3 py-1 text-sm text-slate-700'>
-            {activity.totalReports} report{activity.totalReports === 1 ? "" : "s"}
-          </span>
-        </div>
+      <div className='space-y-4'>
+        <NotableActivityIndicatorRow
+          title='Signals'
+          values={activity.signals}
+          options={[...DATA_SOURCE_OPTIONS]}
+        />
+        <NotableActivityIndicatorRow
+          title='Sources'
+          values={activity.sources}
+          options={notableActivitySourceOptions}
+          renderLabel={(source) => sourceLabels[source] || source}
+        />
       </div>
 
       {/* <div className='my-5 h-px bg-slate-200 dark:bg-gray-700' />
@@ -719,6 +728,62 @@ function NotableActivityCard({
       </div>
     </article>
   );
+}
+
+function NotableActivityIndicatorRow({
+  title,
+  values,
+  options,
+  renderLabel = (value) => value,
+  renderIcon,
+}: {
+  title: string;
+  values?: string[];
+  options: string[];
+  renderLabel?: (value: string) => string;
+  renderIcon?: (value: string) => ReactNode;
+}) {
+  const activeValues = new Set((values || []).map(normalizeActivityIndicatorValue));
+  const extraValues = (values || []).filter(
+    (value) =>
+      !options.some(
+        (option) =>
+          normalizeActivityIndicatorValue(option) ===
+          normalizeActivityIndicatorValue(value)
+      )
+  );
+  const displayOptions = [...options, ...extraValues];
+
+  return (
+    <div>
+      <p className='text-lg font-medium text-slate-900 dark:text-white'>{title}</p>
+      <div className='mt-3 flex flex-wrap gap-2'>
+        {displayOptions.map((option) => {
+          const isActive = activeValues.has(normalizeActivityIndicatorValue(option));
+
+          return (
+            <span
+              key={option}
+              aria-label={`${renderLabel(option)} ${isActive ? "active" : "inactive"}`}
+              className={[
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition",
+                isActive
+                  ? "border-lime-400 bg-lime-100 text-slate-800 shadow-[0_0_0_1px_rgba(132,204,22,0.25)] dark:border-lime-500 dark:bg-lime-900/40 dark:text-lime-100"
+                  : "border-slate-200 bg-slate-50 text-slate-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500",
+              ].join(" ")}
+            >
+              {renderIcon?.(option)}
+              {renderLabel(option)}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function normalizeActivityIndicatorValue(value: string) {
+  return value.trim().toLowerCase();
 }
 
 function getAnalyticsRoom(cacheKey: string) {

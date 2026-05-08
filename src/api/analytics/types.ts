@@ -88,7 +88,9 @@ export interface NotableActivity {
   bucketEnd: string;
   bucketSizeMinutes: number;
   sourceCnt: number;
+  sources: string[];
   signalCnt: number;
+  signals: string[];
   totalReports: number;
   reportIds: string[];
   isHighConfidence: boolean;
