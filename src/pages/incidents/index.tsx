@@ -24,13 +24,21 @@ let savedScrollTop: number | null = null;
 type IncidentsViewMode = "list" | "table";
 type IncidentsQueryState = GroupQueryState & { view?: IncidentsViewMode };
 
+const VIEW_STORAGE_KEY = "incidents:view";
+
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
     useQueryParams<IncidentsQueryState>();
   const queryData = useUpdateQueryData();
   const navigationType = useNavigationType();
 
-  const view: IncidentsViewMode = getParam("view") === "table" ? "table" : "list";
+  const urlView = getParam("view");
+  const view: IncidentsViewMode =
+    urlView === "table" || urlView === "list"
+      ? urlView
+      : localStorage.getItem(VIEW_STORAGE_KEY) === "table"
+      ? "table"
+      : "list";
 
   const { data, refetch, isLoading, isFetching } = useQuery(
     ["groups"],
@@ -122,7 +130,10 @@ const Incidents = () => {
                   : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
               }`}
               aria-pressed={view === "list"}
-              onClick={() => setParams({ view: undefined })}
+              onClick={() => {
+                localStorage.setItem(VIEW_STORAGE_KEY, "list");
+                setParams({ view: undefined });
+              }}
             >
               List
             </AggieButton>
@@ -135,7 +146,10 @@ const Incidents = () => {
                   : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
               }`}
               aria-pressed={view === "table"}
-              onClick={() => setParams({ view: "table" })}
+              onClick={() => {
+                localStorage.setItem(VIEW_STORAGE_KEY, "table");
+                setParams({ view: "table" });
+              }}
             >
               Table
             </AggieButton>
