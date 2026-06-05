@@ -15,17 +15,17 @@ Page-local per the CLAUDE.md folder convention. `IncidentsFilters`, `Pagination`
 
 Each row is a `Group` from `GET /api/groups` (typed in [src/api/groups/types.ts](../../src/api/groups/types.ts)). React key is `_id`.
 
-| #  | Column           | Displayed value                                                       | Source on `Group`                                       |
-|----|------------------|-----------------------------------------------------------------------|---------------------------------------------------------|
-| 1  | ID#              | `#1234`                                                               | `idnum`                                                 |
-| 2  | Incident Title   | Title link to `/incidents/:_id` + "N reports" subline                 | `title`, `_reports.length`                              |
-| 3  | Start Date       | Date on line 1, time on line 2 (`YYYY-MM-DD` / `HH:MM` from ISO)      | `incidentStartedAt`                                     |
-| 4  | Status           | `Open` \| `Closed` \| `In Progress`                                   | derived in `statusFromGroup` from `closed` + `escalated` |
-| 5  | Alerts Report    | Red bold count + "alerts" suffix when > 0; grey "0" otherwise         | `_reports.length`                                       |
-| 6  | ASNs Impacted    | Up to 6 teal chips, then `+N` overflow chip                           | `impactedAsns`                                          |
-| 7  | Assigned To      | Comma-joined usernames, or `—`                                        | `assignedTo[].username`                                 |
-| 8  | More Info        | "View" / "Hide" toggle that expands an inline detail row              | `notes`, `locationName` + any currently-hidden columns  |
-| 9  | Actions          | Pencil (edit dialog) + Trash (confirm → delete)                       | mutations from [useIncidentMutations.ts](../../src/pages/incidents/useIncidentMutations.ts) |
+| #   | Column         | Displayed value                                                  | Source on `Group`                                                                           |
+| --- | -------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 1   | ID#            | `#1234`                                                          | `idnum`                                                                                     |
+| 2   | Incident Title | Title link to `/incidents/:_id` + "N reports" subline            | `title`, `_reports.length`                                                                  |
+| 3   | Start Date     | Date on line 1, time on line 2 (`YYYY-MM-DD` / `HH:MM` from ISO) | `incidentStartedAt`                                                                         |
+| 4   | Status         | `Open` \| `Closed` \| `In Progress`                              | derived in `statusFromGroup` from `closed` + `escalated`                                    |
+| 5   | Alerts Report  | Red bold count + "alerts" suffix when > 0; grey "0" otherwise    | `_reports.length`                                                                           |
+| 6   | ASNs Impacted  | Up to 6 teal chips, then `+N` overflow chip                      | `impactedAsns`                                                                              |
+| 7   | Assigned To    | Comma-joined usernames, or `—`                                   | `assignedTo[].username`                                                                     |
+| 8   | More Info      | "View" / "Hide" toggle that expands an inline detail row         | `notes`, `locationName` + any currently-hidden columns                                      |
+| 9   | Actions        | Pencil (edit dialog) + Trash (confirm → delete)                  | mutations from [useIncidentMutations.ts](../../src/pages/incidents/useIncidentMutations.ts) |
 
 Status derivation: `closed=true → "Closed"`; `escalated=true && !closed → "In Progress"`; else `"Open"`.
 
@@ -33,16 +33,17 @@ Status derivation: `closed=true → "Closed"`; `escalated=true && !closed → "I
 
 Tailwind v3 default breakpoints. Full 9-column table at `xl` (≥ 1280 px).
 
-| Width            | New columns revealed                          | Total visible |
-|------------------|-----------------------------------------------|--------------|
-| `< 768`          | ID, Title, Status, More Info, Actions         | 5            |
-| `≥ 768` (`md`)   | + Start Date                                  | 6            |
-| `≥ 1024` (`lg`)  | + ASNs Impacted                               | 7            |
-| `≥ 1280` (`xl`)  | + Alerts Report, Assigned To                  | 9            |
+| Width           | New columns revealed                  | Total visible |
+| --------------- | ------------------------------------- | ------------- |
+| `< 768`         | ID, Title, Status, More Info, Actions | 5             |
+| `≥ 768` (`md`)  | + Start Date                          | 6             |
+| `≥ 1024` (`lg`) | + ASNs Impacted                       | 7             |
+| `≥ 1280` (`xl`) | + Alerts Report, Assigned To          | 9             |
 
 **More Info is always visible** and acts as the spillover surface: the expanded panel always renders `notes` + `locationName`, plus blocks for each column hidden at the current breakpoint. Each block uses the inverse responsive class (`md:hidden`, `lg:hidden`, `xl:hidden`), so at `xl+` the panel collapses to just notes + location.
 
 Priority rationale:
+
 - Alerts Report is lowest priority — the same count appears in the Title subline.
 - ASNs Impacted holds the longest (down to `lg`) because chips are the table's main value-add.
 - Assigned To pairs with Alerts Report at `xl`.
@@ -85,3 +86,4 @@ Other column cells keep their `w-XX` classes as preferred-width hints. Every hea
 - Populate real incident data end-to-end so the table isn't rendering against placeholder rows.
 - Reports table — defer; ship Incidents first, then derive a sister `src/pages/Reports/TableView/`.
 - Comparison modal — next feature after this view stabilises.
+- Table totally deleted in table view when 0 incidents. Table structure + header should still exist.
