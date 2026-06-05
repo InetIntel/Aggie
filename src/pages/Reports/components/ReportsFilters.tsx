@@ -38,6 +38,7 @@ interface IReportFilters {
   showDedupToggle?: boolean;
   autoEnableDedup?: boolean;
   defaultEntityLevelSelection?: string[];
+  viewToggle?: React.ReactNode;
 }
 
 const ReportFilters = ({
@@ -54,6 +55,7 @@ const ReportFilters = ({
   showDedupToggle = true,
   autoEnableDedup = true,
   defaultEntityLevelSelection,
+  viewToggle,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -188,6 +190,7 @@ const ReportFilters = ({
                   disabled={isFetching}
                   onClick={() => refetch()}
                 ></AggieButton>
+                {viewToggle}
                 {!!searchParams.size && (
                   <AggieButton
                     className='hover:underline hover:bg-slate-100 dark:hover:bg-gray-700 px-2 py-1 text-sm rounded '

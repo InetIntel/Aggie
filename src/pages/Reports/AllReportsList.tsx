@@ -1,31 +1,54 @@
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import _ from "lodash";
 import { useMultiSelect } from "../../hooks/useMultiSelect";
 import { useQueryParams } from "../../hooks/useQueryParams";
 
 import { formatPageCount } from "../../utils/format";
 import { getReports } from "../../api/reports";
-import type { ReportQueryState } from "../../api/reports/types";
+import type { Report, ReportQueryState } from "../../api/reports/types";
 import { ALERT_MEDIA_OPTIONS, SOCIAL_MEDIA_OPTIONS } from "../../api/common";
 
 import ReportListItem from "./components/ReportListItem";
 import ReportsFilters from "./components/ReportsFilters";
+import ReportsTable from "./TableView/ReportsTable";
 import Pagination from "../../components/Pagination";
 import AggieCheck from "../../components/AggieCheck";
 import AggieButton from "../../components/AggieButton";
 
-import { faMinus, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import {
+  faList,
+  faMinus,
+  faSpinner,
+  faTable,
+} from "@fortawesome/free-solid-svg-icons";
 import MultiSelectActions from "./components/MultiSelectActions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 interface IProps { alerts: boolean }
 
+type ReportsViewMode = "list" | "table";
+type ReportsQueryStateWithView = ReportQueryState & { view?: ReportsViewMode };
+
+const VIEW_STORAGE_KEY = "alerts:view";
+
 const AllReportsList = ({ alerts }: IProps) => {
   const { id: currentPageId } = useParams();
   const navigate = useNavigate();
   const { searchParams, getAllParams, setParams, getParam } =
-    useQueryParams<ReportQueryState>();
+    useQueryParams<ReportsQueryStateWithView>();
+
+  // Table view is alerts-only; social posts keep the list.
+  const urlView = getParam("view");
+  const view: ReportsViewMode =
+    !alerts
+      ? "list"
+      : urlView === "table" || urlView === "list"
+      ? urlView
+      : localStorage.getItem(VIEW_STORAGE_KEY) === "table"
+      ? "table"
+      : "list";
 
   const platformOptions: string[] = [
     ...(alerts ? ALERT_MEDIA_OPTIONS : SOCIAL_MEDIA_OPTIONS),
@@ -41,10 +64,14 @@ const AllReportsList = ({ alerts }: IProps) => {
       !!entityLevelParam ||
       !!dataSourcesParam ||
       !!hideDuplicateASNsParam);
+  // `view` is a UI-only param: keep it out of the query key (so toggling
+  // doesn't refetch) and out of the request to the API.
+  const apiSearchParams = new URLSearchParams(searchParams);
+  apiSearchParams.delete("view");
   const reportsQueryKey = [
     "reports",
     alerts ? "alerts" : "mediaposts",
-    searchParams.toString(),
+    apiSearchParams.toString(),
   ];
 
   const {
@@ -52,10 +79,18 @@ const AllReportsList = ({ alerts }: IProps) => {
     refetch,
     isLoading,
     isFetching,
-  } = useQuery(reportsQueryKey, () => getReports(getAllParams(searchParams), alerts), {
-    refetchInterval: 120000,
-    enabled: !shouldResetSocialFilters,
-  });
+  } = useQuery(
+    reportsQueryKey,
+    () =>
+      getReports(
+        _.omit(getAllParams(apiSearchParams), "view") as ReportQueryState,
+        alerts,
+      ),
+    {
+      refetchInterval: 120000,
+      enabled: !shouldResetSocialFilters,
+    },
+  );
   useEffect(() => {
     document.title = alerts ? "Alerts - Aggie" : "Social Media Posts - Aggie";
     multiSelect.set([]);
@@ -73,6 +108,47 @@ const AllReportsList = ({ alerts }: IProps) => {
   function onReportItemClick(id: string) {
     navigate({ pathname: `${id}`, search: searchParams.toString() });
   }
+
+  const viewToggle = alerts ? (
+    <div
+      role='group'
+      aria-label='View mode'
+      className='inline-flex border border-slate-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800'
+    >
+      <AggieButton
+        icon={faList}
+        override
+        className={`px-3 py-1 text-sm font-medium flex gap-2 items-center ${
+          view === "list"
+            ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
+            : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+        }`}
+        aria-pressed={view === "list"}
+        onClick={() => {
+          localStorage.setItem(VIEW_STORAGE_KEY, "list");
+          setParams({ view: undefined });
+        }}
+      >
+        List
+      </AggieButton>
+      <AggieButton
+        icon={faTable}
+        override
+        className={`px-3 py-1 text-sm font-medium flex gap-2 items-center border-l border-slate-300 dark:border-gray-600 ${
+          view === "table"
+            ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
+            : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+        }`}
+        aria-pressed={view === "table"}
+        onClick={() => {
+          localStorage.setItem(VIEW_STORAGE_KEY, "table");
+          setParams({ view: "table" });
+        }}
+      >
+        Table
+      </AggieButton>
+    </div>
+  ) : undefined;
 
   useEffect(() => {
     if (!shouldResetSocialFilters) return;
@@ -95,6 +171,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           platformOptions={platformOptions}
           showEntityLevelFilter={alerts}
           showSignalSourcesFilter={alerts}
+          viewToggle={viewToggle}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton
@@ -141,6 +218,20 @@ const AllReportsList = ({ alerts }: IProps) => {
         </div>
       </div>
 
+      {view === "table" ? (
+        <ReportsTable
+          data={reports?.results ?? []}
+          isLoading={isLoading}
+          queryKey={reportsQueryKey}
+          currentPageId={currentPageId}
+          onRowClick={(report: Report) => onReportItemClick(report._id)}
+          selection={{
+            isActive: multiSelect.isActive,
+            isChecked: (report) => multiSelect.exists(report),
+            onToggle: (report) => multiSelect.addRemove(report),
+          }}
+        />
+      ) : (
       <div className='flex flex-col border border-slate-300 rounded-lg bg-white dark:bg-gray-800'>
         {!!reports?.results && reports?.total > 0 ? (
           reports?.results.map((report) => (
@@ -175,6 +266,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           </div>
         )}
       </div>
+      )}
       <div className='flex flex-col items-center justify-center mt-3 mb-40 w-full'>
         <div className='w-fit text-sm'>
           <Pagination
