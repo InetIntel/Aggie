@@ -9,8 +9,9 @@ import type { Group, GroupQueryState, Groups } from "../../api/groups/types";
 import { Link, useNavigationType } from "react-router-dom";
 import IncidentsFilters from "./IncidentsFilters";
 import IncidentListItem from "./IncidentListItem";
+import IncidentsTable from "./TableView/IncidentsTable";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus, faRefresh } from "@fortawesome/free-solid-svg-icons";
+import { faList, faPlus, faRefresh, faTable } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import AggieButton from "../../components/AggieButton";
@@ -20,15 +21,20 @@ import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
 
 let savedScrollTop: number | null = null;
 
+type IncidentsViewMode = "list" | "table";
+type IncidentsQueryState = GroupQueryState & { view?: IncidentsViewMode };
+
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
-    useQueryParams<GroupQueryState>();
+    useQueryParams<IncidentsQueryState>();
   const queryData = useUpdateQueryData();
   const navigationType = useNavigationType();
 
+  const view: IncidentsViewMode = getParam("view") === "table" ? "table" : "list";
+
   const { data, refetch, isLoading, isFetching } = useQuery(
     ["groups"],
-    () => getGroups(getAllParams(searchParams)),
+    () => getGroups(_.omit(getAllParams(searchParams), "view") as GroupQueryState),
     {
       refetchInterval: 120000,
     }
@@ -101,12 +107,46 @@ const Incidents = () => {
             onClick={() => refetch()}
           ></AggieButton>
         </div>
-        <Link
-          to='new'
-          className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 dark:hover:text-gray-300 hover:bg-green-700 text-slate-100 dark:text-gray-300 rounded-lg font-medium dark:bg-green-800 dark:hover:bg-green-700 dark:saturate-[0.7] '
-        >
-          <FontAwesomeIcon icon={faPlus} /> Create New Incident
-        </Link>
+        <div className='flex items-center gap-2'>
+          <div
+            role='group'
+            aria-label='View mode'
+            className='inline-flex border border-slate-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800'
+          >
+            <AggieButton
+              icon={faList}
+              override
+              className={`px-3 py-2 text-sm font-medium flex gap-2 items-center ${
+                view === "list"
+                  ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
+                  : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+              }`}
+              aria-pressed={view === "list"}
+              onClick={() => setParams({ view: undefined })}
+            >
+              List
+            </AggieButton>
+            <AggieButton
+              icon={faTable}
+              override
+              className={`px-3 py-2 text-sm font-medium flex gap-2 items-center border-l border-slate-300 dark:border-gray-600 ${
+                view === "table"
+                  ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
+                  : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+              }`}
+              aria-pressed={view === "table"}
+              onClick={() => setParams({ view: "table" })}
+            >
+              Table
+            </AggieButton>
+          </div>
+          <Link
+            to='new'
+            className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 dark:hover:text-gray-300 hover:bg-green-700 text-slate-100 dark:text-gray-300 rounded-lg font-medium dark:bg-green-800 dark:hover:bg-green-700 dark:saturate-[0.7] '
+          >
+            <FontAwesomeIcon icon={faPlus} /> Create New Incident
+          </Link>
+        </div>
       </header>
 
       <IncidentsFilters
@@ -116,17 +156,24 @@ const Incidents = () => {
         isQuery={!!searchParams.size}
         clearAll={clearAllParams}
       />
-      <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 z-0 '>
-        {!!data && !!data.total ? (
-          data.results.map((incident) => (
-            <IncidentListItem key={incident._id} item={incident} />
-          ))
-        ) : (
-          <div className='w-full bg-white dark:bg-gray-800 py-12 grid place-items-center font-medium'>
-            <p>{isLoading ? "Loading data..." : "No Results Found"}</p>
-          </div>
-        )}
-      </div>
+      {view === "table" ? (
+        <IncidentsTable
+          data={data?.results ?? []}
+          isLoading={isLoading}
+        />
+      ) : (
+        <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 z-0 '>
+          {!!data && !!data.total ? (
+            data.results.map((incident) => (
+              <IncidentListItem key={incident._id} item={incident} />
+            ))
+          ) : (
+            <div className='w-full bg-white dark:bg-gray-800 py-12 grid place-items-center font-medium'>
+              <p>{isLoading ? "Loading data..." : "No Results Found"}</p>
+            </div>
+          )}
+        </div>
+      )}
       <div className='w-full flex items-center flex-col mb-10 mt-3'>
         <div className='w-fit text-sm'>
           <Pagination
