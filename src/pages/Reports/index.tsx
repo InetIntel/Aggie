@@ -2,7 +2,6 @@ import {
   useOutlet,
   useParams,
   useLocation,
-  useSearchParams,
   useNavigate,
 } from "react-router-dom";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
@@ -18,21 +17,16 @@ const Reports = ({ children }: IProps) => {
   const queryData = useUpdateQueryData();
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { id: pageId } = useParams();
   const outlet = useOutlet();
 
-  // Alerts table view goes full-width; the report detail becomes a slide-over
-  // drawer instead of the permanent right column. (Mirrors the `view` param
-  // resolution in AllReportsList — URL → localStorage → default list.)
-  const isAlerts = location.pathname.startsWith("/alerts");
-  const urlView = searchParams.get("view");
-  const isTableView =
-    isAlerts &&
-    (urlView === "table" ||
-      (urlView !== "list" &&
-        localStorage.getItem("alerts:view") === "table"));
+  // The list/table now show report detail inline (expandable rows), so this
+  // wrapper is full-width. A deep link to /alerts/:id (or /mediaposts/:id)
+  // still renders the standalone detail in a slide-over drawer as a fallback.
   const hasOutlet = !!outlet && !!outlet.type;
+  const basePath = location.pathname.startsWith("/mediaposts")
+    ? "/mediaposts"
+    : "/alerts";
 
   interface ReportUpdateEvent extends SocketEvent {
     data: {
@@ -84,39 +78,22 @@ const Reports = ({ children }: IProps) => {
   };
   useSocketSubscribe("reports:update", handleSocketUpdate);
 
-  if (isTableView) {
-    return (
-      <section className='max-w-screen-2xl mx-auto px-4'>
-        <main>{children}</main>
-        {hasOutlet && (
-          <>
-            <div
-              className='fixed inset-0 bg-black/20 z-20'
-              onClick={() =>
-                navigate({ pathname: "/alerts", search: location.search })
-              }
-            />
-            <aside className='fixed top-0 right-0 h-full w-full max-w-xl z-30 bg-slate-50 dark:bg-gray-900 shadow-xl overflow-y-auto p-4'>
-              {outlet}
-            </aside>
-          </>
-        )}
-      </section>
-    );
-  }
-
   return (
-    <section className='max-w-screen-2xl mx-auto px-4 grid grid-cols-3 gap-3'>
-      <main className='col-span-2 '>{children}</main>
-      <aside className='col-span-1'>
-        {!hasOutlet ? (
-          <p className='grid w-full py-24 place-items-center font-medium sticky top-2 bg-slate-50 dark:bg-gray-900  rounded-lg mt-4'>
-            Select a report to view in this window
-          </p>
-        ) : (
-          outlet
-        )}
-      </aside>
+    <section className='max-w-screen-2xl mx-auto px-4'>
+      <main>{children}</main>
+      {hasOutlet && (
+        <>
+          <div
+            className='fixed inset-0 bg-black/20 z-20'
+            onClick={() =>
+              navigate({ pathname: basePath, search: location.search })
+            }
+          />
+          <aside className='fixed top-0 right-0 h-full w-full max-w-xl z-30 bg-slate-50 dark:bg-gray-900 shadow-xl overflow-y-auto p-4'>
+            {outlet}
+          </aside>
+        </>
+      )}
     </section>
   );
 };

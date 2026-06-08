@@ -9,12 +9,12 @@ import {
 
 import type { Report } from "../../../api/reports/types";
 import { useReportMutations } from "../useReportMutations";
-import { formatText } from "../../../utils/format";
 
 import DataTable from "../../../components/DataTable/DataTable";
 import type { DataTableSelection } from "../../../components/DataTable/types";
 import AggieButton from "../../../components/AggieButton";
 import AddReportsToIncidents from "../components/AddReportsToIncident";
+import ReportDetail from "../Report/ReportDetail";
 import { buildReportColumns } from "./reportColumns";
 
 interface IProps {
@@ -45,9 +45,7 @@ const ReportRowActions = ({
   const btnPadding = "px-1 py-0.5 xl:px-1.5 xl:py-1";
 
   return (
-    // Horizontal by default; wraps to a second line only when the column is
-    // pinched, so the icons never force a horizontal scrollbar.
-    <div className='flex flex-wrap items-center gap-0.5 xl:gap-1'>
+    <div className='flex items-center justify-end gap-0.5 xl:gap-1'>
       <AggieButton
         variant={report.read ? "light:lime" : "light:amber"}
         className={`rounded-lg border border-slate-300 ${btnSize}`}
@@ -139,7 +137,6 @@ const ReportsTable = ({
       columns={columns}
       selection={selection}
       onRowClick={onRowClick}
-      actionsInMoreInfo
       rowActions={(report) => (
         <ReportRowActions
           report={report}
@@ -148,55 +145,7 @@ const ReportsTable = ({
         />
       )}
       expandedContent={(report) => (
-        <div className='flex flex-col gap-2'>
-          <div>
-            <strong className='text-teal-900 dark:text-teal-200'>
-              Content:{" "}
-            </strong>
-            <span className='whitespace-pre-line'>
-              {formatText(report.content)}
-            </span>
-          </div>
-          {report.notes && (
-            <div>
-              <strong className='text-teal-900 dark:text-teal-200'>
-                Notes:{" "}
-              </strong>
-              <span className='whitespace-pre-line'>{report.notes}</span>
-            </div>
-          )}
-          {report.aitagnames && report.aitagnames.length > 0 && (
-            <div className='flex flex-wrap gap-1 items-center'>
-              <strong className='text-teal-900 dark:text-teal-200'>
-                Tags:{" "}
-              </strong>
-              {report.aitagnames.map((tag) => (
-                <span
-                  key={tag}
-                  className='inline-block bg-teal-50 text-teal-900 border border-teal-700 text-[12px] font-medium px-1.5 rounded-sm dark:bg-teal-100 dark:saturate-[0.7]'
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-          {report.url && (
-            <div>
-              <strong className='text-teal-900 dark:text-teal-200'>
-                Source URL:{" "}
-              </strong>
-              <a
-                href={report.url}
-                target='_blank'
-                rel='noreferrer'
-                className='text-blue-700 hover:underline dark:text-blue-300 break-all'
-                onClick={(e) => e.stopPropagation()}
-              >
-                {report.url}
-              </a>
-            </div>
-          )}
-        </div>
+        <ReportDetail report={report} listQueryKey={queryKey} />
       )}
     />
   );

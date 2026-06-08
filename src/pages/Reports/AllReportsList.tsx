@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import _ from "lodash";
 import { useMultiSelect } from "../../hooks/useMultiSelect";
@@ -7,7 +7,7 @@ import { useQueryParams } from "../../hooks/useQueryParams";
 
 import { formatPageCount } from "../../utils/format";
 import { getReports } from "../../api/reports";
-import type { Report, ReportQueryState } from "../../api/reports/types";
+import type { ReportQueryState } from "../../api/reports/types";
 import { ALERT_MEDIA_OPTIONS, SOCIAL_MEDIA_OPTIONS } from "../../api/common";
 
 import ReportListItem from "./components/ReportListItem";
@@ -35,7 +35,6 @@ const VIEW_STORAGE_KEY = "alerts:view";
 
 const AllReportsList = ({ alerts }: IProps) => {
   const { id: currentPageId } = useParams();
-  const navigate = useNavigate();
   const { searchParams, getAllParams, setParams, getParam } =
     useQueryParams<ReportsQueryStateWithView>();
 
@@ -94,6 +93,7 @@ const AllReportsList = ({ alerts }: IProps) => {
   useEffect(() => {
     document.title = alerts ? "Alerts - Aggie" : "Social Media Posts - Aggie";
     multiSelect.set([]);
+    setExpandedId(null);
     document.getElementById("main_view")?.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -105,9 +105,12 @@ const AllReportsList = ({ alerts }: IProps) => {
     mapFn: (i) => i._id,
   });
 
-  function onReportItemClick(id: string) {
-    navigate({ pathname: `${id}`, search: searchParams.toString() });
-  }
+  // Which row/item is expanded to show its inline detail (single open at a time).
+  // Row click itself is intentionally left unwired — reserved for a future
+  // "compare" modal; detail is opened via the explicit expand toggle.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const toggleExpanded = (id: string) =>
+    setExpandedId((cur) => (cur === id ? null : id));
 
   const viewToggle = alerts ? (
     <div
@@ -224,7 +227,6 @@ const AllReportsList = ({ alerts }: IProps) => {
           isLoading={isLoading}
           queryKey={reportsQueryKey}
           currentPageId={currentPageId}
-          onRowClick={(report: Report) => onReportItemClick(report._id)}
           selection={{
             isActive: multiSelect.isActive,
             isChecked: (report) => multiSelect.exists(report),
@@ -235,19 +237,15 @@ const AllReportsList = ({ alerts }: IProps) => {
       <div className='flex flex-col border border-slate-300 rounded-lg bg-white dark:bg-gray-800'>
         {!!reports?.results && reports?.total > 0 ? (
           reports?.results.map((report) => (
-            <div
-              onClick={() => onReportItemClick(report._id)}
-              className='cursor-pointer group focus-theme'
-              key={report._id}
-              tabIndex={0}
-              role='button'
-            >
+            <div className='group' key={report._id}>
               <ReportListItem
                 report={report}
                 queryKey={reportsQueryKey}
                 isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
                 onCheckChange={() => multiSelect.addRemove(report)}
+                isExpanded={expandedId === report._id}
+                onToggleExpand={() => toggleExpanded(report._id)}
               />
             </div>
           ))

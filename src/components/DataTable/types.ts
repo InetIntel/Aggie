@@ -40,10 +40,10 @@ export interface DataTableProps<T> {
   getRowKey: (row: T) => string;
   isLoading?: boolean;
   emptyMessage?: React.ReactNode;
-  /** Trailing per-row actions cell. */
+  /** Per-row actions, rendered in a trailing right-aligned Actions column. */
   rowActions?: (row: T) => React.ReactNode;
   /**
-   * Extra detail rendered in the "More Info" panel, below the auto-generated
+   * Extra detail rendered in the expanded row, below the auto-generated
    * spillover blocks for hidden columns (e.g. notes, tags, url).
    */
   expandedContent?: (row: T) => React.ReactNode;
@@ -51,10 +51,4 @@ export interface DataTableProps<T> {
   rowClassName?: (row: T) => string;
   /** Optional leading checkbox column for multi-select. */
   selection?: DataTableSelection<T>;
-  /**
-   * Render `rowActions` inside the "More Info" cell (above the View toggle)
-   * instead of in a dedicated trailing Actions column. Keeps wide action
-   * groups from pushing the table past the viewport.
-   */
-  actionsInMoreInfo?: boolean;
 }

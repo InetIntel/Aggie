@@ -123,11 +123,12 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
     id: "content",
     header: "Content",
     thClassName: "pr-4",
-    // `break-words` lets long unbreakable tokens (URLs, ASN strings) wrap so the
-    // cell can shrink; without it the table can't fit narrow viewports.
-    tdClassName: "pr-4 min-w-0 max-w-[28rem] break-words",
+    // `overflow-wrap:anywhere` (unlike `break-words`) introduces soft-wrap
+    // opportunities for min-content sizing, so long unbreakable tokens (URLs,
+    // ASN strings) let the column collapse instead of forcing the table wide.
+    tdClassName: "pr-4 min-w-0 max-w-[28rem] [overflow-wrap:anywhere]",
     cell: (report) => (
-      <div className='line-clamp-2 break-words text-slate-700 dark:text-gray-300'>
+      <div className='line-clamp-2 [overflow-wrap:anywhere] text-slate-700 dark:text-gray-300'>
         {formatText(report.content)}
       </div>
     ),
