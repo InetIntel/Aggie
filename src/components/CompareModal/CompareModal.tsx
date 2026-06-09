@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
@@ -37,6 +37,11 @@ function CompareModal<T extends hasId>({
   footer,
 }: IProps<T>) {
   const [highlighted, setHighlighted] = useState<string[]>([]);
+
+  // Close once every card has been removed from the comparison.
+  useEffect(() => {
+    if (isOpen && items.length === 0) onClose();
+  }, [isOpen, items.length, onClose]);
 
   const toggleHighlight = (id: string) =>
     setHighlighted((cur) =>

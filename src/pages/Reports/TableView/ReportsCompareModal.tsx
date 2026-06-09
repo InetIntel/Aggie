@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { faFileCirclePlus, faPlus } from "@fortawesome/free-solid-svg-icons";
 
@@ -33,11 +33,6 @@ const ReportsCompareModal = ({
   const navigate = useNavigate();
   // When set, the "Add to incident" picker is open with these reports.
   const [addSelection, setAddSelection] = useState<Report[] | null>(null);
-
-  // Close the modal once every card has been removed.
-  useEffect(() => {
-    if (isOpen && reports.length === 0) onClose();
-  }, [isOpen, reports.length, onClose]);
 
   function createIncident(targets: Report[]) {
     if (!targets.length) return;
