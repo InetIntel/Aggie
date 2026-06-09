@@ -87,6 +87,7 @@ const IncidentsTable = ({ data, isLoading }: IProps) => {
             <Link
               to={`/incidents/${inc._id}`}
               className='text-blue-700 hover:underline font-medium dark:text-blue-300 leading-snug'
+              onClick={(e) => e.stopPropagation()}
             >
               {inc.title}
             </Link>

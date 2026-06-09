@@ -99,6 +99,10 @@ function DataTable<T>({
           const key = getRowKey(row);
           const isExpanded = expandedRow === key;
           const striped = i % 2 === 1;
+          // Clicking anywhere on the data row toggles the inline detail (same as
+          // the "View details" button); onRowClick is still forwarded for any
+          // future hook (e.g. a compare modal).
+          const clickable = hasExpandable || !!onRowClick;
 
           // Each logical row is its own <tbody> so the data row, the action bar,
           // and the expanded detail group together and hover as a unit.
@@ -112,8 +116,15 @@ function DataTable<T>({
               }`}
             >
               <tr
-                className={onRowClick ? "cursor-pointer" : undefined}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={clickable ? "cursor-pointer" : undefined}
+                onClick={
+                  clickable
+                    ? () => {
+                        if (hasExpandable) setExpandedRow(isExpanded ? null : key);
+                        onRowClick?.(row);
+                      }
+                    : undefined
+                }
               >
                 {showSelect && (
                   <td
@@ -152,8 +163,12 @@ function DataTable<T>({
                 <tr>
                   <td colSpan={totalCols} className='px-2 py-0.5'>
 
-                    {/* Full-width bar: centered More toggle, on its own band. */}
-                    <div className='flex items-center justify-center'>
+                    {/* Full-width bar: the whole band toggles the detail; the
+                        centered button is just the visible affordance. */}
+                    <div
+                      className='flex items-center justify-center cursor-pointer'
+                      onClick={() => setExpandedRow(isExpanded ? null : key)}
+                    >
                       <button
                         type='button'
                         onClick={(e) => {
