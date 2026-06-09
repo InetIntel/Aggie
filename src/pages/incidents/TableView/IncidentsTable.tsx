@@ -9,7 +9,10 @@ import { statusFromGroup, IncidentTableStatus } from "./statusFromGroup";
 import AsnChips from "./AsnChips";
 
 import DataTable from "../../../components/DataTable/DataTable";
-import type { DataTableColumn } from "../../../components/DataTable/types";
+import type {
+  DataTableColumn,
+  DataTableSelection,
+} from "../../../components/DataTable/types";
 import AggieDialog from "../../../components/AggieDialog";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
 import CreateEditIncidentForm from "../CreateEditIncidentForm";
@@ -17,6 +20,7 @@ import CreateEditIncidentForm from "../CreateEditIncidentForm";
 interface IProps {
   data: Group[];
   isLoading?: boolean;
+  selection?: DataTableSelection<Group>;
 }
 
 const statusClass: Record<IncidentTableStatus, string> = {
@@ -60,7 +64,7 @@ const AlertsCount = ({ count }: { count: number }) => (
   </>
 );
 
-const IncidentsTable = ({ data, isLoading }: IProps) => {
+const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
   const [editTarget, setEditTarget] = useState<Group | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
 
@@ -166,6 +170,7 @@ const IncidentsTable = ({ data, isLoading }: IProps) => {
         isLoading={isLoading}
         getRowKey={(inc) => inc._id}
         columns={columns}
+        selection={selection}
         rowActions={(inc) => (
           <div className='inline-flex items-center gap-2'>
             <button

@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../hooks/useQueryParams";
+import { useMultiSelect } from "../../hooks/useMultiSelect";
 import _ from "lodash";
 
 import { getGroups } from "../../api/groups";
@@ -10,8 +11,15 @@ import { Link, useNavigationType } from "react-router-dom";
 import IncidentsFilters from "./IncidentsFilters";
 import IncidentListItem from "./IncidentListItem";
 import IncidentsTable from "./TableView/IncidentsTable";
+import IncidentsCompareModal from "./TableView/IncidentsCompareModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faList, faPlus, faRefresh, faTable } from "@fortawesome/free-solid-svg-icons";
+import {
+  faClone,
+  faList,
+  faPlus,
+  faRefresh,
+  faTable,
+} from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import AggieButton from "../../components/AggieButton";
@@ -25,6 +33,8 @@ type IncidentsViewMode = "list" | "table";
 type IncidentsQueryState = GroupQueryState & { view?: IncidentsViewMode };
 
 const VIEW_STORAGE_KEY = "incidents:view";
+// Max incidents that can be compared side-by-side at once.
+const MAX_COMPARE = 6;
 
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
@@ -48,10 +58,30 @@ const Incidents = () => {
     }
   );
 
+  // Compare mode reuses a multi-select to pick up to MAX_COMPARE incidents, then
+  // opens a read-only side-by-side comparison modal.
+  const multiSelect = useMultiSelect<Group>({
+    allItems: data?.results,
+    mapFn: (i) => i._id,
+  });
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  function toggleCompareMode() {
+    const next = !compareMode;
+    setCompareMode(next);
+    multiSelect.set([]);
+    multiSelect.setActive(next);
+    if (!next) setCompareOpen(false);
+  }
+
   useEffect(() => {
     document.title = "Incidents - Aggie";
     // refetch on filter change
     refetch();
+    multiSelect.set([]);
+    setCompareMode(false);
+    setCompareOpen(false);
     if (navigationType !== "POP") {
       document.getElementById("main_view")?.scrollTo({
         top: 0,
@@ -154,6 +184,17 @@ const Incidents = () => {
               Table
             </AggieButton>
           </div>
+          {view === "table" && (
+            <AggieButton
+              icon={faClone}
+              variant={compareMode ? "primary" : "secondary"}
+              className='px-3 py-2 text-sm rounded-lg'
+              aria-pressed={compareMode}
+              onClick={toggleCompareMode}
+            >
+              Compare
+            </AggieButton>
+          )}
           <Link
             to='new'
             className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 dark:hover:text-gray-300 hover:bg-green-700 text-slate-100 dark:text-gray-300 rounded-lg font-medium dark:bg-green-800 dark:hover:bg-green-700 dark:saturate-[0.7] '
@@ -170,10 +211,45 @@ const Incidents = () => {
         isQuery={!!searchParams.size}
         clearAll={clearAllParams}
       />
+
+      {compareMode && (
+        <div className='flex gap-2 items-center text-xs font-medium mb-2'>
+          <p>
+            Select up to {MAX_COMPARE} incidents to compare (
+            {multiSelect.selection.length} selected)
+          </p>
+          <AggieButton
+            variant='primary'
+            icon={faClone}
+            disabled={multiSelect.selection.length < 2}
+            onClick={() => setCompareOpen(true)}
+          >
+            Compare ({multiSelect.selection.length})
+          </AggieButton>
+          <AggieButton variant='secondary' onClick={toggleCompareMode}>
+            Cancel
+          </AggieButton>
+        </div>
+      )}
+
       {view === "table" ? (
         <IncidentsTable
           data={data?.results ?? []}
           isLoading={isLoading}
+          selection={{
+            isActive: multiSelect.isActive,
+            isChecked: (group) => multiSelect.exists(group),
+            onToggle: (group) => {
+              // In compare mode, block selecting past the cap (allow deselect).
+              if (
+                compareMode &&
+                !multiSelect.exists(group) &&
+                multiSelect.selection.length >= MAX_COMPARE
+              )
+                return;
+              multiSelect.addRemove(group);
+            },
+          }}
         />
       ) : (
         <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 z-0 '>
@@ -201,6 +277,15 @@ const Incidents = () => {
           {formatPageCount(Number(getParam("page")), 50, data?.total)}
         </small>
       </div>
+
+      {compareMode && (
+        <IncidentsCompareModal
+          isOpen={compareOpen}
+          onClose={() => setCompareOpen(false)}
+          incidents={multiSelect.selection}
+          onRemoveIncident={(group) => multiSelect.addRemove(group)}
+        />
+      )}
     </section>
   );
 };

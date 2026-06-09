@@ -8,7 +8,7 @@ The alerts and incidents **table views** (see [table-views.md](./table-views.md)
 - Up to **5 of each** type in one comparison *(design mock shows 6 — final cap to confirm; implement as a constant `MAX_COMPARE`)*.
 - Layout is **side-by-side full detail** (reuse the existing detail renderers), per the provided design.
 
-> Status: **planning doc only** — the modal is not built yet. The implementation phases below are the proposed build order.
+> Status: **implemented** for both alerts (with create/add-to-incident footer) and incidents (read-only). Cap is **6** per type; footer acts on the highlighted subset (fallback to all). Remaining: the Compare-button placement design debt below.
 
 ## The design (from the provided mockup — alerts)
 
@@ -76,6 +76,10 @@ Footer counts and the ids passed come from the **in-modal highlighted** cards, n
 1. Generic `CompareModal<T>` shell (AggieDialog-based) + in-modal highlight state.
 2. Alerts: Compare toggle + `Compare (N)` entry in the alerts toolbar; `CompareAlertCard`; `ReportsCompareModal` with footer wired to the two existing flows.
 3. Incidents: add `selection`/multi-select to `IncidentsTable` (mirror `ReportsTable`); `CompareIncidentCard`; read-only `IncidentsCompareModal`.
+
+## ⚠️ Known design debt — Compare button placement
+
+**The Compare toggle button needs a design pass.** In the alerts toolbar it's appended into the `ReportsFilters` top row alongside the search box, refresh, view toggle, and inline `Pagination` — adding it there overflows the row and **pushes the pagination off the right edge of the screen**. It works, but the layout is broken at common widths. Options to consider: move Compare out of the filter row (e.g. into the page header like incidents, or a dedicated actions row), drop the inline pagination from that row, or make the toolbar wrap/responsive. The incidents page places Compare in the header (more room) but should get the same deliberate treatment.
 
 ## Verification (of the eventual feature)
 

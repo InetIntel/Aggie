@@ -60,3 +60,5 @@ Special-case the duplicate-key error so dedup is treated as expected rather than
 ## general notes / fixes
 
 - need to figure out which items in alerts and incidents are most important to users to prioritize as table resizes
+- need to handle adding alerts to incidents better. ex: when an alert is already added to an incident, it can't be added to a second incident. would one alert ever be added to multiple incidnets? if adding to different incident, the user must be informed that it will override the first incident the alert is associated with.
+- create new incident needs a back button or an x. can this just get turned into a modal?
