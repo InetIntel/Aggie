@@ -22,6 +22,9 @@ module.exports = {
           teal: {
             10: '#EAF6FA',
           },
+          secondary: {
+            500: '#237F9E',
+          },
         },
       },
     },

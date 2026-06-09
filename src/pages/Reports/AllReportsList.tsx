@@ -17,9 +17,9 @@ import ReportsCompareModal from "./TableView/ReportsCompareModal";
 import Pagination from "../../components/Pagination";
 import AggieCheck from "../../components/AggieCheck";
 import AggieButton from "../../components/AggieButton";
+import CompareIcon from "../../components/icons/CompareIcon";
 
 import {
-  faClone,
   faList,
   faMinus,
   faSpinner,
@@ -142,7 +142,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           override
           className={`px-3 py-1 text-sm font-medium flex gap-2 items-center ${
             view === "list"
-              ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
+              ? "bg-aggie-secondary-500 text-white"
               : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
           }`}
           aria-pressed={view === "list"}
@@ -158,7 +158,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           override
           className={`px-3 py-1 text-sm font-medium flex gap-2 items-center border-l border-slate-300 dark:border-gray-600 ${
             view === "table"
-              ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
+              ? "bg-aggie-secondary-500 text-white"
               : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
           }`}
           aria-pressed={view === "table"}
@@ -172,12 +172,15 @@ const AllReportsList = ({ alerts }: IProps) => {
       </div>
       {view === "table" && (
         <AggieButton
-          icon={faClone}
-          variant={compareMode ? "primary" : "secondary"}
-          className='px-3 py-1 text-sm rounded-lg'
+          className={`px-3 py-1 text-sm rounded-lg border ${
+            compareMode
+              ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
+              : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+          }`}
           aria-pressed={compareMode}
           onClick={toggleCompareMode}
         >
+          <CompareIcon className='w-4 h-4' />
           Compare
         </AggieButton>
       )}
@@ -238,12 +241,13 @@ const AllReportsList = ({ alerts }: IProps) => {
                 {multiSelect.selection.length} selected)
               </p>
               <AggieButton
-                variant='primary'
-                icon={faClone}
+                className='px-3 py-1 text-sm rounded-lg bg-aggie-secondary-500 text-white hover:bg-aggie-secondary-500/90'
                 disabled={multiSelect.selection.length < 2}
                 onClick={() => setCompareOpen(true)}
               >
-                Compare ({multiSelect.selection.length})
+                <CompareIcon className='w-4 h-4' />
+                Compare: {multiSelect.selection.length} item
+                {multiSelect.selection.length === 1 ? "" : "s"}
               </AggieButton>
               <AggieButton variant='secondary' onClick={toggleCompareMode}>
                 Cancel
