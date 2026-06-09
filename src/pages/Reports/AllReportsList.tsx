@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import _ from "lodash";
@@ -13,11 +13,13 @@ import { ALERT_MEDIA_OPTIONS, SOCIAL_MEDIA_OPTIONS } from "../../api/common";
 import ReportListItem from "./components/ReportListItem";
 import ReportsFilters from "./components/ReportsFilters";
 import ReportsTable from "./TableView/ReportsTable";
+import ReportsCompareModal from "./TableView/ReportsCompareModal";
 import Pagination from "../../components/Pagination";
 import AggieCheck from "../../components/AggieCheck";
 import AggieButton from "../../components/AggieButton";
 
 import {
+  faClone,
   faList,
   faMinus,
   faSpinner,
@@ -32,6 +34,8 @@ type ReportsViewMode = "list" | "table";
 type ReportsQueryStateWithView = ReportQueryState & { view?: ReportsViewMode };
 
 const VIEW_STORAGE_KEY = "alerts:view";
+// Max alerts that can be compared side-by-side at once (3×2 grid in the design).
+const MAX_COMPARE = 6;
 
 const AllReportsList = ({ alerts }: IProps) => {
   const { id: currentPageId } = useParams();
@@ -94,6 +98,8 @@ const AllReportsList = ({ alerts }: IProps) => {
   useEffect(() => {
     document.title = alerts ? "Alerts - Aggie" : "Social Media Posts - Aggie";
     multiSelect.set([]);
+    setCompareMode(false);
+    setCompareOpen(false);
     document.getElementById("main_view")?.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -105,6 +111,19 @@ const AllReportsList = ({ alerts }: IProps) => {
     mapFn: (i) => i._id,
   });
 
+  // Compare mode reuses the table's multi-select to pick up to MAX_COMPARE
+  // alerts, then opens a side-by-side comparison modal.
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  function toggleCompareMode() {
+    const next = !compareMode;
+    setCompareMode(next);
+    multiSelect.set([]);
+    multiSelect.setActive(next);
+    if (!next) setCompareOpen(false);
+  }
+
   // List view opens a report's detail in the persistent right panel (1/3 column
   // in Reports/index.tsx). Table view shows detail inline instead.
   function onReportItemClick(id: string) {
@@ -112,43 +131,56 @@ const AllReportsList = ({ alerts }: IProps) => {
   }
 
   const viewToggle = alerts ? (
-    <div
-      role='group'
-      aria-label='View mode'
-      className='inline-flex border border-slate-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800'
-    >
-      <AggieButton
-        icon={faList}
-        override
-        className={`px-3 py-1 text-sm font-medium flex gap-2 items-center ${
-          view === "list"
-            ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
-            : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-        }`}
-        aria-pressed={view === "list"}
-        onClick={() => {
-          localStorage.setItem(VIEW_STORAGE_KEY, "list");
-          setParams({ view: undefined });
-        }}
+    <div className='flex items-center gap-2'>
+      <div
+        role='group'
+        aria-label='View mode'
+        className='inline-flex border border-slate-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800'
       >
-        List
-      </AggieButton>
-      <AggieButton
-        icon={faTable}
-        override
-        className={`px-3 py-1 text-sm font-medium flex gap-2 items-center border-l border-slate-300 dark:border-gray-600 ${
-          view === "table"
-            ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
-            : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-        }`}
-        aria-pressed={view === "table"}
-        onClick={() => {
-          localStorage.setItem(VIEW_STORAGE_KEY, "table");
-          setParams({ view: "table" });
-        }}
-      >
-        Table
-      </AggieButton>
+        <AggieButton
+          icon={faList}
+          override
+          className={`px-3 py-1 text-sm font-medium flex gap-2 items-center ${
+            view === "list"
+              ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
+              : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+          }`}
+          aria-pressed={view === "list"}
+          onClick={() => {
+            localStorage.setItem(VIEW_STORAGE_KEY, "list");
+            setParams({ view: undefined });
+          }}
+        >
+          List
+        </AggieButton>
+        <AggieButton
+          icon={faTable}
+          override
+          className={`px-3 py-1 text-sm font-medium flex gap-2 items-center border-l border-slate-300 dark:border-gray-600 ${
+            view === "table"
+              ? "bg-slate-200 dark:bg-gray-600 text-slate-900 dark:text-gray-100"
+              : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+          }`}
+          aria-pressed={view === "table"}
+          onClick={() => {
+            localStorage.setItem(VIEW_STORAGE_KEY, "table");
+            setParams({ view: "table" });
+          }}
+        >
+          Table
+        </AggieButton>
+      </div>
+      {view === "table" && (
+        <AggieButton
+          icon={faClone}
+          variant={compareMode ? "primary" : "secondary"}
+          className='px-3 py-1 text-sm rounded-lg'
+          aria-pressed={compareMode}
+          onClick={toggleCompareMode}
+        >
+          Compare
+        </AggieButton>
+      )}
     </div>
   ) : undefined;
 
@@ -175,7 +207,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           showSignalSourcesFilter={alerts}
           viewToggle={viewToggle}
           headerElement={
-            multiSelect.isActive ? (
+            compareMode ? undefined : multiSelect.isActive ? (
               <AggieButton
                 variant='secondary'
                 className='text-xs font-medium '
@@ -195,27 +227,48 @@ const AllReportsList = ({ alerts }: IProps) => {
           }
         />
         <div
-          className={`px-1 flex gap-2 text-xs font-medium items-center ${multiSelect.isActive ? "mt-2" : ""
-            }`}
+          className={`px-1 flex gap-2 text-xs font-medium items-center ${
+            compareMode || multiSelect.isActive ? "mt-2" : ""
+          }`}
         >
-          {multiSelect.isActive && (
+          {compareMode ? (
             <>
-              <AggieCheck
-                active={multiSelect.any()}
-                icon={!multiSelect.all() ? faMinus : undefined}
-                onClick={() => multiSelect.addRemoveAll(reports?.results)}
-              />
               <p>
-                Mark {multiSelect.selection.length} report{"(s)"} as:
+                Select up to {MAX_COMPARE} alerts to compare (
+                {multiSelect.selection.length} selected)
               </p>
-              <MultiSelectActions
-                queryKey={reportsQueryKey}
-                selection={multiSelect.selection}
-                disabled={!multiSelect.any()}
-                currentPageId={currentPageId}
-                addRemoveSelection={multiSelect.addRemove}
-              />
+              <AggieButton
+                variant='primary'
+                icon={faClone}
+                disabled={multiSelect.selection.length < 2}
+                onClick={() => setCompareOpen(true)}
+              >
+                Compare ({multiSelect.selection.length})
+              </AggieButton>
+              <AggieButton variant='secondary' onClick={toggleCompareMode}>
+                Cancel
+              </AggieButton>
             </>
+          ) : (
+            multiSelect.isActive && (
+              <>
+                <AggieCheck
+                  active={multiSelect.any()}
+                  icon={!multiSelect.all() ? faMinus : undefined}
+                  onClick={() => multiSelect.addRemoveAll(reports?.results)}
+                />
+                <p>
+                  Mark {multiSelect.selection.length} report{"(s)"} as:
+                </p>
+                <MultiSelectActions
+                  queryKey={reportsQueryKey}
+                  selection={multiSelect.selection}
+                  disabled={!multiSelect.any()}
+                  currentPageId={currentPageId}
+                  addRemoveSelection={multiSelect.addRemove}
+                />
+              </>
+            )
           )}
         </div>
       </div>
@@ -229,7 +282,16 @@ const AllReportsList = ({ alerts }: IProps) => {
           selection={{
             isActive: multiSelect.isActive,
             isChecked: (report) => multiSelect.exists(report),
-            onToggle: (report) => multiSelect.addRemove(report),
+            onToggle: (report) => {
+              // In compare mode, block selecting past the cap (allow deselect).
+              if (
+                compareMode &&
+                !multiSelect.exists(report) &&
+                multiSelect.selection.length >= MAX_COMPARE
+              )
+                return;
+              multiSelect.addRemove(report);
+            },
           }}
         />
       ) : (
@@ -281,6 +343,17 @@ const AllReportsList = ({ alerts }: IProps) => {
           {formatPageCount(Number(getParam("page")), 50, reports?.total)}
         </small>
       </div>
+
+      {compareMode && (
+        <ReportsCompareModal
+          isOpen={compareOpen}
+          onClose={() => setCompareOpen(false)}
+          reports={multiSelect.selection}
+          queryKey={reportsQueryKey}
+          currentPageId={currentPageId}
+          onRemoveReport={(report) => multiSelect.addRemove(report)}
+        />
+      )}
     </>
   );
 };

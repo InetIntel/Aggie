@@ -199,4 +199,4 @@ When revisiting: consider whether the alert row is better served by a denser cus
 
 ## Next iteration: compare modal
 
-Row click is deliberately unwired in both alert views so it can drive a future **compare modal** (select/compare multiple alerts side-by-side). When building it: wire the row's click handler (table via `DataTable`'s `onRowClick`, list via the item wrapper) to open the comparison, keeping the expand toggle as the inline-detail affordance.
+See [compare-modal.md](./compare-modal.md) for the design + plan. (Note: row click now toggles the inline detail, so the compare modal is triggered by a **Compare** mode toggle + multi-select, not by row click.)

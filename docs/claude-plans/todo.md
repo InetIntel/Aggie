@@ -56,3 +56,7 @@ Special-case the duplicate-key error so dedup is treated as expected rather than
 - [backend/fetching/hooks/saveToDatabase.js](../../backend/fetching/hooks/saveToDatabase.js) — the hook
 - [backend/models/report.js:28](../../backend/models/report.js#L28) — unique `guid` index
 - `backend/fetching/utils/socialImageStorage.js` — `deleteSocialAttachments` (verify path resolution)
+
+## general notes / fixes
+
+- need to figure out which items in alerts and incidents are most important to users to prioritize as table resizes
