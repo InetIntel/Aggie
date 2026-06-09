@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import _ from "lodash";
 import { useMultiSelect } from "../../hooks/useMultiSelect";
@@ -35,6 +35,7 @@ const VIEW_STORAGE_KEY = "alerts:view";
 
 const AllReportsList = ({ alerts }: IProps) => {
   const { id: currentPageId } = useParams();
+  const navigate = useNavigate();
   const { searchParams, getAllParams, setParams, getParam } =
     useQueryParams<ReportsQueryStateWithView>();
 
@@ -93,7 +94,6 @@ const AllReportsList = ({ alerts }: IProps) => {
   useEffect(() => {
     document.title = alerts ? "Alerts - Aggie" : "Social Media Posts - Aggie";
     multiSelect.set([]);
-    setExpandedId(null);
     document.getElementById("main_view")?.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -105,12 +105,11 @@ const AllReportsList = ({ alerts }: IProps) => {
     mapFn: (i) => i._id,
   });
 
-  // Which row/item is expanded to show its inline detail (single open at a time).
-  // Row click itself is intentionally left unwired — reserved for a future
-  // "compare" modal; detail is opened via the explicit expand toggle.
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const toggleExpanded = (id: string) =>
-    setExpandedId((cur) => (cur === id ? null : id));
+  // List view opens a report's detail in the persistent right panel (1/3 column
+  // in Reports/index.tsx). Table view shows detail inline instead.
+  function onReportItemClick(id: string) {
+    navigate({ pathname: `${id}`, search: searchParams.toString() });
+  }
 
   const viewToggle = alerts ? (
     <div
@@ -237,15 +236,19 @@ const AllReportsList = ({ alerts }: IProps) => {
       <div className='flex flex-col border border-slate-300 rounded-lg bg-white dark:bg-gray-800'>
         {!!reports?.results && reports?.total > 0 ? (
           reports?.results.map((report) => (
-            <div className='group' key={report._id}>
+            <div
+              onClick={() => onReportItemClick(report._id)}
+              className='cursor-pointer group focus-theme'
+              key={report._id}
+              tabIndex={0}
+              role='button'
+            >
               <ReportListItem
                 report={report}
                 queryKey={reportsQueryKey}
                 isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
                 onCheckChange={() => multiSelect.addRemove(report)}
-                isExpanded={expandedId === report._id}
-                onToggleExpand={() => toggleExpanded(report._id)}
               />
             </div>
           ))
