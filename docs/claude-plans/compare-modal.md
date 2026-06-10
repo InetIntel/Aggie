@@ -8,7 +8,7 @@ The alerts and incidents **table views** (see [table-views.md](./table-views.md)
 - Up to **5 of each** type in one comparison *(design mock shows 6 — final cap to confirm; implement as a constant `MAX_COMPARE`)*.
 - Layout is **side-by-side full detail** (reuse the existing detail renderers), per the provided design.
 
-> Status: **implemented** for both alerts (with create/add-to-incident footer) and incidents (read-only). Cap is **6** per type; footer acts on the highlighted subset (fallback to all). Remaining: the Compare-button placement design debt below.
+> Status: **implemented** for both alerts (with create/add-to-incident footer) and incidents (read-only). Cap is **6** per type; footer acts on the highlighted subset (fallback to all). The Compare-button placement design debt is resolved (see below).
 
 ## The design (from the provided mockup — alerts)
 
@@ -29,7 +29,7 @@ A large centered modal over a dimmed backdrop, **✕ close** top-right. Body is 
 
 ## Trigger & selection flow
 
-- A **Compare** toggle button in the table toolbar (next to the List/Table view toggle for alerts; a new toolbar control for incidents) turns on compare-select mode.
+- A **Compare** toggle button next to the List/Table view toggle — both live in a dedicated row directly above the table on both pages — turns on compare-select mode.
 - Selection reuses the existing **`useMultiSelect`** hook ([src/hooks/useMultiSelect.ts](../../src/hooks/useMultiSelect.ts)) and `DataTable`'s `selection` prop (`isActive`/`isChecked`/`onToggle`), already wired for alerts in [AllReportsList.tsx](../../src/pages/Reports/AllReportsList.tsx). Cap selection at `MAX_COMPARE`.
 - A **Compare (N)** button (enabled at ≥2 selected) opens the modal with `multiSelect.selection`.
 - Note: row-click now toggles inline detail (see [table-views.md](./table-views.md)), so compare must use the toggle/checkbox path, **not** row-click.
@@ -77,9 +77,9 @@ Footer counts and the ids passed come from the **in-modal highlighted** cards, n
 2. Alerts: Compare toggle + `Compare (N)` entry in the alerts toolbar; `CompareAlertCard`; `ReportsCompareModal` with footer wired to the two existing flows.
 3. Incidents: add `selection`/multi-select to `IncidentsTable` (mirror `ReportsTable`); `CompareIncidentCard`; read-only `IncidentsCompareModal`.
 
-## ⚠️ Known design debt — Compare button placement
+## Compare button placement (debt resolved)
 
-**The Compare toggle button needs a design pass.** In the alerts toolbar it's appended into the `ReportsFilters` top row alongside the search box, refresh, view toggle, and inline `Pagination` — adding it there overflows the row and **pushes the pagination off the right edge of the screen**. It works, but the layout is broken at common widths. Options to consider: move Compare out of the filter row (e.g. into the page header like incidents, or a dedicated actions row), drop the inline pagination from that row, or make the toolbar wrap/responsive. The incidents page places Compare in the header (more room) but should get the same deliberate treatment.
+The earlier overflow problem (Compare appended into the crowded `ReportsFilters` top row, pushing the inline `Pagination` off-screen; incidents had it crammed into the page header) is fixed: on **both pages** the List/Table view toggle and the Compare toggle now live in a **dedicated toolbar row directly above the table**, and the compare-mode controls ("Select up to N…", **Compare: N**, **Cancel**) render inline in that same row when compare mode is on. The filter rows and headers were also hardened with `flex-wrap` (and a shrinkable search input on alerts) so they wrap instead of overflowing at narrow widths. See [table-views.md](./table-views.md) for the current toolbar layout.
 
 ## Verification (of the eventual feature)
 

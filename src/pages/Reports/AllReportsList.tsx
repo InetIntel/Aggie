@@ -208,7 +208,6 @@ const AllReportsList = ({ alerts }: IProps) => {
           platformOptions={platformOptions}
           showEntityLevelFilter={alerts}
           showSignalSourcesFilter={alerts}
-          viewToggle={viewToggle}
           headerElement={
             compareMode ? undefined : multiSelect.isActive ? (
               <AggieButton
@@ -229,52 +228,50 @@ const AllReportsList = ({ alerts }: IProps) => {
             )
           }
         />
-        <div
-          className={`px-1 flex gap-2 text-xs font-medium items-center ${
-            compareMode || multiSelect.isActive ? "mt-2" : ""
-          }`}
-        >
-          {compareMode ? (
-            <>
-              <p>
-                Select up to {MAX_COMPARE} alerts to compare (
-                {multiSelect.selection.length} selected)
-              </p>
-              <AggieButton
-                className='px-3 py-1 text-sm rounded-lg bg-aggie-secondary-500 text-white hover:bg-aggie-secondary-500/90'
-                disabled={multiSelect.selection.length < 2}
-                onClick={() => setCompareOpen(true)}
-              >
-                <CompareIcon className='w-4 h-4' />
-                Compare: {multiSelect.selection.length} item
-                {multiSelect.selection.length === 1 ? "" : "s"}
-              </AggieButton>
-              <AggieButton variant='secondary' onClick={toggleCompareMode}>
-                Cancel
-              </AggieButton>
-            </>
-          ) : (
-            multiSelect.isActive && (
+        {!compareMode && multiSelect.isActive && (
+          <div className='px-1 flex gap-2 text-xs font-medium items-center mt-2'>
+            <AggieCheck
+              active={multiSelect.any()}
+              icon={!multiSelect.all() ? faMinus : undefined}
+              onClick={() => multiSelect.addRemoveAll(reports?.results)}
+            />
+            <p>
+              Mark {multiSelect.selection.length} report{"(s)"} as:
+            </p>
+            <MultiSelectActions
+              queryKey={reportsQueryKey}
+              selection={multiSelect.selection}
+              disabled={!multiSelect.any()}
+              currentPageId={currentPageId}
+              addRemoveSelection={multiSelect.addRemove}
+            />
+          </div>
+        )}
+        {alerts && (
+          <div className='px-1 flex flex-wrap items-center gap-2 mt-2 text-xs font-medium'>
+            {viewToggle}
+            {compareMode && (
               <>
-                <AggieCheck
-                  active={multiSelect.any()}
-                  icon={!multiSelect.all() ? faMinus : undefined}
-                  onClick={() => multiSelect.addRemoveAll(reports?.results)}
-                />
                 <p>
-                  Mark {multiSelect.selection.length} report{"(s)"} as:
+                  Select up to {MAX_COMPARE} alerts to compare (
+                  {multiSelect.selection.length} selected)
                 </p>
-                <MultiSelectActions
-                  queryKey={reportsQueryKey}
-                  selection={multiSelect.selection}
-                  disabled={!multiSelect.any()}
-                  currentPageId={currentPageId}
-                  addRemoveSelection={multiSelect.addRemove}
-                />
+                <AggieButton
+                  className='px-3 py-1 text-sm rounded-lg bg-aggie-secondary-500 text-white hover:bg-aggie-secondary-500/90'
+                  disabled={multiSelect.selection.length < 2}
+                  onClick={() => setCompareOpen(true)}
+                >
+                  <CompareIcon className='w-4 h-4' />
+                  Compare: {multiSelect.selection.length} item
+                  {multiSelect.selection.length === 1 ? "" : "s"}
+                </AggieButton>
+                <AggieButton variant='secondary' onClick={toggleCompareMode}>
+                  Cancel
+                </AggieButton>
               </>
-            )
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {view === "table" ? (

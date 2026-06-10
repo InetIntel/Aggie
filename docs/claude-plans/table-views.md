@@ -49,7 +49,7 @@ Key props:
 
 ### Files
 
-- [src/pages/incidents/index.tsx](../../src/pages/incidents/index.tsx) — hosts the `view` URL param and the segmented toggle in the page header; renders the list block or `<IncidentsTable>`. `IncidentsFilters`, `Pagination`, refresh / Create buttons wrap whichever view is active.
+- [src/pages/incidents/index.tsx](../../src/pages/incidents/index.tsx) — hosts the `view` URL param and the segmented toggle (in a toolbar row directly above the table, with the Compare button); renders the list block or `<IncidentsTable>`. `IncidentsFilters`, `Pagination`, refresh / Create buttons wrap whichever view is active.
 - [src/pages/incidents/TableView/IncidentsTable.tsx](../../src/pages/incidents/TableView/IncidentsTable.tsx) — builds the column config + edit/delete dialogs; renders `<DataTable>`.
 - [src/pages/incidents/TableView/AsnChips.tsx](../../src/pages/incidents/TableView/AsnChips.tsx) — `Group.impactedAsns` as teal chips with `+N` overflow.
 - [src/pages/incidents/TableView/statusFromGroup.ts](../../src/pages/incidents/TableView/statusFromGroup.ts) — derives `"Open" | "Closed" | "In Progress"`.
@@ -95,7 +95,7 @@ Rendered in the action bar:
 
 ### View toggle
 
-`view` is a URL param via `useQueryParams` (`?view=table` survives reload). The toggle is a small segmented control of two `AggieButton`s in the page header next to the refresh button.
+`view` is a URL param via `useQueryParams` (`?view=table` survives reload). The toggle is a small segmented control of two `AggieButton`s in a toolbar row directly above the table/list (below `IncidentsFilters`), alongside the **Compare** button (table view only) and the inline compare-mode controls. The page header holds only the title, refresh, and Create New Incident.
 
 ---
 
@@ -107,7 +107,7 @@ Rendered in the action bar:
 - [src/pages/Reports/TableView/reportColumns.tsx](../../src/pages/Reports/TableView/reportColumns.tsx) — column defs + cell components (`PlatformCell`, `StatusCell`, `SignalCell`, `IncidentCell`) and helpers (`reportSource`, `reportSignal`).
 - [src/pages/Reports/AllReportsList.tsx](../../src/pages/Reports/AllReportsList.tsx) — hosts the `view` URL param + segmented toggle; renders `<ReportsTable>` vs the list block. Strips `view` from the API query/key. Owns the list view's `expandedId` (single open at a time).
 - [src/pages/Reports/index.tsx](../../src/pages/Reports/index.tsx) — wrapper is **full-width for both views** (the persistent right detail column is retired). A deep link to `/alerts/:id` (or `/mediaposts/:id`) still renders the standalone detail in a right slide-over drawer as a fallback.
-- [src/pages/Reports/components/ReportsFilters.tsx](../../src/pages/Reports/components/ReportsFilters.tsx) — optional `viewToggle` prop next to the refresh button.
+- [src/pages/Reports/components/ReportsFilters.tsx](../../src/pages/Reports/components/ReportsFilters.tsx) — search/refresh/pagination + filter rows (`flex-wrap` hardened; the view toggle no longer renders here).
 - [src/pages/Reports/Report/ReportDetail.tsx](../../src/pages/Reports/Report/ReportDetail.tsx) — **shared presentational detail** (action toolbar + `SocialMediaPost`, marks read on view). Used inline by both the list (`ReportListItem`) and table (expand panel), and by the standalone `/alerts/:id` route ([Report/index.tsx](../../src/pages/Reports/Report/index.tsx), now a thin fetch-by-id wrapper).
 - [src/pages/Reports/components/ReportListItem.tsx](../../src/pages/Reports/components/ReportListItem.tsx) — optional `isExpanded`/`onToggleExpand` props add a "View details" toggle that renders `<ReportDetail>` inline (alerts/mediaposts list).
 
@@ -158,7 +158,7 @@ Both the list and table reveal an alert's **full detail inline** rather than in 
 ### Layout & view toggle
 
 - `view` param resolved three-tier: URL (`?view=table`) → `localStorage["alerts:view"]` → default `list`. `view` is stripped from the report query (key + request) so toggling never refetches.
-- Toggle: two `AggieButton`s (`faList`/`faTable`, `override`, `role="group"`), passed into `ReportsFilters` via `viewToggle`, beside the refresh button.
+- Toggle: two `AggieButton`s (`faList`/`faTable`, `override`, `role="group"`), rendered in a toolbar row at the bottom of the sticky filter bar, directly above the table/list. The **Compare** button (table view only) and the inline compare-mode controls share this row. The filter rows above it are `flex-wrap` hardened and the search input shrinks, so nothing overflows horizontally.
 - Full-width: both views render `main` at full width — the permanent right detail column is retired in favor of inline expansion. A deep link to `/alerts/:id` still opens the standalone detail in a slide-over drawer (backdrop click → back to the base path, preserving filters).
 
 ---

@@ -38,7 +38,6 @@ interface IReportFilters {
   showDedupToggle?: boolean;
   autoEnableDedup?: boolean;
   defaultEntityLevelSelection?: string[];
-  viewToggle?: React.ReactNode;
 }
 
 const ReportFilters = ({
@@ -55,7 +54,6 @@ const ReportFilters = ({
   showDedupToggle = true,
   autoEnableDedup = true,
   defaultEntityLevelSelection,
-  viewToggle,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -161,7 +159,7 @@ const ReportFilters = ({
 
   return (
     <>
-      <div className='flex justify-between mb-2'>
+      <div className='flex flex-wrap justify-between items-center gap-2 mb-2'>
         <div className='flex gap-1'>
           <Formik
             initialValues={{ keywords: getParam("keywords") }}
@@ -171,12 +169,12 @@ const ReportFilters = ({
             }}
           >
             {({ resetForm, values }) => (
-              <Form className='flex gap-2'>
+              <Form className='flex flex-wrap gap-2'>
                 <div className='flex items-center focus-within-theme rounded-lg '>
                   <div className='group relative'>
                     <Field
                       name='keywords'
-                      className='focus-theme px-2 py-1 border border-slate-300 bg-white dark:bg-gray-800 rounded-lg min-w-[20rem]'
+                      className='focus-theme px-2 py-1 border border-slate-300 bg-white dark:bg-gray-800 rounded-lg w-[20rem] max-w-full'
                       placeholder={searchPlaceholder || "Keyword Search"}
                     />
                   </div>
@@ -190,7 +188,6 @@ const ReportFilters = ({
                   disabled={isFetching}
                   onClick={() => refetch()}
                 ></AggieButton>
-                {viewToggle}
                 {!!searchParams.size && (
                   <AggieButton
                     className='hover:underline hover:bg-slate-100 dark:hover:bg-gray-700 px-2 py-1 text-sm rounded '
@@ -216,7 +213,7 @@ const ReportFilters = ({
           />
         </div>
       </div>
-      <div className='flex justify-between text-sm'>
+      <div className='flex flex-wrap justify-between gap-y-2 text-sm'>
         <div className='flex gap-2 items-center'>
           {headerElement}
           <FilterRadioGroup
@@ -232,7 +229,7 @@ const ReportFilters = ({
             }
           />
         </div>
-        <div className='flex items-center gap-1'>
+        <div className='flex flex-wrap items-center gap-1'>
           <FilterDateTime
             before={getParam("before")}
             onSetBefore={(d) => setParams({ before: d })}

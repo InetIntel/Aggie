@@ -70,7 +70,7 @@ const IncidentsFilters = ({
 
   return (
     <>
-      <div className='flex justify-between mb-2 '>
+      <div className='flex flex-wrap justify-between items-center gap-2 mb-2 '>
         <div className='flex gap-1 max-w-[25em] w-full'>
           <Formik
             initialValues={{ title: get("title") }}
@@ -118,7 +118,7 @@ const IncidentsFilters = ({
           />
         </div>
       </div>
-      <div className='flex justify-between mb-2 text-sm'>
+      <div className='flex flex-wrap justify-between gap-y-2 mb-2 text-sm'>
         <div className='flex gap-2'>
           <FilterRadioGroup
             options={{
@@ -149,7 +149,7 @@ const IncidentsFilters = ({
             }
           />
         </div>
-        <div className='flex items-center gap-1'>
+        <div className='flex flex-wrap items-center gap-1'>
 
           <FilterComboBox
             label='Creator'

@@ -132,7 +132,7 @@ const Incidents = () => {
 
   return (
     <section className='max-w-screen-xl mx-auto px-4 pb-10'>
-      <header className='my-4 flex justify-between items-center'>
+      <header className='my-4 flex flex-wrap justify-between items-center gap-2'>
         <div className='flex gap-2 items-baseline'>
           <h1 className='text-3xl font-medium'>Incidents</h1>
           <AggieButton
@@ -145,66 +145,12 @@ const Incidents = () => {
             onClick={() => refetch()}
           ></AggieButton>
         </div>
-        <div className='flex items-center gap-2'>
-          <div
-            role='group'
-            aria-label='View mode'
-            className='inline-flex border border-slate-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800'
-          >
-            <AggieButton
-              icon={faList}
-              override
-              className={`px-3 py-2 text-sm font-medium flex gap-2 items-center ${
-                view === "list"
-                  ? "bg-aggie-secondary-500 text-white"
-                  : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-              }`}
-              aria-pressed={view === "list"}
-              onClick={() => {
-                localStorage.setItem(VIEW_STORAGE_KEY, "list");
-                setParams({ view: undefined });
-              }}
-            >
-              List
-            </AggieButton>
-            <AggieButton
-              icon={faTable}
-              override
-              className={`px-3 py-2 text-sm font-medium flex gap-2 items-center border-l border-slate-300 dark:border-gray-600 ${
-                view === "table"
-                  ? "bg-aggie-secondary-500 text-white"
-                  : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-              }`}
-              aria-pressed={view === "table"}
-              onClick={() => {
-                localStorage.setItem(VIEW_STORAGE_KEY, "table");
-                setParams({ view: "table" });
-              }}
-            >
-              Table
-            </AggieButton>
-          </div>
-          {view === "table" && (
-            <AggieButton
-              className={`px-3 py-2 text-sm rounded-lg border ${
-                compareMode
-                  ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
-                  : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-              }`}
-              aria-pressed={compareMode}
-              onClick={toggleCompareMode}
-            >
-              <CompareIcon className='w-4 h-4' />
-              Compare
-            </AggieButton>
-          )}
-          <Link
-            to='new'
-            className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 dark:hover:text-gray-300 hover:bg-green-700 text-slate-100 dark:text-gray-300 rounded-lg font-medium dark:bg-green-800 dark:hover:bg-green-700 dark:saturate-[0.7] '
-          >
-            <FontAwesomeIcon icon={faPlus} /> Create New Incident
-          </Link>
-        </div>
+        <Link
+          to='new'
+          className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 dark:hover:text-gray-300 hover:bg-green-700 text-slate-100 dark:text-gray-300 rounded-lg font-medium dark:bg-green-800 dark:hover:bg-green-700 dark:saturate-[0.7] '
+        >
+          <FontAwesomeIcon icon={faPlus} /> Create New Incident
+        </Link>
       </header>
 
       <IncidentsFilters
@@ -215,26 +161,80 @@ const Incidents = () => {
         clearAll={clearAllParams}
       />
 
-      {compareMode && (
-        <div className='flex gap-2 items-center text-xs font-medium mb-2'>
-          <p>
-            Select up to {MAX_COMPARE} incidents to compare (
-            {multiSelect.selection.length} selected)
-          </p>
+      <div className='flex flex-wrap items-center gap-2 mb-2 text-xs font-medium'>
+        <div
+          role='group'
+          aria-label='View mode'
+          className='inline-flex border border-slate-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800'
+        >
           <AggieButton
-            className='px-3 py-1 text-sm rounded-lg bg-aggie-secondary-500 text-white hover:bg-aggie-secondary-500/90'
-            disabled={multiSelect.selection.length < 2}
-            onClick={() => setCompareOpen(true)}
+            icon={faList}
+            override
+            className={`px-3 py-1 text-sm font-medium flex gap-2 items-center ${
+              view === "list"
+                ? "bg-aggie-secondary-500 text-white"
+                : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+            }`}
+            aria-pressed={view === "list"}
+            onClick={() => {
+              localStorage.setItem(VIEW_STORAGE_KEY, "list");
+              setParams({ view: undefined });
+            }}
           >
-            <CompareIcon className='w-4 h-4' />
-            Compare: {multiSelect.selection.length} item
-            {multiSelect.selection.length === 1 ? "" : "s"}
+            List
           </AggieButton>
-          <AggieButton variant='secondary' onClick={toggleCompareMode}>
-            Cancel
+          <AggieButton
+            icon={faTable}
+            override
+            className={`px-3 py-1 text-sm font-medium flex gap-2 items-center border-l border-slate-300 dark:border-gray-600 ${
+              view === "table"
+                ? "bg-aggie-secondary-500 text-white"
+                : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+            }`}
+            aria-pressed={view === "table"}
+            onClick={() => {
+              localStorage.setItem(VIEW_STORAGE_KEY, "table");
+              setParams({ view: "table" });
+            }}
+          >
+            Table
           </AggieButton>
         </div>
-      )}
+        {view === "table" && (
+          <AggieButton
+            className={`px-3 py-1 text-sm rounded-lg border ${
+              compareMode
+                ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
+                : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+            }`}
+            aria-pressed={compareMode}
+            onClick={toggleCompareMode}
+          >
+            <CompareIcon className='w-4 h-4' />
+            Compare
+          </AggieButton>
+        )}
+        {compareMode && (
+          <>
+            <p>
+              Select up to {MAX_COMPARE} incidents to compare (
+              {multiSelect.selection.length} selected)
+            </p>
+            <AggieButton
+              className='px-3 py-1 text-sm rounded-lg bg-aggie-secondary-500 text-white hover:bg-aggie-secondary-500/90'
+              disabled={multiSelect.selection.length < 2}
+              onClick={() => setCompareOpen(true)}
+            >
+              <CompareIcon className='w-4 h-4' />
+              Compare: {multiSelect.selection.length} item
+              {multiSelect.selection.length === 1 ? "" : "s"}
+            </AggieButton>
+            <AggieButton variant='secondary' onClick={toggleCompareMode}>
+              Cancel
+            </AggieButton>
+          </>
+        )}
+      </div>
 
       {view === "table" ? (
         <IncidentsTable
