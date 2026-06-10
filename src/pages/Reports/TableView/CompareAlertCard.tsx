@@ -42,7 +42,7 @@ const CompareAlertCard = ({
   return (
     <div
       onClick={onToggleHighlight}
-      className={`cursor-pointer rounded-xl transition-shadow ${
+      className={`cursor-pointer rounded-xl transition-shadow h-full min-h-0 flex flex-col ${
         isHighlighted ? "ring-2 ring-yellow-400" : "ring-1 ring-transparent"
       }`}
     >
@@ -101,7 +101,9 @@ const CompareAlertCard = ({
         </DropdownMenu>
       </div>
 
-      <SocialMediaPost report={report} showMedia />
+      <div className='flex-1 min-h-0'>
+        <SocialMediaPost report={report} showMedia compact />
+      </div>
     </div>
   );
 };

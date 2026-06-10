@@ -65,15 +65,15 @@ const CompareIncidentCard = ({ group, onRemove }: IProps) => {
   const reportCount = group._reports?.length ?? 0;
 
   return (
-    <div className='rounded-xl border border-slate-300 bg-white dark:bg-gray-800 p-3 h-full flex flex-col'>
-      <div className='flex justify-between items-start gap-2 mb-2'>
+    <div className='rounded-xl border border-slate-300 bg-white dark:bg-gray-800 p-2 h-full min-h-0 flex flex-col overflow-hidden'>
+      <div className='flex justify-between items-start gap-2 mb-1.5'>
         <div className='min-w-0'>
           <div className='text-xs font-medium text-slate-500 dark:text-gray-400'>
             #{group.idnum}
           </div>
           <Link
             to={`/incidents/${group._id}`}
-            className='text-blue-700 hover:underline font-medium dark:text-blue-300 leading-snug break-words'
+            className='text-sm text-blue-700 hover:underline font-medium dark:text-blue-300 leading-snug break-words'
           >
             {group.title}
             {group.escalated && (
@@ -111,7 +111,7 @@ const CompareIncidentCard = ({ group, onRemove }: IProps) => {
         </DropdownMenu>
       </div>
 
-      <div className='mb-2'>
+      <div className='mb-1.5'>
         <span
           className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${statusClass[status]}`}
         >
@@ -119,7 +119,7 @@ const CompareIncidentCard = ({ group, onRemove }: IProps) => {
         </span>
       </div>
 
-      <dl className='flex flex-col gap-1.5 text-sm text-slate-700 dark:text-gray-300'>
+      <dl className='flex flex-col gap-1 text-xs text-slate-700 dark:text-gray-300'>
         <Row label='Start:'>{formatDateTime(group.incidentStartedAt)}</Row>
         <Row label='End:'>{formatDateTime(group.incidentEndedAt)}</Row>
         {duration && <Row label='Duration:'>{duration}</Row>}
@@ -132,7 +132,7 @@ const CompareIncidentCard = ({ group, onRemove }: IProps) => {
       </dl>
 
       {group.notes && (
-        <div className='mt-2 pt-2 border-t border-slate-200 dark:border-gray-700 text-sm'>
+        <div className='mt-1.5 pt-1.5 border-t border-slate-200 dark:border-gray-700 text-xs flex-1 min-h-0 overflow-y-auto'>
           <div className='font-semibold text-slate-600 dark:text-gray-400'>
             Notes
           </div>

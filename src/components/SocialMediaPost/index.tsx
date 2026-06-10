@@ -23,8 +23,14 @@ import TrafficEvent from "./TrafficEvent";
 interface IProps {
   report: Report;
   showMedia?: boolean;
+  /**
+   * Compact mode for fixed-height contexts (compare grid): the card fills its
+   * container, charts scale down, and overflowing body content scrolls inside
+   * the card instead of growing it.
+   */
+  compact?: boolean;
 }
-const SocialMediaPost = ({ report, showMedia }: IProps) => {
+const SocialMediaPost = ({ report, showMedia, compact }: IProps) => {
   const contentType = parseContentType(report);
   function renderAuthor(type: typeof contentType) {
     switch (type) {
@@ -65,9 +71,9 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
       // case "youtube":
       //   return <YoutubePost report={report} />;
       case "ioda":
-        return <IodaEvent report={report} />;
+        return <IodaEvent report={report} compact={compact} />;
       case "cloudflare":
-        return <TrafficEvent report={report} />;
+        return <TrafficEvent report={report} compact={compact} />;
       default:
         return (
           <>
@@ -111,11 +117,19 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
     );
   };
   return (
-    <div className='pb-2 px-3 pt-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-300 dark:bg-gray-800'>
+    <div
+      className={`bg-white dark:bg-gray-800 rounded-xl border border-slate-300 dark:bg-gray-800 ${
+        compact
+          ? "pb-1.5 px-2 pt-2 h-full min-h-0 flex flex-col overflow-hidden text-xs"
+          : "pb-2 px-3 pt-3"
+      }`}
+    >
       {/* {report._media[0] === "twitter" && <TwitterReply report={report} />} */}
-      <div className='flex justify-between mb-2'>
+      <div className={`flex justify-between ${compact ? "mb-1" : "mb-2"}`}>
         {/* <TagsList values={report.smtcTags} /> */}
-        <div className=' font-medium  '>{renderAuthor(contentType)}</div>
+        <div className={`font-medium ${compact ? "[&_p]:text-xs" : ""}`}>
+          {renderAuthor(contentType)}
+        </div>
         <div className='flex items-center gap-2 h-fit pr-1'>
           {!!report.url && (
             <a
@@ -132,10 +146,20 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
           </p>
         </div>
       </div>
-      {renderPost(contentType)}
+      {compact ? (
+        <div className='flex-1 min-h-0 overflow-y-auto'>
+          {renderPost(contentType)}
+        </div>
+      ) : (
+        renderPost(contentType)
+      )}
 
       <div className='flex justify-between'>
-        <div className='flex gap-3 text-sm text-slate-500 dark:text-gray-400 font-medium mt-1 items-center'>
+        <div
+          className={`flex gap-3 text-slate-500 dark:text-gray-400 font-medium mt-1 items-center ${
+            compact ? "text-xs" : "text-sm"
+          }`}
+        >
           <PostReactions
             stats={report.metadata.actualStatistics}
             media={report._media[0]}

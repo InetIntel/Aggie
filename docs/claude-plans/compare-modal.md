@@ -27,6 +27,18 @@ A large centered modal over a dimmed backdrop, **✕ close** top-right. Body is 
 - **Create new incident (N alerts)**
 - **+ Add to incident (N alerts)**
 
+### Uniform card sizing (no modal scroll)
+
+The modal panel is a fixed **90vh** and the body grid is `h-full … auto-rows-fr`, so every card gets an identical-size slot (3×2 for 6 items at `lg`; one full-height row for ≤3) and all cards are visible **without scrolling the modal**. The grid applies `text-xs` so card text shrinks via inheritance, and compact mode tightens card padding/margins and overrides the few hard-coded `text-sm` bits (author date, reactions, IODA signal badge). Overflow always scrolls **within a card**, never the modal.
+
+How it's wired:
+
+- **Shell** ([CompareModal.tsx](../../src/components/CompareModal/CompareModal.tsx)): panel `h-[90vh] flex flex-col`; body `flex-1 min-h-0` (no scroll); grid `h-full … auto-rows-fr gap-2 text-xs`; each cell `min-h-0 h-full`.
+- **Alert card** ([CompareAlertCard.tsx](../../src/pages/Reports/TableView/CompareAlertCard.tsx)): root `h-full min-h-0 flex flex-col`; renders `SocialMediaPost` with its **`compact` prop** (used only here, default off — `ReportDetail` and all other consumers unchanged). Compact `SocialMediaPost` fills its slot (`h-full flex flex-col overflow-hidden`), the post body becomes the per-card scroll region (`flex-1 min-h-0 overflow-y-auto`), and the header/"updated:" footer stay pinned.
+- **Charts** are bounded to a uniform height: the IODA inline SVG via `[&_svg]:w-full [&_svg]:h-auto [&_svg]:max-h-52` ([IodaEvent.tsx](../../src/components/SocialMediaPost/IodaEvent.tsx)) and the Cloudflare `<img>` via `max-h-52 object-contain` ([TrafficEvent.tsx](../../src/components/SocialMediaPost/TrafficEvent.tsx)). ⚠️ **Unverified against live data:** CSS scaling of the IODA SVG preserves aspect ratio only if the API's SVG markup carries a `viewBox`; if charts render squashed, switch the existing string-replacement in `IodaEvent` (the `width="726"`→`100%` rewrites) to emit explicit compact dimensions instead.
+- **Incident card** ([CompareIncidentCard.tsx](../../src/pages/incidents/TableView/CompareIncidentCard.tsx)): root `h-full min-h-0 flex flex-col overflow-hidden`; the Notes block is the flexible region (`flex-1 min-h-0 overflow-y-auto`) so long notes scroll inside the card.
+- **Non-goals:** `MediaPreview` (`min-h-[30vh]`) untouched — compare is alerts-only (ioda/cloudflare), which never renders it, and the compact scroll wrapper contains it anyway; no change to `useMultiSelect`, footer actions, or highlight behavior.
+
 ## Trigger & selection flow
 
 - A **Compare** toggle button next to the List/Table view toggle — both live in a dedicated row directly above the table on both pages — turns on compare-select mode.
@@ -81,7 +93,12 @@ Footer counts and the ids passed come from the **in-modal highlighted** cards, n
 
 The earlier overflow problem (Compare appended into the crowded `ReportsFilters` top row, pushing the inline `Pagination` off-screen; incidents had it crammed into the page header) is fixed: on **both pages** the List/Table view toggle and the Compare toggle now live in a **dedicated toolbar row directly above the table**, and the compare-mode controls ("Select up to N…", **Compare: N**, **Cancel**) render inline in that same row when compare mode is on. The filter rows and headers were also hardened with `flex-wrap` (and a shrinkable search input on alerts) so they wrap instead of overflowing at narrow widths. See [table-views.md](./table-views.md) for the current toolbar layout.
 
+## Open follow-ups
+
+- **Add signal sources to the incidents compare modal** (noted 2026-06-10): `CompareIncidentCard` should surface the signal source(s) of the incident's member reports — the datasource badges (BGP / Active Probing / Telescope) from each report's `metadata.rawAPIResponse.rawEvent.datasource`, as shown in the alerts table's Signal column (reuse the badge styling from `SignalCell` in [reportColumns.tsx](../../src/pages/Reports/TableView/reportColumns.tsx)). Likely an aggregate of distinct values across the group's `_reports`.
+
 ## Verification (of the eventual feature)
 
 - `npm run dev` → `/alerts?view=table`: enable Compare, select 2-5 alerts, open the modal; cards render side-by-side; highlighting cards updates the footer counts; **Create new incident** lands on `/incidents/new` pre-filled; **Add to incident** opens the incident picker and assigns. Confirm opening the modal does **not** mark the alerts read.
 - `/incidents?view=table`: Compare 2-5 incidents → read-only side-by-side summaries.
+- Sizing: with 6 alerts the modal is 90vh with **no modal scrollbar** and a 3×2 grid of identical cards (charts shrink to fit); with 2 items, one row of equal full-height cards; an incident with long notes scrolls inside its card only. Spot-check `/alerts/:id` to confirm non-compact `SocialMediaPost` is unchanged.
