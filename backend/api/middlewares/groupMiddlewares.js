@@ -1,5 +1,5 @@
 const multer = require('multer');
-const { MAX_ATTACHMENT_SIZE, MAX_ATTACHMENT_COUNT } = require('../../models/group');
+const { MAX_ATTACHMENT_SIZE, MAX_ATTACHMENT_COUNT } = require('../../models/groupConfigs');
 
 const allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf', 'text/csv', 'text/plain'];
 
