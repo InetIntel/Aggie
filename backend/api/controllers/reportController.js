@@ -104,6 +104,11 @@ exports.report_reports = (req, res) => {
     }
 
     const handler = (err, reports) => {
+      // The timeout middleware may have already responded; never write twice.
+      if (res.headersSent) {
+        if (err) console.error('report_reports: response already sent, dropping late error:', err.message);
+        return;
+      }
       if (err) return res.status(err.status || 500).send(err.message);
       return res.send(serializeReportResponse(reports));
     };

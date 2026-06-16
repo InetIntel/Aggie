@@ -65,6 +65,7 @@ schema.index({ outageStartedAt: 1 });
 schema.index({ outageEndedAt: 1 });
 schema.index({ irrelevant: 1 });
 schema.index({ eventIdentifier: 1 }, { sparse: true }); // sparse index (i.e. only docs with field are indexed)
+schema.index({ isOutageEvent: 1, authoredAt: -1 }); // alerts list: match + sort + limit without in-memory sort
 schema.index({ eventAggKeyBase: 1 }, { sparse: true });
 schema.path('_group').set(function (_group) {
   this._prevGroup = this._group;
@@ -262,11 +263,13 @@ Report.queryReports = function (query, page, callback) {
 
 // Dedup reports based on eventidentifier(if exist), general findPage() does not apply to this 
 Report.queryReportsDeduped = async function (query, page, callback) {
+  if (typeof page === 'function') {
+    callback = page;
+    page = 0;
+  }
+
+  let result;
   try {
-    if (typeof page === 'function') {
-      callback = page;
-      page = 0;
-    }
     if (page === undefined || page === null || Number.isNaN(Number(page))) page = 0;
     if (page < 0) page = 0;
 
@@ -282,13 +285,55 @@ Report.queryReportsDeduped = async function (query, page, callback) {
     const PAGE_LIMIT = 50; // Note: This should be the same as `perPage` in config.js.
 
     const targetUnique = (page + 1) * PAGE_LIMIT;
+    // TODO: when more than half the fetched rows are duplicates, deep pages come
+    // back short while `total` promises more.
     const rawFetchLimit = targetUnique * 2; // fetch extra rows, worst case 2 * page size
 
-    // fetch raw candidates
-    const rawReports = await Report.find(filter)
-      .sort({ authoredAt: -1 })
-      .limit(rawFetchLimit)
-      .lean();
+    // Abort slow queries well before API_REQUEST_TIMEOUT so the HTTP timeout
+    // middleware never responds first and the late result double-sends.
+    const QUERY_TIME_LIMIT_MS = 30000;
+
+    const [rawReports, countRows] = await Promise.all([
+      // fetch raw candidates
+      // IODA reports carry a ~330KB inline SVG chart in metadata.rawAPIResponse.image;
+      // shipping it per list row is what blew past API_REQUEST_TIMEOUT (~43MB/page).
+      // List cards don't render it; the single-report endpoint still returns it.
+      // TODO: move the SVG into media storage (see socialImageStorage) and drop it
+      // from the document entirely.
+      Report.find(filter)
+        .sort({ authoredAt: -1 })
+        .limit(rawFetchLimit)
+        .select({ 'metadata.rawAPIResponse.image': 0 })
+        .maxTimeMS(QUERY_TIME_LIMIT_MS)
+        .lean(),
+      // Deduped total: identified reports count once per distinct eventIdentifier;
+      // reports without one (missing, null, or '') share the null bucket and count
+      // per-doc, matching the `!key` handling in the dedup loop below.
+      Report.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: {
+              $cond: [
+                { $in: [{ $ifNull: ['$eventIdentifier', null] }, [null, '']] },
+                null,
+                '$eventIdentifier'
+              ]
+            },
+            c: { $sum: 1 }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $cond: [{ $eq: ['$_id', null] }, '$c', 1] } }
+          }
+        },
+        { $project: { _id: 0, total: 1 } }
+      ]).option({ maxTimeMS: QUERY_TIME_LIMIT_MS })
+    ]);
+
+    const [{ total = 0 } = {}] = countRows;
 
     const seen = new Set();
     const deduped = [];
@@ -309,35 +354,21 @@ Report.queryReportsDeduped = async function (query, page, callback) {
     const start = page * PAGE_LIMIT;
     const end = start + PAGE_LIMIT;
 
-    const pageResults = deduped.slice(start, end);
-
-    const [{ total = 0 } = {}] = await Report.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: {
-            $cond: [
-              {
-                $and: [
-                  { $ne: [{ $type: "$eventIdentifier" }, "missing"] },
-                ]
-              },
-              '$eventIdentifier',
-              '$_id'
-            ]
-          }
-        }
-      },
-      { $count: 'total' }
-    ]);
-
-    callback(null, {
+    result = {
       total,
-      results: pageResults
-    });
-
+      results: deduped.slice(start, end)
+    };
   } catch (err) {
-    callback(err);
+    return callback(err);
+  }
+
+  // Outside the main try/catch: if the callback itself throws (e.g. the response
+  // was already sent by the timeout middleware), it must not re-enter callback(err)
+  // or reject this async function (which would crash the api process).
+  try {
+    callback(null, result);
+  } catch (cbErr) {
+    console.error('queryReportsDeduped: callback threw after results were ready:', cbErr.message);
   }
 };
 
