@@ -41,6 +41,11 @@ var userSchema = new Schema({
   password: { type: String },
   hasDefaultPassword: { type: Boolean, default: true },
   role: { type: String, default: 'viewer' },
+  teams: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Team' }],
+      default: [],
+      index: true,
+  },
   active: { type: Boolean, default: true },
   attempts: { type: Number, default: 0 },
   last: { type: Date },
