@@ -58,12 +58,23 @@ const serializeReport = (report) => {
       }))
     : plainReport?.metadata?.attachments;
 
+  // IODA charts are stored as a media key at metadata.rawAPIResponse.image; expose a
+  // URL the frontend can <img src> against. Guard the legacy inline-SVG shape (starts
+  // with '<') so pre-migration reports keep working.
+  const rawAPIResponse = plainReport?.metadata?.rawAPIResponse;
+  const chartKey = rawAPIResponse?.image;
+  const rawAPIResponseWithUrl =
+    chartKey && typeof chartKey === 'string' && !chartKey.trimStart().startsWith('<')
+      ? { ...rawAPIResponse, imageUrl: buildMediaUrl(chartKey) }
+      : rawAPIResponse;
+
   return {
     ...plainReport,
     metadata: plainReport?.metadata
       ? {
           ...plainReport.metadata,
           attachments,
+          ...(rawAPIResponse ? { rawAPIResponse: rawAPIResponseWithUrl } : {}),
         }
       : plainReport?.metadata,
   };
