@@ -8,6 +8,11 @@ const teamPopulate = {
   select: 'name description active',
 };
 
+const normalizeUserTeams = (user) => ({
+  ...user,
+  teams: user.teams || [],
+});
+
 
 // get user list
 exports.user_users = (req, res) => {
@@ -23,7 +28,7 @@ exports.user_users = (req, res) => {
           .status(err.status || 500)
           .send(err.message || "User query failed");
       }
-      return res.status(200).send(users);
+      return res.status(200).send(users.map(normalizeUserTeams));
     });
 };
 
@@ -57,7 +62,7 @@ exports.user_manageableUsers = (req, res) => {
           .status(err.status || 500)
           .send(err.message || "User query failed");
       }
-      return res.status(200).send(users);
+      return res.status(200).send(users.map(normalizeUserTeams));
     });
 };
 
@@ -67,6 +72,7 @@ exports.user_detail = (req, res) => {
 
   User.findById(req.params._id, '-password')
     .populate(teamPopulate)
+    .lean()
     .exec(function (err, user) {
       if (err) { return res.status(err.status).send(err.message); }
       else if (!user) { return res.sendStatus(404); }
@@ -85,7 +91,7 @@ exports.user_detail = (req, res) => {
         }
 
         if (!allowed) return res.status(403).send('Unauthorized to view the user.');
-        return res.status(200).send(user);
+        return res.status(200).send(normalizeUserTeams(user));
       }
     });
 };
