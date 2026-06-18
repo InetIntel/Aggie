@@ -11,8 +11,8 @@ import {
 import type { Report } from "../../../api/reports/types";
 import { useReportMutations } from "../useReportMutations";
 
-import SocialMediaPost from "../../../components/SocialMediaPost";
 import DropdownMenu from "../../../components/DropdownMenu";
+import CompareCardBody from "./CompareCardBody";
 
 interface IProps {
   report: Report;
@@ -42,12 +42,16 @@ const CompareAlertCard = ({
   return (
     <div
       onClick={onToggleHighlight}
-      className={`cursor-pointer rounded-xl transition-shadow h-full min-h-0 flex flex-col ${
+      className={`relative cursor-pointer rounded-xl transition-shadow h-full min-h-0 flex flex-col ${
         isHighlighted ? "ring-2 ring-yellow-400" : "ring-1 ring-transparent"
       }`}
     >
-      {/* Per-card action menu — its clicks must not toggle the highlight. */}
-      <div className='flex justify-end mb-1' onClick={(e) => e.stopPropagation()}>
+      {/* Per-card action menu — overlaid in the card's top-right corner; its
+          clicks must not toggle the highlight. */}
+      <div
+        className='absolute top-2 right-2 z-10'
+        onClick={(e) => e.stopPropagation()}
+      >
         <DropdownMenu
           buttonElement={<FontAwesomeIcon icon={faEllipsis} />}
           className='px-2 py-1 rounded-lg border border-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700'
@@ -101,8 +105,8 @@ const CompareAlertCard = ({
         </DropdownMenu>
       </div>
 
-      <div className='flex-1 min-h-0'>
-        <SocialMediaPost report={report} showMedia compact />
+      <div className='flex-1 min-h-0 h-full'>
+        <CompareCardBody report={report} />
       </div>
     </div>
   );

@@ -5,7 +5,7 @@
 The alerts and incidents **table views** (see [table-views.md](./table-views.md)) let a user scan rows and expand one row's detail inline. The next step is a **compare modal**: a user turns on a **Compare** mode, picks several rows, and opens a modal that lays the selected items out **side-by-side as full detail cards** so they can be eyeballed together — and, for alerts, acted on (group them into an incident) without leaving the comparison.
 
 - **Alerts compare with alerts; incidents compare with incidents.** No cross-type comparison.
-- Up to **5 of each** type in one comparison *(design mock shows 6 — final cap to confirm; implement as a constant `MAX_COMPARE`)*.
+- Up to **5 of each** type in one comparison _(design mock shows 6 — final cap to confirm; implement as a constant `MAX_COMPARE`)_.
 - Layout is **side-by-side full detail** (reuse the existing detail renderers), per the provided design.
 
 > Status: **implemented** for both alerts (with create/add-to-incident footer) and incidents (read-only). Cap is **6** per type; footer acts on the highlighted subset (fallback to all). The Compare-button placement design debt is resolved (see below).
@@ -15,11 +15,11 @@ The alerts and incidents **table views** (see [table-views.md](./table-views.md)
 A large centered modal over a dimmed backdrop, **✕ close** top-right. Body is a **responsive grid of detail cards, 3 per row** (mock shows 6 cards in a 3×2 grid). Each alert card reuses the existing alert presentation:
 
 - Header row: platform icon (IODA), **Open Post ↗**, and a **⋯ overflow menu** (per-card actions, e.g. remove-from-comparison / read / ignore).
-- Body: the IODA/Cloudflare event detail — region title, Start / End / Duration, signal badge (e.g. *Active Probing*), the time-series chart, and "Updated: …".
+- Body: the IODA/Cloudflare event detail — region title, Start / End / Duration, signal badge (e.g. _Active Probing_), the time-series chart, and "Updated: …".
 
 **Two selection layers:**
 
-1. **Table layer** — Compare mode + checkboxes pick *which items appear* in the modal (the compare set).
+1. **Table layer** — Compare mode + checkboxes pick _which items appear_ in the modal (the compare set).
 2. **In-modal layer** — clicking a card toggles a **highlight ring** (yellow/green in the mock) marking it for the footer actions.
 
 **Footer action bar** (alerts) — two full-width buttons reflecting the in-modal highlighted count:
@@ -66,14 +66,14 @@ Footer counts and the ids passed come from the **in-modal highlighted** cards, n
 
 ## Reuse map
 
-| Need | Reuse |
-| --- | --- |
-| Modal container | `AggieDialog` |
-| Selection state | `useMultiSelect`, `DataTable` `selection` prop |
-| Alert card body | `SocialMediaPost` (`showMedia`, presentational, no read side-effect) |
-| Incident card body | extract a light summary from `IncidentInfo` |
-| Add-to-incident | `AddReportsToIncidents` (`setReportsToGroup`) |
-| Create-incident | `/incidents/new?reports=…` route |
+| Need               | Reuse                                                                |
+| ------------------ | -------------------------------------------------------------------- |
+| Modal container    | `AggieDialog`                                                        |
+| Selection state    | `useMultiSelect`, `DataTable` `selection` prop                       |
+| Alert card body    | `SocialMediaPost` (`showMedia`, presentational, no read side-effect) |
+| Incident card body | extract a light summary from `IncidentInfo`                          |
+| Add-to-incident    | `AddReportsToIncidents` (`setReportsToGroup`)                        |
+| Create-incident    | `/incidents/new?reports=…` route                                     |
 
 ## Open questions to confirm before building
 
@@ -102,3 +102,11 @@ The earlier overflow problem (Compare appended into the crowded `ReportsFilters`
 - `npm run dev` → `/alerts?view=table`: enable Compare, select 2-5 alerts, open the modal; cards render side-by-side; highlighting cards updates the footer counts; **Create new incident** lands on `/incidents/new` pre-filled; **Add to incident** opens the incident picker and assigns. Confirm opening the modal does **not** mark the alerts read.
 - `/incidents?view=table`: Compare 2-5 incidents → read-only side-by-side summaries.
 - Sizing: with 6 alerts the modal is 90vh with **no modal scrollbar** and a 3×2 grid of identical cards (charts shrink to fit); with 2 items, one row of equal full-height cards; an incident with long notes scrolls inside its card only. Spot-check `/alerts/:id` to confirm non-compact `SocialMediaPost` is unchanged.
+
+## Todos:
+
+- make the incident compare modal cards look like the alerts cards
+- change the size of the create incident/add to incident buttons on the compare modal
+- work on the ux of the compare feature leading into actually launching the compare of the alerts/incidents, that experience is kind of squirlley at the moment
+- ensure that the compare function automatically deactivates when switching back to the list view
+- investigate why i'm not getting cloudflare alerts in the alerts list, only ioda which is odd i think
