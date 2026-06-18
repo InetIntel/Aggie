@@ -88,3 +88,19 @@ export function signalToNameColor(rawSignal: string) {
       return [rawSignal, ""];
   }
 }
+
+// Resolve a chart image value to a usable <img> src. IODA/Cloudflare charts now live
+// in media storage and the report carries a bare key ("ioda/charts/<hash>.svg"),
+// served by the backend at /media/<key>. Absolute URLs (legacy Cloudflare) and
+// already-rooted paths pass through unchanged.
+export function resolveMediaUrl(value?: string): string {
+  if (!value) return "";
+  if (/^https?:\/\//.test(value) || value.startsWith("/")) return value;
+  return `/media/${value.replace(/^\/+/, "")}`;
+}
+
+// True when the image value is a legacy inline SVG markup string rather than a
+// storage key / URL.
+export function isInlineSvg(value?: string): boolean {
+  return !!value && value.trimStart().startsWith("<");
+}
