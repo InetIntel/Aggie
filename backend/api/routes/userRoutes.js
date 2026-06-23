@@ -17,6 +17,9 @@ router.post('', User.can('change settings'), userController.user_create);
 // Get Individual User
 router.get('/:_id', User.can('view users'), userController.user_detail);
 
+// Update User teams
+router.put('/:_id/teams', userController.user_update_teams);
+
 // Update Users
 router.put('/:_id', User.can('update users'), userController.user_update);
 
