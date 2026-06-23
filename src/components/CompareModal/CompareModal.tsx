@@ -55,7 +55,7 @@ function CompareModal<T extends hasId>({
     <AggieDialog
       isOpen={isOpen}
       onClose={onClose}
-      className='w-full max-w-7xl h-[90vh] flex flex-col p-4'
+      className='w-full max-w-7xl max-h-[90vh] flex flex-col p-4'
     >
       <div className='flex items-center justify-between mb-2'>
         <h2 className='text-lg font-medium'>{title}</h2>
@@ -67,13 +67,14 @@ function CompareModal<T extends hasId>({
         />
       </div>
 
-      {/* Fixed-height body: the grid divides it into equal rows (auto-rows-fr)
-          so every card gets an identical slot; overflow scrolls per-card, never
-          the modal. */}
-      <div className='flex-1 min-h-0 -mx-1 px-1'>
-        <div className='h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr gap-2 text-xs'>
+      {/* Each card gets a fixed, uniform height (the 4-alert/2-row height) so a
+          1-row comparison doesn't stretch; the modal panel (max-h-[90vh]) shrinks
+          to fit fewer cards. Overflow scrolls per-card; the body only scrolls as a
+          safety net on unusually short screens. */}
+      <div className='flex-1 min-h-0 -mx-1 px-1 overflow-y-auto'>
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs'>
           {items.map((item) => (
-            <div key={item._id} className='min-h-0 h-full'>
+            <div key={item._id} className='min-h-0 h-[38vh]'>
               {renderCard(item, {
                 isHighlighted: highlighted.includes(item._id),
                 onToggleHighlight: () => toggleHighlight(item._id),

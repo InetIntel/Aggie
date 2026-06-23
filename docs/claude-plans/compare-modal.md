@@ -27,13 +27,13 @@ A large centered modal over a dimmed backdrop, **✕ close** top-right. Body is 
 - **Create new incident (N alerts)**
 - **+ Add to incident (N alerts)**
 
-### Uniform card sizing (no modal scroll)
+### Uniform card sizing (modal shrinks to fit)
 
-The modal panel is a fixed **90vh** and the body grid is `h-full … auto-rows-fr`, so every card gets an identical-size slot (3×2 for 6 items at `lg`; one full-height row for ≤3) and all cards are visible **without scrolling the modal**. The grid applies `text-xs` so card text shrinks via inheritance, and compact mode tightens card padding/margins and overrides the few hard-coded `text-sm` bits (author date, reactions, IODA signal badge). Overflow always scrolls **within a card**, never the modal.
+Every card has a **fixed, uniform height** (`h-[38vh]` — the height a card has in the 4-alert/2-row `lg` layout), and the modal panel is `max-h-[90vh]` so it **shrinks to fit** the number of cards: ≤3 alerts render one short row and the modal is correspondingly short (no stretched cards, no tall empty box); 4–6 render a 3×2 grid that fills toward 90vh. The grid applies `text-xs` so card text shrinks via inheritance, and compact mode tightens card padding/margins and overrides the few hard-coded `text-sm` bits (author date, reactions, IODA signal badge). Overflow always scrolls **within a card**; the body only scrolls as a safety net on unusually short screens. `38vh` is the single sizing knob — nudge 36–40vh to match the 4-alert cards.
 
 How it's wired:
 
-- **Shell** ([CompareModal.tsx](../../src/components/CompareModal/CompareModal.tsx)): panel `h-[90vh] flex flex-col`; body `flex-1 min-h-0` (no scroll); grid `h-full … auto-rows-fr gap-2 text-xs`; each cell `min-h-0 h-full`.
+- **Shell** ([CompareModal.tsx](../../src/components/CompareModal/CompareModal.tsx)): panel `max-h-[90vh] flex flex-col`; body `flex-1 min-h-0 overflow-y-auto` (safety scroll only); grid `grid … gap-2 text-xs` (no `h-full`/`auto-rows-fr`); each cell `min-h-0 h-[38vh]`.
 - **Alert card** ([CompareAlertCard.tsx](../../src/pages/Reports/TableView/CompareAlertCard.tsx)): root `h-full min-h-0 flex flex-col`; renders `SocialMediaPost` with its **`compact` prop** (used only here, default off — `ReportDetail` and all other consumers unchanged). Compact `SocialMediaPost` fills its slot (`h-full flex flex-col overflow-hidden`), the post body becomes the per-card scroll region (`flex-1 min-h-0 overflow-y-auto`), and the header/"updated:" footer stay pinned.
 - **Charts** are bounded to a uniform height: the IODA inline SVG via `[&_svg]:w-full [&_svg]:h-auto [&_svg]:max-h-52` ([IodaEvent.tsx](../../src/components/SocialMediaPost/IodaEvent.tsx)) and the Cloudflare `<img>` via `max-h-52 object-contain` ([TrafficEvent.tsx](../../src/components/SocialMediaPost/TrafficEvent.tsx)). ⚠️ **Unverified against live data:** CSS scaling of the IODA SVG preserves aspect ratio only if the API's SVG markup carries a `viewBox`; if charts render squashed, switch the existing string-replacement in `IodaEvent` (the `width="726"`→`100%` rewrites) to emit explicit compact dimensions instead.
 - **Incident card** ([CompareIncidentCard.tsx](../../src/pages/incidents/TableView/CompareIncidentCard.tsx)): root `h-full min-h-0 flex flex-col overflow-hidden`; the Notes block is the flexible region (`flex-1 min-h-0 overflow-y-auto`) so long notes scroll inside the card.
@@ -101,7 +101,7 @@ The earlier overflow problem (Compare appended into the crowded `ReportsFilters`
 
 - `npm run dev` → `/alerts?view=table`: enable Compare, select 2-5 alerts, open the modal; cards render side-by-side; highlighting cards updates the footer counts; **Create new incident** lands on `/incidents/new` pre-filled; **Add to incident** opens the incident picker and assigns. Confirm opening the modal does **not** mark the alerts read.
 - `/incidents?view=table`: Compare 2-5 incidents → read-only side-by-side summaries.
-- Sizing: with 6 alerts the modal is 90vh with **no modal scrollbar** and a 3×2 grid of identical cards (charts shrink to fit); with 2 items, one row of equal full-height cards; an incident with long notes scrolls inside its card only. Spot-check `/alerts/:id` to confirm non-compact `SocialMediaPost` is unchanged.
+- Sizing: with 6 alerts the modal fills toward 90vh with **no modal scrollbar** and a 3×2 grid of identical `38vh` cards (charts shrink to fit); with 2–3 items the cards are the **same height** (not stretched) and the modal **shrinks** to a short, centered box; an incident with long notes scrolls inside its card only. Spot-check `/alerts/:id` to confirm non-compact `SocialMediaPost` is unchanged.
 
 ## Todos:
 
