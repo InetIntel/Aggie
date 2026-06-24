@@ -2,7 +2,12 @@
 var User = require('../../models/user');
 const passport = require('passport');
 const validator = require('validator');
+const Team = require('../../models/team');
+const database = require('../../database');
+const mongoose = database.mongoose;
 
+
+// helpers for team items
 const teamPopulate = {
   path: 'teams',
   select: 'name description active',
@@ -12,6 +17,12 @@ const normalizeUserTeams = (user) => ({
   ...user,
   teams: user.teams || [],
 });
+
+const normalizeIds = (ids) => [
+  ...new Set((ids || []).map((id) => String(id._id || id)).filter(Boolean)),
+];
+
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 
 // get user list
@@ -156,6 +167,89 @@ exports.user_create = (req, res) => {
     }
   });*/
 };
+
+// Update a user's team memberships
+exports.user_update_teams = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  if (!Array.isArray(req.body.teams)) {
+    return res.status(400).send('Please provide teams as an array.');
+  }
+
+  const requestedTeamIds = normalizeIds(req.body.teams);
+
+  if (requestedTeamIds.some((id) => !isValidObjectId(id))) {
+    return res.status(400).send('One or more team ids are invalid.');
+  }
+
+  try {
+    const actor = await User.findById(req.user._id)
+      .select('role teams')
+      .lean();
+
+    const targetUser = await User.findById(req.params._id)
+      .select('-password')
+      .lean();
+
+    if (!actor) return res.status(401).send('Unauthenticated.');
+    if (!targetUser) return res.sendStatus(404);
+
+    const teams = await Team.find({ _id: { $in: requestedTeamIds } })
+      .select('_id')
+      .lean();
+
+    if (teams.length !== requestedTeamIds.length) {
+      return res.status(400).send('One or more teams were not found.');
+    }
+
+    const isAdmin = actor.role === 'admin';
+    const isTeamLead = actor.role === 'team_lead';
+    const isSelf = String(actor._id) === String(targetUser._id);
+
+    if (!isAdmin && !isTeamLead) {
+      return res.status(403).send('Unauthorized to update user teams.');
+    }
+
+    if (!isAdmin && isSelf) {
+      return res.status(403).send('Users cannot update their own team memberships.');
+    }
+
+    if (isTeamLead) {
+      if (!['viewer', 'monitor'].includes(targetUser.role)) {
+        return res.status(403).send('Team leads can only manage viewer or monitor team memberships.');
+      }
+
+      const actorTeamIds = new Set(normalizeIds(actor.teams));
+      const currentTeamIds = normalizeIds(targetUser.teams);
+
+      const addedTeamIds = requestedTeamIds.filter((id) => !currentTeamIds.includes(id));
+      const removedTeamIds = currentTeamIds.filter((id) => !requestedTeamIds.includes(id));
+      const changedTeamIds = [...addedTeamIds, ...removedTeamIds];
+
+      const hasUnauthorizedTeamChange = changedTeamIds.some((id) => !actorTeamIds.has(id));
+
+      if (hasUnauthorizedTeamChange) {
+        return res.status(403).send('Team leads can only manage teams they belong to.');
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params._id,
+      { teams: requestedTeamIds },
+      { new: true }
+    )
+      .select('-password')
+      .populate(teamPopulate)
+      .lean();
+
+    return res.status(200).send(normalizeUserTeams(updatedUser));
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'User team update failed');
+  }
+};
+
 
 // Update a User
 exports.user_update = (req, res) => {
