@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { deleteUser, getUser, updateUserTeams } from "../../../api/users";
 import type { Session, WebAuthnDevice } from "../../../api/session/types";
-import { getTeams } from "../../../api/teams";
+import { getManageableTeams } from "../../../api/teams";
 
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 
@@ -38,9 +38,11 @@ const UserProfile = ({ session }: IProps) => {
 
   const role = session?.role as UserRoles | undefined;
   const isAdmin = role === "admin";
+  const isTeamLead = role === "team_lead";
+  const isSelf = session?._id === params.id;
 
-  const { data: teams } = useQuery(["teams"], getTeams, {
-    enabled: isAdmin,
+  const { data: teams } = useQuery(["teams", "manageable"], getManageableTeams, {
+    enabled: isAdmin || isTeamLead,
   });
 
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
@@ -57,7 +59,7 @@ const UserProfile = ({ session }: IProps) => {
     },
   });
 
-    const doUpdateUserTeams = useMutation(updateUserTeams, {
+  const doUpdateUserTeams = useMutation(updateUserTeams, {
     onSuccess: () => {
       refetch();
       queryClient.invalidateQueries(["users"]);
@@ -66,18 +68,33 @@ const UserProfile = ({ session }: IProps) => {
   });
 
   function toggleTeam(teamId: string, checked: boolean) {
-  setSelectedTeamIds((current) =>
-    checked
-      ? [...new Set([...current, teamId])]
-      : current.filter((id) => id !== teamId)
-  );}
+    setSelectedTeamIds((current) =>
+      checked
+        ? [...new Set([...current, teamId])]
+        : current.filter((id) => id !== teamId)
+    );
+  }
 
   useEffect(() => {
-    setSelectedTeamIds((data?.teams || []).map((team) => team._id));
-  }, [data]);
+    const manageableTeamIds = new Set((teams || []).map((team) => team._id));
 
-  const isSelf = session?._id === params.id;
-  const isTeamLead = role === 'team_lead';
+    setSelectedTeamIds(
+      (data?.teams || [])
+        .filter((team) => manageableTeamIds.has(team._id))
+        .map((team) => team._id)
+    );
+  }, [data, teams]);
+
+  const targetRole = data?.role;
+  const canManageUserTeams =
+    isAdmin ||
+    (
+      isTeamLead &&
+      !isSelf &&
+      !!targetRole &&
+      ["viewer", "monitor"].includes(targetRole)
+    );
+
   const canEdit = !!isSelf || (isAdmin && !isSelf);
   const canEditRole = isAdmin && !isSelf;
   const canDeleteAsTeamLead = isTeamLead && !!data && String(data.createdBy) === String(session?._id) && !isSelf;
@@ -157,7 +174,7 @@ const UserProfile = ({ session }: IProps) => {
           <p className='mt-1'>{data?.email}</p>
         </PlaceholderDiv>
 
-                {isAdmin && data && (
+                {canManageUserTeams && data && (
           <div className='border-t border-slate-300 mt-3 pt-3'>
             <h3 className='font-medium text-lg mb-2'>Teams</h3>
 

@@ -54,12 +54,12 @@ exports.user_manageableUsers = (req, res) => {
     filter = {};
   } else if (role === "team_lead") {
     filter = {
-      $or: [
-        { _id: self },
-        { createdBy: self },
-      ],
-    };
-  } else {
+     $or: [
+      { _id: self },
+      { role: { $in: ["viewer", "monitor"] } },
+     ],
+   };
+} else {
     filter = { _id: self };
   }
 
@@ -92,14 +92,14 @@ exports.user_detail = (req, res) => {
         const isSelf = String(user._id) === String(req.user._id);
         let allowed = false;
 
-        if (role === 'admin') {
-          allowed = true;
-        } else if (role === 'team_lead') {
-          const createdByMe = String(user.createdBy) === String(req.user._id);
-          allowed = isSelf || createdByMe;
-        } else {
-          allowed = isSelf;
-        }
+      if (role === 'admin') {
+        allowed = true;
+    } else if (role === 'team_lead') {
+      const isViewerOrMonitor = ['viewer', 'monitor'].includes(user.role);
+      allowed = isSelf || isViewerOrMonitor;
+    } else {
+      allowed = isSelf;
+    }
 
         if (!allowed) return res.status(403).send('Unauthorized to view the user.');
         return res.status(200).send(normalizeUserTeams(user));
@@ -214,28 +214,29 @@ exports.user_update_teams = async (req, res) => {
       return res.status(403).send('Users cannot update their own team memberships.');
     }
 
+    let updatedTeamIds = requestedTeamIds;
+
     if (isTeamLead) {
       if (!['viewer', 'monitor'].includes(targetUser.role)) {
         return res.status(403).send('Team leads can only manage viewer or monitor team memberships.');
       }
 
       const actorTeamIds = new Set(normalizeIds(actor.teams));
-      const currentTeamIds = normalizeIds(targetUser.teams);
+      const requestedOutsideScope = requestedTeamIds.some((id) => !actorTeamIds.has(id));
 
-      const addedTeamIds = requestedTeamIds.filter((id) => !currentTeamIds.includes(id));
-      const removedTeamIds = currentTeamIds.filter((id) => !requestedTeamIds.includes(id));
-      const changedTeamIds = [...addedTeamIds, ...removedTeamIds];
-
-      const hasUnauthorizedTeamChange = changedTeamIds.some((id) => !actorTeamIds.has(id));
-
-      if (hasUnauthorizedTeamChange) {
-        return res.status(403).send('Team leads can only manage teams they belong to.');
+      if (requestedOutsideScope) {
+        return res.status(403).send('Team leads can only assign users to teams they belong to.');
       }
+
+      const currentTeamIds = normalizeIds(targetUser.teams);
+      const preservedTeamIds = currentTeamIds.filter((id) => !actorTeamIds.has(id));
+
+      updatedTeamIds = normalizeIds([...preservedTeamIds, ...requestedTeamIds]);
     }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params._id,
-      { teams: requestedTeamIds },
+      { teams: updatedTeamIds },
       { new: true }
     )
       .select('-password')
