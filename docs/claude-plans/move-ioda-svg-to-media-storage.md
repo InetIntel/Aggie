@@ -120,6 +120,41 @@ Run with `node scripts/migrate-ioda-svg-to-storage.js`. Re-runnable (migrated do
 
 Once the channel writes keys and the migration has run, delete the `.select({ 'metadata.rawAPIResponse.image': 0 })` exclusion in `queryReportsDeduped` ([report.js](../../backend/models/report.js)). Documents are now tiny, so the key ships in list responses and the browser lazy-loads only visible charts via `<img>` — this is what restores charts in the feature branch's table/compare views.
 
+### 7. Fix Cloudflare chart regression (found after merge)
+
+The `imageUrl` work in §3–§4 is source-agnostic, but Cloudflare's `metadata.rawAPIResponse.image` is **not** an inline SVG — it's a remote Radar chart **URL** (`'image': image, // Store image as https url`, [cloudflare.js:312](../../backend/fetching/channels/cloudflare.js#L312), built from `API_LINKED_PAGE_URLS.CLOUDFLARE.IMAGE_ROUTE`). Two source-agnostic changes on this branch broke it:
+
+- [TrafficEvent.tsx:20](../../src/components/SocialMediaPost/TrafficEvent.tsx#L20) switched the Cloudflare chart from `rawData?.image` (the real URL) to `rawData?.imageUrl`.
+- `serializeReport` ([reportController.js:64-69](../../backend/api/controllers/reportController.js#L64)) only guards the inline-SVG shape (`startsWith('<')`); a Cloudflare URL falls through to `buildMediaUrl(image)`, which treats it as a relative media key and mangles it:
+
+```
+https://radar.cloudflare.com/.../png?image=true&...  ->  /media/https:/radar.cloudflare.com/.../png?image=true&...   (404)
+```
+
+So Cloudflare charts that worked pre-branch now 404 against the `/media` static mount.
+
+**Fix** — make `serializeReport` handle the three shapes of `image`, not two:
+
+```js
+const rawAPIResponse = plainReport?.metadata?.rawAPIResponse;
+const chartImage = rawAPIResponse?.image;
+let imageUrl;
+if (typeof chartImage === 'string') {
+  const trimmed = chartImage.trimStart();
+  if (trimmed.startsWith('<')) {
+    imageUrl = undefined;                 // legacy inline SVG (pre-migration IODA) — leave as-is
+  } else if (/^https?:\/\//i.test(trimmed)) {
+    imageUrl = chartImage;                // absolute remote URL (Cloudflare Radar) — pass through unchanged
+  } else {
+    imageUrl = buildMediaUrl(chartImage); // relative media key (post-migration IODA) — resolve to /media/...
+  }
+}
+const rawAPIResponseWithUrl =
+  imageUrl != null ? { ...rawAPIResponse, imageUrl } : rawAPIResponse;
+```
+
+Optional defense-in-depth: `TrafficEvent.tsx` can fall back to `src={rawData?.imageUrl ?? rawData?.image}` (the original `image` URL still survives in the serialized payload). No change needed in `cloudflare.js` — it has no inline SVG to move.
+
 ### Optional / lower priority — delete chart on report deletion
 
 Charts are bounded (one stable file per outage event, overwritten not appended), so the leak is small. If a report-delete path exists, call `deleteMediaByKey(report.metadata.rawAPIResponse.image)` there. Note and defer unless there's an existing cleanup hook to extend.
@@ -128,7 +163,7 @@ Charts are bounded (one stable file per outage event, overwritten not appended),
 
 - [backend/fetching/utils/socialImageStorage.js](../../backend/fetching/utils/socialImageStorage.js) — add + export `persistSvgChart`; also export `deleteMediaByKey`.
 - [backend/fetching/channels/ioda.js](../../backend/fetching/channels/ioda.js) — persist SVG, store key in `raw.image`; cache the SVG string per linked page.
-- [backend/api/controllers/reportController.js](../../backend/api/controllers/reportController.js) — emit `rawAPIResponse.imageUrl` in `serializeReport`.
+- [backend/api/controllers/reportController.js](../../backend/api/controllers/reportController.js) — emit `rawAPIResponse.imageUrl` in `serializeReport`; the guard must distinguish the three `image` shapes (inline SVG vs absolute URL vs relative key) so Cloudflare's remote URL isn't mangled (§7).
 - [src/components/SocialMediaPost/IodaEvent.tsx](../../src/components/SocialMediaPost/IodaEvent.tsx) + [TrafficEvent.tsx](../../src/components/SocialMediaPost/TrafficEvent.tsx) — `<img src={imageUrl}>`.
 - [src/api/reports/types.ts](../../src/api/reports/types.ts) — add `image`/`imageUrl` to `RawApiResponse`.
 - [backend/models/report.js](../../backend/models/report.js) — remove list projection exclusion (last, after migration).
@@ -145,3 +180,4 @@ Done (verified on dev):
 Still to confirm:
 - **Live fetch path:** watch the next IODA poll — a brand-new report's `metadata.rawAPIResponse.image` should be a key like `ioda/charts/<sha1>.svg` with the file on disk, and repeated polls of the same ongoing outage should **not** grow the file count under `ioda/charts/` (same key overwritten in place).
 - **Frontend (visual):** report detail shows the chart, and the feature branch's alert table / compare modal render charts (lazy-loaded via `<img>`).
+- **Cloudflare chart (§7):** a Cloudflare traffic-anomaly report renders its chart — the `<img src>` resolves to the `radar.cloudflare.com` URL, not a mangled `/media/https:/…` path (404).
