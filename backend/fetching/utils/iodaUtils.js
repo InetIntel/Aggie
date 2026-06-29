@@ -19,18 +19,28 @@ async function extractCleanSVGFromPage(browser, linkedPageUrl, queryType) {
     const page = await browser.newPage();
 
     try {
+        await page.addInitScript(() => {
+            localStorage.setItem('simplified_view', 'true');
+        });
 
         await page.goto(linkedPageUrl, {waitUntil: 'networkidle'});
 
         const chartIndex = chartIndexMap[queryType] || chartIndexMap['default'];
 
         await page.waitForSelector(`div[data-highcharts-chart="${chartIndex}"] svg.highcharts-root`, {
-            timeout: 30000, 
+            timeout: 30000,
             state: 'attached',
         });
 
+        await page.waitForSelector(`div[data-highcharts-chart="${chartIndex}"] .highcharts-plot-band`, {
+            timeout: 10000,
+            state: 'attached',
+        }).catch(() => {
+            console.warn(`[IODA] No plot bands rendered for ${linkedPageUrl} (may be expected).`);
+        });
+
         const rawSvg = await page.$eval(
-            `div[data-highcharts-chart="${chartIndex}"] svg.highcharts-root`, 
+            `div[data-highcharts-chart="${chartIndex}"] svg.highcharts-root`,
             el => el.outerHTML
         );
 
