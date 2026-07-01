@@ -8,14 +8,14 @@ const User = require('../../models/user');
 router.get('', User.can('view users'), userController.user_users);
 
 // Get a list of manageable Users
-router.get('/manageable', User.can('view users'), userController.user_manageableUsers);
+router.get('/manageable', userController.user_manageableUsers);
 
 
 // Create a user
 router.post('', User.can('change settings'), userController.user_create);
 
 // Get Individual User
-router.get('/:_id', User.can('view users'), userController.user_detail);
+router.get('/:_id', userController.user_detail);
 
 // Update User teams
 router.put('/:_id/teams', userController.user_update_teams);

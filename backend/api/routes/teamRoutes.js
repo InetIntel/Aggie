@@ -4,8 +4,11 @@ const router = express.Router();
 const teamController = require('../controllers/teamController');
 const User = require('../../models/user');
 
+// Get teams manageable by current user
+router.get('/manageable', teamController.team_manageable_list);
+
 // Get all teams
-router.get('', teamController.team_list);
+router.get('', User.can('admin users'), teamController.team_list);
 
 // Create a team
 router.post('', User.can('admin users'), teamController.team_create);
