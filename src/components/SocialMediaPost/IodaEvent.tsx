@@ -1,4 +1,3 @@
-import { isObject, isString } from "lodash";
 import { Report } from "../../api/reports/types";
 import { signalToNameColor } from "../SocialMediaPost/reportParser";
 import AggieToken from "../AggieToken";
@@ -16,11 +15,6 @@ const IodaEvent = ({ report }: IProps) => {
   const rawSignal = rawData?.rawEvent?.datasource;
   let [signal, bgColor] = signalToNameColor(rawSignal);
 
-  const image = rawData?.image?.
-    replace('width="726"', 'width="100%"').
-    replace('width="733"', 'width="100%"').
-    replace('height="514"', 'height="auto"') || "";
-
   return (
     <>
       <div className='flex gap-2 items-center'>
@@ -34,7 +28,7 @@ const IodaEvent = ({ report }: IProps) => {
       <p className='mb-1'>
         {start} - {end} UTC
       </p>
-      <div dangerouslySetInnerHTML={{ __html: image }} />
+      <img src={rawData?.imageUrl} alt='outage chart' className='w-full h-auto' />
     </>
   );
 };
