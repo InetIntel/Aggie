@@ -1,6 +1,6 @@
 // Handles CRUD requests for teams.
-const Team = require('../../models/team');
 const User = require('../../models/user');
+const Team = require('../../models/team');
 
 // Get all teams
 exports.team_list = (req, res) => {
@@ -76,4 +76,34 @@ exports.team_create = (req, res) => {
 
     return res.status(201).send(team);
   });
+};
+
+// Delete a team
+exports.team_delete = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Unauthorized to delete teams.');
+  }
+
+  try {
+    const team = await Team.findById(req.params._id).lean();
+
+    if (!team) {
+      return res.sendStatus(404);
+    }
+
+    await User.updateMany(
+      { teams: req.params._id },
+      { $pull: { teams: req.params._id } }
+    );
+
+    await Team.findByIdAndDelete(req.params._id);
+
+    return res.status(200).send({ message: 'Team deleted.' });
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team deletion failed');
+  }
 };
