@@ -18,6 +18,7 @@ export function menuLinks(role: string | undefined) {
     case "admin":
       return {
         "Manage Users": { to: "users", icon: faUsersCog },
+        "Teams": { to: "teams", icon: faUsersCog },
         // "Manage Tags": { to: "tags", icon: faTags },
         "API Credentials": { to: "credentials", icon: faKey },
         "Manage Sources": { to: "sources", icon: faCloudArrowDown },
