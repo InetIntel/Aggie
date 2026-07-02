@@ -62,25 +62,31 @@ const ReportsCompareModal = ({
           />
         )}
         footer={(effective) => (
-          <div className='flex gap-3'>
-            <AggieButton
-              variant='secondary'
-              className='flex-1 justify-center py-3 text-base'
-              icon={faFileCirclePlus}
-              disabled={!effective.length}
-              onClick={() => createIncident(effective)}
-            >
-              Create new incident ({effective.length} {plural(effective.length)})
-            </AggieButton>
-            <AggieButton
-              variant='primary'
-              className='flex-1 justify-center py-3 text-base'
-              icon={faPlus}
-              disabled={!effective.length}
-              onClick={() => setAddSelection(effective)}
-            >
-              Add to incident ({effective.length} {plural(effective.length)})
-            </AggieButton>
+          // inline-grid with two equal columns sizes both tracks to the wider
+          // button's content, so the two buttons come out the same width; the
+          // outer flex centers the pair.
+          <div className='flex justify-center'>
+            <div className='inline-grid grid-cols-2 gap-2'>
+              <AggieButton
+                variant='secondary'
+                className='justify-center px-3 py-1.5 text-sm'
+                icon={faFileCirclePlus}
+                disabled={!effective.length}
+                onClick={() => createIncident(effective)}
+              >
+                Create new incident ({effective.length}{" "}
+                {plural(effective.length)})
+              </AggieButton>
+              <AggieButton
+                variant='primary'
+                className='justify-center px-3 py-1.5 text-sm'
+                icon={faPlus}
+                disabled={!effective.length}
+                onClick={() => setAddSelection(effective)}
+              >
+                Add to incident ({effective.length} {plural(effective.length)})
+              </AggieButton>
+            </div>
           </div>
         )}
       />

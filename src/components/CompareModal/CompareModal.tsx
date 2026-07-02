@@ -51,6 +51,13 @@ function CompareModal<T extends hasId>({
   const highlightedItems = items.filter((i) => highlighted.includes(i._id));
   const effective = highlightedItems.length ? highlightedItems : items;
 
+  // Cards cap at 38vh (so a single row stays short) but shrink to share the
+  // panel's height across however many rows the 3-up grid needs, so 4–6 cards
+  // fit within max-h-[90vh] without the body scrolling on an average screen.
+  // ~9rem accounts for the modal's header/footer/padding chrome.
+  const rows = Math.max(1, Math.ceil(items.length / 3));
+  const gridCardHeight = `min(38vh, calc((90vh - 9rem) / ${rows} - 0.5rem))`;
+
   return (
     <AggieDialog
       isOpen={isOpen}
@@ -67,14 +74,29 @@ function CompareModal<T extends hasId>({
         />
       </div>
 
-      {/* Each card gets a fixed, uniform height (the 4-alert/2-row height) so a
-          1-row comparison doesn't stretch; the modal panel (max-h-[90vh]) shrinks
-          to fit fewer cards. Overflow scrolls per-card; the body only scrolls as a
-          safety net on unusually short screens. */}
-      <div className='flex-1 min-h-0 -mx-1 px-1 overflow-y-auto'>
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs'>
+      {/* Cards share a uniform height, capped at 38vh so a 1-row comparison
+          doesn't stretch but shrinking to fit multiple rows within max-h-[90vh]
+          (see gridCardHeight). Overflow scrolls per-card; the body only scrolls
+          as a safety net on unusually short screens. */}
+      <div className='flex-1 min-h-0 -mx-1 px-1 py-1 overflow-y-auto'>
+        {/* 3+ cards use the responsive grid (up to 3 per row). 1–2 cards would
+            sit left-packed with empty grid columns, so center them at a fixed
+            card width instead. */}
+        <div
+          className={
+            items.length <= 2
+              ? "flex justify-center gap-2 text-xs"
+              : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs"
+          }
+        >
           {items.map((item) => (
-            <div key={item._id} className='min-h-0 h-[38vh]'>
+            <div
+              key={item._id}
+              className={`min-h-0 ${
+                items.length <= 2 ? "flex-1 max-w-sm h-[38vh]" : ""
+              }`}
+              style={items.length <= 2 ? undefined : { height: gridCardHeight }}
+            >
               {renderCard(item, {
                 isHighlighted: highlighted.includes(item._id),
                 onToggleHighlight: () => toggleHighlight(item._id),

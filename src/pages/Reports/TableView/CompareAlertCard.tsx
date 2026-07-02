@@ -46,10 +46,12 @@ const CompareAlertCard = ({
         isHighlighted ? "ring-2 ring-yellow-400" : "ring-1 ring-transparent"
       }`}
     >
-      {/* Per-card action menu — overlaid in the card's top-right corner; its
-          clicks must not toggle the highlight. */}
+      {/* Per-card action menu — overlaid at the right of the header band and
+          vertically centered to it (h-9), so it lines up with "Open Post" and
+          sits inside the header's reserved pr-10 gutter. Its clicks must not
+          toggle the highlight. */}
       <div
-        className='absolute top-2 right-2 z-10'
+        className='absolute top-0 right-1.5 h-9 z-10 flex items-center'
         onClick={(e) => e.stopPropagation()}
       >
         <DropdownMenu

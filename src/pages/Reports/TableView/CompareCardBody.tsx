@@ -87,10 +87,12 @@ const CompareCardBody = ({ report }: IProps) => {
     <div className='h-full min-h-0 flex flex-col bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-hidden text-xs'>
       {/* Header — pr-9 reserves space for the ⋯ menu CompareAlertCard absolutely
           positions in the top-right corner. */}
-      <div className='h-9 shrink-0 flex items-center justify-between px-2 pr-9'>
-        <span className='flex items-center gap-1.5 text-slate-600 dark:text-gray-400'>
+      <div className='h-9 shrink-0 flex items-center justify-between gap-2 px-2 pr-10'>
+        <span className='flex items-center gap-1.5 min-w-0 text-slate-600 dark:text-gray-400'>
           <SocialMediaIcon mediaKey={media} />
-          <span className='font-semibold uppercase'>{platformLabel}</span>
+          <span className='font-semibold uppercase truncate'>
+            {platformLabel}
+          </span>
         </span>
         {!!report.url && (
           <a
@@ -98,7 +100,7 @@ const CompareCardBody = ({ report }: IProps) => {
             rel='noreferrer'
             href={report.url}
             onClick={(e) => e.stopPropagation()}
-            className='px-2 py-1 rounded-full border border-slate-200 font-medium inline-flex gap-1 items-center bg-slate-100 dark:bg-gray-700 hover:bg-white dark:hover:bg-gray-800 whitespace-nowrap'
+            className='shrink-0 px-2 py-1 rounded-full border border-slate-200 font-medium inline-flex gap-1 items-center bg-slate-100 dark:bg-gray-700 hover:bg-white dark:hover:bg-gray-800 whitespace-nowrap'
           >
             <span>Open Post</span>
             <FontAwesomeIcon icon={faExternalLink} />
@@ -108,7 +110,7 @@ const CompareCardBody = ({ report }: IProps) => {
       {divider}
 
       <h2
-        className='h-7 shrink-0 flex items-center px-2 font-semibold truncate'
+        className='h-10 shrink-0 px-2 py-1 font-semibold leading-tight line-clamp-2'
         title={report.author}
       >
         {report.author}
