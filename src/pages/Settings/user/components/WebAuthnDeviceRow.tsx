@@ -80,7 +80,7 @@ export default function WebAuthnDeviceRow({
           variant="danger"
           className='min-w-[60px] justify-center rounded-small hover:bg-slate-100 dark:hover:bg-gray-700 text-sm'
           onClick={() => {
-            if (confirm("Remove this authenticator? You may lose access if this is your only device.")) {
+            if (window.confirm("Remove this authenticator? You may lose access if this is your only device.")) {
               onDelete(device.credentialID);
             }
           }}

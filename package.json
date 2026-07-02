@@ -37,6 +37,12 @@
       "last 1 safari version"
     ]
   },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
   "license": "MIT",
   "dependencies": {
     "@floating-ui/react": "^0.26.24",
