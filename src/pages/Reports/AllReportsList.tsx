@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import _ from "lodash";
 import { useMultiSelect } from "../../hooks/useMultiSelect";
 import { useQueryParams } from "../../hooks/useQueryParams";
 
 import { formatPageCount } from "../../utils/format";
-import { getReports } from "../../api/reports";
-import type { ReportQueryState } from "../../api/reports/types";
+import { getReports, getReport } from "../../api/reports";
+import type { Report, ReportQueryState } from "../../api/reports/types";
 import { ALERT_MEDIA_OPTIONS, SOCIAL_MEDIA_OPTIONS } from "../../api/common";
 
 import ReportListItem from "./components/ReportListItem";
@@ -18,6 +18,7 @@ import Pagination from "../../components/Pagination";
 import AggieCheck from "../../components/AggieCheck";
 import AggieButton from "../../components/AggieButton";
 import CompareIcon from "../../components/icons/CompareIcon";
+import CompareActionBar from "../../components/CompareModal/CompareActionBar";
 
 import {
   faList,
@@ -40,6 +41,7 @@ const MAX_COMPARE = 6;
 const AllReportsList = ({ alerts }: IProps) => {
   const { id: currentPageId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { searchParams, getAllParams, setParams, getParam } =
     useQueryParams<ReportsQueryStateWithView>();
 
@@ -122,6 +124,29 @@ const AllReportsList = ({ alerts }: IProps) => {
     multiSelect.set([]);
     multiSelect.setActive(next);
     if (!next) setCompareOpen(false);
+  }
+
+  // Reset compare mode + selection whenever the view (list/table) changes so
+  // checkboxes and the compare set never leak from the table into the list.
+  useEffect(() => {
+    setCompareMode(false);
+    setCompareOpen(false);
+    multiSelect.set([]);
+    multiSelect.setActive(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  // Warm the per-report chart image so the compare modal renders it immediately.
+  // The dedup list endpoint strips metadata.rawAPIResponse.image (see report.js),
+  // so cards would otherwise lazily fetch N charts at once when the modal opens;
+  // prefetching as each row is selected spreads those fetches out ahead of time.
+  function prefetchChart(report: Report) {
+    if (report?.metadata?.rawAPIResponse?.image) return;
+    queryClient.prefetchQuery(
+      ["report", report._id, "chart-image"],
+      () => getReport(report._id),
+      { staleTime: 5 * 60 * 1000 }
+    );
   }
 
   // List view opens a report's detail in the persistent right panel (1/3 column
@@ -251,24 +276,10 @@ const AllReportsList = ({ alerts }: IProps) => {
           <div className='px-1 flex flex-wrap items-center gap-2 mt-2 text-xs font-medium'>
             {viewToggle}
             {compareMode && (
-              <>
-                <p>
-                  Select up to {MAX_COMPARE} alerts to compare (
-                  {multiSelect.selection.length} selected)
-                </p>
-                <AggieButton
-                  className='px-3 py-1 text-sm rounded-lg bg-aggie-secondary-500 text-white hover:bg-aggie-secondary-500/90'
-                  disabled={multiSelect.selection.length < 2}
-                  onClick={() => setCompareOpen(true)}
-                >
-                  <CompareIcon className='w-4 h-4' />
-                  Compare: {multiSelect.selection.length} item
-                  {multiSelect.selection.length === 1 ? "" : "s"}
-                </AggieButton>
-                <AggieButton variant='secondary' onClick={toggleCompareMode}>
-                  Cancel
-                </AggieButton>
-              </>
+              <p className='text-slate-600 dark:text-gray-400'>
+                Select up to {MAX_COMPARE} alerts, then compare them from the bar
+                below.
+              </p>
             )}
           </div>
         )}
@@ -291,6 +302,9 @@ const AllReportsList = ({ alerts }: IProps) => {
                 multiSelect.selection.length >= MAX_COMPARE
               )
                 return;
+              // About to add → warm its chart image ahead of the compare modal.
+              if (compareMode && !multiSelect.exists(report))
+                prefetchChart(report);
               multiSelect.addRemove(report);
             },
           }}
@@ -344,6 +358,15 @@ const AllReportsList = ({ alerts }: IProps) => {
           {formatPageCount(Number(getParam("page")), 50, reports?.total)}
         </small>
       </div>
+
+      {compareMode && multiSelect.selection.length >= 1 && (
+        <CompareActionBar
+          count={multiSelect.selection.length}
+          noun='alert'
+          onCompare={() => setCompareOpen(true)}
+          onClear={() => multiSelect.set([])}
+        />
+      )}
 
       {compareMode && (
         <ReportsCompareModal

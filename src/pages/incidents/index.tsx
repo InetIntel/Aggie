@@ -23,6 +23,7 @@ import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import AggieButton from "../../components/AggieButton";
 import CompareIcon from "../../components/icons/CompareIcon";
+import CompareActionBar from "../../components/CompareModal/CompareActionBar";
 import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
 import { updateByIds } from "../../utils/immutable";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
@@ -74,6 +75,16 @@ const Incidents = () => {
     multiSelect.setActive(next);
     if (!next) setCompareOpen(false);
   }
+
+  // Reset compare mode + selection whenever the view (list/table) changes so
+  // checkboxes and the compare set never leak from the table into the list.
+  useEffect(() => {
+    setCompareMode(false);
+    setCompareOpen(false);
+    multiSelect.set([]);
+    multiSelect.setActive(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   useEffect(() => {
     document.title = "Incidents - Aggie";
@@ -215,24 +226,10 @@ const Incidents = () => {
           </AggieButton>
         )}
         {compareMode && (
-          <>
-            <p>
-              Select up to {MAX_COMPARE} incidents to compare (
-              {multiSelect.selection.length} selected)
-            </p>
-            <AggieButton
-              className='px-3 py-1 text-sm rounded-lg bg-aggie-secondary-500 text-white hover:bg-aggie-secondary-500/90'
-              disabled={multiSelect.selection.length < 2}
-              onClick={() => setCompareOpen(true)}
-            >
-              <CompareIcon className='w-4 h-4' />
-              Compare: {multiSelect.selection.length} item
-              {multiSelect.selection.length === 1 ? "" : "s"}
-            </AggieButton>
-            <AggieButton variant='secondary' onClick={toggleCompareMode}>
-              Cancel
-            </AggieButton>
-          </>
+          <p className='text-slate-600 dark:text-gray-400'>
+            Select up to {MAX_COMPARE} incidents, then compare them from the bar
+            below.
+          </p>
         )}
       </div>
 
@@ -281,6 +278,15 @@ const Incidents = () => {
           {formatPageCount(Number(getParam("page")), 50, data?.total)}
         </small>
       </div>
+
+      {compareMode && multiSelect.selection.length >= 1 && (
+        <CompareActionBar
+          count={multiSelect.selection.length}
+          noun='incident'
+          onCompare={() => setCompareOpen(true)}
+          onClear={() => multiSelect.set([])}
+        />
+      )}
 
       {compareMode && (
         <IncidentsCompareModal
