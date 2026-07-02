@@ -1,6 +1,8 @@
-# Table Views (Incidents & Alerts)
+# Table Views & Compare Modal (Incidents & Alerts)
 
 Both the **Incidents** and **Alerts** pages offer a second "table" view alongside their existing list view, toggled by a `view` URL param. Each row is density-tuned with progressive column hiding as the viewport narrows. Both tables are built on one shared, config-driven `DataTable` component — the Incidents table was the original pattern; the Alerts work extracted `DataTable` and refactored Incidents onto it.
+
+On top of the tables, a **compare modal** lets a user turn on a **Compare** mode, pick several rows, and open a modal that lays the selected items out **side-by-side as full detail cards** so they can be eyeballed together — and, for alerts, acted on (group them into an incident) without leaving the comparison.
 
 - **Incidents** rows are `Group` documents (`GET /api/groups`).
 - **Alerts** rows are `Report` documents (media `ioda`/`cloudflare`, `GET /api/report`).
@@ -58,15 +60,15 @@ Key props:
 
 Each row is a `Group` ([src/api/groups/types.ts](../../src/api/groups/types.ts)). React key `_id`.
 
-| #   | Column         | bucket | Displayed value                                              | Source on `Group`                                        |
-| --- | -------------- | ------ | ----------------------------------------------------------- | -------------------------------------------------------- |
-| 1   | ID#            | —      | `#1234`                                                      | `idnum`                                                  |
-| 2   | Incident Title | —      | Title link to `/incidents/:_id` + "N reports" subline       | `title`, `_reports.length`                              |
-| 3   | Start Date     | md     | Date line 1, time line 2 (`YYYY-MM-DD` / `HH:MM` from ISO)  | `incidentStartedAt`                                     |
-| 4   | Status         | —      | `Open` \| `Closed` \| `In Progress`                         | `statusFromGroup` (`closed` + `escalated`)              |
-| 5   | Alerts Report  | xl     | Red bold count + "alerts" suffix when > 0; grey "0"          | `_reports.length`                                       |
-| 6   | ASNs Impacted  | lg     | Up to 6 teal chips, then `+N` overflow chip                 | `impactedAsns`                                          |
-| 7   | Assigned To    | xl     | Comma-joined usernames, or `—`                              | `assignedTo[].username`                                 |
+| #   | Column         | bucket | Displayed value                                            | Source on `Group`                          |
+| --- | -------------- | ------ | ---------------------------------------------------------- | ------------------------------------------ |
+| 1   | ID#            | —      | `#1234`                                                    | `idnum`                                    |
+| 2   | Incident Title | —      | Title link to `/incidents/:_id` + "N reports" subline      | `title`, `_reports.length`                 |
+| 3   | Start Date     | md     | Date line 1, time line 2 (`YYYY-MM-DD` / `HH:MM` from ISO) | `incidentStartedAt`                        |
+| 4   | Status         | —      | `Open` \| `Closed` \| `In Progress`                        | `statusFromGroup` (`closed` + `escalated`) |
+| 5   | Alerts Report  | xl     | Red bold count + "alerts" suffix when > 0; grey "0"        | `_reports.length`                          |
+| 6   | ASNs Impacted  | lg     | Up to 6 teal chips, then `+N` overflow chip                | `impactedAsns`                             |
+| 7   | Assigned To    | xl     | Comma-joined usernames, or `—`                             | `assignedTo[].username`                    |
 
 A trailing **Actions** column holds the pencil (edit dialog) + trash (confirm → delete) actions. Below each row, a **full-width bar** holds the centered **More ▾** toggle, which expands `notes` + `locationName` + any hidden columns. Mutations from [useIncidentMutations.ts](../../src/pages/incidents/useIncidentMutations.ts).
 
@@ -91,7 +93,7 @@ Rendered in the action bar:
 
 - **Pencil** → `CreateEditIncidentForm` inside `AggieDialog`, wired to `useIncidentMutations().doUpdate`.
 - **Trash** → `ConfirmationDialog`, wired to `useIncidentMutations().doRemove`.
-- No bulk selection / no header checkbox — per-row only (no `selection` prop).
+- No bulk selection / no header checkbox — per-row only (no `selection` prop). _(Compare mode adds multi-select; see the Compare Modal section.)_
 
 ### View toggle
 
@@ -117,16 +119,16 @@ Table view is **alerts-only** — the same components serve `/mediaposts`, where
 
 Each row is a `Report` ([src/api/reports/types.ts](../../src/api/reports/types.ts)). React key `_id`.
 
-| Column    | bucket | Displayed value                                                                                                       | Source on `Report`                            |
-| --------- | ------ | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Select    | —      | checkbox (only in multi-select mode)                                                                                  | `useMultiSelect`                              |
-| Platform  | —      | `SocialMediaIcon`                                                                                                     | `_media[0]`                                   |
-| Content   | —      | `line-clamp-2` text (row click is **reserved for a future compare modal** — detail opens via the expand toggle)       | `content` via `formatText`                    |
-| Status    | —      | Unread/Read + Ignore/Investigate token                                                                                | `read`, `irrelevant`                          |
-| Date      | md     | `DateTime`                                                                                                            | `authoredAt`                                  |
-| Source    | lg     | "IODA" / cloudflare `dataSource` / source nickname                                                                    | `reportSource` (mirrors `renderAuthor`)       |
-| Incident  | lg     | linked incident chip `#idnum` or "—"                                                                                  | `_group` → `getGroup` (lazy `useQuery`)       |
-| Signal    | xl     | datasource badge (BGP / Active Probing / Telescope)                                                                   | `metadata.rawAPIResponse.rawEvent.datasource` |
+| Column   | bucket | Displayed value                                                                                                 | Source on `Report`                            |
+| -------- | ------ | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Select   | —      | checkbox (only in multi-select mode)                                                                            | `useMultiSelect`                              |
+| Platform | —      | `SocialMediaIcon`                                                                                               | `_media[0]`                                   |
+| Content  | —      | `line-clamp-2` text (row click is **reserved for a future compare modal** — detail opens via the expand toggle) | `content` via `formatText`                    |
+| Status   | —      | Unread/Read + Ignore/Investigate token                                                                          | `read`, `irrelevant`                          |
+| Date     | md     | `DateTime`                                                                                                      | `authoredAt`                                  |
+| Source   | lg     | "IODA" / cloudflare `dataSource` / source nickname                                                              | `reportSource` (mirrors `renderAuthor`)       |
+| Incident | lg     | linked incident chip `#idnum` or "—"                                                                            | `_group` → `getGroup` (lazy `useQuery`)       |
+| Signal   | xl     | datasource badge (BGP / Active Probing / Telescope)                                                             | `metadata.rawAPIResponse.rawEvent.datasource` |
 
 A trailing **Actions** column holds the icon actions (Read/Unread · Ignore · Investigate · Add to Incident — icon-only, `useReportMutations` + `AddReportsToIncident`). Below each row, a **full-width bar** holds the centered **More ▾** toggle, which expands the inline **full alert detail** (`ReportDetail`) + any hidden columns.
 
@@ -134,12 +136,12 @@ A trailing **Actions** column holds the icon actions (Read/Unread · Ignore · I
 
 Platform, Content, Status (and Select when active) are always visible; the action bar is always present. Hidden columns reappear inside the expanded panel.
 
-| Width           | Columns added              |
-| --------------- | -------------------------- |
-| `< 768`         | Platform, Content, Status  |
-| `≥ 768` (`md`)  | + Date                     |
-| `≥ 1024` (`lg`) | + Source, Incident         |
-| `≥ 1280` (`xl`) | + Signal                   |
+| Width           | Columns added             |
+| --------------- | ------------------------- |
+| `< 768`         | Platform, Content, Status |
+| `≥ 768` (`md`)  | + Date                    |
+| `≥ 1024` (`lg`) | + Source, Incident        |
+| `≥ 1280` (`xl`) | + Signal                  |
 
 ### Clicking an alert → inline detail
 
@@ -148,7 +150,7 @@ Both the list and table reveal an alert's **full detail inline** rather than in 
 - The detail body is the shared `ReportDetail` (action toolbar + `SocialMediaPost` event card), which also marks the report read when shown.
 - **Table:** the centered **More ▾** toggle in the row's action bar expands it; `DataTable`'s `expandedContent` renders `<ReportDetail>` (plus auto-spillover for any hidden columns).
 - **List:** `ReportListItem` shows a "View details" toggle that expands `<ReportDetail>` beneath the item; `AllReportsList` tracks a single `expandedId`.
-- **Row click is intentionally left unwired** — reserved for a future **compare modal**. Detail opens only via the explicit expand toggle.
+- **Row click is intentionally left unwired** — reserved for the **compare modal** (see below). Detail opens only via the explicit expand toggle. Because row-click now toggles inline detail, compare uses the toggle/checkbox path, **not** row-click.
 
 ### Per-row & bulk actions
 
@@ -160,6 +162,95 @@ Both the list and table reveal an alert's **full detail inline** rather than in 
 - `view` param resolved three-tier: URL (`?view=table`) → `localStorage["alerts:view"]` → default `list`. `view` is stripped from the report query (key + request) so toggling never refetches.
 - Toggle: two `AggieButton`s (`faList`/`faTable`, `override`, `role="group"`), rendered in a toolbar row at the bottom of the sticky filter bar, directly above the table/list. The **Compare** button (table view only) and the inline compare-mode controls share this row. The filter rows above it are `flex-wrap` hardened and the search input shrinks, so nothing overflows horizontally.
 - Full-width: both views render `main` at full width — the permanent right detail column is retired in favor of inline expansion. A deep link to `/alerts/:id` still opens the standalone detail in a slide-over drawer (backdrop click → back to the base path, preserving filters).
+
+---
+
+## Compare Modal (Alerts & Incidents)
+
+### Context / essence
+
+The alerts and incidents table views above let a user scan rows and expand one row's detail inline. The compare modal is the next step: a user turns on a **Compare** mode, picks several rows, and opens a modal that lays the selected items out **side-by-side as full detail cards** so they can be eyeballed together — and, for alerts, acted on (group them into an incident) without leaving the comparison.
+
+- **Alerts compare with alerts; incidents compare with incidents.** No cross-type comparison.
+- Up to **`MAX_COMPARE`** of each type in one comparison (cap is **6** per type).
+- Layout is **side-by-side full detail** (reuse the existing detail renderers), per the provided design.
+
+> Status: **implemented** for both alerts (with create/add-to-incident footer) and incidents (read-only). Cap is **6** per type; footer acts on the highlighted subset (fallback to all). The Compare-button placement design debt is resolved (see below).
+
+### The design (from the provided mockup — alerts)
+
+A large centered modal over a dimmed backdrop, **✕ close** top-right. Body is a **responsive grid of detail cards, 3 per row** (mock shows 6 cards in a 3×2 grid). Each alert card reuses the existing alert presentation:
+
+- Header row: platform icon (IODA), **Open Post ↗**, and a **⋯ overflow menu** (per-card actions, e.g. remove-from-comparison / read / ignore).
+- Body: the IODA/Cloudflare event detail — region title, Start / End / Duration, signal badge (e.g. _Active Probing_), the time-series chart, and "Updated: …".
+
+**Two selection layers:**
+
+1. **Table layer** — Compare mode + checkboxes pick _which items appear_ in the modal (the compare set).
+2. **In-modal layer** — clicking a card toggles a **highlight ring** (yellow/green in the mock) marking it for the footer actions.
+
+**Footer action bar** (alerts) — two full-width buttons reflecting the in-modal highlighted count:
+
+- **Create new incident (N alerts)**
+- **+ Add to incident (N alerts)**
+
+### Uniform card sizing (modal shrinks to fit)
+
+Every card has a **fixed, uniform height** (`h-[38vh]` — the height a card has in the 4-alert/2-row `lg` layout), and the modal panel is `max-h-[90vh]` so it **shrinks to fit** the number of cards: ≤3 alerts render one short row and the modal is correspondingly short (no stretched cards, no tall empty box); 4–6 render a 3×2 grid that fills toward 90vh. The grid applies `text-xs` so card text shrinks via inheritance, and compact mode tightens card padding/margins and overrides the few hard-coded `text-sm` bits (author date, reactions, IODA signal badge). Overflow always scrolls **within a card**; the body only scrolls as a safety net on unusually short screens. `38vh` is the single sizing knob — nudge 36–40vh to match the 4-alert cards.
+
+How it's wired:
+
+- **Shell** ([CompareModal.tsx](../../src/components/CompareModal/CompareModal.tsx)): panel `max-h-[90vh] flex flex-col`; body `flex-1 min-h-0 overflow-y-auto` (safety scroll only); grid `grid … gap-2 text-xs` (no `h-full`/`auto-rows-fr`); each cell `min-h-0 h-[38vh]`.
+- **Alert card** ([CompareAlertCard.tsx](../../src/pages/Reports/TableView/CompareAlertCard.tsx)): root `h-full min-h-0 flex flex-col`; renders `SocialMediaPost` with its **`compact` prop** (used only here, default off — `ReportDetail` and all other consumers unchanged). Compact `SocialMediaPost` fills its slot (`h-full flex flex-col overflow-hidden`), the post body becomes the per-card scroll region (`flex-1 min-h-0 overflow-y-auto`), and the header/"updated:" footer stay pinned.
+- **Charts** are bounded to a uniform height: the IODA inline SVG via `[&_svg]:w-full [&_svg]:h-auto [&_svg]:max-h-52` ([IodaEvent.tsx](../../src/components/SocialMediaPost/IodaEvent.tsx)) and the Cloudflare `<img>` via `max-h-52 object-contain` ([TrafficEvent.tsx](../../src/components/SocialMediaPost/TrafficEvent.tsx)). ⚠️ **Unverified against live data:** CSS scaling of the IODA SVG preserves aspect ratio only if the API's SVG markup carries a `viewBox`; if charts render squashed, switch the existing string-replacement in `IodaEvent` (the `width="726"`→`100%` rewrites) to emit explicit compact dimensions instead.
+- **Incident card** ([CompareIncidentCard.tsx](../../src/pages/incidents/TableView/CompareIncidentCard.tsx)): root `h-full min-h-0 flex flex-col overflow-hidden`; the Notes block is the flexible region (`flex-1 min-h-0 overflow-y-auto`) so long notes scroll inside the card.
+- **Non-goals:** `MediaPreview` (`min-h-[30vh]`) untouched — compare is alerts-only (ioda/cloudflare), which never renders it, and the compact scroll wrapper contains it anyway; no change to `useMultiSelect`, footer actions, or highlight behavior.
+
+### Trigger & selection flow
+
+- A **Compare** toggle button next to the List/Table view toggle — both live in a dedicated row directly above the table on both pages — turns on compare-select mode.
+- Selection reuses the existing **`useMultiSelect`** hook ([src/hooks/useMultiSelect.ts](../../src/hooks/useMultiSelect.ts)) and `DataTable`'s `selection` prop (`isActive`/`isChecked`/`onToggle`), already wired for alerts in [AllReportsList.tsx](../../src/pages/Reports/AllReportsList.tsx). Cap selection at `MAX_COMPARE`.
+- A **Compare (N)** button (enabled at ≥2 selected) opens the modal with `multiSelect.selection`.
+- Note: row-click now toggles inline detail, so compare must use the toggle/checkbox path, **not** row-click.
+
+### Component architecture
+
+A generic shell, type-specific cards (folders define scope):
+
+- **`src/components/CompareModal/CompareModal.tsx`** — generic `CompareModal<T>` built on **`AggieDialog`** ([src/components/AggieDialog.tsx](../../src/components/AggieDialog.tsx)) with a wide, tall, scrollable panel (e.g. `w-full max-w-7xl max-h-[90vh]`). Props: `items: T[]`, `getKey(item)`, `renderCard(item, { isHighlighted, onToggleHighlight })`, optional `footer(highlightedItems)`, `isOpen`, `onClose`, `title`. Owns the **in-modal highlight set** state.
+- **Alerts** — `src/pages/Reports/TableView/CompareAlertCard.tsx`: wraps **`SocialMediaPost`** ([src/components/SocialMediaPost/index.tsx](../../src/components/SocialMediaPost/index.tsx)) `showMedia`, plus the ⋯ overflow menu and the highlight ring. A `ReportsCompareModal` supplies the footer.
+  - **Reuse `SocialMediaPost` directly, NOT `ReportDetail`** — `ReportDetail` marks reports **read on view** ([ReportDetail.tsx](../../src/pages/Reports/Report/ReportDetail.tsx) lines 47-59); rendering N of them would silently mark all read. `SocialMediaPost` is purely presentational.
+- **Incidents** — `src/pages/incidents/TableView/CompareIncidentCard.tsx`: a presentational incident summary. `IncidentInfo` ([src/pages/incidents/Incident/IncidentInfo.tsx](../../src/pages/incidents/Incident/IncidentInfo.tsx)) is presentational but verbose and fetches ASN metadata inline; extract a lighter summary (title `#idnum`, status, time range, impacted ASNs, notes) for a compare column. **Read-only for v1, no footer actions** (a "merge incidents" footer is a future option).
+
+### Footer actions (alerts) — reuse existing flows
+
+Both already exist in [AddReportsToIncident.tsx](../../src/pages/Reports/components/AddReportsToIncident.tsx):
+
+- **Create new incident (N)** → navigate to `/incidents/new?reports=<id:id:…>` (mirror `onNewIncidentFromReports`, line 94).
+- **Add to incident (N)** → open the existing **`AddReportsToIncidents`** modal with the highlighted reports as `selection` (it lists incidents and calls `setReportsToGroup`).
+
+Footer counts and the ids passed come from the **in-modal highlighted** cards, not the full compare set.
+
+### Reuse map
+
+| Need               | Reuse                                                                |
+| ------------------ | -------------------------------------------------------------------- |
+| Modal container    | `AggieDialog`                                                        |
+| Selection state    | `useMultiSelect`, `DataTable` `selection` prop                       |
+| Alert card body    | `SocialMediaPost` (`showMedia`, presentational, no read side-effect) |
+| Incident card body | extract a light summary from `IncidentInfo`                          |
+| Add-to-incident    | `AddReportsToIncidents` (`setReportsToGroup`)                        |
+| Create-incident    | `/incidents/new?reports=…` route                                     |
+
+### Compare button placement (debt resolved)
+
+The earlier overflow problem (Compare appended into the crowded `ReportsFilters` top row, pushing the inline `Pagination` off-screen; incidents had it crammed into the page header) is fixed: on **both pages** the List/Table view toggle and the Compare toggle now live in a **dedicated toolbar row directly above the table**, and the compare-mode controls ("Select up to N…", **Compare: N**, **Cancel**) render inline in that same row when compare mode is on. The filter rows and headers were also hardened with `flex-wrap` (and a shrinkable search input on alerts) so they wrap instead of overflowing at narrow widths.
+
+### Verification (of the compare feature)
+
+- `npm run dev` → `/alerts?view=table`: enable Compare, select 2-5 alerts, open the modal; cards render side-by-side; highlighting cards updates the footer counts; **Create new incident** lands on `/incidents/new` pre-filled; **Add to incident** opens the incident picker and assigns. Confirm opening the modal does **not** mark the alerts read.
+- `/incidents?view=table`: Compare 2-5 incidents → read-only side-by-side summaries.
+- Sizing: with 6 alerts the modal fills toward 90vh with **no modal scrollbar** and a 3×2 grid of identical `38vh` cards (charts shrink to fit); with 2–3 items the cards are the **same height** (not stretched) and the modal **shrinks** to a short, centered box; an incident with long notes scrolls inside its card only. Spot-check `/alerts/:id` to confirm non-compact `SocialMediaPost` is unchanged.
 
 ---
 
@@ -188,6 +279,7 @@ When revisiting: consider whether the alert row is better served by a denser cus
 - The alert detail drawer width is `max-w-xl`; bump if the report detail feels cramped.
 - `rowActions` render in a trailing Actions column; the centered **More ▾** bar renders whenever there is expandable content. Both live in `DataTable`.
 - If long incident titles ever blow up the Title column under auto-layout, add `break-words` / `max-w-[...]` to the Title `<td>` (or `[overflow-wrap:anywhere]`, as used on the alert Content column).
+- Compare sizing: `38vh` card height is the single knob — nudge 36–40vh to match the 4-alert cards.
 
 ---
 
@@ -196,7 +288,31 @@ When revisiting: consider whether the alert row is better served by a denser cus
 - Incidents: Status column header overlaps the title around ~600 px width — unresolved.
 - Incidents: "N reports" subline text is very small; bump size.
 - Populate real incident data end-to-end so the table isn't rendering against placeholder rows.
+- **Add signal sources to the incidents compare modal** (noted 2026-06-10): `CompareIncidentCard` should surface the signal source(s) of the incident's member reports — the datasource badges (BGP / Active Probing / Telescope) from each report's `metadata.rawAPIResponse.rawEvent.datasource`, as shown in the alerts table's Signal column (reuse the badge styling from `SignalCell` in [reportColumns.tsx](../../src/pages/Reports/TableView/reportColumns.tsx)). Likely an aggregate of distinct values across the group's `_reports`.
 
-## Next iteration: compare modal
+---
 
-See [compare-modal.md](./compare-modal.md) for the design + plan. (Note: row click now toggles the inline detail, so the compare modal is triggered by a **Compare** mode toggle + multi-select, not by row click.)
+## Compare feature — remaining todos
+
+- Make the incident compare modal cards look like the alerts cards.
+- ~~Change the size of the create incident / add to incident buttons on the compare modal.~~ **Done** — footer buttons dropped from `py-3 text-base` to `py-2 text-sm` in [ReportsCompareModal.tsx](../../src/pages/Reports/TableView/ReportsCompareModal.tsx).
+- ~~Work on the UX of the compare feature leading into actually launching the compare.~~ **Done** — see "Compare launch UX" below.
+- ~~Ensure the compare function automatically deactivates when switching back to the list view.~~ **Done** — see "Compare polish pass" below.
+- Investigate why Cloudflare alerts aren't showing in the alerts list, only IODA (odd — worth checking).
+
+### Open questions to confirm (compare modal)
+
+1. **Cap**: implemented as **6** per type (`MAX_COMPARE`); user originally said up to 5, mock shows 6 — confirm 6 is final.
+2. **Footer target**: confirm footer acts on the **highlighted subset** (mock's "(2 alerts)") vs. the whole compare set. _(Currently: highlighted subset, fallback to all.)_
+3. **⋯ overflow menu** contents per card (remove-from-comparison only, or also read/ignore/investigate via `useReportMutations`?).
+4. **Incidents footer**: none for v1 (read-only), or a future action (e.g. merge incidents)?
+
+## Compare polish pass (resolved)
+
+The following usability defects were fixed in one pass. Files: [AllReportsList.tsx](../../src/pages/Reports/AllReportsList.tsx), [incidents/index.tsx](../../src/pages/incidents/index.tsx), [CompareModal.tsx](../../src/components/CompareModal/CompareModal.tsx), [CompareActionBar.tsx](../../src/components/CompareModal/CompareActionBar.tsx) (new), [CompareCardBody.tsx](../../src/pages/Reports/TableView/CompareCardBody.tsx), [CompareAlertCard.tsx](../../src/pages/Reports/TableView/CompareAlertCard.tsx), [ReportsCompareModal.tsx](../../src/pages/Reports/TableView/ReportsCompareModal.tsx).
+
+## List view todos
+
+- the list view item dropdown mechanism needs so me work. it's confusing, the colors are ocnfusing, and the content in the dropdown is almost too large to read. this needs to be small
+- there is also duplicate titles in the dropdown
+- the "open probing" label is weirdly spaced in the dropdown
