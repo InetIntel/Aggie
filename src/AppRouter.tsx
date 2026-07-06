@@ -158,7 +158,10 @@ const AppRouter = () => {
     <div className='flex flex-col h-[100svh]'>
       <Navbar isAuthenticated={isLoggedIn} session={userData} />
       <FetchIndicator className='sticky top-0 z-20' />
-      <main id='main_view' className='h-full overflow-y-auto flex-1'>
+      <main
+        id='main_view'
+        className='h-full overflow-y-auto flex-1 [scrollbar-gutter:stable]'
+      >
         {hydrating ? null : isLoggedIn ? (
           <PrivateRoutes
             sessionData={userData}

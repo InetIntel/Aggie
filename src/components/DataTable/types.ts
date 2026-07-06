@@ -4,12 +4,12 @@ import type React from "react";
  * Width below which a column is hidden in the table and instead surfaces in the
  * row's "More Info" panel. `undefined` means the column is always visible.
  *
- * Maps to Tailwind v3 breakpoints: a `bucket` of "lg" hides the cell below
- * 1024px (`hidden lg:table-cell`) and shows its spillover block below 1024px
- * (`lg:hidden`). One source of truth drives both, so the cell and its
- * spillover can never drift apart.
+ * Maps to Tailwind v3 breakpoints (md 768 / lg 1024 / xl 1280 / 2xl 1536): a
+ * `bucket` of "lg" hides the cell below 1024px (`hidden lg:table-cell`) and
+ * shows its spillover block below 1024px (`lg:hidden`). One source of truth
+ * drives both, so the cell and its spillover can never drift apart.
  */
-export type ResponsiveBucket = "md" | "lg" | "xl";
+export type ResponsiveBucket = "md" | "lg" | "xl" | "2xl";
 
 export interface DataTableColumn<T> {
   id: string;
@@ -51,4 +51,18 @@ export interface DataTableProps<T> {
   rowClassName?: (row: T) => string;
   /** Optional leading checkbox column for multi-select. */
   selection?: DataTableSelection<T>;
+  /**
+   * Hide the centered "View details / Hide details" toggle bar under each row.
+   * Rows still expand/collapse on row click; a far-right caret cell indicates
+   * (and toggles) each expandable row's open/closed state instead. Defaults to
+   * showing the bar.
+   */
+  hideExpandBar?: boolean;
+  /**
+   * Reserve the vertical scrollbar's gutter permanently (`scrollbar-gutter:
+   * stable`) so expanding a row (which can grow the card past its max height and
+   * summon the scrollbar) doesn't shift the columns left. Costs ~15px of width,
+   * so only enable it on tables that aren't width-constrained. Defaults to off.
+   */
+  stableGutter?: boolean;
 }

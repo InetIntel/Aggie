@@ -12,11 +12,13 @@ const HIDDEN_CELL: Record<ResponsiveBucket, string> = {
   md: "hidden md:table-cell",
   lg: "hidden lg:table-cell",
   xl: "hidden xl:table-cell",
+  "2xl": "hidden 2xl:table-cell",
 };
 const SPILLOVER_BLOCK: Record<ResponsiveBucket, string> = {
   md: "md:hidden",
   lg: "lg:hidden",
   xl: "xl:hidden",
+  "2xl": "2xl:hidden",
 };
 
 function spilloverColumns<T>(columns: DataTableColumn<T>[]) {
@@ -41,20 +43,38 @@ function DataTable<T>({
   onRowClick,
   rowClassName,
   selection,
+  hideExpandBar,
+  stableGutter,
 }: DataTableProps<T>) {
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleRow = (key: string) =>
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
 
   const hasSpillover = spilloverColumns(columns).length > 0;
   const hasExpandable = hasSpillover || !!expandedContent;
   const showSelect = !!selection?.isActive;
   const actionsCol = !!rowActions;
+  // With the toggle bar hidden, a far-right caret marks each expandable row's
+  // open/closed state (rows still toggle on row click).
+  const caretCol = hasExpandable && !!hideExpandBar;
 
   const totalCols =
-    (showSelect ? 1 : 0) + columns.length + (actionsCol ? 1 : 0);
+    (showSelect ? 1 : 0) +
+    columns.length +
+    (actionsCol ? 1 : 0) +
+    (caretCol ? 1 : 0);
   const isEmpty = !data || data.length === 0;
 
   return (
-    <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 overflow-auto max-h-[75vh]'>
+    <div
+      className={`border border-slate-300 rounded-lg bg-white dark:bg-gray-800 overflow-auto max-h-[75vh] ${
+        stableGutter ? "[scrollbar-gutter:stable]" : ""
+      }`}
+    >
       <table className='w-full text-sm text-slate-700 dark:text-gray-300'>
         <thead>
           <tr>
@@ -79,6 +99,11 @@ function DataTable<T>({
                 <span className='sr-only'>Actions</span>
               </th>
             )}
+            {caretCol && (
+              <th scope='col' className={`w-px px-2 py-2 ${STICKY_TH}`}>
+                <span className='sr-only'>Details</span>
+              </th>
+            )}
           </tr>
         </thead>
 
@@ -97,7 +122,7 @@ function DataTable<T>({
 
         {data.map((row, i) => {
           const key = getRowKey(row);
-          const isExpanded = expandedRow === key;
+          const isExpanded = expandedRows.has(key);
           const striped = i % 2 === 1;
           // Clicking anywhere on the data row toggles the inline detail (same as
           // the "View details" button); onRowClick is still forwarded for any
@@ -120,7 +145,7 @@ function DataTable<T>({
                 onClick={
                   clickable
                     ? () => {
-                        if (hasExpandable) setExpandedRow(isExpanded ? null : key);
+                        if (hasExpandable) toggleRow(key);
                         onRowClick?.(row);
                       }
                     : undefined
@@ -151,15 +176,38 @@ function DataTable<T>({
 
                 {actionsCol && (
                   <td
-                    className='px-2 pt-2 align-top text-right whitespace-nowrap'
+                    className='w-px px-2 pt-2 align-top text-right whitespace-nowrap'
                     onClick={(e) => e.stopPropagation()}
                   >
                     {rowActions!(row)}
                   </td>
                 )}
+
+                {caretCol && (
+                  <td className='px-2 pt-2 align-top text-right w-px'>
+                    <button
+                      type='button'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleRow(key);
+                      }}
+                      aria-expanded={isExpanded}
+                      aria-controls={`detail-${key}`}
+                      aria-label={isExpanded ? "Hide details" : "View details"}
+                      className='inline-flex items-center h-[1.875rem] text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-1'
+                    >
+                      <FontAwesomeIcon
+                        icon={faChevronDown}
+                        className={`transition-transform duration-150 ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                  </td>
+                )}
               </tr>
 
-              {hasExpandable && (
+              {hasExpandable && !hideExpandBar && (
                 <tr>
                   <td colSpan={totalCols} className='px-2 py-0.5'>
 
@@ -167,13 +215,13 @@ function DataTable<T>({
                         centered button is just the visible affordance. */}
                     <div
                       className='flex items-center justify-center cursor-pointer'
-                      onClick={() => setExpandedRow(isExpanded ? null : key)}
+                      onClick={() => toggleRow(key)}
                     >
                       <button
                         type='button'
                         onClick={(e) => {
                           e.stopPropagation();
-                          setExpandedRow(isExpanded ? null : key);
+                          toggleRow(key);
                         }}
                         aria-expanded={isExpanded}
                         aria-controls={`detail-${key}`}
@@ -197,20 +245,20 @@ function DataTable<T>({
                 <tr id={`detail-${key}`}>
                   <td
                     colSpan={totalCols}
-                    className='px-4 py-3 text-sm text-slate-700 dark:text-gray-200 bg-teal-50 dark:bg-gray-700/40 border-t border-teal-200 dark:border-gray-600'
+                    className='px-4 py-2 text-sm text-slate-700 dark:text-gray-200 bg-slate-50 dark:bg-gray-900/40 border-t border-slate-200 dark:border-gray-700 overflow-x-auto'
                   >
                     {/* Auto-generated spillover: each hidden column renders here
                         under its inverse responsive class, so at the widest
                         breakpoint (where nothing is hidden) the whole list
                         collapses away. */}
                     {hasSpillover && (
-                      <dl className='flex flex-col gap-2 mb-3'>
+                      <dl className='flex flex-col'>
                         {spilloverColumns(columns).map((col) => (
                           <div
                             key={col.id}
-                            className={SPILLOVER_BLOCK[col.bucket!]}
+                            className={`${SPILLOVER_BLOCK[col.bucket!]} mb-2`}
                           >
-                            <dt className='font-semibold text-teal-900 dark:text-teal-200'>
+                            <dt className='font-semibold text-slate-700 dark:text-gray-300'>
                               {col.spilloverLabel ??
                                 (typeof col.header === "string"
                                   ? col.header
