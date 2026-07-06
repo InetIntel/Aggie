@@ -76,6 +76,14 @@ export function sanitize(string: string) {
   //});
 }
 
+// Shared Tailwind classes for the datasource/signal badge (BGP / Active Probing /
+// Telescope) so every render site stays visually consistent. The `bgColor` from
+// signalToNameColor is applied alongside these. SIGNAL_BADGE_BASE omits the text
+// size so compact contexts can override it (e.g. text-xs).
+export const SIGNAL_BADGE_BASE =
+  "font-medium px-1 rounded-lg text-white dark:text-gray-300";
+export const SIGNAL_BADGE_CLASS = `${SIGNAL_BADGE_BASE} text-sm`;
+
 export function signalToNameColor(rawSignal: string) {
   switch(rawSignal) {
     case "bgp":

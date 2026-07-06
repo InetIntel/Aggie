@@ -3,6 +3,7 @@ import {
   signalToNameColor,
   resolveMediaUrl,
   isInlineSvg,
+  SIGNAL_BADGE_BASE,
 } from "../SocialMediaPost/reportParser";
 import { useReportChartImage } from "./useReportChartImage";
 import AggieToken from "../AggieToken";
@@ -23,27 +24,24 @@ const IodaEvent = ({ report, compact }: IProps) => {
 
   // Chart now lives in media storage; the report carries a key resolved to /media/...
   // (older reports may still carry an inline SVG string). Fetched lazily when the
-  // list query stripped it.
+  // list query stripped it. The SVG carries its own viewBox, so sizing/centering is
+  // handled purely in CSS below — no width/height string rewriting needed.
   const image = useReportChartImage(report);
-  const svg = isInlineSvg(image)
-    ? image!
-        .replace('width="726"', 'width="100%"')
-        .replace('width="733"', 'width="100%"')
-        .replace('height="514"', 'height="auto"')
-    : "";
+  const svg = isInlineSvg(image) ? image! : "";
 
   return (
     <>
-      <div className='flex gap-2 items-center'>
-        <h2 className='font-medium'>{report?.author}</h2>
-        <AggieToken
-          className={`${bgColor} rounded-lg text-white dark:text-gray-300 ${
-            compact ? "p-0.5 text-xs" : "p-1 text-sm"
-          }`}
-        >
-          {signal}
-        </AggieToken>
-      </div>
+      {signal && (
+        <div className='flex gap-2 items-center'>
+          <AggieToken
+            className={`${bgColor} ${SIGNAL_BADGE_BASE} ${
+              compact ? "text-xs" : "text-sm"
+            }`}
+          >
+            {signal}
+          </AggieToken>
+        </div>
+      )}
       <p className='mb-1'>
         {start} - {end} UTC
       </p>
@@ -52,7 +50,7 @@ const IodaEvent = ({ report, compact }: IProps) => {
           className={
             compact
               ? "overflow-hidden [&_svg]:w-full [&_svg]:h-auto [&_svg]:max-h-52"
-              : undefined
+              : "[&_svg]:w-full [&_svg]:h-auto"
           }
           dangerouslySetInnerHTML={{ __html: svg }}
         />
@@ -61,7 +59,9 @@ const IodaEvent = ({ report, compact }: IProps) => {
           src={resolveMediaUrl(image)}
           alt='IODA event chart'
           className={
-            compact ? "w-full max-h-52 object-contain object-left-top" : "w-full"
+            compact
+              ? "w-full max-h-52 object-contain object-center"
+              : "w-full"
           }
         />
       )}

@@ -27,7 +27,11 @@ const TrafficEvent = ({ report, compact }: IProps) => {
         <img
           src={resolveMediaUrl(image)}
           alt='traffic trend'
-          className={compact ? "w-full max-h-52 object-contain object-left-top" : undefined}
+          className={
+            compact
+              ? "w-full max-h-52 object-contain object-center"
+              : "w-full"
+          }
         />
       )}
     </>
