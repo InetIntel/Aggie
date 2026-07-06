@@ -58,11 +58,4 @@ export interface DataTableProps<T> {
    * showing the bar.
    */
   hideExpandBar?: boolean;
-  /**
-   * Reserve the vertical scrollbar's gutter permanently (`scrollbar-gutter:
-   * stable`) so expanding a row (which can grow the card past its max height and
-   * summon the scrollbar) doesn't shift the columns left. Costs ~15px of width,
-   * so only enable it on tables that aren't width-constrained. Defaults to off.
-   */
-  stableGutter?: boolean;
 }

@@ -172,7 +172,6 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         columns={columns}
         selection={selection}
         hideExpandBar
-        stableGutter
         rowActions={(inc) => (
           <div className='inline-flex items-center gap-2'>
             <Link

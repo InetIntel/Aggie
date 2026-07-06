@@ -25,12 +25,15 @@ function spilloverColumns<T>(columns: DataTableColumn<T>[]) {
   return columns.filter((c) => c.bucket && !c.noSpillover);
 }
 
-// Header cells stay pinned to the top of the (vertically scrollable) table card.
-// The bottom divider is an inset box-shadow rather than a border: cell borders
-// don't travel with a sticky cell, but box-shadows do. Background keeps rows
-// from bleeding through.
+// Header cells stay pinned as the page scrolls. The offset comes from the
+// inheritable `--dt-sticky-top` CSS variable (default 0px) so a host page can
+// park the header beneath its own sticky chrome — e.g. the alerts filters bar
+// sets it to the bar's measured height. The bottom divider is an inset
+// box-shadow rather than a border: cell borders don't travel with a sticky
+// cell, but box-shadows do. Background keeps rows from bleeding through.
 const STICKY_TH =
-  "sticky top-0 z-10 bg-white dark:bg-gray-800 shadow-[inset_0_-2px_0_0_#94a3b8] dark:shadow-[inset_0_-2px_0_0_#6b7280]";
+  "sticky z-10 bg-white dark:bg-gray-800 shadow-[inset_0_-2px_0_0_#94a3b8] dark:shadow-[inset_0_-2px_0_0_#6b7280]";
+const stickyTop = { top: "var(--dt-sticky-top, 0px)" };
 
 function DataTable<T>({
   data,
@@ -44,7 +47,6 @@ function DataTable<T>({
   rowClassName,
   selection,
   hideExpandBar,
-  stableGutter,
 }: DataTableProps<T>) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const toggleRow = (key: string) =>
@@ -70,16 +72,16 @@ function DataTable<T>({
   const isEmpty = !data || data.length === 0;
 
   return (
-    <div
-      className={`border border-slate-300 rounded-lg bg-white dark:bg-gray-800 overflow-auto max-h-[75vh] ${
-        stableGutter ? "[scrollbar-gutter:stable]" : ""
-      }`}
-    >
+    <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800'>
       <table className='w-full text-sm text-slate-700 dark:text-gray-300'>
         <thead>
           <tr>
             {showSelect && (
-              <th scope='col' className={`w-8 px-2 py-2 ${STICKY_TH}`}>
+              <th
+                scope='col'
+                style={stickyTop}
+                className={`w-8 px-2 py-2 ${STICKY_TH}`}
+              >
                 <span className='sr-only'>Select</span>
               </th>
             )}
@@ -87,6 +89,7 @@ function DataTable<T>({
               <th
                 key={col.id}
                 scope='col'
+                style={stickyTop}
                 className={`px-2 py-2 text-left font-semibold whitespace-nowrap ${STICKY_TH} ${
                   col.bucket ? HIDDEN_CELL[col.bucket] : ""
                 } ${col.thClassName ?? ""}`}
@@ -95,12 +98,20 @@ function DataTable<T>({
               </th>
             ))}
             {actionsCol && (
-              <th scope='col' className={`w-px px-2 py-2 text-right ${STICKY_TH}`}>
+              <th
+                scope='col'
+                style={stickyTop}
+                className={`w-px px-2 py-2 text-right ${STICKY_TH}`}
+              >
                 <span className='sr-only'>Actions</span>
               </th>
             )}
             {caretCol && (
-              <th scope='col' className={`w-px px-2 py-2 ${STICKY_TH}`}>
+              <th
+                scope='col'
+                style={stickyTop}
+                className={`w-px px-2 py-2 ${STICKY_TH}`}
+              >
                 <span className='sr-only'>Details</span>
               </th>
             )}

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { useMultiSelect } from "../../hooks/useMultiSelect";
@@ -147,8 +147,26 @@ const Incidents = () => {
   };
   useSocketSubscribe("groups:update", handleSocketUpdate);
 
+  // The filters + view-toggle bar is sticky at the top of the page scroller; the
+  // table below flows with the page, so its sticky header must park just beneath
+  // the bar. The bar's height is dynamic (wraps when narrow, grows in compare
+  // mode), so measure it and publish it as the `--dt-sticky-top` CSS var that
+  // DataTable's header reads.
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const [stickyHeight, setStickyHeight] = useState(0);
+  useEffect(() => {
+    const el = stickyRef.current;
+    if (!el) return;
+    const measure = () => setStickyHeight(el.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section
+      style={{ ["--dt-sticky-top" as any]: `${stickyHeight}px` }}
       className={`${
         view === "table" ? "max-w-screen-2xl" : "max-w-screen-xl"
       } mx-auto px-4 pb-10`}
@@ -174,19 +192,25 @@ const Incidents = () => {
         </Link>
       </header>
 
-      {/* relative z-20 lifts the filter dropdown panels above the table's
-          sticky header (z-10) so they open over the table, not behind it. */}
-      <div className='relative z-20'>
-        <IncidentsFilters
-          totalCount={data && data.total}
-          get={getParam}
-          set={setParams}
-          isQuery={hasActiveFilter}
-          clearAll={clearAllParams}
-        />
-      </div>
+      {/* Sticky filters + view-toggle bar: pins to the top of the page scroller
+          (only the title above scrolls away). z-20 lifts its filter dropdown
+          panels above the table's sticky header (z-10) so they open over the
+          table, not behind it. */}
+      <div
+        ref={stickyRef}
+        className='sticky top-0 z-20 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm py-2'
+      >
+        <div className='relative z-20'>
+          <IncidentsFilters
+            totalCount={data && data.total}
+            get={getParam}
+            set={setParams}
+            isQuery={hasActiveFilter}
+            clearAll={clearAllParams}
+          />
+        </div>
 
-      <div className='flex flex-wrap items-center gap-2 mb-2 text-xs font-medium'>
+        <div className='flex flex-wrap items-center gap-2 mt-2 text-xs font-medium'>
         <div
           role='group'
           aria-label='View mode'
@@ -245,6 +269,7 @@ const Incidents = () => {
             below.
           </p>
         )}
+        </div>
       </div>
 
       {view === "table" ? (

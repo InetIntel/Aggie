@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import _ from "lodash";
@@ -237,8 +237,25 @@ const AllReportsList = ({ alerts }: IProps) => {
     });
   }, [currentMedia, setParams, shouldClearMedia, shouldResetSocialFilters]);
 
+  // The filters bar is sticky at the top of the page scroller; the table below
+  // now flows with the page (no inner scroll box), so its sticky header must
+  // park just beneath the bar. The bar's height is dynamic (grows in
+  // select/compare mode, wraps when narrow), so measure it and publish it as
+  // the `--dt-sticky-top` CSS var that DataTable's header reads.
+  const filtersRef = useRef<HTMLDivElement>(null);
+  const [filtersHeight, setFiltersHeight] = useState(0);
+  useEffect(() => {
+    const el = filtersRef.current;
+    if (!el) return;
+    const measure = () => setFiltersHeight(el.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <>
+    <div style={{ ["--dt-sticky-top" as any]: `${filtersHeight}px` }}>
       <header className='my-4 flex flex-wrap justify-between items-center gap-2'>
         <div className='flex gap-2 items-baseline'>
           <h1 className='text-3xl font-medium'>
@@ -256,7 +273,10 @@ const AllReportsList = ({ alerts }: IProps) => {
         </div>
       </header>
 
-      <div className='px-1 py-2 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm sticky top-0 z-20 '>
+      <div
+        ref={filtersRef}
+        className='px-1 py-2 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm sticky top-0 z-20 '
+      >
         <ReportsFilters
           reportCount={reports && reports.total}
           isFetching={isFetching}
@@ -417,7 +437,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           onRemoveReport={(report) => multiSelect.addRemove(report)}
         />
       )}
-    </>
+    </div>
   );
 };
 
