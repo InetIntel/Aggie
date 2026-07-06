@@ -43,6 +43,12 @@ const Incidents = () => {
   const queryData = useUpdateQueryData();
   const navigationType = useNavigationType();
 
+  // "view" is a UI toggle, not a filter — exclude it so switching to the table
+  // view doesn't make the filters bar think a query is active (which would
+  // wrongly surface the "Clear All" button).
+  const hasActiveFilter =
+    Object.keys(_.omit(getAllParams(searchParams), "view")).length > 0;
+
   const urlView = getParam("view");
   const view: IncidentsViewMode =
     urlView === "table" || urlView === "list"
@@ -142,7 +148,11 @@ const Incidents = () => {
   useSocketSubscribe("groups:update", handleSocketUpdate);
 
   return (
-    <section className='max-w-screen-xl mx-auto px-4 pb-10'>
+    <section
+      className={`${
+        view === "table" ? "max-w-screen-2xl" : "max-w-screen-xl"
+      } mx-auto px-4 pb-10`}
+    >
       <header className='my-4 flex flex-wrap justify-between items-center gap-2'>
         <div className='flex gap-2 items-baseline'>
           <h1 className='text-3xl font-medium'>Incidents</h1>
@@ -164,13 +174,17 @@ const Incidents = () => {
         </Link>
       </header>
 
-      <IncidentsFilters
-        totalCount={data && data.total}
-        get={getParam}
-        set={setParams}
-        isQuery={!!searchParams.size}
-        clearAll={clearAllParams}
-      />
+      {/* relative z-20 lifts the filter dropdown panels above the table's
+          sticky header (z-10) so they open over the table, not behind it. */}
+      <div className='relative z-20'>
+        <IncidentsFilters
+          totalCount={data && data.total}
+          get={getParam}
+          set={setParams}
+          isQuery={hasActiveFilter}
+          clearAll={clearAllParams}
+        />
+      </div>
 
       <div className='flex flex-wrap items-center gap-2 mb-2 text-xs font-medium'>
         <div

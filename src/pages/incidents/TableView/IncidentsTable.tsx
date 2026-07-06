@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPencil, faTrash } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowDown,
+  faPencil,
+  faTrash,
+  faUpRightFromSquare,
+} from "@fortawesome/free-solid-svg-icons";
 
 import type { Group } from "../../../api/groups/types";
 import { useIncidentMutations } from "../useIncidentMutations";
-import { statusFromGroup, IncidentTableStatus } from "./statusFromGroup";
+import { IncidentOverallStatus } from "../IncidentStatuses";
+import { CoverageBadge } from "../IncidentCoverage";
 import AsnChips from "./AsnChips";
 
 import DataTable from "../../../components/DataTable/DataTable";
@@ -23,19 +29,9 @@ interface IProps {
   selection?: DataTableSelection<Group>;
 }
 
-const statusClass: Record<IncidentTableStatus, string> = {
-  Open: "text-slate-700 dark:text-gray-300",
-  Closed: "text-slate-700 dark:text-gray-300",
-  "In Progress": "text-blue-700 font-medium dark:text-blue-300",
-};
-
-const formatStartDate = (raw?: Date | string | null) => {
-  if (!raw) return { date: "—", time: "" };
-  const s = raw.toString();
-  const trimmed = s.slice(0, 16).replace("T", " ");
-  const [date, time] = trimmed.split(" ");
-  return { date: date || "—", time: time || "" };
-};
+// "YYYY-MM-DD HH:MM" (matches the incident list item), or an em dash when unset.
+const formatStamp = (raw?: Date | string | null): string =>
+  raw ? raw.toString().slice(0, 16).replace("T", " ") : "—";
 
 const formatAssignedTo = (group: Group) => {
   if (!group.assignedTo || group.assignedTo.length === 0) return null;
@@ -83,14 +79,14 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "title",
       header: "Incident Title",
       thClassName: "pr-4",
-      tdClassName: "pr-4",
+      tdClassName: "pr-4 max-w-[22rem] [overflow-wrap:anywhere]",
       cell: (inc) => {
         const reportCount = inc._reports?.length ?? 0;
         return (
           <>
             <Link
               to={`/incidents/${inc._id}`}
-              className='text-blue-700 hover:underline font-medium dark:text-blue-300 leading-snug'
+              className='text-blue-700 hover:underline font-medium dark:text-blue-300 leading-snug break-words line-clamp-2'
               onClick={(e) => e.stopPropagation()}
             >
               {inc.title}
@@ -103,34 +99,50 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       },
     },
     {
-      id: "startDate",
-      header: "Start Date",
+      id: "date",
+      header: "Date",
       bucket: "md",
       thClassName: "w-24",
-      tdClassName: "whitespace-nowrap text-[18px]",
-      cell: (inc) => {
-        const { date, time } = formatStartDate(inc.incidentStartedAt);
-        return (
-          <>
-            <div>{date}</div>
-            {time && (
-              <div className='text-[18px] text-slate-500 dark:text-gray-400 mt-0.5'>
-                {time}
-              </div>
-            )}
-          </>
-        );
-      },
+      tdClassName: "whitespace-nowrap text-xs",
+      cell: (inc) => (
+        <>
+          <div>{formatStamp(inc.incidentStartedAt)}</div>
+          <div className='text-slate-400 dark:text-gray-500 my-0.5'>
+            <FontAwesomeIcon icon={faArrowDown} size='xs' />
+          </div>
+          <div>{formatStamp(inc.incidentEndedAt)}</div>
+        </>
+      ),
     },
     {
       id: "status",
       header: "Status",
-      thClassName: "w-24",
+      thClassName: "w-32",
       tdClassName: "whitespace-nowrap",
-      cell: (inc) => {
-        const status = statusFromGroup(inc);
-        return <span className={statusClass[status]}>{status}</span>;
-      },
+      cell: (inc) => (
+        <IncidentOverallStatus
+          group={inc}
+          className='px-2 py-1 rounded-full font-medium text-sm text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit'
+        />
+      ),
+    },
+    {
+      id: "dpc",
+      header: "DPC",
+      bucket: "2xl",
+      thClassName: "w-20",
+      tdClassName: "whitespace-nowrap",
+      cell: (inc) => <CoverageBadge value={inc.directPopulationCoverageScore} />,
+    },
+    {
+      id: "ipc",
+      header: "IPC",
+      bucket: "2xl",
+      thClassName: "w-20",
+      tdClassName: "whitespace-nowrap",
+      cell: (inc) => (
+        <CoverageBadge value={inc.indirectPopulationCoverageScore} />
+      ),
     },
     {
       id: "alertsReport",
@@ -138,18 +150,6 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       bucket: "xl",
       thClassName: "w-28",
       cell: (inc) => <AlertsCount count={inc._reports?.length ?? 0} />,
-    },
-    {
-      id: "asns",
-      header: "ASNs Impacted",
-      bucket: "lg",
-      thClassName: "w-40",
-      cell: (inc) =>
-        inc.impactedAsns && inc.impactedAsns.length > 0 ? (
-          <AsnChips asns={inc.impactedAsns} max={20} />
-        ) : (
-          <AsnChips asns={inc.impactedAsns} />
-        ),
     },
     {
       id: "assignedTo",
@@ -171,8 +171,19 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         getRowKey={(inc) => inc._id}
         columns={columns}
         selection={selection}
+        hideExpandBar
+        stableGutter
         rowActions={(inc) => (
           <div className='inline-flex items-center gap-2'>
+            <Link
+              to={`/incidents/${inc._id}`}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`View incident #${inc.idnum}`}
+              title={`View incident #${inc.idnum}`}
+              className='text-slate-600 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300 transition-colors p-1'
+            >
+              <FontAwesomeIcon icon={faUpRightFromSquare} />
+            </Link>
             <button
               type='button'
               aria-label={`Edit incident ${inc.idnum}`}
@@ -193,6 +204,16 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         )}
         expandedContent={(inc) => (
           <>
+            {inc.impactedAsns && inc.impactedAsns.length > 0 && (
+              <div className='mb-2'>
+                <strong className='text-teal-900 dark:text-teal-200'>
+                  ASNs Impacted:
+                </strong>
+                <div className='mt-1'>
+                  <AsnChips asns={inc.impactedAsns} max={20} />
+                </div>
+              </div>
+            )}
             <div>
               <strong className='text-teal-900 dark:text-teal-200'>
                 Notes:{" "}

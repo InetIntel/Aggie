@@ -122,7 +122,7 @@ const CompareIncidentCard = ({ group, onRemove }: IProps) => {
       <dl className='flex flex-col gap-1 text-xs text-slate-700 dark:text-gray-300'>
         <Row label='Start:'>{formatDateTime(group.incidentStartedAt)}</Row>
         <Row label='End:'>{formatDateTime(group.incidentEndedAt)}</Row>
-        {duration && <Row label='Duration:'>{duration}</Row>}
+        <Row label='Duration:'>{duration ?? "—"}</Row>
         <Row label='Reports:'>{reportCount}</Row>
         <Row label='Assigned:'>{formatAssignedTo(group)}</Row>
         {group.locationName && <Row label='Location:'>{group.locationName}</Row>}
