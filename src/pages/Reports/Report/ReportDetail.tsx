@@ -27,6 +27,8 @@ interface IProps {
   /** Mark the report read when the detail is shown. Default true. */
   markReadOnView?: boolean;
   isBatchMode?: boolean;
+  /** Render the post/event card in the denser compact layout. Default false. */
+  compact?: boolean;
 }
 
 /**
@@ -39,6 +41,7 @@ const ReportDetail = ({
   listQueryKey,
   markReadOnView = true,
   isBatchMode = false,
+  compact = false,
 }: IProps) => {
   const navigate = useNavigate();
   const { setRead, setIrrelevance } = useReportMutations({ key: listQueryKey });
@@ -74,7 +77,7 @@ const ReportDetail = ({
         addRemove={() => setAddReportModal(false)}
       />
 
-      <nav className='flex justify-end items-center gap-1 text-xs'>
+      <nav className='flex flex-wrap justify-end items-center gap-1 text-xs'>
         <AggieButton
           variant={report.read ? "light:lime" : "light:amber"}
           className='rounded-lg border border-slate-300'
@@ -168,7 +171,7 @@ const ReportDetail = ({
         </div>
       </nav>
 
-      <SocialMediaPost report={report} showMedia />
+      <SocialMediaPost report={report} showMedia compact={compact} />
     </div>
   );
 };

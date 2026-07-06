@@ -10,8 +10,10 @@ import {
 
 import type { Report } from "../../../api/reports/types";
 import { getGroup } from "../../../api/groups";
-import { formatText } from "../../../utils/format";
-import { signalToNameColor } from "../../../components/SocialMediaPost/reportParser";
+import {
+  signalToNameColor,
+  SIGNAL_BADGE_CLASS,
+} from "../../../components/SocialMediaPost/reportParser";
 
 import type { DataTableColumn } from "../../../components/DataTable/types";
 import SocialMediaIcon from "../../../components/SocialMediaPost/SocialMediaIcon";
@@ -70,9 +72,7 @@ const SignalCell = ({ report }: { report: Report }) => {
   const [signal, bgColor] = reportSignal(report);
   if (!signal) return dash;
   return (
-    <AggieToken
-      className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white dark:text-gray-300`}
-    >
+    <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
       {signal}
     </AggieToken>
   );
@@ -120,20 +120,6 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
     cell: (report) => <PlatformCell report={report} />,
   },
   {
-    id: "content",
-    header: "Content",
-    thClassName: "pr-4",
-    // `overflow-wrap:anywhere` (unlike `break-words`) introduces soft-wrap
-    // opportunities for min-content sizing, so long unbreakable tokens (URLs,
-    // ASN strings) let the column collapse instead of forcing the table wide.
-    tdClassName: "pr-4 min-w-0 max-w-[28rem] [overflow-wrap:anywhere]",
-    cell: (report) => (
-      <div className='line-clamp-2 [overflow-wrap:anywhere] text-slate-700 dark:text-gray-300'>
-        {formatText(report.content)}
-      </div>
-    ),
-  },
-  {
     id: "status",
     header: "Status",
     thClassName: "w-24",
@@ -172,6 +158,7 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
     id: "signal",
     header: "Signal",
     bucket: "xl",
+    noSpillover: true, // signal already shown by the IODA badge in the expanded detail
     thClassName: "w-32",
     cell: (report) => <SignalCell report={report} />,
   },

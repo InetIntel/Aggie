@@ -23,7 +23,9 @@ import CompareActionBar from "../../components/CompareModal/CompareActionBar";
 import {
   faList,
   faMinus,
+  faRefresh,
   faSpinner,
+  faSquareCheck,
   faTable,
 } from "@fortawesome/free-solid-svg-icons";
 import MultiSelectActions from "./components/MultiSelectActions";
@@ -189,7 +191,19 @@ const AllReportsList = ({ alerts }: IProps) => {
           aria-pressed={view === "table"}
           onClick={() => {
             localStorage.setItem(VIEW_STORAGE_KEY, "table");
-            setParams({ view: "table" });
+            // If a report detail is open (list view's right panel = the
+            // /alerts/:id route), drop the :id so it doesn't re-render as a
+            // slide-over drawer in table view. Otherwise just flip the param.
+            if (currentPageId) {
+              const params = new URLSearchParams(searchParams);
+              params.set("view", "table");
+              navigate({
+                pathname: alerts ? "/alerts" : "/mediaposts",
+                search: params.toString(),
+              });
+            } else {
+              setParams({ view: "table" });
+            }
           }}
         >
           Table
@@ -225,7 +239,24 @@ const AllReportsList = ({ alerts }: IProps) => {
 
   return (
     <>
-      <div className='px-1 py-2 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm sticky top-0 z-10 '>
+      <header className='my-4 flex flex-wrap justify-between items-center gap-2'>
+        <div className='flex gap-2 items-baseline'>
+          <h1 className='text-3xl font-medium'>
+            {alerts ? "Alerts" : "Social Media Posts"}
+          </h1>
+          <AggieButton
+            icon={faRefresh}
+            variant='transparent'
+            className='text-slate-700 dark:text-gray-300'
+            title='refresh page'
+            loading={isFetching}
+            disabled={isFetching}
+            onClick={() => refetch()}
+          ></AggieButton>
+        </div>
+      </header>
+
+      <div className='px-1 py-2 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm sticky top-0 z-20 '>
         <ReportsFilters
           reportCount={reports && reports.total}
           isFetching={isFetching}
@@ -243,23 +274,31 @@ const AllReportsList = ({ alerts }: IProps) => {
                 Cancel Selection
               </AggieButton>
             ) : (
-              <AggieCheck
-                active={multiSelect.isActive}
-                onClick={() => {
-                  multiSelect.toggleActive();
-                  multiSelect.addRemoveAll(reports?.results);
-                }}
-              />
+              <AggieButton
+                icon={faSquareCheck}
+                variant='secondary'
+                className='text-xs font-medium'
+                onClick={() => multiSelect.toggleActive()}
+              >
+                Select
+              </AggieButton>
             )
           }
         />
         {!compareMode && multiSelect.isActive && (
-          <div className='px-1 flex gap-2 text-xs font-medium items-center mt-2'>
+          <div className='px-1 flex flex-wrap gap-2 text-xs font-medium items-center mt-2'>
             <AggieCheck
               active={multiSelect.any()}
               icon={!multiSelect.all() ? faMinus : undefined}
               onClick={() => multiSelect.addRemoveAll(reports?.results)}
             />
+            <span
+              className='cursor-pointer select-none'
+              onClick={() => multiSelect.addRemoveAll(reports?.results)}
+            >
+              Select all on this page ({reports?.results?.length ?? 0})
+            </span>
+            <span className='text-slate-400 dark:text-gray-500'>·</span>
             <p>
               Mark {multiSelect.selection.length} report{"(s)"} as:
             </p>

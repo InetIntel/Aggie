@@ -137,6 +137,7 @@ const ReportsTable = ({
       columns={columns}
       selection={selection}
       onRowClick={onRowClick}
+      hideExpandBar
       rowActions={(report) => (
         <ReportRowActions
           report={report}
@@ -145,7 +146,7 @@ const ReportsTable = ({
         />
       )}
       expandedContent={(report) => (
-        <ReportDetail report={report} listQueryKey={queryKey} />
+        <ReportDetail report={report} listQueryKey={queryKey} compact />
       )}
     />
   );
