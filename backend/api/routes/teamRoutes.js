@@ -13,4 +13,16 @@ router.get('', User.can('admin users'), teamController.team_list);
 // Create a team
 router.post('', User.can('admin users'), teamController.team_create);
 
+/*
+router.delete('/test-delete', (req, res) => {
+  return res.status(200).send('delete route works');
+});
+*/
+
+// Delete a team
+router.delete('/:_id', teamController.team_delete);
+
+//test for api call for delete
+//console.log('Loaded teamRoutes with DELETE /:_id');
+
 module.exports = router;
