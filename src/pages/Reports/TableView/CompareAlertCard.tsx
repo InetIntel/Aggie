@@ -21,6 +21,8 @@ interface IProps {
   isHighlighted: boolean;
   onToggleHighlight: () => void;
   onRemove: () => void;
+  /** Single-row comparison: render the chart width-driven (see CompareCardBody). */
+  fillWidth?: boolean;
 }
 
 // One alert in the compare grid: the shared SocialMediaPost detail card, plus a
@@ -33,6 +35,7 @@ const CompareAlertCard = ({
   isHighlighted,
   onToggleHighlight,
   onRemove,
+  fillWidth,
 }: IProps) => {
   const { setRead, setIrrelevance } = useReportMutations({ key: queryKey });
 
@@ -108,7 +111,7 @@ const CompareAlertCard = ({
       </div>
 
       <div className='flex-1 min-h-0 h-full'>
-        <CompareCardBody report={report} />
+        <CompareCardBody report={report} fillWidth={fillWidth} />
       </div>
     </div>
   );

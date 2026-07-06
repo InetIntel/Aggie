@@ -51,7 +51,7 @@ const ReportsCompareModal = ({
         onClose={onClose}
         title='Compare Alerts'
         items={reports}
-        renderCard={(report, { isHighlighted, onToggleHighlight }) => (
+        renderCard={(report, { isHighlighted, onToggleHighlight, fillWidth }) => (
           <CompareAlertCard
             report={report}
             queryKey={queryKey}
@@ -59,6 +59,7 @@ const ReportsCompareModal = ({
             isHighlighted={isHighlighted}
             onToggleHighlight={onToggleHighlight}
             onRemove={() => onRemoveReport(report)}
+            fillWidth={fillWidth}
           />
         )}
         footer={(effective) => (
