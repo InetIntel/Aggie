@@ -311,8 +311,22 @@ When revisiting: consider whether the alert row is better served by a denser cus
 
 The following usability defects were fixed in one pass. Files: [AllReportsList.tsx](../../src/pages/Reports/AllReportsList.tsx), [incidents/index.tsx](../../src/pages/incidents/index.tsx), [CompareModal.tsx](../../src/components/CompareModal/CompareModal.tsx), [CompareActionBar.tsx](../../src/components/CompareModal/CompareActionBar.tsx) (new), [CompareCardBody.tsx](../../src/pages/Reports/TableView/CompareCardBody.tsx), [CompareAlertCard.tsx](../../src/pages/Reports/TableView/CompareAlertCard.tsx), [ReportsCompareModal.tsx](../../src/pages/Reports/TableView/ReportsCompareModal.tsx).
 
-## List view todos
+## List view todos (table view + shared chrome pass — mostly resolved)
 
-- the list view item dropdown mechanism needs so me work. it's confusing, the colors are ocnfusing, and the content in the dropdown is almost too large to read. this needs to be small
-- there is also duplicate titles in the dropdown
-- the "open probing" label is weirdly spaced in the dropdown
+Scope note: this pass was constrained to the **table view and components shared by both views** — nothing list-view-specific was touched. The list view's right detail panel keeps its full (non-compact) size; it only inherits the shared-component fixes (single title + normalized badge).
+
+Resolved:
+
+- **Detail "dropdown" too large / confusing colors** — the table's inline expanded detail now renders `ReportDetail` in **compact** mode (new `compact` prop on [ReportDetail.tsx](../../src/pages/Reports/Report/ReportDetail.tsx), passed from [ReportsTable.tsx](../../src/pages/Reports/TableView/ReportsTable.tsx); reuses the compare-modal `compact` path through `SocialMediaPost`). The `DataTable` expand row was de-tinted from teal to neutral slate ([DataTable.tsx](../../src/components/DataTable/DataTable.tsx)).
+- **Duplicate titles in the dropdown** — `IodaEvent` printed the region title again as an `<h2>` on top of the `SocialMediaPost` header author. Removed ([IodaEvent.tsx](../../src/components/SocialMediaPost/IodaEvent.tsx)).
+- **"Active Probing" label weirdly spaced** — the IODA badge omitted `font-medium` and used `p-1`/`p-0.5`, unlike the two other badge sites. Normalized via a shared `SIGNAL_BADGE_BASE`/`SIGNAL_BADGE_CLASS` in [reportParser.ts](../../src/components/SocialMediaPost/reportParser.ts), now imported by `IodaEvent`, `SignalCell` ([reportColumns.tsx](../../src/pages/Reports/TableView/reportColumns.tsx)), and `SocialMediaListItem`.
+- **Search/refresh/pagination on one line; "clear all" shoved pagination down** — the top toolbar row ([ReportsFilters.tsx](../../src/pages/Reports/components/ReportsFilters.tsx)) dropped `flex-wrap` and pinned Pagination with `shrink-0`, so Reset no longer wraps the row.
+- **"Clear All Parameters" verbage** — renamed to **"Reset filters"**. (Note: refresh and reset were always independent — refresh only refetches; the layout just made them look coupled.)
+- **"Keyword Search" → "Search"**, and the icon-only refresh is now a labeled **"Refresh"** button (`variant='secondary'`).
+- **Checkbox jammed into the filters** — the bulk-select entry is now a labeled **"Select"** button in its own divider-separated group, visually distinct from the All/Investigate/Ignore relevance filter. Entering select mode no longer silently selects all 50 on entry.
+- **"all" only targets the current page** — the in-mode select-all is relabeled **"Select all on this page (N)"** to make the current-page scope explicit.
+
+Not done (deferred / out of this scope):
+
+- The **list view's** own detail panel size/colors were intentionally left untouched (list-view-specific).
+- No cross-page "select all matching" was added (would need backend support); current-page-only was kept and relabeled.
