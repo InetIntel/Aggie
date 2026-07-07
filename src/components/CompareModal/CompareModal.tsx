@@ -104,7 +104,11 @@ function CompareModal<T extends hasId>({
           {items.map((item) => (
             <div
               key={item._id}
-              className={`min-h-0 ${
+              // `min-w-0` lets the card shrink to its grid/flex track instead of
+              // its content's intrinsic width — without it a wide card (long
+              // labels, notes, or ASN table) forces the track wider than the
+              // modal and the whole body scrolls horizontally.
+              className={`min-h-0 min-w-0 ${
                 items.length <= 2 ? "flex-1 max-w-2xl" : ""
               }`}
               style={fitContent ? undefined : { height: gridCardHeight }}
