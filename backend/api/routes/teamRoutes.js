@@ -10,6 +10,9 @@ router.get('/manageable', teamController.team_manageable_list);
 // Get all teams
 router.get('', User.can('admin users'), teamController.team_list);
 
+// Get a team with its assigned users
+router.get('/:_id', teamController.team_detail);
+
 // Create a team
 router.post('', User.can('admin users'), teamController.team_create);
 

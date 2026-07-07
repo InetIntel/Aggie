@@ -1,8 +1,13 @@
 import axios from "axios";
-import type { Team } from "./types";
+import type { Team, TeamDetailResponse } from "./types";
 
 export const getTeams = async () => {
   const { data } = await axios.get<Team[]>("/api/team");
+  return data;
+};
+
+export const getTeam = async (teamId: string) => {
+  const { data } = await axios.get<TeamDetailResponse>("/api/team/" + teamId);
   return data;
 };
 
