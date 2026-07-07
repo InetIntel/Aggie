@@ -12,7 +12,8 @@ import type { Group } from "../../../api/groups/types";
 import { useIncidentMutations } from "../useIncidentMutations";
 import { IncidentOverallStatus } from "../IncidentStatuses";
 import { CoverageBadge } from "../IncidentCoverage";
-import AsnChips from "./AsnChips";
+import ImpactedAsnTable from "../Incident/ImpactedAsnTable";
+import { formatDurationFromSeconds } from "../../../utils/format";
 
 import DataTable from "../../../components/DataTable/DataTable";
 import type {
@@ -53,7 +54,7 @@ const AlertsCount = ({ count }: { count: number }) => (
       {count}
     </span>
     {count > 0 && (
-      <span className='ml-1 text-[12px] text-slate-500 dark:text-gray-400'>
+      <span className="ml-1 text-[16px] text-slate-500 dark:text-gray-400">
         alerts
       </span>
     )}
@@ -86,12 +87,12 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
           <>
             <Link
               to={`/incidents/${inc._id}`}
-              className='text-blue-700 hover:underline font-medium dark:text-blue-300 leading-snug break-words line-clamp-2'
+              className="text-blue-700 hover:underline font-medium dark:text-blue-300 leading-snug break-words line-clamp-2"
               onClick={(e) => e.stopPropagation()}
             >
               {inc.title}
             </Link>
-            <div className='text-[18px] text-slate-500 dark:text-gray-400 mt-0.5'>
+            <div className="text-[18px] text-slate-500 dark:text-gray-400 mt-0.5">
               {reportCount} {reportCount === 1 ? "report" : "reports"}
             </div>
           </>
@@ -102,13 +103,14 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "date",
       header: "Date",
       bucket: "md",
+      noSpillover: true,
       thClassName: "w-24",
       tdClassName: "whitespace-nowrap text-xs",
       cell: (inc) => (
         <>
           <div>{formatStamp(inc.incidentStartedAt)}</div>
-          <div className='text-slate-400 dark:text-gray-500 my-0.5'>
-            <FontAwesomeIcon icon={faArrowDown} size='xs' />
+          <div className="text-slate-400 dark:text-gray-500 my-0.5">
+            <FontAwesomeIcon icon={faArrowDown} size="xs" />
           </div>
           <div>{formatStamp(inc.incidentEndedAt)}</div>
         </>
@@ -122,7 +124,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       cell: (inc) => (
         <IncidentOverallStatus
           group={inc}
-          className='px-2 py-1 rounded-full font-medium text-sm text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit'
+          className="px-1.5 py-0.5 rounded-full font-medium text-xs text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit"
         />
       ),
     },
@@ -130,14 +132,18 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "dpc",
       header: "DPC",
       bucket: "2xl",
+      noSpillover: true,
       thClassName: "w-20",
       tdClassName: "whitespace-nowrap",
-      cell: (inc) => <CoverageBadge value={inc.directPopulationCoverageScore} />,
+      cell: (inc) => (
+        <CoverageBadge value={inc.directPopulationCoverageScore} />
+      ),
     },
     {
       id: "ipc",
       header: "IPC",
       bucket: "2xl",
+      noSpillover: true,
       thClassName: "w-20",
       tdClassName: "whitespace-nowrap",
       cell: (inc) => (
@@ -146,8 +152,9 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     },
     {
       id: "alertsReport",
-      header: "Alerts Report",
+      header: "# Of Alerts",
       bucket: "xl",
+      noSpillover: true,
       thClassName: "w-28",
       cell: (inc) => <AlertsCount count={inc._reports?.length ?? 0} />,
     },
@@ -155,10 +162,11 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "assignedTo",
       header: "Assigned To",
       bucket: "xl",
+      noSpillover: true,
       thClassName: "w-28",
       cell: (inc) =>
         formatAssignedTo(inc) || (
-          <span className='text-slate-500 dark:text-gray-400'>—</span>
+          <span className="text-slate-500 dark:text-gray-400">—</span>
         ),
     },
   ];
@@ -172,75 +180,125 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         columns={columns}
         selection={selection}
         hideExpandBar
+        connectedExpanded
         rowActions={(inc) => (
-          <div className='inline-flex items-center gap-2'>
+          <div className="inline-flex items-center gap-2">
             <Link
               to={`/incidents/${inc._id}`}
               onClick={(e) => e.stopPropagation()}
               aria-label={`View incident #${inc.idnum}`}
               title={`View incident #${inc.idnum}`}
-              className='text-slate-600 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300 transition-colors p-1'
+              className="text-slate-600 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300 transition-colors p-1"
             >
               <FontAwesomeIcon icon={faUpRightFromSquare} />
             </Link>
             <button
-              type='button'
+              type="button"
               aria-label={`Edit incident ${inc.idnum}`}
               onClick={() => setEditTarget(inc)}
-              className='text-green-800 hover:text-green-700 dark:text-green-300 dark:hover:text-green-200 transition-colors p-1'
+              className="text-green-800 hover:text-green-700 dark:text-green-300 dark:hover:text-green-200 transition-colors p-1"
             >
               <FontAwesomeIcon icon={faPencil} />
             </button>
             <button
-              type='button'
+              type="button"
               aria-label={`Delete incident ${inc.idnum}`}
               onClick={() => setDeleteTarget(inc)}
-              className='text-slate-600 hover:text-red-700 dark:text-gray-400 dark:hover:text-red-300 transition-colors p-1'
+              className="text-slate-600 hover:text-red-700 dark:text-gray-400 dark:hover:text-red-300 transition-colors p-1"
             >
               <FontAwesomeIcon icon={faTrash} />
             </button>
           </div>
         )}
         expandedContent={(inc) => (
-          <>
-            {inc.impactedAsns && inc.impactedAsns.length > 0 && (
-              <div className='mb-2'>
-                <strong className='text-teal-900 dark:text-teal-200'>
-                  ASNs Impacted:
+          <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8">
+            {/* Left: incident metadata as inline "Label: value" rows */}
+            <div className="min-[1456px]:flex-1 min-[1456px]:min-w-0 flex flex-col gap-1">
+              <div className="flex gap-1">
+                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                  Assigned To:
                 </strong>
-                <div className='mt-1'>
-                  <AsnChips asns={inc.impactedAsns} max={20} />
-                </div>
+                {formatAssignedTo(inc) || (
+                  <span className="text-slate-500 dark:text-gray-400">—</span>
+                )}
               </div>
-            )}
-            <div>
-              <strong className='text-teal-900 dark:text-teal-200'>
-                Notes:{" "}
-              </strong>
-              {inc.notes ? (
-                <span className='whitespace-pre-line'>{inc.notes}</span>
-              ) : (
-                <span className='italic text-slate-500 dark:text-gray-400'>
-                  No notes recorded.
+              <div className="flex gap-1 items-center">
+                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                  Direct Population Coverage:
+                </strong>
+                <CoverageBadge value={inc.directPopulationCoverageScore} />
+              </div>
+              <div className="flex gap-1 items-center">
+                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                  Indirect Population Coverage:
+                </strong>
+                <CoverageBadge value={inc.indirectPopulationCoverageScore} />
+              </div>
+              <div className="flex gap-1 items-center">
+                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                  # of Alerts:
+                </strong>
+                <span
+                  className={`font-semibold ${
+                    (inc._reports?.length ?? 0) > 0
+                      ? "text-red-700 dark:text-red-300"
+                      : "text-slate-500 dark:text-gray-400"
+                  }`}
+                >
+                  {inc._reports?.length ?? 0}
                 </span>
+              </div>
+              <div className="flex gap-1">
+                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                  Incident duration:
+                </strong>
+                {formatDurationFromSeconds(inc.incidentDurationSeconds)}
+              </div>
+              <div className="flex gap-1">
+                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                  Notes:
+                </strong>
+                {inc.notes ? (
+                  <span className="whitespace-pre-line">{inc.notes}</span>
+                ) : (
+                  <span className="italic text-slate-500 dark:text-gray-400">
+                    No notes recorded.
+                  </span>
+                )}
+              </div>
+              {inc.locationName && (
+                <div className="flex gap-1 text-slate-600 dark:text-gray-300">
+                  <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                    Location:
+                  </strong>
+                  {inc.locationName}
+                </div>
               )}
             </div>
-            {inc.locationName && (
-              <div className='mt-1 text-slate-600 dark:text-gray-300'>
-                <strong className='text-teal-900 dark:text-teal-200'>
-                  Location:{" "}
-                </strong>
-                {inc.locationName}
+
+            {/* Divider: a vertical bar between the columns when side-by-side,
+                a thin horizontal line once the ASN table wraps underneath. */}
+            <div className="border-t min-[1456px]:border-t-0 min-[1456px]:border-l border-slate-300 dark:border-gray-600" />
+
+            {/* Right (drops to the bottom when narrow): impacted ASN table.
+                Equal flex-1 with the left column so the divider stays centered
+                and the empty "No ASN Set" state keeps the same placement. */}
+            <div className="min-[1456px]:flex-1 min-[1456px]:min-w-0">
+              <strong className="text-teal-900 dark:text-teal-200">
+                Impacted ASNs:
+              </strong>
+              <div className="mt-1">
+                <ImpactedAsnTable asns={inc.impactedAsns ?? []} />
               </div>
-            )}
-          </>
+            </div>
+          </div>
         )}
       />
 
       <AggieDialog
         isOpen={!!editTarget}
         onClose={() => setEditTarget(null)}
-        className='px-3 py-4 w-full max-w-lg'
+        className="px-3 py-4 w-full max-w-lg"
         data={{ title: "Edit Incident" }}
       >
         {editTarget && (
@@ -270,10 +328,10 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         disabled={doRemove.isLoading}
         loading={doRemove.isLoading}
         title={`Delete incident ${deleteTarget?.title}?`}
-        variant='danger'
-        description='This action cannot be undone.'
-        className='max-w-md w-full'
-        confirmText='Delete'
+        variant="danger"
+        description="This action cannot be undone."
+        className="max-w-md w-full"
+        confirmText="Delete"
       >
         <p>
           There are {deleteTarget?._reports?.length ?? 0} report(s) attached,
