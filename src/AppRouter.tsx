@@ -17,6 +17,7 @@ import SourceDetails from "./pages/Settings/source/SourceDetails";
 import UsersIndex from "./pages/Settings/user/UsersIndex";
 import UserProfile from "./pages/Settings/user/UserProfile";
 import TeamsIndex from "./pages/Settings/team/TeamsIndex";
+import TeamDetails from "./pages/Settings/team/TeamDetails";
 import TagsIndex from "./pages/Settings/tag/TagsIndex";
 import CredentialsIndex from "./pages/Settings/Credentials/CredentialsIndex";
 import Login from "./pages/Login";
@@ -103,9 +104,11 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
           </>
         }
         {sessionData?.role === "admin" && (
+          <>
             <Route path='teams' element={<TeamsIndex />} />
-         )
-        }
+            <Route path='team/:id' element={<TeamDetails />} />
+          </>
+      )}
       </Route>
       { sessionData?.role === "admin"
         && (process.env.ENVIRONMENT === "development" || process.env.NODE_ENV === "development")
