@@ -20,16 +20,9 @@ type AsnSortKey = "asn" | "direct" | "indirect";
 interface IProps {
   asns: string[];
   className?: string;
-  /**
-   * Tighter layout for narrow containers (e.g. the compare-modal card): drops
-   * the table's min-width so it never forces horizontal scroll and shortens the
-   * two coverage headers. Default off — the incident page / expanded row keep
-   * the full-width table.
-   */
-  compact?: boolean;
 }
 
-const ImpactedAsnTable = ({ asns, className = "", compact = false }: IProps) => {
+const ImpactedAsnTable = ({ asns, className = "" }: IProps) => {
   const [asnSort, setAsnSort] = useState<{
     key: AsnSortKey;
     direction: "asc" | "desc";
@@ -134,13 +127,7 @@ const ImpactedAsnTable = ({ asns, className = "", compact = false }: IProps) => 
       // another (e.g. the incidents table expanded row).
       className={`isolate w-full max-h-72 overflow-auto rounded-lg border border-slate-300 bg-white dark:bg-gray-800 dark:border-slate-600 ${className}`}
     >
-      <table
-        // `table-fixed` in compact mode caps the table at the container width so
-        // long org names wrap instead of forcing the card to scroll horizontally.
-        className={`w-full ${
-          compact ? "table-fixed text-xs" : "min-w-[24rem] text-sm"
-        }`}
-      >
+      <table className="min-w-[24rem] w-full text-sm">
         <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-gray-700 border-b border-slate-300 dark:border-slate-600">
           <tr className="text-center text-slate-600 dark:text-gray-300">
             <th className="px-3 py-2 w-30 font-medium text-black dark:text-gray-300 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
@@ -164,9 +151,8 @@ const ImpactedAsnTable = ({ asns, className = "", compact = false }: IProps) => 
                 type="button"
                 className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
                 onClick={() => updateAsnSort("direct")}
-                title="Direct Population Coverage"
               >
-                {compact ? "Direct" : "Direct Population Coverage"}
+                Direct Population Coverage
                 <FontAwesomeIcon
                   icon={getAsnSortIcon("direct")}
                   className="text-slate-500 dark:text-gray-400"
@@ -178,9 +164,8 @@ const ImpactedAsnTable = ({ asns, className = "", compact = false }: IProps) => 
                 type="button"
                 className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
                 onClick={() => updateAsnSort("indirect")}
-                title="Indirect Population Coverage"
               >
-                {compact ? "Indirect" : "Indirect Population Coverage"}
+                Indirect Population Coverage
                 <FontAwesomeIcon
                   icon={getAsnSortIcon("indirect")}
                   className="text-slate-500 dark:text-gray-400"

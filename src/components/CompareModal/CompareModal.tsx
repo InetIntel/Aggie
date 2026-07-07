@@ -29,6 +29,11 @@ interface IProps<T extends hasId> {
    * footer actions; with none highlighted the actions fall back to everything.)
    */
   footer?: (effective: T[]) => React.ReactNode;
+  /**
+   * When provided, the modal body renders this in place of the card grid (and
+   * the footer is hidden) — e.g. a drilled-in detail view the caller toggles.
+   */
+  detail?: React.ReactNode;
 }
 
 // Generic side-by-side comparison modal: a responsive grid of detail cards with
@@ -41,6 +46,7 @@ function CompareModal<T extends hasId>({
   items,
   renderCard,
   footer,
+  detail,
 }: IProps<T>) {
   const [highlighted, setHighlighted] = useState<string[]>([]);
 
@@ -91,39 +97,41 @@ function CompareModal<T extends hasId>({
           max-h-[90vh]. Overflow scrolls per-card; the body only scrolls as a
           safety net on short screens. */}
       <div className='flex-1 min-h-0 -mx-1 px-1 py-1 overflow-y-auto'>
-        {/* 3+ cards use the responsive grid (up to 3 per row). 1–2 cards would
-            sit left-packed with empty grid columns, so center them at a fixed
-            card width instead. */}
-        <div
-          className={
-            items.length <= 2
-              ? "flex justify-center gap-2 text-xs"
-              : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs"
-          }
-        >
-          {items.map((item) => (
-            <div
-              key={item._id}
-              // `min-w-0` lets the card shrink to its grid/flex track instead of
-              // its content's intrinsic width — without it a wide card (long
-              // labels, notes, or ASN table) forces the track wider than the
-              // modal and the whole body scrolls horizontally.
-              className={`min-h-0 min-w-0 ${
-                items.length <= 2 ? "flex-1 max-w-2xl" : ""
-              }`}
-              style={fitContent ? undefined : { height: gridCardHeight }}
-            >
-              {renderCard(item, {
-                isHighlighted: highlighted.includes(item._id),
-                onToggleHighlight: () => toggleHighlight(item._id),
-                fillWidth: fitContent,
-              })}
-            </div>
-          ))}
-        </div>
+        {detail ?? (
+          // 3+ cards use the responsive grid (up to 3 per row). 1–2 cards would
+          // sit left-packed with empty grid columns, so center them at a fixed
+          // card width instead.
+          <div
+            className={
+              items.length <= 2
+                ? "flex justify-center gap-2 text-xs"
+                : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs"
+            }
+          >
+            {items.map((item) => (
+              <div
+                key={item._id}
+                // `min-w-0` lets the card shrink to its grid/flex track instead
+                // of its content's intrinsic width — without it a wide card (long
+                // labels, notes) forces the track wider than the modal and the
+                // whole body scrolls horizontally.
+                className={`min-h-0 min-w-0 ${
+                  items.length <= 2 ? "flex-1 max-w-2xl" : ""
+                }`}
+                style={fitContent ? undefined : { height: gridCardHeight }}
+              >
+                {renderCard(item, {
+                  isHighlighted: highlighted.includes(item._id),
+                  onToggleHighlight: () => toggleHighlight(item._id),
+                  fillWidth: fitContent,
+                })}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {footer && (
+      {!detail && footer && (
         <div className='mt-2 pt-2 border-t border-slate-200 dark:border-gray-700'>
           {footer(effective)}
         </div>

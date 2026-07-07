@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -7,17 +6,19 @@ import {
   faExclamationTriangle,
   faMinusCircle,
   faTrash,
+  faUpRightAndDownLeftFromCenter,
 } from "@fortawesome/free-solid-svg-icons";
 
 import type { Group } from "../../../api/groups/types";
 import { statusFromGroup, IncidentTableStatus } from "./statusFromGroup";
 import { CoverageBadge } from "../IncidentCoverage";
-import ImpactedAsnTable from "../Incident/ImpactedAsnTable";
 import DropdownMenu from "../../../components/DropdownMenu";
 
 interface IProps {
   group: Group;
   onRemove: () => void;
+  /** Replace the comparison grid with this incident's full impacted-ASN table. */
+  onOpenAsns: () => void;
 }
 
 const statusClass: Record<IncidentTableStatus, string> = {
@@ -61,18 +62,11 @@ const Row = ({ label, children }: { label: string; children: React.ReactNode }) 
 
 // Read-only incident summary for the compare grid. Mirrors the columns the
 // incidents table shows, in a card layout for side-by-side scanning.
-const CompareIncidentCard = ({ group, onRemove }: IProps) => {
+const CompareIncidentCard = ({ group, onRemove, onOpenAsns }: IProps) => {
   const status = statusFromGroup(group);
   const duration = formatDuration(group.incidentDurationSeconds);
   const reportCount = group._reports?.length ?? 0;
-  const [view, setView] = useState<"info" | "asns">("info");
-
-  const toggleButtonClass = (active: boolean) =>
-    `flex-1 inline-flex items-center justify-center px-2 py-1 text-xs font-medium transition-colors ${
-      active
-        ? "bg-aggie-secondary-500 text-white"
-        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-    }`;
+  const asnCount = group.impactedAsns?.length ?? 0;
 
   return (
     <div className='rounded-xl border border-slate-300 bg-white dark:bg-gray-800 p-2 h-full min-h-0 flex flex-col overflow-hidden'>
@@ -129,71 +123,47 @@ const CompareIncidentCard = ({ group, onRemove }: IProps) => {
         </span>
       </div>
 
-      {view === "info" ? (
-        <div className='flex-1 min-h-0 overflow-y-auto'>
-          <dl className='flex flex-col gap-1 text-xs text-slate-700 dark:text-gray-300'>
-            <Row label='Start:'>{formatDateTime(group.incidentStartedAt)}</Row>
-            <Row label='End:'>{formatDateTime(group.incidentEndedAt)}</Row>
-            <Row label='Duration:'>{duration ?? "—"}</Row>
-            <Row label='Reports:'>{reportCount}</Row>
-            <Row label='Assigned:'>{formatAssignedTo(group)}</Row>
-            {group.locationName && (
-              <Row label='Location:'>{group.locationName}</Row>
-            )}
-            <Row label='Direct Coverage:'>
-              <CoverageBadge value={group.directPopulationCoverageScore} />
-            </Row>
-            <Row label='Indirect Coverage:'>
-              <CoverageBadge value={group.indirectPopulationCoverageScore} />
-            </Row>
-          </dl>
-
-          {group.notes && (
-            <div className='mt-1.5 pt-1.5 border-t border-slate-200 dark:border-gray-700 text-xs'>
-              <div className='font-semibold text-slate-600 dark:text-gray-400'>
-                Notes
-              </div>
-              <p className='whitespace-pre-line break-words text-slate-700 dark:text-gray-300'>
-                {group.notes}
-              </p>
-            </div>
+      <div className='flex-1 min-h-0 overflow-y-auto'>
+        <dl className='flex flex-col gap-1 text-xs text-slate-700 dark:text-gray-300'>
+          <Row label='Start:'>{formatDateTime(group.incidentStartedAt)}</Row>
+          <Row label='End:'>{formatDateTime(group.incidentEndedAt)}</Row>
+          <Row label='Duration:'>{duration ?? "—"}</Row>
+          <Row label='Reports:'>{reportCount}</Row>
+          <Row label='Assigned:'>{formatAssignedTo(group)}</Row>
+          {group.locationName && (
+            <Row label='Location:'>{group.locationName}</Row>
           )}
-        </div>
-      ) : (
-        <div className='flex-1 min-h-0 overflow-y-auto'>
-          <ImpactedAsnTable
-            asns={group.impactedAsns ?? []}
-            compact
-            className='[&_th]:px-2 [&_td]:px-2'
-          />
-        </div>
-      )}
+          <Row label='Direct Coverage:'>
+            <CoverageBadge value={group.directPopulationCoverageScore} />
+          </Row>
+          <Row label='Indirect Coverage:'>
+            <CoverageBadge value={group.indirectPopulationCoverageScore} />
+          </Row>
+        </dl>
 
-      <div
-        className='mt-1.5 flex rounded-lg overflow-hidden border border-slate-300 dark:border-gray-600 shrink-0'
-        role='group'
-      >
-        <button
-          type='button'
-          className={toggleButtonClass(view === "info")}
-          onClick={(e) => {
-            e.stopPropagation();
-            setView("info");
-          }}
-        >
-          Info
-        </button>
-        <button
-          type='button'
-          className={toggleButtonClass(view === "asns")}
-          onClick={(e) => {
-            e.stopPropagation();
-            setView("asns");
-          }}
-        >
-          Impacted ASNs
-        </button>
+        {group.notes && (
+          <div className='mt-1.5 pt-1.5 border-t border-slate-200 dark:border-gray-700 text-xs'>
+            <div className='font-semibold text-slate-600 dark:text-gray-400'>
+              Notes
+            </div>
+            <p className='whitespace-pre-line break-words text-slate-700 dark:text-gray-300'>
+              {group.notes}
+            </p>
+          </div>
+        )}
       </div>
+
+      <button
+        type='button'
+        className='mt-1.5 shrink-0 inline-flex items-center justify-center gap-2 px-2 py-1 text-xs font-medium rounded-lg border border-slate-300 dark:border-gray-600 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenAsns();
+        }}
+      >
+        <FontAwesomeIcon icon={faUpRightAndDownLeftFromCenter} />
+        Impacted ASNs ({asnCount})
+      </button>
     </div>
   );
 };
