@@ -106,9 +106,12 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
   const doLogout = useMutation({
     mutationFn: logOut,
     onSuccess: () => {
-      navigate({ pathname: "/login" }, {replace: true});
       setLogoutModal(false);
-      queryClient.invalidateQueries(["session"]);
+      // Synchronously mark the session logged-out so AppRouter's ["session"]
+      // query flips the gate to PublicRoutes in the same render (no refetch
+      // race that could bounce /login back into the app), then go to /login.
+      queryClient.setQueryData(["session"], null);
+      navigate({ pathname: "/login" }, { replace: true });
     },
   });
 
