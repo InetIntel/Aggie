@@ -138,6 +138,7 @@ const ReportsTable = ({
       selection={selection}
       onRowClick={onRowClick}
       hideExpandBar
+      connectedExpanded
       rowActions={(report) => (
         <ReportRowActions
           report={report}
