@@ -15,7 +15,7 @@ export const coverageBorderClass = (value?: number | null): string => {
 // The bordered percentage pill used for both DPC and IPC.
 export const CoverageBadge = ({ value }: { value?: number | null }) => (
   <span
-    className={`inline-block border px-1.5 py-1 rounded leading-none ${coverageBorderClass(
+    className={`inline-block border bg-white dark:bg-gray-800 px-1.5 py-1 rounded leading-none ${coverageBorderClass(
       value
     )}`}
   >
