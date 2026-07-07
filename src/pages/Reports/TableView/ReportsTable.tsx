@@ -139,6 +139,7 @@ const ReportsTable = ({
       onRowClick={onRowClick}
       hideExpandBar
       connectedExpanded
+      tableClassName='text-xs'
       rowActions={(report) => (
         <ReportRowActions
           report={report}

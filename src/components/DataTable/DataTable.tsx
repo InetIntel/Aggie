@@ -48,6 +48,7 @@ function DataTable<T>({
   selection,
   hideExpandBar,
   connectedExpanded,
+  tableClassName,
 }: DataTableProps<T>) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const toggleRow = (key: string) =>
@@ -74,7 +75,11 @@ function DataTable<T>({
 
   return (
     <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800'>
-      <table className='w-full text-sm text-slate-700 dark:text-gray-300'>
+      <table
+        className={`w-full text-slate-700 dark:text-gray-300 ${
+          tableClassName ?? "text-sm"
+        }`}
+      >
         <thead>
           <tr>
             {showSelect && (

@@ -65,4 +65,10 @@ export interface DataTableProps<T> {
    * their expanded row (e.g. alerts) are unaffected. Defaults to off.
    */
   connectedExpanded?: boolean;
+  /**
+   * Extra classes on the `<table>` — e.g. a smaller base text size (`text-xs`)
+   * so a column-heavy table fits the page width. Defaults to the table's
+   * `text-sm`.
+   */
+  tableClassName?: string;
 }
