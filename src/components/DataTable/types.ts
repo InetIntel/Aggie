@@ -58,4 +58,11 @@ export interface DataTableProps<T> {
    * showing the bar.
    */
   hideExpandBar?: boolean;
+  /**
+   * When true, an expanded row and its detail panel render as a single
+   * "connected" card: a shared background + left accent border spanning both,
+   * with the divider between them removed. Opt-in so tables that already style
+   * their expanded row (e.g. alerts) are unaffected. Defaults to off.
+   */
+  connectedExpanded?: boolean;
 }

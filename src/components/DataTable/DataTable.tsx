@@ -47,6 +47,7 @@ function DataTable<T>({
   rowClassName,
   selection,
   hideExpandBar,
+  connectedExpanded,
 }: DataTableProps<T>) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const toggleRow = (key: string) =>
@@ -135,6 +136,9 @@ function DataTable<T>({
           const key = getRowKey(row);
           const isExpanded = expandedRows.has(key);
           const striped = i % 2 === 1;
+          // Opt-in "connected card": the expanded row + its detail share one
+          // background and a left accent, with no divider between them.
+          const connected = !!connectedExpanded && isExpanded;
           // Clicking anywhere on the data row toggles the inline detail (same as
           // the "View details" button); onRowClick is still forwarded for any
           // future hook (e.g. a compare modal).
@@ -146,10 +150,12 @@ function DataTable<T>({
             <tbody
               key={key}
               className={`border-b border-slate-200 dark:border-gray-700 transition-colors ${
-                striped ? "bg-slate-100 dark:bg-gray-700/40" : ""
-              } hover:bg-aggie-teal-10 dark:hover:bg-aggie-teal-10/10 ${
-                rowClassName?.(row) ?? ""
-              }`}
+                connected
+                  ? "bg-aggie-teal-10 dark:bg-aggie-teal-10/10 shadow-[inset_4px_0_0_0_#14b8a6] dark:shadow-[inset_4px_0_0_0_#2dd4bf]"
+                  : `${
+                      striped ? "bg-slate-100 dark:bg-gray-700/40" : ""
+                    } hover:bg-aggie-teal-10 dark:hover:bg-aggie-teal-10/10`
+              } ${rowClassName?.(row) ?? ""}`}
             >
               <tr
                 className={clickable ? "cursor-pointer" : undefined}
@@ -256,7 +262,13 @@ function DataTable<T>({
                 <tr id={`detail-${key}`}>
                   <td
                     colSpan={totalCols}
-                    className='px-4 py-2 text-sm text-slate-700 dark:text-gray-200 bg-slate-50 dark:bg-gray-900/40 border-t border-slate-200 dark:border-gray-700 overflow-x-auto'
+                    className={`px-4 py-2 text-sm text-slate-700 dark:text-gray-200 overflow-x-auto ${
+                      connected
+                        ? // Keep the shared card background + accent, but mark
+                          // the boundary between the row body and its detail.
+                          "border-t border-slate-300 dark:border-gray-600"
+                        : "bg-slate-50 dark:bg-gray-900/40 border-t border-slate-200 dark:border-gray-700"
+                    }`}
                   >
                     {/* Auto-generated spillover: each hidden column renders here
                         under its inverse responsive class, so at the widest
@@ -267,13 +279,14 @@ function DataTable<T>({
                         {spilloverColumns(columns).map((col) => (
                           <div
                             key={col.id}
-                            className={`${SPILLOVER_BLOCK[col.bucket!]} mb-2`}
+                            className={`${SPILLOVER_BLOCK[col.bucket!]} mb-1 flex gap-1`}
                           >
-                            <dt className='font-semibold text-slate-700 dark:text-gray-300'>
+                            <dt className='font-semibold text-slate-700 dark:text-gray-300 shrink-0'>
                               {col.spilloverLabel ??
                                 (typeof col.header === "string"
                                   ? col.header
                                   : col.id)}
+                              :
                             </dt>
                             <dd>{col.cell(row)}</dd>
                           </div>
