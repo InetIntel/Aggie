@@ -1,65 +1,81 @@
 // A report is a single post/comment/article or other chunk of data from a source.
 // This class is responsible for executing ReportQuerys.
-const database = require('../database');
+const database = require("../database");
 const mongoose = database.mongoose;
-const AutoIncrement = require('mongoose-sequence')(mongoose);
+const AutoIncrement = require("mongoose-sequence")(mongoose);
 const Schema = mongoose.Schema;
 const SchemaTypes = mongoose.SchemaTypes;
-const SMTCTag = require('./tag');
-const { addPost, removePost } = require('../comments');
-const { strict } = require('assert');
+const SMTCTag = require("./tag");
+const { addPost, removePost } = require("../comments");
+const { strict } = require("assert");
 
 let schema = new Schema({
   authoredAt: { type: Date, index: true },
   fetchedAt: { type: Date, index: true },
   storedAt: { type: Date, index: true },
-  isOutageEvent: {type: Boolean, index: true},
-  isAsnScoped: {type:Boolean, index: true},
-  asn: {type: String},
-  outageStartedAt: { type: Date,},
-  outageEndedAt: { type: Date},
-  geoScope: {type: String},
+  isOutageEvent: { type: Boolean, index: true },
+  isAsnScoped: { type: Boolean, index: true },
+  asn: { type: String },
+  outageStartedAt: { type: Date },
+  outageEndedAt: { type: Date },
+  geoScope: { type: String },
   eventIdentifier: { type: String }, // an identifier derived from asn, geoScope, and outageStartedAt
   eventAggKeyBase: { type: String }, // an aggregation key base, derived from asn and geoScope, combined with dynamic time interval bucket in aggregation layer
   content: { type: String },
   author: { type: String },
-  veracity: { type: String, default: 'Unconfirmed', enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'], index: true },
+  veracity: {
+    type: String,
+    default: "Unconfirmed",
+    enum: ["Unconfirmed", "Confirmed True", "Confirmed False"],
+    index: true,
+  },
   url: { type: String },
   guid: { type: String, index: true, unique: true },
   metadata: Schema.Types.Mixed,
-  smtcTags: { type: [{ type: SchemaTypes.ObjectId, ref: 'SMTCTag' }], default: [] },
+  smtcTags: {
+    type: [{ type: SchemaTypes.ObjectId, ref: "SMTCTag" }],
+    default: [],
+  },
   hasSMTCTags: { type: Boolean, default: false, required: true, index: true },
   closed: { type: Boolean, default: false, required: true },
   read: { type: Boolean, default: false, required: true, index: true },
-  _sources: [{ type: String, ref: 'Source', index: true }],
+  _sources: [{ type: String, ref: "Source", index: true }],
   _media: { type: [String], index: true },
   _sourceNicknames: [String],
-  _group: { type: SchemaTypes.ObjectId, ref: 'Group', index: true },
-  checkedOutBy: { type: Schema.ObjectId, ref: 'User', index: true },
+  _group: { type: SchemaTypes.ObjectId, ref: "Group", index: true },
+  checkedOutBy: { type: Schema.ObjectId, ref: "User", index: true },
   checkedOutAt: { type: Date, index: true },
-  commentTo: { type: Schema.ObjectId, ref: 'Report', index: true },
+  commentTo: { type: Schema.ObjectId, ref: "Report", index: true },
   notes: { type: String },
   escalated: { type: Boolean, default: false, required: true, index: true },
   content_lang: { type: String },
-  irrelevant: { type: String, default: 'maybe', required: false, enum: ['false', 'true', 'maybe'], index: true },
+  irrelevant: {
+    type: String,
+    default: "maybe",
+    required: false,
+    enum: ["false", "true", "maybe"],
+    index: true,
+  },
   aitags: {
     type: Map,
     of: SchemaTypes.Mixed,
     default: {},
   },
-  aitags_feedback: [{
-    type: Map,
-    of: SchemaTypes.Mixed,
-    default: {},
-  }],
+  aitags_feedback: [
+    {
+      type: Map,
+      of: SchemaTypes.Mixed,
+      default: {},
+    },
+  ],
   aitagnames: { type: [String], default: [] },
-  red_flag: { type: Boolean, default: false, index: true }
+  red_flag: { type: Boolean, default: false, index: true },
 });
 
 // schema.index({ 'metadata.ct_tag': 1 }, { background: true });
 // Add fulltext index to the `content` and `author` field.
 
-schema.index({ author: 'text', content: 'text' });
+schema.index({ author: "text", content: "text" });
 schema.index({ geoScope: 1 });
 schema.index({ outageStartedAt: 1 });
 schema.index({ outageEndedAt: 1 });
@@ -67,43 +83,39 @@ schema.index({ irrelevant: 1 });
 schema.index({ eventIdentifier: 1 }, { sparse: true }); // sparse index (i.e. only docs with field are indexed)
 schema.index({ isOutageEvent: 1, authoredAt: -1 }); // alerts list: match + sort + limit without in-memory sort
 schema.index({ eventAggKeyBase: 1 }, { sparse: true });
-schema.path('_group').set(function (_group) {
+schema.path("_group").set(function (_group) {
   this._prevGroup = this._group;
   return _group;
 });
 
 // sets the indexed hasSMTCTags boolean
-schema.pre('save', function (next) {
+schema.pre("save", function (next) {
   this.hasSMTCTags = this.smtcTags.length > 0;
-  next()
+  next();
 });
 
-schema.pre('save', function (next) {
+schema.pre("save", function (next) {
   if (this.isNew) {
     this._wasNew = true;
     // Set default storedAt.
     if (!this.storedAt) this.storedAt = new Date();
-
   } else {
     // Capture updates before saving report
-    if (this.isModified('_group')) {
+    if (this.isModified("_group")) {
       this._groupWasModified = true;
     }
-
   }
   next();
 });
 
 // Emit information about updates after saving report
-schema.post('save', function () {
-  if (this._wasNew) schema.emit('report:new', { _id: this._id.toString() });
-  if (!this._wasNew) schema.emit('report:updated', this);
+schema.post("save", function () {
+  if (this._wasNew) schema.emit("report:new", { _id: this._id.toString() });
+  if (!this._wasNew) schema.emit("report:updated", this);
   if (this._groupWasModified) {
-    schema.emit('change:group', this._prevGroup, this._group);
+    schema.emit("change:group", this._prevGroup, this._group);
   }
 });
-
-
 
 schema.methods.setReadStatus = function (readStatus) {
   this.read = readStatus;
@@ -133,13 +145,17 @@ schema.methods.addSMTCTag = function (smtcTagId, callback) {
     this.smtcTags.push({ _id: smtcTagId });
     this.read = true;
     // Only send a post to the acquisition API if it is a) not a comment b) a FB post and c) not a group post
-    if (!this.commentTo && this._media[0] === 'facebook' && !this.url.match(/permalink/)) {
+    if (
+      !this.commentTo &&
+      this._media[0] === "facebook" &&
+      !this.url.match(/permalink/)
+    ) {
       SMTCTag.findById(smtcTagId, (err, tag) => {
         if (err) {
           console.error(err);
         }
         if (tag.isCommentTag) {
-          addPost(this.url, callback)
+          addPost(this.url, callback);
         } else {
           callback();
         }
@@ -148,7 +164,7 @@ schema.methods.addSMTCTag = function (smtcTagId, callback) {
     }
   }
   callback();
-}
+};
 
 schema.methods.removeSMTCTag = function (smtcTagId, callback) {
   // TODO: Use Functional Programming
@@ -160,17 +176,17 @@ schema.methods.removeSMTCTag = function (smtcTagId, callback) {
       if (smtcTagId === tag.toString()) {
         fndIndex = index;
       }
-    })
+    });
     if (fndIndex !== -1) {
       this.smtcTags.splice(fndIndex, 1);
 
-      if (!this.commentTo && this._media[0] === 'facebook') {
+      if (!this.commentTo && this._media[0] === "facebook") {
         SMTCTag.findById(smtcTagId, (err, tag) => {
           if (err) {
             console.error(err);
           }
           if (tag.isCommentTag) {
-            removePost(this.url, callback)
+            removePost(this.url, callback);
           } else {
             callback();
           }
@@ -180,14 +196,13 @@ schema.methods.removeSMTCTag = function (smtcTagId, callback) {
     }
   }
   callback();
-}
+};
 
 schema.methods.clearSMTCTags = function (callback) {
-
   const cb = () => {
     this.smtcTags = [];
     callback();
-  }
+  };
 
   if (!this.commentTo) {
     let remaining = this.smtcTags.length;
@@ -205,11 +220,11 @@ schema.methods.clearSMTCTags = function (callback) {
     return;
   }
   cb();
-}
+};
 // schema.plugin(AutoIncrement, { inc_field: 'reportId' });
-const Report = mongoose.model('Report', schema);
+const Report = mongoose.model("Report", schema);
 
-SMTCTag.schema.on('tag:removed', function (id) {
+SMTCTag.schema.on("tag:removed", function (id) {
   Report.find({ smtcTags: id }, function (err, reports) {
     if (err) {
       console.error(err);
@@ -217,20 +232,20 @@ SMTCTag.schema.on('tag:removed', function (id) {
     reports.forEach(function (report) {
       report.removeSMTCTag(id, () => {
         report.save();
-      })
+      });
     });
   });
-})
-
+});
 
 // queryReports reports based on passed query data
 Report.queryReports = function (query, page, callback) {
-  if (typeof query === 'function') return Report.findPage(query);
-  if (typeof page === 'function') {
+  if (typeof query === "function") return Report.findPage(query);
+  if (typeof page === "function") {
     callback = page;
     page = 0;
   }
-  if (page === undefined || page === null || Number.isNaN(Number(page))) page = 0;
+  if (page === undefined || page === null || Number.isNaN(Number(page)))
+    page = 0;
   if (page < 0) page = 0;
 
   const filter = query.toMongooseFilter();
@@ -238,11 +253,11 @@ Report.queryReports = function (query, page, callback) {
   // Re-set search timestamp
   query.since = new Date();
 
-  if (query.escalated === 'escalated') filter.escalated = true;
-  if (query.escalated === 'unescalated') filter.escalated = false;
-  if (query.veracity === 'confirmed true') filter.veracity = 'Confirmed True';
-  if (query.veracity === 'confirmed false') filter.veracity = 'Confirmed False';
-  if (query.veracity === 'unconfirmed') filter.veracity = 'Unconfirmed';
+  if (query.escalated === "escalated") filter.escalated = true;
+  if (query.escalated === "unescalated") filter.escalated = false;
+  if (query.veracity === "confirmed true") filter.veracity = "Confirmed True";
+  if (query.veracity === "confirmed false") filter.veracity = "Confirmed False";
+  if (query.veracity === "unconfirmed") filter.veracity = "Unconfirmed";
 
   // console.log(JSON.stringify(filter))
 
@@ -256,32 +271,33 @@ Report.queryReports = function (query, page, callback) {
   // }
   // delete query.keywords
 
-
   Report.findSortedPage(filter, page, callback);
 };
 
-
-// Dedup reports based on eventidentifier(if exist), general findPage() does not apply to this 
+// Dedup reports based on eventidentifier(if exist), general findPage() does not apply to this
 Report.queryReportsDeduped = async function (query, page, callback) {
-  if (typeof page === 'function') {
+  if (typeof page === "function") {
     callback = page;
     page = 0;
   }
 
   let result;
   try {
-    if (page === undefined || page === null || Number.isNaN(Number(page))) page = 0;
+    if (page === undefined || page === null || Number.isNaN(Number(page)))
+      page = 0;
     if (page < 0) page = 0;
 
     const filter = query.toMongooseFilter();
 
     // same extra filters as queryReports
-    if (query.escalated === 'escalated') filter.escalated = true;
-    if (query.escalated === 'unescalated') filter.escalated = false;
-    if (query.veracity === 'confirmed true') filter.veracity = 'Confirmed True';
-    if (query.veracity === 'confirmed false') filter.veracity = 'Confirmed False';
-    if (query.veracity === 'unconfirmed') filter.veracity = 'Unconfirmed';
+    if (query.escalated === "escalated") filter.escalated = true;
+    if (query.escalated === "unescalated") filter.escalated = false;
+    if (query.veracity === "confirmed true") filter.veracity = "Confirmed True";
+    if (query.veracity === "confirmed false")
+      filter.veracity = "Confirmed False";
+    if (query.veracity === "unconfirmed") filter.veracity = "Unconfirmed";
 
+    // TODO: can i import this from perPage?
     const PAGE_LIMIT = 50; // Note: This should be the same as `perPage` in config.js.
 
     const targetUnique = (page + 1) * PAGE_LIMIT;
@@ -295,15 +311,11 @@ Report.queryReportsDeduped = async function (query, page, callback) {
 
     const [rawReports, countRows] = await Promise.all([
       // fetch raw candidates
-      // IODA reports carry a ~330KB inline SVG chart in metadata.rawAPIResponse.image;
-      // shipping it per list row is what blew past API_REQUEST_TIMEOUT (~43MB/page).
-      // List cards don't render it; the single-report endpoint still returns it.
-      // TODO: move the SVG into media storage (see socialImageStorage) and drop it
-      // from the document entirely.
+      // IODA chart SVGs now live in media storage (metadata.rawAPIResponse.image holds
+      // a small key, not the inline SVG), so list rows are cheap to ship in full.
       Report.find(filter)
         .sort({ authoredAt: -1 })
         .limit(rawFetchLimit)
-        .select({ 'metadata.rawAPIResponse.image': 0 })
         .maxTimeMS(QUERY_TIME_LIMIT_MS)
         .lean(),
       // Deduped total: identified reports count once per distinct eventIdentifier;
@@ -315,22 +327,22 @@ Report.queryReportsDeduped = async function (query, page, callback) {
           $group: {
             _id: {
               $cond: [
-                { $in: [{ $ifNull: ['$eventIdentifier', null] }, [null, '']] },
+                { $in: [{ $ifNull: ["$eventIdentifier", null] }, [null, ""]] },
                 null,
-                '$eventIdentifier'
-              ]
+                "$eventIdentifier",
+              ],
             },
-            c: { $sum: 1 }
-          }
+            c: { $sum: 1 },
+          },
         },
         {
           $group: {
             _id: null,
-            total: { $sum: { $cond: [{ $eq: ['$_id', null] }, '$c', 1] } }
-          }
+            total: { $sum: { $cond: [{ $eq: ["$_id", null] }, "$c", 1] } },
+          },
         },
-        { $project: { _id: 0, total: 1 } }
-      ]).option({ maxTimeMS: QUERY_TIME_LIMIT_MS })
+        { $project: { _id: 0, total: 1 } },
+      ]).option({ maxTimeMS: QUERY_TIME_LIMIT_MS }),
     ]);
 
     const [{ total = 0 } = {}] = countRows;
@@ -356,7 +368,7 @@ Report.queryReportsDeduped = async function (query, page, callback) {
 
     result = {
       total,
-      results: deduped.slice(start, end)
+      results: deduped.slice(start, end),
     };
   } catch (err) {
     return callback(err);
@@ -368,15 +380,23 @@ Report.queryReportsDeduped = async function (query, page, callback) {
   try {
     callback(null, result);
   } catch (cbErr) {
-    console.error('queryReportsDeduped: callback threw after results were ready:', cbErr.message);
+    console.error(
+      "queryReportsDeduped: callback threw after results were ready:",
+      cbErr.message,
+    );
   }
 };
 
 Report.findSortedPage = function (filter, page, callback) {
-  Report.findPage(filter, page, { sort: '-authoredAt' }, function (err, reports) {
-    if (err) return callback(err);
-    callback(null, reports);
-  });
+  Report.findPage(
+    filter,
+    page,
+    { sort: "-authoredAt" },
+    function (err, reports) {
+      if (err) return callback(err);
+      callback(null, reports);
+    },
+  );
 };
 
 module.exports = Report;

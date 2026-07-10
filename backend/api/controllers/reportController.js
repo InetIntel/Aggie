@@ -58,12 +58,34 @@ const serializeReport = (report) => {
       }))
     : plainReport?.metadata?.attachments;
 
+  // Chart images at metadata.rawAPIResponse.image come in three shapes; expose a URL
+  // the frontend can <img src> against without mangling remote URLs. The shapes are:
+  //   - legacy inline SVG (pre-migration IODA, starts with '<') — no URL, leave as-is
+  //   - absolute remote URL (Cloudflare Radar chart) — pass through unchanged
+  //   - relative media key (post-migration IODA) — resolve to /media/... via buildMediaUrl
+  const rawAPIResponse = plainReport?.metadata?.rawAPIResponse;
+  const chartImage = rawAPIResponse?.image;
+  let imageUrl;
+  if (typeof chartImage === 'string') {
+    const trimmed = chartImage.trimStart();
+    if (trimmed.startsWith('<')) {
+      imageUrl = undefined;
+    } else if (/^https?:\/\//i.test(trimmed)) {
+      imageUrl = chartImage;
+    } else {
+      imageUrl = buildMediaUrl(chartImage);
+    }
+  }
+  const rawAPIResponseWithUrl =
+    imageUrl != null ? { ...rawAPIResponse, imageUrl } : rawAPIResponse;
+
   return {
     ...plainReport,
     metadata: plainReport?.metadata
       ? {
           ...plainReport.metadata,
           attachments,
+          ...(rawAPIResponse ? { rawAPIResponse: rawAPIResponseWithUrl } : {}),
         }
       : plainReport?.metadata,
   };

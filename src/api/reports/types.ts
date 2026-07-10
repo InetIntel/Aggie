@@ -91,6 +91,9 @@ interface RawApiResponse {
   id: string;
   type: string;
   attributes: unknown;
+  // IODA/Cloudflare chart: `image` is the media-storage key, `imageUrl` the served URL.
+  image?: string;
+  imageUrl?: string;
   [key: string]: any;
 }
 // i need to redo this...
