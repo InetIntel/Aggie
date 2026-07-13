@@ -41,6 +41,7 @@ resolves paths.
 (keep it only for genuine save failures).
 
 Files:
+
 - [backend/fetching/hooks/saveToDatabase.js](../../../backend/fetching/hooks/saveToDatabase.js) — the hook
 - [backend/models/report.js:28](../../../backend/models/report.js#L28) — unique `guid` index
 - [backend/fetching/utils/socialImageStorage.js](../../../backend/fetching/utils/socialImageStorage.js) — `deleteSocialAttachments` (verify path resolution)
@@ -68,10 +69,26 @@ a `Schema.Types.Mixed` column with **no index** — plus `isOutageEvent`, so bot
 
 1. **Add two compound indexes** in [backend/models/report.js](../../../backend/models/report.js) after
    the existing `schema.index(...)` block (Mongoose 5 syntax, `background: true`):
+
    ```js
-   schema.index({ isOutageEvent: 1, 'metadata.rawAPIResponse.entityLevel': 1, authoredAt: -1 }, { background: true });
-   schema.index({ isOutageEvent: 1, 'metadata.rawAPIResponse.entityLevel': 1, eventIdentifier: 1 }, { background: true });
+   schema.index(
+     {
+       isOutageEvent: 1,
+       "metadata.rawAPIResponse.entityLevel": 1,
+       authoredAt: -1,
+     },
+     { background: true },
+   );
+   schema.index(
+     {
+       isOutageEvent: 1,
+       "metadata.rawAPIResponse.entityLevel": 1,
+       eventIdentifier: 1,
+     },
+     { background: true },
+   );
    ```
+
    ESR rationale: equality on `isOutageEvent` + `entityLevel`, then sort (`authoredAt`) for the find;
    trailing `eventIdentifier` lets the dedup `$group` be served from index. Index (b) must **NOT** be
    sparse — the count's `$cond` group key falls back to `$_id` for docs lacking `eventIdentifier`, so
@@ -160,6 +177,22 @@ Files: [src/components/DataTable/DataTable.tsx](../../../src/components/DataTabl
 
 File: [src/pages/incidents/TableView/IncidentsTable.tsx](../../../src/pages/incidents/TableView/IncidentsTable.tsx).
 
+### Incidents / alerts filtering
+
+- **Incident:**
+  - sort is by currently incident number
+    - Want to be able by start time
+    - Want to filter by start time
+    - On all card view —> have tags that indicate the source of the reports associated with the incident
+  - Statuses:
+    - Is currently a carryover from elections
+    - What does escalation mean in this new Aggie context?
+    - Need to hash out other statuses to ensure they make sense in an Aggie
+- **Alerts**:
+  - date filter filter does not work: need to fix
+  - IODA API has alerts, event API and they’re all related (need to investigate)
+    - We are not storing recovery, we are just storing an end time
+
 ---
 
 ## Future options (decided against for now)
@@ -169,7 +202,7 @@ File: [src/pages/incidents/TableView/IncidentsTable.tsx](../../../src/pages/inci
 **Decision so far:** keep the Playwright/Chromium scrape of the IODA dashboard SVG
 ([backend/fetching/utils/iodaUtils.js](../../../backend/fetching/utils/iodaUtils.js) `extractCleanSVGFromPage`).
 The IODA v2 API has **no chart-image endpoint** (no server-rendered SVG/PNG to fetch), so a URL swap
-isn't possible. If the scrape ever becomes a maintenance burden, the data behind the chart *is*
+isn't possible. If the scrape ever becomes a maintenance burden, the data behind the chart _is_
 available directly:
 
 ```
@@ -178,6 +211,7 @@ GET https://api.ioda.inetintel.cc.gatech.edu/v2/signals/raw/{entityType}/{entity
 ```
 
 (returns chart time-series JSON — verified HTTP 200). Two browser-free alternatives it unlocks:
+
 1. **Frontend render** — store the compact time-series JSON on the report, render a React chart
    component. Removes Playwright, jsdom, DOMPurify, **and** the media-storage SVG machinery.
 2. **Server-side SVG render** — render an SVG on the backend (Highcharts export server or a light
