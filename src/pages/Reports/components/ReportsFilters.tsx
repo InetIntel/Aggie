@@ -159,8 +159,8 @@ const ReportFilters = ({
 
   return (
     <>
-      <div className='flex justify-between mb-2'>
-        <div className='flex gap-1'>
+      <div className='flex justify-between items-center gap-2 mb-2'>
+        <div className='flex items-center gap-2 min-w-0'>
           <Formik
             initialValues={{ keywords: getParam("keywords") }}
             onSubmit={(e) => {
@@ -169,42 +169,48 @@ const ReportFilters = ({
             }}
           >
             {({ resetForm, values }) => (
-              <Form className='flex gap-2'>
-                <div className='flex items-center focus-within-theme rounded-lg '>
-                  <div className='group relative'>
+              <Form className='flex items-center gap-2 min-w-0'>
+                <div className='flex items-center focus-within-theme rounded-lg min-w-0'>
+                  <div className='group relative min-w-0'>
                     <Field
                       name='keywords'
-                      className='focus-theme px-2 py-1 border border-slate-300 bg-white dark:bg-gray-800 rounded-lg min-w-[20rem]'
-                      placeholder={searchPlaceholder || "Keyword Search"}
+                      className='focus-theme px-2 py-1 border border-slate-300 bg-white dark:bg-gray-800 rounded-lg w-[16rem] max-w-full'
+                      placeholder={searchPlaceholder || "Search"}
                     />
                   </div>
                 </div>
                 <AggieButton
+                  type='button'
                   icon={faRefresh}
-                  variant='transparent'
-                  className='text-slate-700 dark:text-gray-300'
-                  title='refresh page'
+                  variant='secondary'
+                  className='px-2 py-1 text-sm shrink-0'
+                  title='Refresh'
                   loading={isFetching}
                   disabled={isFetching}
                   onClick={() => refetch()}
-                ></AggieButton>
+                >
+                  Refresh
+                </AggieButton>
                 {!!searchParams.size && (
                   <AggieButton
-                    className='hover:underline hover:bg-slate-100 dark:hover:bg-gray-700 px-2 py-1 text-sm rounded '
+                    type='button'
+                    variant='secondary'
+                    className='px-2 py-1 text-sm shrink-0'
+                    title='Clear all filters and search'
                     onClick={() => {
                       clearAllParams();
                       resetForm({ values: { keywords: "" } });
                     }}
                   >
                     <FontAwesomeIcon icon={faXmarkSquare} />
-                    Clear All Parameters
+                    Reset filters
                   </AggieButton>
                 )}
               </Form>
             )}
           </Formik>
         </div>
-        <div className='text-xs'>
+        <div className='text-xs shrink-0'>
           <Pagination
             currentPage={Number(getParam("page")) || 0}
             totalCount={reportCount || 0}
@@ -213,9 +219,13 @@ const ReportFilters = ({
           />
         </div>
       </div>
-      <div className='flex justify-between text-sm'>
-        <div className='flex gap-2 items-center'>
-          {headerElement}
+      <div className='flex flex-wrap justify-between gap-y-2 text-sm'>
+        <div className='flex gap-3 items-center'>
+          {headerElement && (
+            <div className='flex items-center pr-3 border-r border-slate-300 dark:border-gray-600'>
+              {headerElement}
+            </div>
+          )}
           <FilterRadioGroup
             options={{
               all: "All",
@@ -229,7 +239,7 @@ const ReportFilters = ({
             }
           />
         </div>
-        <div className='flex items-center gap-1'>
+        <div className='flex flex-wrap items-center gap-1'>
           <FilterDateTime
             before={getParam("before")}
             onSetBefore={(d) => setParams({ before: d })}

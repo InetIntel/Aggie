@@ -10,6 +10,14 @@ if (process.env.ENVIRONMENT === "development") {
           secure: false,
         })
     );
+    app.use(
+        '/media',
+        createProxyMiddleware({
+          target: 'http://127.0.0.1:3000/',
+          changeOrigin: true,
+          secure: false,
+        })
+    );
     app.post(
         '/login',
         createProxyMiddleware({

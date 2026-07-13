@@ -13,7 +13,8 @@ import DateTime from "../DateTime";
 import {
   parseContentType,
   sanitize,
-  signalToNameColor
+  signalToNameColor,
+  SIGNAL_BADGE_CLASS,
 } from "../SocialMediaPost/reportParser";
 import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
@@ -44,7 +45,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
             {renderAuthor(contentType, report)}
           </h1>
           {signal && (
-            <AggieToken className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white dark:text-gray-300 `}>
+            <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
               {signal}
             </AggieToken>
           )}

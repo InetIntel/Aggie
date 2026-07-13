@@ -76,6 +76,14 @@ export function sanitize(string: string) {
   //});
 }
 
+// Shared Tailwind classes for the datasource/signal badge (BGP / Active Probing /
+// Telescope) so every render site stays visually consistent. The `bgColor` from
+// signalToNameColor is applied alongside these. SIGNAL_BADGE_BASE omits the text
+// size so compact contexts can override it (e.g. text-xs).
+export const SIGNAL_BADGE_BASE =
+  "font-medium px-1 rounded-lg text-white dark:text-gray-300";
+export const SIGNAL_BADGE_CLASS = `${SIGNAL_BADGE_BASE} text-sm`;
+
 export function signalToNameColor(rawSignal: string) {
   switch(rawSignal) {
     case "bgp":
@@ -87,4 +95,20 @@ export function signalToNameColor(rawSignal: string) {
     default:
       return [rawSignal, ""];
   }
+}
+
+// Resolve a chart image value to a usable <img> src. IODA/Cloudflare charts now live
+// in media storage and the report carries a bare key ("ioda/charts/<hash>.svg"),
+// served by the backend at /media/<key>. Absolute URLs (legacy Cloudflare) and
+// already-rooted paths pass through unchanged.
+export function resolveMediaUrl(value?: string): string {
+  if (!value) return "";
+  if (/^https?:\/\//.test(value) || value.startsWith("/")) return value;
+  return `/media/${value.replace(/^\/+/, "")}`;
+}
+
+// True when the image value is a legacy inline SVG markup string rather than a
+// storage key / URL.
+export function isInlineSvg(value?: string): boolean {
+  return !!value && value.trimStart().startsWith("<");
 }

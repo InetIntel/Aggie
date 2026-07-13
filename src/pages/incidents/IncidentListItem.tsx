@@ -34,6 +34,7 @@ import {
   faMessage,
 } from "@fortawesome/free-regular-svg-icons";
 import { IncidentOverallStatus } from "./IncidentStatuses";
+import { CoverageBadge } from "./IncidentCoverage";
 import UserToken from "../../components/UserToken";
 import { isString } from "lodash";
 import { hasId } from "../../api/common";
@@ -43,33 +44,6 @@ interface IProps {
 }
 
 const IncidentListItem = ({ item }: IProps) => {
-  const getCoverageBorderClass = (value?: number | null) => {
-    if (typeof value !== "number" ) {
-      return "border-black dark:border-gray-200";
-    }
-    if (value < 0.1) {
-      return "border-yellow-400 dark:border-yellow-300";
-    }
-    if (value <= 0.25) {
-      return "border-orange-400 dark:border-orange-300";
-    }
-    return "border-red-500 dark:border-red-400";
-  };
-
-  const directCoveragePercent =
-    typeof item.directPopulationCoverageScore === "number"
-      ? `${(item.directPopulationCoverageScore * 100).toFixed(2)}%`
-      : "0.00%";
-  const directCoverageBorderClass = getCoverageBorderClass(
-    item.directPopulationCoverageScore
-  );
-  const indirectCoveragePercent =
-    typeof item.indirectPopulationCoverageScore === "number"
-      ? `${(item.indirectPopulationCoverageScore * 100).toFixed(2)}%`
-      : "0.00%";
-  const indirectCoverageBorderClass = getCoverageBorderClass(
-    item.indirectPopulationCoverageScore
-  );
 
   const navigate = useNavigate();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -152,19 +126,11 @@ const IncidentListItem = ({ item }: IProps) => {
           </h2>
           <div className='flex items-center gap-2 text-black dark:text-gray-300 font-medium text-sm'>
             <span>DPC:</span>
-            <span
-              className={`border px-1.5 py-1 rounded leading-none ${directCoverageBorderClass}`}
-            >
-              {directCoveragePercent}
-            </span>
+            <CoverageBadge value={item.directPopulationCoverageScore} />
           </div>
           <div className='flex items-center gap-2 text-black dark:text-gray-300 font-medium text-sm mt-1'>
             <span>IPC:</span>
-            <span
-              className={`border px-1.5 py-1 rounded leading-none ${indirectCoverageBorderClass}`}
-            >
-              {indirectCoveragePercent}
-            </span>
+            <CoverageBadge value={item.indirectPopulationCoverageScore} />
           </div>
           <div className='grid grid-cols-4 flex-grow items-end font-medium mt-2'>
             <p>
