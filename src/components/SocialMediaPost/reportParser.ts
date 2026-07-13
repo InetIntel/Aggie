@@ -97,14 +97,30 @@ export function signalToNameColor(rawSignal: string) {
   }
 }
 
+// When the app is deployed under a subpath (e.g. https://host/aggie), media is served
+// by the node app at <base>/media/<key> — a bare "/media/..." would resolve against the
+// origin and bypass the app (nginx returns the SPA), so <img> tags break. Derive the base
+// from PUBLIC_URL exactly like src/index.tsx does for the axios baseURL. Empty at the
+// domain root and in dev.
+const MEDIA_BASE_PATH = (() => {
+  const pub = process.env.PUBLIC_URL;
+  if (!pub) return "";
+  try {
+    return new URL(pub).pathname.replace(/\/$/, "");
+  } catch {
+    // PUBLIC_URL may be a bare path ("/aggie") rather than a full URL.
+    return pub.replace(/\/$/, "");
+  }
+})();
+
 // Resolve a chart image value to a usable <img> src. IODA/Cloudflare charts now live
 // in media storage and the report carries a bare key ("ioda/charts/<hash>.svg"),
-// served by the backend at /media/<key>. Absolute URLs (legacy Cloudflare) and
+// served by the backend at <base>/media/<key>. Absolute URLs (legacy Cloudflare) and
 // already-rooted paths pass through unchanged.
 export function resolveMediaUrl(value?: string): string {
   if (!value) return "";
   if (/^https?:\/\//.test(value) || value.startsWith("/")) return value;
-  return `/media/${value.replace(/^\/+/, "")}`;
+  return `${MEDIA_BASE_PATH}/media/${value.replace(/^\/+/, "")}`;
 }
 
 // True when the image value is a legacy inline SVG markup string rather than a
