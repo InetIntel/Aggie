@@ -41,3 +41,10 @@ export const setPassword = async (params: { _id: string; pass: string }) => {
   });
   return data;
 };
+
+export const updateUserTeams = async (params: { _id: string; teams: string[] }) => {
+  const { data } = await axios.put<User>("/api/user/" + params._id + "/teams", {
+    teams: params.teams,
+  });
+  return data;
+};

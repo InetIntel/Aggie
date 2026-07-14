@@ -51,6 +51,11 @@ const UsersIndex = ({ session }: IProps) => {
     (editUser === "newUser" && session?.role === "admin") || 
     (!!userToEdit && session?.role === "admin" && userToEdit._id !== session?._id);
 
+      function getTeamNames(user: { teams?: { name?: string }[] }) {
+    if (!user.teams || user.teams.length === 0) return "None";
+    return user.teams.map((team) => team.name || "Unnamed team").join(", ");
+  }
+
   return (
     <div className='w-full mb-16'>
       <div className='flex justify-between items-center'>
@@ -67,9 +72,10 @@ const UsersIndex = ({ session }: IProps) => {
       </div>
 
       <div className=' rounded-lg border border-slate-300 bg-white dark:bg-gray-800 divide-y divide-slate-300'>
-        <div className='grid grid-cols-4 px-3 py-3 font-medium text-sm border-b border-slate-300 items-baseline'>
+        <div className='grid grid-cols-5 px-3 py-3 font-medium text-sm border-b border-slate-300 items-baseline'>
           <p>Username</p>
           <p>Role</p>
+          <p>Teams</p>
           <p>Email</p>
           <div className='flex justify-end '></div>
         </div>
@@ -87,7 +93,7 @@ const UsersIndex = ({ session }: IProps) => {
             return (
             <article
               key={user._id}
-              className='grid grid-cols-4 px-3 py-3 items-center'
+              className='grid grid-cols-5 px-3 py-3 items-center'
             >
               <div className=''>
                 {!!user.displayName ? (
@@ -113,6 +119,9 @@ const UsersIndex = ({ session }: IProps) => {
               </div>
               <p className='px-2 py-1 bg-slate-200 dark:bg-gray-600 rounded text-sm w-fit font-medium'>
                 {user.role}
+              </p>
+              <p className='text-sm text-slate-600 dark:text-gray-300'>
+                {getTeamNames(user)}
               </p>
               <p>{user.email}</p>
               <div className='flex justify-end'>

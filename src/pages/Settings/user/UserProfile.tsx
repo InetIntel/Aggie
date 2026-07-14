@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { deleteUser, getUser } from "../../../api/users";
+import { deleteUser, getUser, updateUserTeams } from "../../../api/users";
 import type { Session, WebAuthnDevice } from "../../../api/session/types";
+import { getManageableTeams } from "../../../api/teams";
 
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 
@@ -35,6 +36,17 @@ const UserProfile = ({ session }: IProps) => {
     else return undefined;
   });
 
+  const role = session?.role as UserRoles | undefined;
+  const isAdmin = role === "admin";
+  const isTeamLead = role === "team_lead";
+  const isSelf = session?._id === params.id;
+
+  const { data: teams } = useQuery(["teams", "manageable"], getManageableTeams, {
+    enabled: isAdmin || isTeamLead,
+  });
+
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
+
   const queryClient = useQueryClient();
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
@@ -47,10 +59,42 @@ const UserProfile = ({ session }: IProps) => {
     },
   });
 
-  const isSelf = session?._id === params.id;
-  const role = session?.role as UserRoles | undefined;
-  const isAdmin = role === 'admin';
-  const isTeamLead = role === 'team_lead';
+  const doUpdateUserTeams = useMutation(updateUserTeams, {
+    onSuccess: () => {
+      refetch();
+      queryClient.invalidateQueries(["users"]);
+      if (params.id) queryClient.invalidateQueries(["users", params.id]);
+    },
+  });
+
+  function toggleTeam(teamId: string, checked: boolean) {
+    setSelectedTeamIds((current) =>
+      checked
+        ? [...new Set([...current, teamId])]
+        : current.filter((id) => id !== teamId)
+    );
+  }
+
+  useEffect(() => {
+    const manageableTeamIds = new Set((teams || []).map((team) => team._id));
+
+    setSelectedTeamIds(
+      (data?.teams || [])
+        .filter((team) => manageableTeamIds.has(team._id))
+        .map((team) => team._id)
+    );
+  }, [data, teams]);
+
+  const targetRole = data?.role;
+  const canManageUserTeams =
+    isAdmin ||
+    (
+      isTeamLead &&
+      !isSelf &&
+      !!targetRole &&
+      ["viewer", "monitor"].includes(targetRole)
+    );
+
   const canEdit = !!isSelf || (isAdmin && !isSelf);
   const canEditRole = isAdmin && !isSelf;
   const canDeleteAsTeamLead = isTeamLead && !!data && String(data.createdBy) === String(session?._id) && !isSelf;
@@ -129,6 +173,50 @@ const UserProfile = ({ session }: IProps) => {
           <p className=''>Email</p>
           <p className='mt-1'>{data?.email}</p>
         </PlaceholderDiv>
+
+                {canManageUserTeams && data && (
+          <div className='border-t border-slate-300 mt-3 pt-3'>
+            <h3 className='font-medium text-lg mb-2'>Teams</h3>
+
+            {!!teams && teams.length > 0 ? (
+              <div className='flex flex-col gap-2'>
+                {teams.map((team) => (
+                  <label key={team._id} className='flex items-center gap-2 text-sm'>
+                    <input
+                      type='checkbox'
+                      checked={selectedTeamIds.includes(team._id)}
+                      onChange={(event) => toggleTeam(team._id, event.target.checked)}
+                    />
+                    <span>
+                      {team.name}
+                      {team.active === false && " (inactive)"}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className='text-sm text-slate-600 dark:text-gray-300'>
+                No teams have been created yet.
+              </p>
+            )}
+
+            <div className='mt-3'>
+              <AggieButton
+                variant='primary'
+                disabled={doUpdateUserTeams.isLoading}
+                loading={doUpdateUserTeams.isLoading}
+                onClick={() =>
+                  doUpdateUserTeams.mutate({
+                    _id: data._id,
+                    teams: selectedTeamIds,
+                  })
+                }
+              >
+                Save Teams
+              </AggieButton>
+            </div>
+          </div>
+        )}
 
         <SecuritySection
           session={session}
