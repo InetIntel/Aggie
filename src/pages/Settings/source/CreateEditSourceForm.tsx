@@ -6,7 +6,7 @@ import { useField } from "formik";
 
 import { getCredentials } from "../../../api/credentials";
 import { editSource, newSource } from "../../../api/sources";
-import type { Source } from "../../../api/sources/types";
+import type { Source, SourceAccessMode } from "../../../api/sources/types";
 
 import { Listbox } from "@headlessui/react";
 import FormikDropdown from "../../../components/FormikDropdown";
@@ -16,6 +16,9 @@ import FormikWithSchema from "../../../components/FormikWithSchema";
 import { faChevronDown, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { CredentialOption, CREDENTIAL_OPTIONS } from "../../../api/common";
+
+import { getTeams } from "../../../api/teams";
+import type { Team } from "../../../api/teams/types";
 
 interface IProps {
   source?: Source;
@@ -50,6 +53,107 @@ const MastodonConditionalFields = () => {
   );
 };
 
+//helper for source access control
+//may change the date gating and go back to public vs private with team backing
+
+const getSourceAccessTeamIds = (source?: Source) => {
+  return (source?.accessPolicy?.teams || []).map((team) => {
+    if (typeof team === "string") return team;
+    return team._id;
+  });
+};
+
+const getSourceAccessInitialValues = (source?: Source) => ({
+  accessPolicyMode: source?.accessPolicy?.mode || "public",
+  accessPolicyTeams: getSourceAccessTeamIds(source),
+  accessPolicyCutoffDate: source?.accessPolicy?.cutoffDate
+    ? source.accessPolicy.cutoffDate.slice(0, 10)
+    : "",
+});
+
+const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
+  const [modeField] = useField<SourceAccessMode>("accessPolicyMode");
+  const [teamsField, , teamsHelpers] = useField<string[]>("accessPolicyTeams");
+  const [cutoffField] = useField<string>("accessPolicyCutoffDate");
+
+  const selectedTeamIds = teamsField.value || [];
+  const isRestricted =
+    modeField.value === "restricted" || modeField.value === "public_until";
+
+  const toggleTeam = (teamId: string) => {
+    if (selectedTeamIds.includes(teamId)) {
+      teamsHelpers.setValue(selectedTeamIds.filter((id) => id !== teamId));
+      return;
+    }
+
+    teamsHelpers.setValue([...selectedTeamIds, teamId]);
+  };
+
+  return (
+    <div className='mt-4 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'>
+      <h3 className='font-medium mb-1'>Access Policy</h3>
+      <p className='text-xs text-slate-500 dark:text-gray-400 mb-3'>
+        Controls whether this source is broadly visible or restricted to specific teams.
+      </p>
+
+      <FormikDropdown
+        list={[
+          { _id: "public", label: "Public" },
+          { _id: "restricted", label: "Restricted to teams" },
+          { _id: "public_until", label: "Public until cutoff date" },
+        ]}
+        label={"Access Mode"}
+        name={"accessPolicyMode"}
+      />
+
+      {modeField.value === "public_until" && (
+        <div className='flex flex-col gap-1 mb-3'>
+          <label className='text-slate-600 dark:text-gray-400'>
+            Cutoff Date
+          </label>
+          <input
+            {...cutoffField}
+            type='date'
+            className='px-3 py-2 focus-theme bg-white dark:bg-gray-800 border border-slate-300 rounded'
+          />
+          <p className='text-xs text-slate-500 dark:text-gray-400'>
+            Data before this date is treated as public. Data after this date is restricted to the selected teams.
+          </p>
+        </div>
+      )}
+
+
+      {isRestricted && (
+        <div className='flex flex-col gap-2'>
+          <label className='text-slate-600 dark:text-gray-400'>
+            Allowed Teams
+          </label>
+
+          {teams && teams.length > 0 ? (
+            teams.map((team) => (
+              <label
+                key={team._id}
+                className='flex items-center gap-2 text-sm'
+              >
+                <input
+                  type='checkbox'
+                  checked={selectedTeamIds.includes(team._id)}
+                  onChange={() => toggleTeam(team._id)}
+                />
+                <span>{team.name}</span>
+              </label>
+            ))
+          ) : (
+            <p className='text-xs text-slate-500 dark:text-gray-400'>
+              No teams available yet.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   const [credentialType, setCredentialType] =
     useState<CredentialOption>((source?.media as CredentialOption) || "ioda");
@@ -60,21 +164,48 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     staleTime: 50000,
   });
 
+  const { data: teams } = useQuery(["teams"], getTeams, {
+    staleTime: 50000,
+  });
+
   const defaultCredential =
     credentials && credentials.find((cred) => cred.type === credentialType);
 
   const credentialsList =
     credentials && credentials.filter((cred) => cred.type === credentialType);
 
-  function onSubmit(data: any) {
-    data = { ...data, media: credentialType };
+  const sourceAccessInitialValues = getSourceAccessInitialValues(source);
 
-    if (!source) {
-      doCreateSource.mutate(data);
-      return;
-    }
-    doEditSource.mutate({ ...data, _id: source._id });
+function onSubmit(data: any) {
+  const {
+    accessPolicyMode,
+    accessPolicyTeams,
+    accessPolicyCutoffDate,
+    ...sourceData
+  } = data;
+
+  const accessPolicy = {
+    mode: accessPolicyMode || "public",
+    teams: accessPolicyMode === "public" ? [] : accessPolicyTeams || [],
+    cutoffDate:
+      accessPolicyMode === "public_until"
+        ? accessPolicyCutoffDate || null
+        : null,
+  };
+
+  const payload = {
+    ...sourceData,
+    media: credentialType,
+    accessPolicy,
+  };
+
+  if (!source) {
+    doCreateSource.mutate(payload);
+    return;
   }
+
+  doEditSource.mutate({ ...payload, _id: source._id });
+}
 
   const doCreateSource = useMutation(newSource, {
     onSuccess: () => {
@@ -117,6 +248,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         credentials: source?.credentials._id || defaultCredential?._id,
         sourceURL: source?.url || "",
         url: "https://www.junkipedia.com/",
+        ...sourceAccessInitialValues,
       }}
       schema={JunkipediaSchema}
       onSubmit={(values: IJunkipediaSchema) => {
@@ -137,6 +269,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         label={"API Credentials"}
         name={"credentials"}
       />
+      <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 
@@ -159,6 +292,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         credentials: source?.credentials._id || defaultCredential?._id,
         sourceURL: source?.url || "",
         url: "",
+        ...sourceAccessInitialValues,
       }}
       schema={telegramBotSchema}
       onSubmit={(values: ITelegramBotSchema) => {
@@ -202,6 +336,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         credentials: source?.credentials._id || defaultCredential?._id,
         sourceURL: source?.url || "",
         url: "",
+        ...sourceAccessInitialValues,
       }}
       schema={telegramUserSchema}
       onSubmit={(values: ITelegramUserSchema) => {
@@ -232,6 +367,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
           multiple entries with commas.
         </p>
       </div>
+      <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 
@@ -253,6 +389,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         credentials: source?.credentials._id || defaultCredential?._id,
         sourceURL: source?.url || "",
         url: "",
+        ...sourceAccessInitialValues,
       }}
       schema={iodaSchema}
       onSubmit={(values: IodaSchema) => {
@@ -269,6 +406,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         label={"Two-Letter Country Code"}
         name={"keywords"}
       />
+      <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 
@@ -289,6 +427,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         credentials: source?.credentials._id || defaultCredential?._id,
         sourceURL: source?.url || "",
         url: "",
+        ...sourceAccessInitialValues,
       }}
       schema={cloudflareSchema}
       onSubmit={(values: CloudflareSchema) => {
@@ -305,6 +444,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         label={"Two-Letter Country Code"}
         name={"keywords"}
       />
+      <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 
@@ -351,6 +491,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         credentials: source?.credentials._id || defaultCredential?._id,
         sourceURL: source?.url || "",
         url: "",
+        ...sourceAccessInitialValues,
       }}
       schema={mastodonSchema}
       onSubmit={(values: IMastodonSchema) => {
@@ -390,6 +531,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         label={"Mastodon Credentials"}
         name={"credentials"}
       />
+      <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 

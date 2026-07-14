@@ -1,10 +1,19 @@
 import { hasId } from "../common";
 import { Credential } from "../credentials/types";
+import type { Team } from "../teams/types";
 
 interface SourceEvent {
   datetime: string;
   type: string;
   message: string;
+}
+
+export type SourceAccessMode = "public" | "restricted" | "public_until";
+
+export interface SourceAccessPolicy {
+  mode: SourceAccessMode;
+  teams: Team[] | string[];
+  cutoffDate?: string | null;
 }
 
 export interface Source extends hasId {
@@ -23,6 +32,7 @@ export interface Source extends hasId {
   keywords?: string;
   regex?: string;
   lists?: string;
+  accessPolicy?: SourceAccessPolicy;
   __v: number;
   lastReportDate?: string;
 }
@@ -34,4 +44,5 @@ export interface EditableSource extends hasId {
   url: string;
   keywords?: string;
   lists?: string;
+  accessPolicy?: SourceAccessPolicy;
 }
