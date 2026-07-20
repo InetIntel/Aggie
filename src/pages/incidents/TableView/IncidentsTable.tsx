@@ -14,6 +14,7 @@ import { IncidentOverallStatus } from "../IncidentStatuses";
 import { CoverageBadge } from "../IncidentCoverage";
 import ImpactedAsnTable from "../Incident/ImpactedAsnTable";
 import { formatDurationFromSeconds } from "../../../utils/format";
+import { useFormatters } from "../../../utils/useFormatters";
 
 import DataTable from "../../../components/DataTable/DataTable";
 import type {
@@ -29,10 +30,6 @@ interface IProps {
   isLoading?: boolean;
   selection?: DataTableSelection<Group>;
 }
-
-// "YYYY-MM-DD HH:MM" (matches the incident list item), or an em dash when unset.
-const formatStamp = (raw?: Date | string | null): string =>
-  raw ? raw.toString().slice(0, 16).replace("T", " ") : "—";
 
 const formatAssignedTo = (group: Group) => {
   if (!group.assignedTo || group.assignedTo.length === 0) return null;
@@ -66,6 +63,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
   const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
 
   const { doUpdate, doRemove } = useIncidentMutations();
+  const { formatDateTime } = useFormatters();
 
   const columns: DataTableColumn<Group>[] = [
     {
@@ -108,11 +106,11 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       tdClassName: "whitespace-nowrap text-xs",
       cell: (inc) => (
         <>
-          <div>{formatStamp(inc.incidentStartedAt)}</div>
+          <div>{formatDateTime(inc.incidentStartedAt)}</div>
           <div className="text-slate-400 dark:text-gray-500 my-0.5">
             <FontAwesomeIcon icon={faArrowDown} size="xs" />
           </div>
-          <div>{formatStamp(inc.incidentEndedAt)}</div>
+          <div>{formatDateTime(inc.incidentEndedAt)}</div>
         </>
       ),
     },

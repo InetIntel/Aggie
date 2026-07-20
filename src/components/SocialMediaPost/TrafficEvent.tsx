@@ -1,6 +1,7 @@
 import { Report } from "../../api/reports/types";
 import { resolveMediaUrl } from "../SocialMediaPost/reportParser";
 import { useReportChartImage } from "./useReportChartImage";
+import { useFormatters } from "../../utils/useFormatters";
 
 interface IProps {
   report: Report;
@@ -10,6 +11,7 @@ interface IProps {
 
 // cloudflare traffic anomaly
 const TrafficEvent = ({ report, compact }: IProps) => {
+  const { formatDateTime } = useFormatters();
   const rawData = report?.metadata?.rawAPIResponse;
   const endDate = rawData?.rawEvent?.endDate || "now";
   // Chart is a media-storage key (served at /media/...) or a legacy absolute URL;
@@ -19,9 +21,8 @@ const TrafficEvent = ({ report, compact }: IProps) => {
     <>
       <h2 className='font-medium'>{report?.author}</h2>
       <p className='mb-1'>
-        {
-          report?.authoredAt?.replace('T', ' ').substring(0, 16)
-        } - {endDate.replace('T', ' ').substring(0, 16)} UTC
+        {formatDateTime(report?.authoredAt)} -{" "}
+        {endDate === "now" ? "now" : formatDateTime(endDate)}
       </p>
       {!!image && (
         <img

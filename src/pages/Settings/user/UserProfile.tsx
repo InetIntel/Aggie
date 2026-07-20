@@ -23,6 +23,7 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { UserRoles } from "../../../api/users/types";
 import SecuritySection from "./components/SecuritySection";
+import DisplayPreferencesSection from "./components/DisplayPreferencesSection";
 
 interface IProps {
   session: Session | undefined;
@@ -217,6 +218,8 @@ const UserProfile = ({ session }: IProps) => {
             </div>
           </div>
         )}
+
+        {isSelf && <DisplayPreferencesSection user={data} />}
 
         <SecuritySection
           session={session}

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useIncidentMutations } from "./useIncidentMutations";
 
 import { getSession } from "../../api/session";
+import { useFormatters } from "../../utils/useFormatters";
 import type { Group } from "../../api/groups/types";
 
 import TagsList from "../../components/Tags/TagsList";
@@ -46,6 +47,7 @@ interface IProps {
 
 const IncidentListItem = ({ item }: IProps) => {
 
+  const { formatDateTime } = useFormatters();
   const navigate = useNavigate();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -123,9 +125,9 @@ const IncidentListItem = ({ item }: IProps) => {
             </div>
             <div className='text-xs dark:text-gray-300'>
               {(item.incidentStartedAt || item.incidentEndedAt) && <p>
-                  <span>{item.incidentStartedAt?.toString().slice(0, 16).replace("T", " ") || "Unknown Date"}</span>
+                  <span>{formatDateTime(item.incidentStartedAt, "Unknown Date")}</span>
                   <span>{" "}<FontAwesomeIcon icon={faArrowRight} size="xs" />{" "}</span>
-                  <span>{item.incidentEndedAt?.toString().slice(0, 16).replace("T", " ") || "Unknown Date"}</span>
+                  <span>{formatDateTime(item.incidentEndedAt, "Unknown Date")}</span>
               </p>}
             </div>
           </div>

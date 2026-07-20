@@ -1,6 +1,7 @@
 import { useState } from "react";
 import AggieButton from "../../../../components/AggieButton";
-import { formatDate, shortenString } from "../../../../utils/format";
+import { shortenString } from "../../../../utils/format";
+import { useFormatters } from "../../../../utils/useFormatters";
 import type { WebAuthnDevice } from "../../../../api/session/types";
 
 type Props = {
@@ -20,6 +21,7 @@ export default function WebAuthnDeviceRow({
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(device.label || "");
+  const { formatDateTime } = useFormatters();
 
   const canSave = value.trim().length > 0 && value.trim() !== (device.label || "");
 
@@ -43,8 +45,8 @@ export default function WebAuthnDeviceRow({
       </div>
   
       <div className="col-span-12 sm:col-span-4 text-sm text-slate-500 sm:text-right mt-1 sm:mt-0 space-y-0.5 tabular-nums">
-        <div>Added: {formatDate(device.createdAt)}</div>
-        <div>Last used: {formatDate(device.lastUsedAt)}</div>
+        <div>Added: {formatDateTime(device.createdAt)}</div>
+        <div>Last used: {formatDateTime(device.lastUsedAt)}</div>
       </div>
   
       <div className="col-span-12 sm:col-span-3 flex justify-start sm:justify-end gap-2 mt-2 sm:mt-0">

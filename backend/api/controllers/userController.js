@@ -275,6 +275,16 @@ exports.user_update = (req, res) => {
       }
     }
 
+    // Display preferences are self-service (both self and admin) and nested,
+    // so they're whitelisted explicitly rather than via the flat allowedFields.
+    if (req.body.preferences && typeof req.body.preferences === 'object') {
+      if (!user.preferences) user.preferences = {};
+      const { timeFormat, dateFormat, timeZone } = req.body.preferences;
+      if (timeFormat) user.preferences.timeFormat = timeFormat;
+      if (dateFormat) user.preferences.dateFormat = dateFormat;
+      if (timeZone) user.preferences.timeZone = timeZone;
+    }
+
     user.save((err) => {
       err = Error.decode(err);
       if (err) res.status(err.status).send(err.message);

@@ -16,6 +16,7 @@ import {
   getDefaultClassNames,
   type PropsSingle,
 } from "react-day-picker";
+import { useFormatters } from "../../utils/useFormatters";
 
 interface IProps {
   unsetLabel: string;
@@ -32,6 +33,7 @@ interface IProps {
 const DateSelector = ({ value, onChange, unsetLabel, minDate, maxDate, referenceDate }: IProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const nodeId = useFloatingNodeId();
+  const { formatDate } = useFormatters();
 
   const { refs, floatingStyles, context } = useFloating({
     nodeId,
@@ -67,7 +69,7 @@ const DateSelector = ({ value, onChange, unsetLabel, minDate, maxDate, reference
     selected: valueDate,
     onSelect: onDateSelect,
   };
-  const showDate = value && new Date(value)?.toLocaleDateString();
+  const showDate = value && formatDate(value);
 
   const today = new Date();
   // Never allow future dates; also respect an optional upper bound (e.g. the

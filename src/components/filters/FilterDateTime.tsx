@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import AggieButton from "../AggieButton";
 import DateSelector from "./DateSelector";
 import FilterDropdown from "./FilterDropdown";
+import { useFormatters } from "../../utils/useFormatters";
 
 interface IProps {
   before: string;
@@ -20,6 +21,7 @@ const FilterDateTime = ({
 }: IProps) => {
   const [beforeDate, setBefore] = useState("");
   const [afterDate, setAfter] = useState("");
+  const { formatDate } = useFormatters();
 
   function update() {
     onSetBefore(beforeDate);
@@ -31,8 +33,8 @@ const FilterDateTime = ({
   }, [before, after]);
 
   function renderRange() {
-    const aDate = after && new Date(after).toLocaleDateString();
-    const bDate = before && new Date(before).toLocaleDateString();
+    const aDate = after && formatDate(after);
+    const bDate = before && formatDate(before);
 
     if (before && after) return `${aDate} - ${bDate}`;
     else if (before) return `Before ${bDate}`;
