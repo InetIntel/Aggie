@@ -28,6 +28,10 @@ interface IProps {
   headerChild?: React.ReactNode;
   panelClassName?: string;
   onOpenChange?: (i: boolean) => void;
+  // Keep the label visible in the trigger even when a value is set (the value
+  // still drives the active highlight). Prevents the trigger from resizing to
+  // fit long values like a date range.
+  persistLabel?: boolean;
 }
 
 const FilterDropdown = ({
@@ -38,6 +42,7 @@ const FilterDropdown = ({
   headerChild,
   panelClassName,
   onOpenChange,
+  persistLabel,
 }: IProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const nodeId = useFloatingNodeId();
@@ -77,8 +82,8 @@ const FilterDropdown = ({
   return (
     <div className='relative'>
       <button
-        className={`focus-theme py-1 hover:bg-slate-100 dark:hover:bg-gray-700 hover:underline line-clamp-1 max-w-[24em]  ${isOpen ? "bg-slate-100 dark:bg-gray-700" : ""
-          } rounded ${value ? "bg-slate-200 dark:bg-gray-600 px-2" : "px-1"}`}
+        className={`focus-theme py-1 hover:bg-slate-100 dark:hover:bg-gray-700 hover:underline line-clamp-1 max-w-[24em] whitespace-nowrap ${isOpen ? "bg-slate-100 dark:bg-gray-700" : ""
+          } rounded ${value ? "bg-slate-200 dark:bg-gray-600 px-2" : persistLabel ? "px-2" : "px-1"}`}
         ref={refs.setReference}
         {...getReferenceProps()}
       >
@@ -87,7 +92,7 @@ const FilterDropdown = ({
             icon={faCaretDown}
             className={`${isOpen ? "rotate-180" : ""} mr-1 text-slate-500 dark:text-gray-400`}
           />
-          {value ? value : label}
+          {persistLabel ? label : value ? value : label}
         </>
       </button>
       <FloatingNode id={nodeId}>

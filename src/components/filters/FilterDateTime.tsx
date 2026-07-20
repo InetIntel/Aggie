@@ -43,6 +43,8 @@ const FilterDateTime = ({
     <FloatingTree>
       <FilterDropdown
         label={label}
+        persistLabel
+        panelClassName='!w-fit max-w-md'
         value={renderRange()}
         onReset={() => {
           setBefore("");
@@ -63,6 +65,7 @@ const FilterDateTime = ({
                   unsetLabel={"set date"}
                   value={afterDate}
                   onChange={(d) => setAfter(d)}
+                  maxDate={beforeDate ? new Date(beforeDate) : undefined}
                 />
               </div>
               <div>
@@ -71,6 +74,7 @@ const FilterDateTime = ({
                   unsetLabel={"set date"}
                   value={beforeDate}
                   onChange={(d) => setBefore(d)}
+                  minDate={afterDate ? new Date(afterDate) : undefined}
                 />
               </div>
             </div>
