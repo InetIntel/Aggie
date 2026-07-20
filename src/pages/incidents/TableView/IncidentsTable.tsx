@@ -54,7 +54,7 @@ const AlertsCount = ({ count }: { count: number }) => (
       {count}
     </span>
     {count > 0 && (
-      <span className="ml-1 text-[16px] text-slate-500 dark:text-gray-400">
+      <span className="ml-1 text-xs text-slate-500 dark:text-gray-400">
         alerts
       </span>
     )}
@@ -92,7 +92,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
             >
               {inc.title}
             </Link>
-            <div className="text-[18px] text-slate-500 dark:text-gray-400 mt-0.5">
+            <div className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
               {reportCount} {reportCount === 1 ? "report" : "reports"}
             </div>
           </>
@@ -181,6 +181,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         selection={selection}
         hideExpandBar
         connectedExpanded
+        tableClassName="text-xs"
         rowActions={(inc) => (
           <div className="inline-flex items-center gap-2">
             <Link
@@ -211,7 +212,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
           </div>
         )}
         expandedContent={(inc) => (
-          <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8">
+          <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8 text-xs">
             {/* Left: incident metadata as inline "Label: value" rows */}
             <div className="min-[1456px]:flex-1 min-[1456px]:min-w-0 flex flex-col gap-1">
               <div className="flex gap-1">
