@@ -66,6 +66,7 @@ const FilterDateTime = ({
                   value={afterDate}
                   onChange={(d) => setAfter(d)}
                   maxDate={beforeDate ? new Date(beforeDate) : undefined}
+                  referenceDate={beforeDate ? new Date(beforeDate) : undefined}
                 />
               </div>
               <div>
@@ -75,6 +76,7 @@ const FilterDateTime = ({
                   value={beforeDate}
                   onChange={(d) => setBefore(d)}
                   minDate={afterDate ? new Date(afterDate) : undefined}
+                  referenceDate={afterDate ? new Date(afterDate) : undefined}
                 />
               </div>
             </div>

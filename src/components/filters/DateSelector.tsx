@@ -24,9 +24,12 @@ interface IProps {
   // Optional bounds; days outside [minDate, maxDate] are disabled.
   minDate?: Date;
   maxDate?: Date;
+  // When this field has no value yet, open the calendar on this month so the
+  // user lands near the other field's date instead of today.
+  referenceDate?: Date;
 }
 
-const DateSelector = ({ value, onChange, unsetLabel, minDate, maxDate }: IProps) => {
+const DateSelector = ({ value, onChange, unsetLabel, minDate, maxDate, referenceDate }: IProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const nodeId = useFloatingNodeId();
 
@@ -74,6 +77,8 @@ const DateSelector = ({ value, onChange, unsetLabel, minDate, maxDate }: IProps)
     { after: maxSelectable },
     ...(minDate ? [{ before: minDate }] : []),
   ];
+  // Show this field's own value if set, else the other field's month, else today.
+  const defaultMonth = valueDate || referenceDate || undefined;
   return (
     <>
       <button
@@ -97,6 +102,7 @@ const DateSelector = ({ value, onChange, unsetLabel, minDate, maxDate }: IProps)
                 mode='single'
                 selected={typefix.selected}
                 onSelect={typefix.onSelect}
+                defaultMonth={defaultMonth}
                 disabled={disabledDays}
                 startMonth={new Date(2024, 7)}
                 endMonth={maxSelectable}
