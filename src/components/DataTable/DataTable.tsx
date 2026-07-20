@@ -216,7 +216,7 @@ function DataTable<T>({
                       aria-expanded={isExpanded}
                       aria-controls={`detail-${key}`}
                       aria-label={isExpanded ? "Hide details" : "View details"}
-                      className='inline-flex items-center h-[1.875rem] text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-1'
+                      className='inline-flex items-start h-[1.875rem] text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-1'
                     >
                       <FontAwesomeIcon
                         icon={faChevronDown}

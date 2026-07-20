@@ -13,6 +13,7 @@ export interface Report extends hasId {
   _sources: string[];
   _media: MediaOptions[];
   _sourceNicknames: string[];
+  asn?: string; // outage alerts (ioda/cloudflare), e.g. "as15169"; absent for social/region-scoped
   escalated: boolean;
   _group?: string;
   authoredAt: string;
@@ -94,6 +95,9 @@ interface RawApiResponse {
   // IODA/Cloudflare chart: `image` is the media-storage key, `imageUrl` the served URL.
   image?: string;
   imageUrl?: string;
+  // IODA/Cloudflare outage alerts: entityName is `${networkName} - ${entityScope}`.
+  entityName?: string;
+  entityScope?: string;
   [key: string]: any;
 }
 // i need to redo this...
