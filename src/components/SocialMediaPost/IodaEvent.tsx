@@ -1,11 +1,10 @@
 import { Report } from "../../api/reports/types";
 import {
   signalToNameColor,
-  resolveMediaUrl,
-  isInlineSvg,
   SIGNAL_BADGE_BASE,
 } from "../SocialMediaPost/reportParser";
 import { useReportChartImage } from "./useReportChartImage";
+import ExpandableChart from "./ExpandableChart";
 import AggieToken from "../AggieToken";
 import { useFormatters } from "../../utils/useFormatters";
 
@@ -26,10 +25,9 @@ const IodaEvent = ({ report, compact }: IProps) => {
 
   // Chart now lives in media storage; the report carries a key resolved to /media/...
   // (older reports may still carry an inline SVG string). Fetched lazily when the
-  // list query stripped it. The SVG carries its own viewBox, so sizing/centering is
-  // handled purely in CSS below — no width/height string rewriting needed.
+  // list query stripped it. ExpandableChart handles inline-SVG vs <img>, the compact
+  // height cap, and click-to-enlarge.
   const image = useReportChartImage(report);
-  const svg = isInlineSvg(image) ? image! : "";
 
   return (
     <>
@@ -47,26 +45,7 @@ const IodaEvent = ({ report, compact }: IProps) => {
       <p className='mb-1'>
         {start}{end && ` - ${end}`}
       </p>
-      {!image ? null : svg ? (
-        <div
-          className={
-            compact
-              ? "overflow-hidden [&_svg]:w-full [&_svg]:h-auto [&_svg]:max-h-52"
-              : "[&_svg]:w-full [&_svg]:h-auto"
-          }
-          dangerouslySetInnerHTML={{ __html: svg }}
-        />
-      ) : (
-        <img
-          src={resolveMediaUrl(image)}
-          alt='IODA event chart'
-          className={
-            compact
-              ? "w-full max-h-52 object-contain object-center"
-              : "w-full"
-          }
-        />
-      )}
+      <ExpandableChart image={image} alt='IODA event chart' compact={compact} />
     </>
   );
 };

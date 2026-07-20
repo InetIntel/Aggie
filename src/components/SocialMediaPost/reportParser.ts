@@ -112,3 +112,30 @@ export function resolveMediaUrl(value?: string): string {
 export function isInlineSvg(value?: string): boolean {
   return !!value && value.trimStart().startsWith("<");
 }
+
+// For outage alerts (ioda/cloudflare), the distinguishing info is the ASN, network
+// name, and geo scope (country/region) — not the platform. Both channels store
+// entityName as `${networkName} - ${entityScope}`, so we recover the network name by
+// stripping the scope suffix and surface the scope separately. Social reports fall
+// back to author/nickname.
+export const reportNetwork = (
+  report: Report
+): { asn: string; network: string; scope: string } => {
+  const media = report._media?.[0];
+  if (media === "ioda" || media === "cloudflare") {
+    const raw = report.metadata?.rawAPIResponse;
+    const scope = raw?.entityScope ?? "";
+    const entityName = raw?.entityName ?? report.author ?? "";
+    const network =
+      scope && entityName.endsWith(` - ${scope}`)
+        ? entityName.slice(0, entityName.length - ` - ${scope}`.length)
+        : entityName;
+    const asn = report.asn ? report.asn.toUpperCase() : ""; // "as15169" -> "AS15169"
+    return { asn, network, scope };
+  }
+  return {
+    asn: "",
+    network: report._sourceNicknames?.[0] || report.author || "",
+    scope: "",
+  };
+};

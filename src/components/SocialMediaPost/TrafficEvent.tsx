@@ -1,6 +1,6 @@
 import { Report } from "../../api/reports/types";
-import { resolveMediaUrl } from "../SocialMediaPost/reportParser";
 import { useReportChartImage } from "./useReportChartImage";
+import ExpandableChart from "./ExpandableChart";
 import { useFormatters } from "../../utils/useFormatters";
 
 interface IProps {
@@ -24,17 +24,7 @@ const TrafficEvent = ({ report, compact }: IProps) => {
         {formatDateTime(report?.authoredAt)} -{" "}
         {endDate === "now" ? "now" : formatDateTime(endDate)}
       </p>
-      {!!image && (
-        <img
-          src={resolveMediaUrl(image)}
-          alt='traffic trend'
-          className={
-            compact
-              ? "w-full max-h-52 object-contain object-center"
-              : "w-full"
-          }
-        />
-      )}
+      <ExpandableChart image={image} alt='traffic trend' compact={compact} />
     </>
   );
 };

@@ -12,6 +12,7 @@ import type { Report } from "../../../api/reports/types";
 import { getGroup } from "../../../api/groups";
 import {
   signalToNameColor,
+  reportNetwork,
   SIGNAL_BADGE_CLASS,
 } from "../../../components/SocialMediaPost/reportParser";
 
@@ -21,33 +22,6 @@ import AggieToken from "../../../components/AggieToken";
 import DateTime from "../../../components/DateTime";
 
 const dash = <span className='text-slate-500 dark:text-gray-400'>—</span>;
-
-// For outage alerts (ioda/cloudflare), the distinguishing info is the ASN, network
-// name, and geo scope (country/region) — not the platform (already shown by the
-// Platform icon). Both channels store entityName as `${networkName} - ${entityScope}`,
-// so we recover the network name by stripping the scope suffix and surface the scope
-// separately. Social reports fall back to author/nickname.
-export const reportNetwork = (
-  report: Report
-): { asn: string; network: string; scope: string } => {
-  const media = report._media?.[0];
-  if (media === "ioda" || media === "cloudflare") {
-    const raw = report.metadata?.rawAPIResponse;
-    const scope = raw?.entityScope ?? "";
-    const entityName = raw?.entityName ?? report.author ?? "";
-    const network =
-      scope && entityName.endsWith(` - ${scope}`)
-        ? entityName.slice(0, entityName.length - ` - ${scope}`.length)
-        : entityName;
-    const asn = report.asn ? report.asn.toUpperCase() : ""; // "as15169" -> "AS15169"
-    return { asn, network, scope };
-  }
-  return {
-    asn: "",
-    network: report._sourceNicknames?.[0] || report.author || "",
-    scope: "",
-  };
-};
 
 // Raw datasource → human label + color, e.g. "bgp" → "BGP".
 export const reportSignal = (report: Report): [string, string] => {
