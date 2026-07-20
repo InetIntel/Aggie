@@ -241,6 +241,7 @@ const ReportFilters = ({
         </div>
         <div className='flex flex-wrap items-center gap-1'>
           <FilterDateTime
+            label='Outage start'
             before={getParam("before")}
             onSetBefore={(d) => setParams({ before: d })}
             after={getParam("after")}

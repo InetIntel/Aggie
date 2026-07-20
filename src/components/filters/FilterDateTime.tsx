@@ -9,15 +9,21 @@ interface IProps {
   onSetBefore: (item: string) => void;
   after: string;
   onSetAfter: (item: string) => void;
+  label?: string;
 }
-const FilterDateTime = ({ before, onSetBefore, after, onSetAfter }: IProps) => {
+const FilterDateTime = ({
+  before,
+  onSetBefore,
+  after,
+  onSetAfter,
+  label = "Date Range",
+}: IProps) => {
   const [beforeDate, setBefore] = useState("");
   const [afterDate, setAfter] = useState("");
 
   function update() {
     onSetBefore(beforeDate);
     onSetAfter(afterDate);
-    console.log(beforeDate);
   }
   useEffect(() => {
     if (beforeDate !== before) setBefore(before);
@@ -36,7 +42,7 @@ const FilterDateTime = ({ before, onSetBefore, after, onSetAfter }: IProps) => {
   return (
     <FloatingTree>
       <FilterDropdown
-        label={"Date Range"}
+        label={label}
         value={renderRange()}
         onReset={() => {
           setBefore("");

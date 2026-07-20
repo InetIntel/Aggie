@@ -67,8 +67,17 @@ ReportQuery.prototype.toMongooseFilter = function () {
   if (this.escalated === 'escalated') filter.escalated = true;
 
   filter = _.omitBy(filter, _.isNil);
-  if (this.before) filter.authoredAt = { $lte: this.before }
-  if (this.after) filter.authoredAt = Object.assign({}, filter.authoredAt, { $gte: this.after });
+  // Cast bounds to Date so both the Report.find (Mongoose casts) and the
+  // Report.aggregate $match (Mongoose does NOT cast) agree; otherwise the
+  // aggregate total ignores the date bound and pagination shows phantom pages.
+  if (this.before) {
+    const d = new Date(this.before);
+    if (!isNaN(d.getTime())) filter.authoredAt = { $lte: d };
+  }
+  if (this.after) {
+    const d = new Date(this.after);
+    if (!isNaN(d.getTime())) filter.authoredAt = Object.assign({}, filter.authoredAt, { $gte: d });
+  }
   //Two step search for content/author. First search for any terms in content or author using the indexed $text search.
   //Second step is to match exact phrase using regex in the returned superset of the documents from first step.
   // if (this.author || this.keywords) filter.author = [{$text: { $search: `${this.author || ""}` }}];

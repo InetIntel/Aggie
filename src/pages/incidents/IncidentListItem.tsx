@@ -7,6 +7,7 @@ import { getSession } from "../../api/session";
 import type { Group } from "../../api/groups/types";
 
 import TagsList from "../../components/Tags/TagsList";
+import SocialMediaIcon from "../../components/SocialMediaPost/SocialMediaIcon";
 //import VeracityToken from "../../components/VeracityToken";
 import AggieButton from "../../components/AggieButton";
 import ConfirmationDialog from "../../components/ConfirmationDialog";
@@ -109,6 +110,16 @@ const IncidentListItem = ({ item }: IProps) => {
                 </span>
               )}
               <TagsList values={item.smtcTags} />
+              {item.reportSources?.map((source) => (
+                <span
+                  key={source}
+                  className='px-1 bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300 rounded inline-flex gap-1 items-center capitalize'
+                  title={`report source: ${source}`}
+                >
+                  <SocialMediaIcon mediaKey={source} />
+                  {source}
+                </span>
+              ))}
             </div>
             <div className='text-xs dark:text-gray-300'>
               {(item.incidentStartedAt || item.incidentEndedAt) && <p>

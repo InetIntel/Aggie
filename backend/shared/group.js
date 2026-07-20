@@ -10,7 +10,7 @@
 
   Group.filterAttributes = [
     'title', 'locationName', 'assignedTo', 'status',
-    'escalated', 'tags', 'public', 'storedAt', 'idnum', 'creator', "closed"
+    'escalated', 'tags', 'public', 'storedAt', 'incidentStartedAt', 'idnum', 'creator', "closed"
   ];
   Group.statusOptions = ['new', 'working', 'alert', 'closed'];
 

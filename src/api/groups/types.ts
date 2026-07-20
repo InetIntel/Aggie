@@ -44,6 +44,7 @@ export interface Group extends hasId {
   impactedGeoScopes?: string[];
   directPopulationCoverageScore?: number | null;
   indirectPopulationCoverageScore?: number | null;
+  reportSources?: string[];
 }
 
 export interface Groups {

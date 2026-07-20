@@ -11,6 +11,7 @@ import { Field, Form, Formik } from "formik";
 import FilterComboBox from "../../components/filters/FilterComboBox";
 import FilterListbox from "../../components/filters/FilterListBox";
 import FilterRadioGroup from "../../components/filters/FilterRadioGroup";
+import FilterDateTime from "../../components/filters/FilterDateTime";
 import AggieButton from "../../components/AggieButton";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -150,7 +151,13 @@ const IncidentsFilters = ({
           />
         </div>
         <div className='flex flex-wrap items-center gap-1'>
-
+          <FilterDateTime
+            label='Incident start'
+            before={get("before")}
+            onSetBefore={(d) => setParams({ before: d })}
+            after={get("after")}
+            onSetAfter={(d) => setParams({ after: d })}
+          />
           <FilterComboBox
             label='Creator'
             list={usersRemapComboBox(users)}
