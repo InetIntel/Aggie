@@ -19,8 +19,15 @@ const parseQueryData = (queryString) => {
   if (!queryString) return {};
   // Data passed through URL parameters
   var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before', 'media','dataSources', 'entityLevel',
-    'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
-  
+    'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant", 'ongoing']);
+
+  if (query.ongoing === 'true') {
+    query.isOutageOngoing = true;
+  } else if (query.ongoing === 'false') {
+    query.isOutageOngoing = false;
+  }
+  delete query.ongoing;
+
   if (!query.media && query.alerts === 'true') {
     query.isOutageEvent = true;
   } else if (!query.media && query.alerts === 'false') {

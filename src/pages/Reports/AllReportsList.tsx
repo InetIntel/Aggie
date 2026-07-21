@@ -95,6 +95,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           platformOptions={platformOptions}
           showEntityLevelFilter={alerts}
           showSignalSourcesFilter={alerts}
+          showOngoingFilter={alerts}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton
