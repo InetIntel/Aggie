@@ -24,12 +24,6 @@ class IODAChannel extends PollChannel {
 
     static INTERVAL = process.env.API_FETCH_INTERVAL || 300000;
 
-    // IODA clamps an unfinished event's `duration` to the query's `until`, so for a
-    // still-running outage `start + duration` is just the fetch time, not a real end.
-    // Since we always query with `until = now`, any event whose end reaches the window
-    // edge cannot have genuinely ended, and is treated as ongoing. The tolerance guards
-    // against IODA rounding the edge down to a data bin; a truly-ended event that gets
-    // misread as ongoing is corrected on the next poll, so erring wide is safe.
     static ONGOING_EDGE_TOLERANCE_SECONDS = 60;
 
 
@@ -145,6 +139,92 @@ class IODAChannel extends PollChannel {
     }
 
     /**
+     * Recover the queryType a report was built under from its guid.
+     */
+    queryTypeFromGuid(guid) {
+        return this.queryTypes.find((queryType) => String(guid).startsWith(`${queryType}-`)) || null;
+    }
+
+    async fetchEventsForEntity(entityType, entityCode, fromTimestamp, untilTimestamp) {
+        const url = new URL(API_ROUTES.IODA.OUTAGE_EVENTS, API_BASE_URLS.IODA);
+
+        url.searchParams.append('entityType', entityType);
+        url.searchParams.append('entityCode', entityCode);
+        url.searchParams.append('from', fromTimestamp);
+        url.searchParams.append('until', untilTimestamp);
+
+        const res = await fetch(url);
+
+        if (!res.ok) {
+            throw new Error(`Failed fetching data: ${url} - ${res.status}.`);
+        }
+
+        const rawFeed = await res.json();
+
+        return rawFeed.data || [];
+    }
+
+    /**
+     * Locate the IODA event backing a report via a targeted per-entity query.
+     */
+    async findEventForReport(report) {
+        const rawEvent = report.metadata
+            && report.metadata.rawAPIResponse
+            && report.metadata.rawAPIResponse.rawEvent;
+
+        if (!rawEvent || !rawEvent.location) return null;
+
+        const slashIdx = String(rawEvent.location).indexOf('/');
+        if (slashIdx === -1) return null;
+
+        const entityType = String(rawEvent.location).slice(0, slashIdx);
+        const entityCode = String(rawEvent.location).slice(slashIdx + 1);
+        if (!entityType || !entityCode) return null;
+
+        const from = report.outageStartedAt
+            ? Math.floor(report.outageStartedAt.getTime() / 1000) - 60 * 60
+            : this.fetchToTimestamp - 24 * 60 * 60;
+
+        try {
+            const events = await this.fetchEventsForEntity(entityType, entityCode, from, this.fetchToTimestamp);
+
+            return events.find((e) => e.start === rawEvent.start && e.datasource === rawEvent.datasource) || null;
+        } catch (e) {
+            console.error(`[Fetching-channel-IODA] Failed - Failed targeted lookup for entity: ${rawEvent.location}.`);
+            return null;
+        }
+    }
+
+    /**
+     * Refresh a still-running report whose event dropped out of the broad listings, so
+     * its content, chart window and "updated" time keep moving.
+     */
+    async refreshOngoingReport(report, event) {
+        const queryType = this.queryTypeFromGuid(report.guid);
+        if (!queryType) return;
+
+        const formattedEvent = await this.parseEvent(event, queryType, { withImage: false });
+        if (!formattedEvent) return;
+
+        const previousImage = report.metadata
+            && report.metadata.rawAPIResponse
+            && report.metadata.rawAPIResponse.image;
+
+        report.content = formattedEvent.content;
+        report.url = formattedEvent.url;
+        report.fetchedAt = new Date(this.fetchToTimestamp * 1000);
+
+        report.metadata = report.metadata || {};
+        report.metadata.rawAPIResponse = formattedEvent.raw;
+        if (previousImage) {
+            report.metadata.rawAPIResponse.image = previousImage;
+        }
+        report.markModified('metadata');
+
+        await report.save();
+    }
+
+    /**
      * An event is still running if its end reaches the edge of the query window.
      * See ONGOING_EDGE_TOLERANCE_SECONDS.
      */
@@ -200,7 +280,8 @@ class IODAChannel extends PollChannel {
                 // Parse and transform each event
                 for (const event of events) {
 
-                    seenGuids.add(this.buildGuid(queryType, event));
+                    const guid = this.buildGuid(queryType, event);
+                    seenGuids.add(guid);
 
                     // Exclude irrelevant region event
                     if (regexRegion) {
@@ -212,22 +293,27 @@ class IODAChannel extends PollChannel {
                             };
                     }
 
-                    const formattedEvent = await this.parseEvent(event, queryType);
-
-                    if (!formattedEvent) {
-                        console.error(`\tFailed parsing formattedEvent: ${event}.`);
-                        return;
-                    }
-
-                    formattedEvent.fetchedAt = fetchedAt;
-
-                    if (formattedEvent.isOutageOngoing) {
-                        ongoingReportCount += 1;
-                    }
-
                     // De-duplicate fetched report for downstream tasks
                     try {
-                        const existingReport = await Report.findOne({ guid: formattedEvent.platformID });
+                        const existingReport = await Report.findOne({ guid });
+
+                        // Rendering the chart costs a headless page load per event and dominates
+                        // the runtime of a poll. A closed outage's chart can never change again,
+                        // so only pay for it on first ingest and while the outage is still running.
+                        const withImage = !existingReport || existingReport.isOutageOngoing;
+
+                        const formattedEvent = await this.parseEvent(event, queryType, { withImage });
+
+                        if (!formattedEvent) {
+                            console.error(`\tFailed parsing formattedEvent: ${JSON.stringify(event)}.`);
+                            continue;
+                        }
+
+                        formattedEvent.fetchedAt = fetchedAt;
+
+                        if (formattedEvent.isOutageOngoing) {
+                            ongoingReportCount += 1;
+                        }
 
                         if (existingReport) {
                             const prevEnd = existingReport.outageEndedAt
@@ -241,14 +327,25 @@ class IODAChannel extends PollChannel {
                             // false and the incident is no longer recomputed on every poll.
                             const endChanged = prevEnd !== newEnd;
 
+                            // Carried over when we skip chart extraction, so the wholesale
+                            // rawAPIResponse replacement below doesn't drop the stored chart.
+                            const previousImage = existingReport.metadata
+                                && existingReport.metadata.rawAPIResponse
+                                && existingReport.metadata.rawAPIResponse.image;
+
                             // update fields
                             existingReport.content = formattedEvent.content;
                             existingReport.url = formattedEvent.url;
+                            // fetchedAt is what the UI shows as "updated"
+                            existingReport.fetchedAt = formattedEvent.fetchedAt;
                             existingReport.outageEndedAt = formattedEvent.outageEndedAt;
                             existingReport.isOutageOngoing = formattedEvent.isOutageOngoing;
                             // update whole metadata.rawAPIResponse object
                             existingReport.metadata = existingReport.metadata || {};
                             existingReport.metadata.rawAPIResponse = formattedEvent.raw;
+                            if (!withImage && previousImage) {
+                                existingReport.metadata.rawAPIResponse.image = previousImage;
+                            }
                             existingReport.markModified('metadata');
 
                             await existingReport.save();
@@ -266,7 +363,7 @@ class IODAChannel extends PollChannel {
 
                         }
                     } catch (err) {
-                        console.error(`Error processing report for guid ${formattedEvent.platformID}:`, err);
+                        console.error(`Error processing report for guid ${guid}:`, err);
                     }
 
 
@@ -355,21 +452,28 @@ class IODAChannel extends PollChannel {
 
         const affectedGroupIds = new Set();
         let closedCount = 0;
+        let refreshedCount = 0;
 
         for (const report of staleReports) {
-            const event = finalizedByGuid.get(report.guid);
 
-            // IODA no longer knows about this event at all — leave it alone rather than
-            // invent an end time.
+            const event = finalizedByGuid.get(report.guid) || await this.findEventForReport(report);
+
             if (!event) continue;
 
             const eventEndedAtSeconds = event.start + event.duration;
-            if (this.isOngoingEvent(eventEndedAtSeconds)) continue;
+
+            if (this.isOngoingEvent(eventEndedAtSeconds)) {
+
+                await this.refreshOngoingReport(report, event);
+                refreshedCount += 1;
+                continue;
+            }
 
             const outageEndedAt = new Date(eventEndedAtSeconds * 1000);
 
             report.outageEndedAt = outageEndedAt;
             report.isOutageOngoing = false;
+            report.fetchedAt = new Date(this.fetchToTimestamp * 1000);
 
             if (report.metadata && report.metadata.rawAPIResponse) {
                 report.metadata.rawAPIResponse.rawEvent = event;
@@ -387,7 +491,7 @@ class IODAChannel extends PollChannel {
             }
         }
 
-        console.log(`[Fetching-channel-IODA] Success - Reconciled ongoing reports, stale: ${staleReports.length}, closed: ${closedCount}, still unresolved: ${staleReports.length - closedCount}.`);
+        console.log(`[Fetching-channel-IODA] Success - Reconciled ongoing reports, stale: ${staleReports.length}, closed: ${closedCount}, still ongoing: ${refreshedCount}, unresolved: ${staleReports.length - closedCount - refreshedCount}.`);
 
         if (affectedGroupIds.size > 0) {
             await recomputeIncidentDurationForGroups([...affectedGroupIds]);
@@ -415,7 +519,7 @@ class IODAChannel extends PollChannel {
     /**
      * Parse the fetched event data to SocialMediaPost.
      */
-    async parseEvent(event, queryType) {
+    async parseEvent(event, queryType, { withImage = true } = {}) {
 
         // Enriched attributes
         let entityLevel = null;
@@ -439,7 +543,7 @@ class IODAChannel extends PollChannel {
         const eventEndedAtSeconds = eventStartedAtSeconds + eventDurationAtSeconds;
 
         // For an ongoing outage `duration` only runs up to the query window edge, so
-        // there is no end time to record yet — only the elapsed time so far.
+        // there is no end time to record yet, only the elapsed time so far.
         const isOngoing = this.isOngoingEvent(eventEndedAtSeconds);
 
         const eventStartedAt = new Date(eventStartedAtSeconds * 1000).toISOString();
@@ -515,7 +619,9 @@ class IODAChannel extends PollChannel {
         }
 
         // Fetch and de-duplicate image as svg string
-        if (this.linkedPageCache[linkedPage]) {
+        if (!withImage) {
+            // Caller already holds a chart for this event and will carry it over.
+        } else if (this.linkedPageCache[linkedPage]) {
             image = this.linkedPageCache[linkedPage];
         } else {
 
