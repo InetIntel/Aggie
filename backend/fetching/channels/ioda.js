@@ -1,6 +1,5 @@
 const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
-const { mongoose } = require('../../database');
 const REGION_CODES = require('../../config/fetching/channels/iodaMappings');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
 const {
@@ -22,10 +21,18 @@ countries.registerLocale(require('i18n-iso-countries/langs/en.json'))
  */
 class IODAChannel extends PollChannel {
 
-    
+
     static INTERVAL = process.env.API_FETCH_INTERVAL || 300000;
-  
-    
+
+    // IODA clamps an unfinished event's `duration` to the query's `until`, so for a
+    // still-running outage `start + duration` is just the fetch time, not a real end.
+    // Since we always query with `until = now`, any event whose end reaches the window
+    // edge cannot have genuinely ended, and is treated as ongoing. The tolerance guards
+    // against IODA rounding the edge down to a data bin; a truly-ended event that gets
+    // misread as ongoing is corrected on the next poll, so erring wide is safe.
+    static ONGOING_EDGE_TOLERANCE_SECONDS = 60;
+
+
     constructor(options) {
         super({...options,
             namespace: options.namespace || `ioda-${options.countryCode}`,
@@ -33,17 +40,19 @@ class IODAChannel extends PollChannel {
 
         this.options = options;
 
-        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country', 'asn-country']    
+        this.queryTypes = ['region', 'geoasn-region', 'geoasn-country', 'asn-country']
 
         this.metadataUrl = `${API_BASE_URLS.IODA}${API_ROUTES.IODA.ENTITY_QUERY}`;
 
         this.countryCode = options.countryCode || null;
 
+        this.sourceId = options.sourceId || null;
+
         this.regionCodes = {};
 
         this.interval = options.interval || IODAChannel.INTERVAL;
-  
-        this.fetchToTimestamp = Math.floor(Date.now() / 1000); 
+
+        this.fetchToTimestamp = Math.floor(Date.now() / 1000);
 
         this.fetchFromTimestamp = options.lastTimestamp
             ? Math.min(
@@ -84,6 +93,65 @@ class IODAChannel extends PollChannel {
         return super.start();
     }
 
+    /**
+     * Build the outage-events query url for a queryType over an explicit window.
+     */
+    buildEventsUrl(queryType, fromTimestamp, untilTimestamp) {
+        const url = new URL(API_ROUTES.IODA.OUTAGE_EVENTS, API_BASE_URLS.IODA);
+
+        if (queryType === 'region') {
+            url.searchParams.append('entityType', 'region');
+            url.searchParams.append('relatedTo', `country/${this.countryCode}`);
+        } else if (queryType === 'geoasn-region') {
+            url.searchParams.append('entityType', 'geoasn');
+            url.searchParams.append('relatedTo', `region`);
+        } else if (queryType === 'geoasn-country') {
+            url.searchParams.append('entityType', 'geoasn');
+            url.searchParams.append('relatedTo', `country/${this.countryCode}`);
+        } else if (queryType === 'asn-country') {
+            url.searchParams.append('entityType', 'asn');
+            url.searchParams.append('relatedTo', `country/${this.countryCode}`);
+        }
+
+        url.searchParams.append('from', fromTimestamp);
+        url.searchParams.append('until', untilTimestamp);
+
+        return url;
+    }
+
+    /**
+     * Fetch raw outage events for a queryType over an explicit window.
+     */
+    async fetchEvents(queryType, fromTimestamp, untilTimestamp) {
+        const url = this.buildEventsUrl(queryType, fromTimestamp, untilTimestamp);
+
+        const res = await fetch(url);
+
+        if (!res.ok) {
+            throw new Error(`Failed fetching data: ${url} - ${res.status}.`);
+        }
+
+        const rawFeed = await res.json();
+
+        return {
+            url,
+            events: rawFeed.data || [],
+            fetchedAt: new Date(rawFeed.metadata.responseTime) || new Date(Date.now()),
+        };
+    }
+
+    buildGuid(queryType, event) {
+        return `${queryType}-${event.start}-${event.location}-${event.datasource}`;
+    }
+
+    /**
+     * An event is still running if its end reaches the edge of the query window.
+     * See ONGOING_EDGE_TOLERANCE_SECONDS.
+     */
+    isOngoingEvent(eventEndedAtSeconds) {
+        return eventEndedAtSeconds >= this.fetchToTimestamp - IODAChannel.ONGOING_EDGE_TOLERANCE_SECONDS;
+    }
+
     async fetch() {
         const outages = [];
 
@@ -98,66 +166,46 @@ class IODAChannel extends PollChannel {
 
         try{
         // update fetchTo timestamp for each fetch
-        this.fetchToTimestamp = Math.floor(Date.now() / 1000); 
+        this.fetchToTimestamp = Math.floor(Date.now() / 1000);
         this.fetchFromTimestamp = Math.min(this.fetchFromTimestamp, this.fetchToTimestamp - 2 * 60 * 60);
 
-        
+        // Every event IODA returned this fetch, whether or not it became a report.
+        // Reports still flagged ongoing but absent from this set have dropped out of
+        // the fetch window and are reconciled below.
+        const seenGuids = new Set();
+        let allQueriesSucceeded = true;
+
         for (const queryType of this.queryTypes) {
             try {
-                // Construct query url
-                const url = new URL(API_ROUTES.IODA.OUTAGE_EVENTS, API_BASE_URLS.IODA);
-
-                if (queryType === 'region') {
-                    url.searchParams.append('entityType', 'region');
-                    url.searchParams.append('relatedTo', `country/${this.countryCode}`);
-                } else if (queryType === 'geoasn-region') {
-                    url.searchParams.append('entityType', 'geoasn');
-                    url.searchParams.append('relatedTo', `region`);
-                } else if (queryType === 'geoasn-country') {
-                    url.searchParams.append('entityType', 'geoasn');
-                    url.searchParams.append('relatedTo', `country/${this.countryCode}`);
-                } else if (queryType === 'asn-country') {
-                    url.searchParams.append('entityType', 'asn');
-                    url.searchParams.append('relatedTo', `country/${this.countryCode}`);
-                }
-
-                url.searchParams.append('from', this.fetchFromTimestamp);
-                url.searchParams.append('until', this.fetchToTimestamp);
-
-                // Fetch data
-                const res = await fetch(url);
-
-                if (!res.ok) {
-                    throw new Error(`Failed fetching data: ${url} - ${res.status}.`);
-                } 
-
-                const rawFeed = await res.json();
-
-                const fetchedAt =  new Date(rawFeed.metadata.responseTime) || new Date(Date.now());
-
-                const events = rawFeed.data || [];
+                const { url, events, fetchedAt } = await this.fetchEvents(
+                    queryType,
+                    this.fetchFromTimestamp,
+                    this.fetchToTimestamp
+                );
 
                 // Declare regex rule to exclude AS-region reports unrelated to the queried country
                 let regexRegion = null;
                 if (queryType === 'geoasn-region') {
                     regexRegion = /(\d+)-(\d+)/;
                 }
-                
+
                 let newReportCount = 0;
                 let existedReportCount = 0;
                 let irrelevantRegionReportCount = 0;
+                let ongoingReportCount = 0;
                 this.linkedPageCache = {}; // avoid duplicately extract graph components
 
-                const collection = mongoose.connection.db.collection('reports');
                 const affectedGroupIds = new Set();
 
-                // Parse and transform each event 
+                // Parse and transform each event
                 for (const event of events) {
+
+                    seenGuids.add(this.buildGuid(queryType, event));
 
                     // Exclude irrelevant region event
                     if (regexRegion) {
                             const match = event.location && event.location.match(regexRegion);
-                            
+
                             if (!match || (match && !this.regionCodes[match[2]])) {
                                 irrelevantRegionReportCount += 1;
                                 continue;
@@ -170,8 +218,12 @@ class IODAChannel extends PollChannel {
                         console.error(`\tFailed parsing formattedEvent: ${event}.`);
                         return;
                     }
-                    
+
                     formattedEvent.fetchedAt = fetchedAt;
+
+                    if (formattedEvent.isOutageOngoing) {
+                        ongoingReportCount += 1;
+                    }
 
                     // De-duplicate fetched report for downstream tasks
                     try {
@@ -185,17 +237,20 @@ class IODAChannel extends PollChannel {
                             ? formattedEvent.outageEndedAt.getTime()
                             : null;
 
+                            // While an outage is ongoing both ends are null, so this stays
+                            // false and the incident is no longer recomputed on every poll.
                             const endChanged = prevEnd !== newEnd;
 
                             // update fields
                             existingReport.content = formattedEvent.content;
                             existingReport.url = formattedEvent.url;
                             existingReport.outageEndedAt = formattedEvent.outageEndedAt;
+                            existingReport.isOutageOngoing = formattedEvent.isOutageOngoing;
                             // update whole metadata.rawAPIResponse object
                             existingReport.metadata = existingReport.metadata || {};
                             existingReport.metadata.rawAPIResponse = formattedEvent.raw;
                             existingReport.markModified('metadata');
-                            
+
                             await existingReport.save();
                             existedReportCount += 1;
 
@@ -217,7 +272,7 @@ class IODAChannel extends PollChannel {
 
                 }
 
-                console.log(`[Fetching-channel-IODA] Success - Parsed and formatted data from url: ${url}, total records: ${events.length}, new records: ${newReportCount}, existed records: ${existedReportCount}, irrelevant region records: ${irrelevantRegionReportCount}.`);
+                console.log(`[Fetching-channel-IODA] Success - Parsed and formatted data from url: ${url}, total records: ${events.length}, new records: ${newReportCount}, existed records: ${existedReportCount}, ongoing records: ${ongoingReportCount}, irrelevant region records: ${irrelevantRegionReportCount}.`);
 
                 if (affectedGroupIds.size > 0) {
                     // console.log(`[IODA] Recomputing duration for ${affectedGroupIds.size} affected incidents`);
@@ -225,11 +280,19 @@ class IODAChannel extends PollChannel {
                 }
 
             } catch (e) {
+                allQueriesSucceeded = false;
                 console.error(`[Fetching-channel-IODA] Failed - Failed parsing and formating data: ${this.options.media} - ${queryType}.`);
             }
         }
 
-        
+        // A failed query leaves seenGuids incomplete, which would make healthy ongoing
+        // reports look stale. Only reconcile when we have the full picture.
+        if (allQueriesSucceeded) {
+            await this.reconcileOngoingReports(seenGuids);
+        } else {
+            console.warn('[Fetching-channel-IODA] Skipped - Skipped ongoing reconciliation, at least one query failed.');
+        }
+
         // update latestReportDate
         this.fetchFromTimestamp = this.fetchToTimestamp;
         const updatedTimestamp = new Date(this.fetchFromTimestamp * 1000);
@@ -239,10 +302,97 @@ class IODAChannel extends PollChannel {
 
         return outages;
 
-    } finally {       
-        await this.browser.close(); // ensure closing headerless browser 
+    } finally {
+        await this.browser.close(); // ensure closing headerless browser
     }
-} 
+}
+
+    /**
+     * Close out reports still flagged ongoing whose event IODA no longer returns.
+     *
+     * The steady-state fetch window is only 2 hours wide, so an outage that IODA
+     * finalizes late can slide out of it while still flagged ongoing and would
+     * otherwise read as "Present" forever. Re-query each queryType over the full span
+     * of the stale outages to pick up their finalized duration.
+     */
+    async reconcileOngoingReports(seenGuids) {
+        if (!this.sourceId) {
+            console.warn('[Fetching-channel-IODA] Skipped - Skipped ongoing reconciliation, no sourceId on channel.');
+            return;
+        }
+
+        const staleReports = await Report.find({
+            _sources: String(this.sourceId),
+            isOutageOngoing: true,
+            guid: { $nin: [...seenGuids] },
+        }).exec();
+
+        if (!staleReports.length) {
+            return;
+        }
+
+        // The oldest still-open outage bounds how far back we need to re-query.
+        let earliestStart = this.fetchToTimestamp;
+        for (const report of staleReports) {
+            if (!report.outageStartedAt) continue;
+            const startedAt = Math.floor(report.outageStartedAt.getTime() / 1000);
+            if (startedAt < earliestStart) earliestStart = startedAt;
+        }
+
+        const finalizedByGuid = new Map();
+        for (const queryType of this.queryTypes) {
+            try {
+                const { events } = await this.fetchEvents(queryType, earliestStart, this.fetchToTimestamp);
+                for (const event of events) {
+                    finalizedByGuid.set(this.buildGuid(queryType, event), event);
+                }
+            } catch (e) {
+                // An incomplete picture would strand reports; retry on the next poll.
+                console.error(`[Fetching-channel-IODA] Failed - Failed reconciliation query: ${queryType}.`);
+                return;
+            }
+        }
+
+        const affectedGroupIds = new Set();
+        let closedCount = 0;
+
+        for (const report of staleReports) {
+            const event = finalizedByGuid.get(report.guid);
+
+            // IODA no longer knows about this event at all — leave it alone rather than
+            // invent an end time.
+            if (!event) continue;
+
+            const eventEndedAtSeconds = event.start + event.duration;
+            if (this.isOngoingEvent(eventEndedAtSeconds)) continue;
+
+            const outageEndedAt = new Date(eventEndedAtSeconds * 1000);
+
+            report.outageEndedAt = outageEndedAt;
+            report.isOutageOngoing = false;
+
+            if (report.metadata && report.metadata.rawAPIResponse) {
+                report.metadata.rawAPIResponse.rawEvent = event;
+                report.metadata.rawAPIResponse.ended = outageEndedAt.toISOString();
+                report.metadata.rawAPIResponse.duration = this.formatDuration(event.duration);
+                report.metadata.rawAPIResponse.isOngoing = false;
+                report.markModified('metadata');
+            }
+
+            await report.save();
+            closedCount += 1;
+
+            if (report._group) {
+                affectedGroupIds.add(report._group.toString());
+            }
+        }
+
+        console.log(`[Fetching-channel-IODA] Success - Reconciled ongoing reports, stale: ${staleReports.length}, closed: ${closedCount}, still unresolved: ${staleReports.length - closedCount}.`);
+
+        if (affectedGroupIds.size > 0) {
+            await recomputeIncidentDurationForGroups([...affectedGroupIds]);
+        }
+    }
 
     /**
      * Parse the fetched metadata to region code - region name mapping relationship.
@@ -288,19 +438,23 @@ class IODAChannel extends PollChannel {
         const eventDurationAtSeconds = event.duration;
         const eventEndedAtSeconds = eventStartedAtSeconds + eventDurationAtSeconds;
 
+        // For an ongoing outage `duration` only runs up to the query window edge, so
+        // there is no end time to record yet — only the elapsed time so far.
+        const isOngoing = this.isOngoingEvent(eventEndedAtSeconds);
+
         const eventStartedAt = new Date(eventStartedAtSeconds * 1000).toISOString();
-        const eventEndedAt = new Date(eventEndedAtSeconds * 1000).toISOString();
+        const eventEndedAt = isOngoing ? null : new Date(eventEndedAtSeconds * 1000).toISOString();
         const eventDuration = this.formatDuration(eventDurationAtSeconds);
         outageStartedAt = new Date(eventStartedAtSeconds * 1000);
-        outageEndedAt = new Date(eventEndedAtSeconds * 1000);
+        outageEndedAt = isOngoing ? null : new Date(eventEndedAtSeconds * 1000);
 
         // Construct content
         const dataSource = DATA_SOURCES.IODA[event.datasource];
         const content = `DataSource: ${dataSource}
         Score: ${event.score}
         Started: ${eventStartedAt}
-        Ended: ${eventEndedAt}
-        Outage duration ${eventDuration}`;
+        Ended: ${isOngoing ? 'Present (ongoing)' : eventEndedAt}
+        Outage duration ${eventDuration}${isOngoing ? ' so far' : ''}`;
 
         // Render dashboard
         const urlFromTime = eventStartedAtSeconds - 4 * 60 * 60;
@@ -318,7 +472,7 @@ class IODAChannel extends PollChannel {
         }
         linkedPage = `${API_LINKED_PAGE_URLS.IODA.BASE}/${entityCode}?from=${urlFromTime}&until=${urlToTime}`;
         
-        const guid = `${queryType}-${event.start}-${event.location}-${event.datasource}`;
+        const guid = this.buildGuid(queryType, event);
         if (!guid) {
             console.error(`\tNo guid or link found in Ioda response: ${event}`);
             return;
@@ -393,8 +547,9 @@ class IODAChannel extends PollChannel {
                 'dataSource': dataSource,
                 'score': event.score,
                 'started': eventStartedAt,
-                'ended': eventEndedAt,
+                'ended': eventEndedAt, // null while the outage is still running
                 'duration': eventDuration,
+                'isOngoing': isOngoing,
                 'image': image, // Store image as svg string
             }
         });
@@ -415,6 +570,7 @@ class IODAChannel extends PollChannel {
         post.asn = asn;
         post.outageStartedAt = outageStartedAt;
         post.outageEndedAt = outageEndedAt;
+        post.isOutageOngoing = isOngoing;
         post.geoScope = geoScope;
         post.eventAggKeyBase = eventAggKeyBase;
         post.eventIdentifier = eventIdentifier;

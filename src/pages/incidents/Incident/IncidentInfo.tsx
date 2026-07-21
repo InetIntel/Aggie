@@ -449,7 +449,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
         >
           {(group?.incidentStartedAt || group?.incidentEndedAt) ? (
             <p className='whitespace-pre-line max-w-prose text-black dark:text-gray-300'>
-              {formatIsoTime(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {formatIsoTime(group?.incidentEndedAt)}
+              {formatIsoTime(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {group?.incidentEndedAt ? formatIsoTime(group?.incidentEndedAt) : "Present"}
             </p>
           ) : (
             <p className='italic text-slate-600 dark:text-gray-400'>No Date Set</p>
