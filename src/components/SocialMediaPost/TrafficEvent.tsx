@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Report } from "../../api/reports/types";
 import { resolveMediaUrl } from "../SocialMediaPost/reportParser";
 import { useReportChartImage } from "./useReportChartImage";
@@ -7,6 +8,31 @@ interface IProps {
   /** Bound the chart height for fixed-size contexts (compare grid). */
   compact?: boolean;
 }
+
+const TrafficImage = ({
+  src,
+  className,
+}: {
+  src: string;
+  className: string;
+}) => {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className='relative'>
+      {!loaded && (
+        <div className='flex items-center justify-center w-full h-48 rounded bg-slate-100 dark:bg-gray-700 text-slate-400 text-sm animate-pulse'>
+          Loading…
+        </div>
+      )}
+      <img
+        src={src}
+        alt='traffic trend'
+        onLoad={() => setLoaded(true)}
+        className={loaded ? className : "hidden"}
+      />
+    </div>
+  );
+};
 
 // cloudflare traffic anomaly
 const TrafficEvent = ({ report, compact }: IProps) => {
@@ -24,9 +50,11 @@ const TrafficEvent = ({ report, compact }: IProps) => {
         } - {endDate.replace('T', ' ').substring(0, 16)} UTC
       </p>
       {!!image && (
-        <img
+        // Key on the resolved src so switching reports remounts the <img>
+        // instead of reusing the DOM node and briefly showing the stale chart.
+        <TrafficImage
+          key={image}
           src={resolveMediaUrl(image)}
-          alt='traffic trend'
           className={
             compact
               ? "w-full max-h-52 object-contain object-center"
