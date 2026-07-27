@@ -57,6 +57,42 @@ exports.team_manageable_list = async (req, res) => {
   }
 };
 
+// Get a team with its assigned users
+exports.team_detail = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Unauthorized to view team details.');
+  }
+
+  try {
+    const team = await Team.findById(req.params._id)
+      .lean();
+
+    if (!team) {
+      return res.sendStatus(404);
+    }
+
+    const members = await User.find({ teams: req.params._id })
+      .select('_id username displayName email role createdBy')
+      .sort({ role: 1, username: 1 })
+      .lean();
+
+    return res.status(200).send({
+      team,
+      members,
+    });
+  } catch (err) {
+    if (err.name === 'CastError') {
+      return res.status(400).send('Invalid team id.');
+    }
+
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team detail query failed');
+  }
+};
+
 // Create a team
 exports.team_create = (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');

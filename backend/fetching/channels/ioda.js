@@ -10,6 +10,7 @@ const {
 const {  recomputeIncidentDurationForGroups } = require('../../api/utils/incidentDuration');
 const Group = require('../../models/group');
 const Report = require('../../models/report');
+const { persistSvgChart } = require('../utils/socialImageStorage');
 const { chromium } = require('playwright');
 const countries = require('i18n-iso-countries');
 require('dotenv').config();
@@ -618,22 +619,30 @@ class IODAChannel extends PollChannel {
             geoScope = entityScope;
         }
 
-        // Fetch and de-duplicate image as svg string
-        if (!withImage) {
-            // Caller already holds a chart for this event and will carry it over.
-        } else if (this.linkedPageCache[linkedPage]) {
-            image = this.linkedPageCache[linkedPage];
-        } else {
-
-            try {
-                const cleanSVG = await extractCleanSVGFromPage(this.browser, linkedPage, queryType);
-                image = cleanSVG;
-                this.linkedPageCache[linkedPage] = cleanSVG;
-            } catch (err) {
-                console.error(`Error extracting SVG for URL ${linkedPage}:`, err);
+        if (withImage) {
+            let svg = this.linkedPageCache[linkedPage];
+            if (svg === undefined) {
+                try {
+                    svg = await extractCleanSVGFromPage(this.browser, linkedPage, queryType);
+                } catch (err) {
+                    console.error(`Error extracting SVG for URL ${linkedPage}:`, err);
+                    svg = null;
+                }
+                this.linkedPageCache[linkedPage] = svg;
             }
 
+            // Persist the SVG to media storage keyed by guid and store the key (not the
+            // raw SVG) on the report, so list/detail responses stay small. Keyed by guid
+            // means a re-fetch of the same outage overwrites the same file in place.
+            if (svg) {
+                try {
+                    image = await persistSvgChart({ svg, guid });
+                } catch (err) {
+                    console.error(`Error persisting SVG chart for guid ${guid}:`, err);
+                }
+            }
         }
+
 
 
 
@@ -656,7 +665,8 @@ class IODAChannel extends PollChannel {
                 'ended': eventEndedAt, // null while the outage is still running
                 'duration': eventDuration,
                 'isOngoing': isOngoing,
-                'image': image, // Store image as svg string
+                'image': image, // media-storage key for the chart SVG (see persistSvgChart)
+
             }
         });
 

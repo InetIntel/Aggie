@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { createTeam, deleteTeam, getTeams } from "../../../api/teams";
+import { Link } from "react-router-dom";
 import AggieButton from "../../../components/AggieButton";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 
@@ -63,7 +64,12 @@ const TeamsIndex = () => {
                   key={team._id}
                   className='grid grid-cols-4 px-3 py-3 items-center border-b border-slate-200 last:border-b-0'
                 >
-                  <p className='font-medium'>{team.name}</p>
+                  <Link 
+                    to={`/settings/team/${team._id}`}
+                    className='font-medium text-lime-800 hover:underline'
+                  >
+                    {team.name}
+                  </Link>
                   <p className='text-sm text-slate-600 dark:text-gray-300'>
                     {team.description || "No description"}
                   </p>
