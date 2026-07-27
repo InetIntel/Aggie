@@ -59,6 +59,9 @@ export const ENTITY_LEVEL_OPTIONS = [
 ]
 export type ENTITY_LEVEL_OPTIONS = (typeof ENTITY_LEVEL_OPTIONS)[number];
 
+export const OUTAGE_STATUS_OPTIONS = ["All", "Ongoing", "Ended"] as const;
+export type OutageStatusOption = (typeof OUTAGE_STATUS_OPTIONS)[number];
+
 export const ESCALATED_OPTIONS = ["true", "false"] as const;
 export type EscalatedOptions = (typeof ESCALATED_OPTIONS)[number];
 

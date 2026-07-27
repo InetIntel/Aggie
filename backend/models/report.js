@@ -13,12 +13,13 @@ let schema = new Schema({
   authoredAt: { type: Date, index: true },
   fetchedAt: { type: Date, index: true },
   storedAt: { type: Date, index: true },
-  isOutageEvent: { type: Boolean, index: true },
-  isAsnScoped: { type: Boolean, index: true },
-  asn: { type: String },
-  outageStartedAt: { type: Date },
-  outageEndedAt: { type: Date },
-  geoScope: { type: String },
+  isOutageEvent: {type: Boolean, index: true},
+  isAsnScoped: {type:Boolean, index: true},
+  asn: {type: String},
+  outageStartedAt: { type: Date,},
+  outageEndedAt: { type: Date}, // null while the outage is still running
+  isOutageOngoing: { type: Boolean, default: false, index: true },
+  geoScope: {type: String},
   eventIdentifier: { type: String }, // an identifier derived from asn, geoScope, and outageStartedAt
   eventAggKeyBase: { type: String }, // an aggregation key base, derived from asn and geoScope, combined with dynamic time interval bucket in aggregation layer
   content: { type: String },

@@ -17,7 +17,11 @@ interface IProps {
 const IodaEvent = ({ report, compact }: IProps) => {
   const rawData = report?.metadata?.rawAPIResponse;
   const start = report?.authoredAt?.replace('T', ' ').substring(0, 16);
-  const end = rawData?.ended?.replace('T', ' ').substring(0, 16);
+  // An ongoing outage has no end time yet — IODA only reports elapsed time so far.
+  const isOngoing = rawData?.isOngoing === true;
+  const end = isOngoing
+    ? "Present"
+    : rawData?.ended?.replace('T', ' ').substring(0, 16);
 
   const rawSignal = rawData?.rawEvent?.datasource;
   let [signal, bgColor] = signalToNameColor(rawSignal);
@@ -43,7 +47,7 @@ const IodaEvent = ({ report, compact }: IProps) => {
         </div>
       )}
       <p className='mb-1'>
-        {start} - {end} UTC
+        {isOngoing ? `${start} UTC - Present` : `${start} - ${end} UTC`}
       </p>
       {!image ? null : svg ? (
         <div

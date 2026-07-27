@@ -215,6 +215,7 @@ function createChannel(source) {
                 ...options,
                 media: media,
                 countryCode: keywords,
+                sourceId: _id,
             };
             channel = new IODAChannel(options);
             break;
@@ -224,6 +225,7 @@ function createChannel(source) {
                 media: media,
                 countryCode: keywords,
                 credentials: credentials,
+                sourceId: _id,
             }
             channel = new CloudflareChannel(options);
             break;
