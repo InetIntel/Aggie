@@ -4,15 +4,24 @@
 var Source = require('../../models/source');
 var _ = require('lodash');
 
+var sourcePopulate = [
+  { path: 'user', select: 'username' },
+  { path: 'credentials' },
+  { path: 'accessPolicy.teams', select: 'name description active' },
+];
+
 // Create a new Source
 exports.source_create = (req, res) => {
   // set user as the logged in user
   if (req.user) req.body.user = req.user._id;
+
+  normalizeAccessPolicy(req.body);
+
   Source.create(req.body, function (err, source) {
     if (err) {
       return res.status(err.status).send(err.message);
     }
-    
+
     res.status(200).send(source);
   });
 }
@@ -20,11 +29,8 @@ exports.source_create = (req, res) => {
 // Get a list of all sources
 exports.source_sources = (req, res) => {
   // Find all, exclude `events` field, populate user
-  Source.find({}, '-events', { sort: 'nickname' })
-    .populate([
-      { path: 'user', select: 'username' },
-      { path: 'credentials' }
-    ])
+ Source.find({}, '-events', { sort: 'nickname' })
+  .populate(sourcePopulate)
     .exec(function (err, sources) {
       if (err) res.status(err.status).send(err.message);
       else res.status(200).send(sources);
@@ -37,16 +43,42 @@ exports.source_details = (req, res) => {
     else if (!source) return res.sendStatus(404);
     Source.populate(
       source,
-      [
-        { path: 'user', select: 'username' },
-        { path: 'credentials' }
-      ],
+      sourcePopulate,
       function (err, source) {
         if (err) res.status(err.status).send(err.message);
         else res.status(200).send(source);
       });
   });
 }
+
+//helper for source.lpopulate
+var normalizeAccessPolicy = function (sourceData) {
+  if (!sourceData.accessPolicy) return;
+
+  var accessPolicy = sourceData.accessPolicy;
+
+  if (!accessPolicy.mode) {
+    accessPolicy.mode = 'public';
+  }
+
+  if (!Array.isArray(accessPolicy.teams)) {
+    accessPolicy.teams = [];
+  }
+
+  if (accessPolicy.cutoffDate === '') {
+    accessPolicy.cutoffDate = null;
+  }
+
+  if (accessPolicy.mode === 'public') {
+    accessPolicy.teams = [];
+    accessPolicy.cutoffDate = null;
+  }
+
+  if (accessPolicy.mode === 'restricted') {
+    accessPolicy.cutoffDate = null;
+  }
+};
+
 
 exports.source_update = (req, res, next) => {
   if (req.params._id === '_events') return next();
@@ -55,6 +87,8 @@ exports.source_update = (req, res, next) => {
     if (err) return res.status(err.status).send(err.message);
     if (!source) return res.sendStatus(404);
 
+    normalizeAccessPolicy(req.body);
+    
     // Update the actual values
     _.forEach(_.omit(req.body, ['_id', 'user', 'events']), function (val, key) {
       source[key] = val;

@@ -102,12 +102,12 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
             <Route path='credentials' element={<CredentialsIndex />} />
           </>
         }
-        {sessionData?.role === "admin" && (
+        {(sessionData?.role === "admin" || sessionData?.role === "team_lead") && (
           <>
-            <Route path='teams' element={<TeamsIndex />} />
-            <Route path='team/:id' element={<TeamDetails />} />
-          </>
-      )}
+          <Route path='teams' element={<TeamsIndex session={sessionData} />} />
+          <Route path='team/:id' element={<TeamDetails session={sessionData} />} />
+        </>
+)}
       </Route>
       { sessionData?.role === "admin"
         && (process.env.ENVIRONMENT === "development" || process.env.NODE_ENV === "development")

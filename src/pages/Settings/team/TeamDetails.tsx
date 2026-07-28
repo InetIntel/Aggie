@@ -1,16 +1,23 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
-import { getTeam } from "../../../api/teams";
-import type { TeamMember } from "../../../api/teams/types";
+import { addTeamMember, getTeam, removeTeamMember } from "../../../api/teams";
+import { getManageableUsers } from "../../../api/users";
+import type { TeamMember, TeamDetailResponse } from "../../../api/teams/types";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
+
+import { useState } from "react";
 
 const MemberList = ({
   title,
   members,
+  onRemove,
+  removingUserId,
 }: {
   title: string;
   members: TeamMember[];
+  onRemove?: (userId: string) => void;
+  removingUserId?: string;
 }) => {
   return (
     <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-hidden'>
@@ -22,7 +29,9 @@ const MemberList = ({
         members.map((member) => (
           <article
             key={member._id}
-            className='grid grid-cols-3 px-3 py-3 border-b border-slate-200 last:border-b-0 items-center'
+            className={`grid ${
+              onRemove ? "grid-cols-[1fr_1fr_120px_90px]" : "grid-cols-3"
+            } px-3 py-3 border-b border-slate-200 last:border-b-0 items-center gap-2`}
           >
             <p className='font-medium'>
               {member.displayName || member.username}
@@ -31,6 +40,16 @@ const MemberList = ({
               {member.email}
             </p>
             <p className='text-sm'>{member.role}</p>
+            {onRemove && (
+            <button
+             type='button'
+              className='text-sm text-red-700 hover:underline disabled:opacity-50'
+              disabled={removingUserId === member._id}
+              onClick={() => onRemove(member._id)}
+            >
+              Remove
+            </button>
+          )}
           </article>
         ))
       ) : (
@@ -42,17 +61,57 @@ const MemberList = ({
   );
 };
 
-const TeamDetails = () => {
-  const params = useParams();
+interface IProps {
+  session?: {
+    role?: string;
+  };
+}
 
-  const { data, isLoading } = useQuery(["teams", params.id], () => {
+const TeamDetails = ({ session }: IProps) => {
+  const params = useParams();
+  const queryClient = useQueryClient();
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedRole, setSelectedRole] = useState("viewer");
+  const [removingUserId, setRemovingUserId] = useState<string | undefined>();
+  const { data: users } = useQuery(["users", "manageable"], getManageableUsers);
+  const doAddMember = useMutation(addTeamMember, {
+  onSuccess: (updatedTeam: TeamDetailResponse) => {
+    queryClient.setQueryData(["teams", params.id], updatedTeam);
+    queryClient.invalidateQueries(["users"]);
+    queryClient.invalidateQueries(["users", "manageable"]);
+    setSelectedUserId("");
+    setSelectedRole("viewer");
+  },
+});
+
+const doRemoveMember = useMutation(removeTeamMember, {
+  onMutate: (variables) => {
+    setRemovingUserId(variables.userId);
+  },
+  onSuccess: (updatedTeam: TeamDetailResponse) => {
+    queryClient.setQueryData(["teams", params.id], updatedTeam);
+    queryClient.invalidateQueries(["users"]);
+    queryClient.invalidateQueries(["users", "manageable"]);
+  },
+  onSettled: () => {
+    setRemovingUserId(undefined);
+  },
+});
+
+const { data, isLoading } = useQuery(["teams", params.id], () => {
     if (params.id) return getTeam(params.id);
     return undefined;
   });
 
-  const members = data?.members || [];
+const members = data?.members || [];
+
+const existingMemberIds = new Set(members.map((member) => member._id));
+
+const availableUsers =
+  users?.filter((user) => !existingMemberIds.has(user._id)) || [];
 
   const teamLeads = members.filter((member) => member.role === "team_lead");
+  const isTeamLead = session?.role === "team_lead";
   const monitors = members.filter((member) => member.role === "monitor");
   const viewers = members.filter((member) => member.role === "viewer");
   const admins = members.filter((member) => member.role === "admin");
@@ -70,6 +129,11 @@ const TeamDetails = () => {
         >
           Back to Teams
         </Link>
+        {isTeamLead && (
+  <p className='text-sm text-slate-600 dark:text-gray-300 mt-2'>
+    Viewing team membership as a team lead.
+  </p>
+)}
       </div>
 
       <PlaceholderDiv loading={isLoading}>
@@ -89,11 +153,92 @@ const TeamDetails = () => {
             </span>
           </div>
         </div>
+        <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 p-3 mb-4'>
+  <h3 className='text-xl font-medium mb-2'>Add team member</h3>
+
+  <div className='grid grid-cols-1 md:grid-cols-[1fr_180px_120px] gap-2 items-end'>
+    <label className='flex flex-col gap-1 text-sm'>
+      <span className='font-medium'>User</span>
+      <select
+        className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
+        value={selectedUserId}
+        onChange={(event) => setSelectedUserId(event.target.value)}
+      >
+        <option value=''>Select user</option>
+        {availableUsers.map((user) => (
+          <option key={user._id} value={user._id}>
+            {user.displayName || user.username} ({user.email})
+          </option>
+        ))}
+      </select>
+    </label>
+
+    <label className='flex flex-col gap-1 text-sm'>
+      <span className='font-medium'>Role</span>
+      <select
+        className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
+        value={selectedRole}
+        onChange={(event) => setSelectedRole(event.target.value)}
+      >
+        <option value='viewer'>Viewer</option>
+        <option value='monitor'>Monitor</option>
+        <option value='team_lead'>Team Lead</option>
+      </select>
+    </label>
+
+    <button
+      type='button'
+      className='px-3 py-2 rounded bg-lime-700 text-white disabled:opacity-50'
+      disabled={!params.id || !selectedUserId || doAddMember.isLoading}
+      onClick={() => {
+        if (!params.id || !selectedUserId) return;
+
+        doAddMember.mutate({
+          teamId: params.id,
+          userId: selectedUserId,
+          role: selectedRole,
+        });
+      }}
+    >
+      Add
+    </button>
+  </div>
+
+  <p className='text-xs text-slate-500 dark:text-gray-400 mt-2'>
+    Adding a user as Team Lead changes their global role to team_lead.
+  </p>
+</div>
 
         <div className='flex flex-col gap-4'>
-          <MemberList title='Team Leads' members={teamLeads} />
-          <MemberList title='Monitors' members={monitors} />
-          <MemberList title='Viewers' members={viewers} />
+         <MemberList
+  title={`Team Leads (${teamLeads.length})`}
+  members={teamLeads}
+  removingUserId={removingUserId}
+  onRemove={(userId) => {
+    if (!params.id) return;
+    doRemoveMember.mutate({ teamId: params.id, userId });
+  }}
+/>
+
+<MemberList
+  title={`Monitors (${monitors.length})`}
+  members={monitors}
+  removingUserId={removingUserId}
+  onRemove={(userId) => {
+    if (!params.id) return;
+    doRemoveMember.mutate({ teamId: params.id, userId });
+  }}
+/>
+
+<MemberList
+  title={`Viewers (${viewers.length})`}
+  members={viewers}
+  removingUserId={removingUserId}
+  onRemove={(userId) => {
+    if (!params.id) return;
+    doRemoveMember.mutate({ teamId: params.id, userId });
+  }}
+/>
 
           {admins.length > 0 && (
             <MemberList title='Admins' members={admins} />

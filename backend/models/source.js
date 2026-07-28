@@ -43,6 +43,23 @@ var sourceSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   tags: { type: [String], default: [] },
   credentials: { type: mongoose.Schema.Types.ObjectId, ref: 'Credentials', required: true },
+  accessPolicy: {
+    mode: {
+      type: String,
+      enum: ['public', 'restricted', 'public_until'],
+      default: 'public',
+      index: true,
+    },
+    teams: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team',
+      index: true,
+    }],
+    cutoffDate: {
+      type: Date,
+      default: null,
+    },
+  },
 });
 
 sourceSchema.pre('save', function (next) {
