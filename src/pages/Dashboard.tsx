@@ -93,6 +93,7 @@ const Dashboard = () => {
   const [bucket, setBucket] = useState<AnalyticsBucketPreset>("1h");
   const [dismissedActivityKeys, setDismissedActivityKeys] = useState<string[]>([]);
   const [notablePage, setNotablePage] = useState(0);
+  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [activityToPromote, setActivityToPromote] = useState<NotableActivity | null>(
     null
   );
@@ -208,14 +209,15 @@ const Dashboard = () => {
   const chartMax = Math.max(...timeSeries.map((item) => item.totalReports), 1);
   const yAxisTicks = getNiceYAxisTicks(chartMax);
   const yAxisMax = yAxisTicks[yAxisTicks.length - 1] || 1;
-  const chartPoints = timeSeries
-    .map((item, index) => {
-      const x = getChartX(index, timeSeries.length);
-      const y = getChartY(item.totalReports, yAxisMax);
-      return `${x},${y}`;
-    })
-    .join(" ");
+  const chartPointCoords = timeSeries.map((item, index) => ({
+    item,
+    x: getChartX(index, timeSeries.length),
+    y: getChartY(item.totalReports, yAxisMax),
+  }));
+  const chartPoints = chartPointCoords.map(({ x, y }) => `${x},${y}`).join(" ");
   const xAxisLabelIndexes = getXAxisLabelIndexes(timeSeries.length);
+  const hoveredPoint =
+    hoveredPointIndex === null ? null : chartPointCoords[hoveredPointIndex] || null;
 
   const liveNotableActivities = notableActivitiesQuery.data?.notableActivities || [];
   const visibleLiveNotableActivities = liveNotableActivities.filter(
@@ -399,12 +401,12 @@ const Dashboard = () => {
                   height={chartFrame.height}
                   fill='transparent'
                 />
-                {[0, 1, 2, 3, 4, 5, 6].map((line) => (
+                {xAxisLabelIndexes.map((index) => (
                   <line
-                    key={`v-${line}`}
-                    x1={chartFrame.left + (chartFrame.width / 6) * line}
+                    key={`v-${index}`}
+                    x1={getChartX(index, timeSeries.length)}
                     y1={chartFrame.top}
-                    x2={chartFrame.left + (chartFrame.width / 6) * line}
+                    x2={getChartX(index, timeSeries.length)}
                     y2={chartFrame.top + chartFrame.height}
                     stroke='#E5E7EB'
                   />
@@ -441,19 +443,55 @@ const Dashboard = () => {
                     strokeWidth='2.5'
                     points={chartPoints}
                   />
-                  {chartPoints.split(" ").map((point, index) => {
-                    const [cx, cy] = point.split(",");
-                    return (
-                      <circle
-                        key={`${timeSeries[index]?.bucketStart || index}-${point}`}
-                        cx={cx}
-                        cy={cy}
-                        r='4'
-                        fill={trendColor}
-                      />
-                    );
-                  })}
+                  {hoveredPoint && (
+                    <line
+                      x1={hoveredPoint.x}
+                      y1={chartFrame.top}
+                      x2={hoveredPoint.x}
+                      y2={chartFrame.top + chartFrame.height}
+                      stroke='#94A3B8'
+                      strokeDasharray='3 3'
+                    />
+                  )}
+                  {chartPointCoords.map(({ item, x, y }, index) => (
+                    <circle
+                      key={item.bucketStart || index}
+                      cx={x}
+                      cy={y}
+                      r={hoveredPointIndex === index ? 6 : 4}
+                      fill={trendColor}
+                      stroke={hoveredPointIndex === index ? "#FFFFFF" : "none"}
+                      strokeWidth={hoveredPointIndex === index ? 2 : 0}
+                    />
+                  ))}
+                  {chartPointCoords.map(({ item, x, y }, index) => (
+                    <circle
+                      key={`hit-${item.bucketStart || index}`}
+                      cx={x}
+                      cy={y}
+                      r={Math.max(
+                        8,
+                        Math.min(16, chartFrame.width / Math.max(timeSeries.length - 1, 1))
+                      )}
+                      fill='transparent'
+                      className='cursor-pointer'
+                      onMouseEnter={() => setHoveredPointIndex(index)}
+                      onMouseLeave={() =>
+                        setHoveredPointIndex((current) =>
+                          current === index ? null : current
+                        )
+                      }
+                    >
+                      <title>
+                        {`${formatActivityWindow(item.bucketStart, item.bucketEnd)}: ${
+                          item.totalReports
+                        } report${item.totalReports === 1 ? "" : "s"}`}
+                      </title>
+                    </circle>
+                  ))}
                 </g>
+
+                {hoveredPoint && <ChartTooltip point={hoveredPoint} />}
 
                 {xAxisLabelIndexes.map((index) => {
                   const item = timeSeries[index];
@@ -612,6 +650,54 @@ const Dashboard = () => {
     </section>
   );
 };
+
+function ChartTooltip({
+  point,
+}: {
+  point: { item: AnalyticsOverview["timeSeries"][number]; x: number; y: number };
+}) {
+  const { item, x, y } = point;
+  const lines = [
+    `${item.totalReports} report${item.totalReports === 1 ? "" : "s"}`,
+    formatActivityWindow(item.bucketStart, item.bucketEnd),
+  ];
+  const paddingX = 8;
+  const lineHeight = 14;
+  const boxWidth =
+    Math.max(...lines.map((line) => line.length)) * 5.6 + paddingX * 2;
+  const boxHeight = lineHeight * lines.length + 10;
+  const boxX = Math.min(
+    Math.max(x - boxWidth / 2, chartFrame.left),
+    chartFrame.left + chartFrame.width - boxWidth
+  );
+  const placeBelow = y - boxHeight - 12 < chartFrame.top;
+  const boxY = placeBelow ? y + 12 : y - boxHeight - 12;
+
+  return (
+    <g pointerEvents='none'>
+      <rect
+        x={boxX}
+        y={boxY}
+        width={boxWidth}
+        height={boxHeight}
+        rx='6'
+        fill='#0F172AEE'
+      />
+      {lines.map((line, index) => (
+        <text
+          key={line}
+          x={boxX + paddingX}
+          y={boxY + 17 + index * lineHeight}
+          fill='#FFFFFF'
+          fontSize='11'
+          fontWeight={index === 0 ? "600" : "400"}
+        >
+          {line}
+        </text>
+      ))}
+    </g>
+  );
+}
 
 function NotableActivityCard({
   activity,
@@ -866,14 +952,20 @@ function getNiceYAxisTicks(maxValue: number) {
 function getXAxisLabelIndexes(totalPoints: number) {
   if (totalPoints <= 1) return [0];
   const maxLabels = 7;
-  const labelCount = Math.min(totalPoints, maxLabels);
-  const indexes = new Set<number>();
-
-  for (let labelIndex = 0; labelIndex < labelCount; labelIndex += 1) {
-    indexes.add(Math.round((labelIndex * (totalPoints - 1)) / (labelCount - 1)));
+  if (totalPoints <= maxLabels) {
+    return Array.from({ length: totalPoints }, (_, index) => index);
   }
 
-  return [...indexes].sort((a, b) => a - b);
+  // Step by a whole number of buckets so gaps between labels are always equal,
+  // and anchor on the newest bucket so the latest point is always labeled.
+  const stride = Math.ceil((totalPoints - 1) / (maxLabels - 1));
+  const indexes = [];
+
+  for (let index = totalPoints - 1; index >= 0; index -= stride) {
+    indexes.push(index);
+  }
+
+  return indexes.reverse();
 }
 
 function formatXAxisLabel(value: string) {
