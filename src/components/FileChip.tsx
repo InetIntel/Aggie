@@ -96,11 +96,11 @@ export function FileChipList({
   hoveredIndex: externalHoveredIndex, setHoveredIndex: setExternalHoveredIndex,
   edit,
 }: FileChipListProps) {
-  if (nameList.length < 1 || pathList.length < 1) return <></>;
-
   const [internalHoveredIndex, setInternalHoveredIndex] = useState(-1);
   const hoveredIndex = externalHoveredIndex ?? internalHoveredIndex;
   const setHoveredIndex = setExternalHoveredIndex ?? setInternalHoveredIndex;
+
+  if (nameList.length < 1 || pathList.length < 1) return <></>;
 
   const fileList = nameList.map((name, index) => (
     <FileChip

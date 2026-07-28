@@ -268,6 +268,53 @@ const Dashboard = () => {
 
   return (
     <section className='mx-auto max-w-[1400px] px-4 py-6'>
+      <div className='mb-5 flex flex-wrap items-center justify-center gap-3'>
+        <div
+          role='group'
+          aria-label='Time range'
+          className='inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800'
+        >
+          {rangeOptions.map((option) => (
+            <button
+              key={option.value}
+              type='button'
+              onClick={() => setRange(option.value)}
+              aria-pressed={range === option.value}
+              className={[
+                "rounded-full px-4 py-1.5 text-sm font-medium transition",
+                range === option.value
+                  ? "bg-[#166534] text-white"
+                  : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
+              ].join(" ")}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div
+          role='group'
+          aria-label='Bucket size'
+          className='inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800'
+        >
+          {selectedRange.buckets.map((bucketOption) => (
+            <button
+              key={bucketOption}
+              type='button'
+              onClick={() => setBucket(bucketOption)}
+              aria-pressed={bucket === bucketOption}
+              className={[
+                "rounded-full px-4 py-1.5 text-sm font-medium transition",
+                bucket === bucketOption
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                  : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
+              ].join(" ")}
+            >
+              {bucketLabels[bucketOption]}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className='grid gap-4 xl:grid-cols-[1fr_1.15fr]'>
         <section className={`${sectionCardClass} flex h-full flex-col p-4`}>
           <h1 className='text-xl font-semibold text-slate-900 dark:text-white'>
@@ -306,42 +353,6 @@ const Dashboard = () => {
             <h2 className='text-xl font-semibold text-slate-900 dark:text-white'>
               Trends
             </h2>
-            <div className='flex flex-wrap items-center justify-end gap-2'>
-              <div className='inline-flex rounded-full border border-slate-200 p-1 dark:border-gray-600'>
-                {rangeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type='button'
-                    onClick={() => setRange(option.value)}
-                    className={[
-                      "rounded-full px-3 py-1.5 text-xs font-medium transition",
-                      range === option.value
-                        ? "bg-[#166534] text-white"
-                        : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
-                    ].join(" ")}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <div className='inline-flex rounded-full border border-slate-200 p-1 dark:border-gray-600'>
-                {selectedRange.buckets.map((bucketOption) => (
-                  <button
-                    key={bucketOption}
-                    type='button'
-                    onClick={() => setBucket(bucketOption)}
-                    className={[
-                      "rounded-full px-3 py-1.5 text-xs font-medium transition",
-                      bucket === bucketOption
-                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                        : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
-                    ].join(" ")}
-                  >
-                    {bucketLabels[bucketOption]}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className='mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-gray-400'>
