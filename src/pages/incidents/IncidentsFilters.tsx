@@ -10,13 +10,11 @@ import type { GroupQueryState } from "../../api/groups/types";
 import { Field, Form, Formik } from "formik";
 import FilterComboBox from "../../components/filters/FilterComboBox";
 import FilterListbox from "../../components/filters/FilterListBox";
-import FilterRadioGroup from "../../components/filters/FilterRadioGroup";
 import FilterDateTime from "../../components/filters/FilterDateTime";
 import AggieButton from "../../components/AggieButton";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faCircleMinus,
   faSearch,
   faWarning,
   faXmarkSquare,
@@ -24,7 +22,12 @@ import {
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import { getSession } from "../../api/session";
-import { faCircleDot } from "@fortawesome/free-regular-svg-icons";
+
+// Lifecycle-stage filter options. The display label lowercases exactly to the
+// query key sent to the backend (verification/confirmation/published).
+const STAGE_OPTIONS = ["Verification", "Confirmation", "Published"] as const;
+const stageKey = (label: string) => label.toLowerCase();
+const stageLabel = (key: string) => key.charAt(0).toUpperCase() + key.slice(1);
 
 interface IProps {
   isQuery: boolean;
@@ -60,7 +63,8 @@ const IncidentsFilters = ({
   }
   function setParams(values: GroupQueryState) {
     if ("title" in values) {
-      values = { ...values, closed: "all" };
+      // a title search spans all stages + closed, not just the active toggle
+      values = { ...values, closed: "all", stages: undefined };
     }
     if (!("page" in values)) {
       values = { ...values, page: undefined };
@@ -120,33 +124,25 @@ const IncidentsFilters = ({
         </div>
       </div>
       <div className='flex flex-wrap justify-between gap-y-2 mb-2 text-sm'>
-        <div className='flex gap-2'>
-          <FilterRadioGroup
-            options={{
-              false: (
-                <span>
-                  <FontAwesomeIcon
-                    icon={faCircleDot}
-                    className='text-green-700'
-                  />{" "}
-                  Open
-                </span>
-              ),
-              true: (
-                <span>
-                  <FontAwesomeIcon
-                    icon={faCircleMinus}
-                    className='text-purple-500 filter dark:saturate-[0.7]'
-                  />{" "}
-                  Closed
-                </span>
-              ),
-              all: "All",
+        <div className='flex items-center gap-3'>
+          <FilterListbox
+            label='Stage'
+            options={[...STAGE_OPTIONS]}
+            value={
+              get("stages")
+                ? get("stages").split(",").filter(Boolean).map(stageLabel)
+                : []
+            }
+            onChange={(e) => {
+              const keys = (e as string[]).map(stageKey);
+              setParams({ stages: keys.length ? keys.join(",") : undefined });
             }}
-            value={get("closed")}
-            defaultValue={"false"}
-            onChange={(e) =>
-              setParams({ closed: e === "false" ? undefined : e })
+            isMultiSelect={true}
+            toggleLabel='Include closed'
+            toggleDescription='Also show closed incidents. Hidden by default.'
+            toggleValue={get("closed") === "all"}
+            onToggleChange={(value) =>
+              setParams({ closed: value ? "all" : undefined })
             }
           />
         </div>

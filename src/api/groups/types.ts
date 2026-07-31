@@ -76,6 +76,7 @@ export interface GroupCreateData extends GroupEditableData {
 export interface GroupQueryState {
   escalated?: string | boolean;
   closed?: string | boolean;
+  stages?: string; // comma-separated lifecycle stage keys: verification,confirmation,published
   title?: string;
   totalReports?: string | number;
   assignedTo?: string;
