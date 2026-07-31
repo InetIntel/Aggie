@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getUsers } from "../../api/users";
 import {
   GROUP_SORTBY,
+  GROUP_SORTBY_LABELS,
   GroupSortBy,
 } from "../../api/common";
 import type { GroupQueryState } from "../../api/groups/types";
@@ -123,8 +124,8 @@ const IncidentsFilters = ({
           />
         </div>
       </div>
-      <div className='flex flex-wrap justify-between gap-y-2 mb-2 text-sm'>
-        <div className='flex items-center gap-3'>
+      <div className='flex flex-wrap justify-end gap-y-2 mb-2 text-sm'>
+        <div className='flex flex-wrap items-center gap-1'>
           <FilterListbox
             label='Stage'
             options={[...STAGE_OPTIONS]}
@@ -145,8 +146,6 @@ const IncidentsFilters = ({
               setParams({ closed: value ? "all" : undefined })
             }
           />
-        </div>
-        <div className='flex flex-wrap items-center gap-1'>
           <FilterDateTime
             label='Incident start'
             before={get("before")}
@@ -208,9 +207,19 @@ const IncidentsFilters = ({
           />
           <FilterListbox
             label='Sort By'
-            options={[...GROUP_SORTBY]}
-            value={get("sortBy")}
-            onChange={(e) => setParams({ sortBy: e as GroupSortBy })}
+            options={GROUP_SORTBY.map((k) => GROUP_SORTBY_LABELS[k])}
+            value={
+              get("sortBy")
+                ? GROUP_SORTBY_LABELS[get("sortBy") as GroupSortBy]
+                : ""
+            }
+            onChange={(e) =>
+              setParams({
+                sortBy: GROUP_SORTBY.find(
+                  (k) => GROUP_SORTBY_LABELS[k] === e
+                ) as GroupSortBy,
+              })
+            }
           />
         </div>
       </div>

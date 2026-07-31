@@ -89,3 +89,15 @@ export const GROUP_SORTBY = [
   "leastReports",
 ] as const;
 export type GroupSortBy = (typeof GROUP_SORTBY)[number];
+
+// Human-readable labels for the Sort By dropdown, keyed by the query value.
+export const GROUP_SORTBY_LABELS: Record<GroupSortBy, string> = {
+  descStartDate: "Start date (newest)",
+  ascStartDate: "Start date (oldest)",
+  descEndDate: "End date (newest)",
+  ascEndDate: "End date (oldest)",
+  mostComments: "Most comments",
+  leastComments: "Fewest comments",
+  mostReports: "Most reports",
+  leastReports: "Fewest reports",
+};

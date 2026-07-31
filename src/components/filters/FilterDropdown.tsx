@@ -98,7 +98,7 @@ const FilterDropdown = ({
       <FloatingNode id={nodeId}>
         {isOpen && (
           <div
-            className={`absolute mt-1 right-0 rounded-lg border border-slate-300  bg-slate-100 dark:bg-gray-700 overflow-hidden w-[20em] drop-shadow-lg z-10 text-sm dark:bg-gray-800 ${panelClassName || "w-fit max-w-md"
+            className={`absolute mt-1 right-0 rounded-lg border border-slate-300  bg-slate-100 dark:bg-gray-700 overflow-hidden drop-shadow-lg z-10 text-sm dark:bg-gray-800 ${panelClassName || "w-max min-w-[150px]"
               }`}
             style={floatingStyles}
             ref={refs.setFloating}

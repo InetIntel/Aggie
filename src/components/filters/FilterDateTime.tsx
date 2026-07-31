@@ -46,7 +46,7 @@ const FilterDateTime = ({
       <FilterDropdown
         label={label}
         persistLabel
-        panelClassName='!w-fit max-w-md'
+        panelClassName='w-max min-w-[150px]'
         value={renderRange()}
         onReset={() => {
           setBefore("");
