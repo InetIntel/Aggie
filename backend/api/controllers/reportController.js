@@ -14,6 +14,10 @@ const eventRouter = require('../sockets/event-router');
 const {  recomputeIncidentDurationForGroups } = require('../utils/incidentDuration');
 const { buildMediaUrl } = require('../../fetching/utils/socialImageStorage');
 
+const Source = require('../../models/source');
+const User = require('../../models/user');
+const { getVisibleSourceIds } = require('../../access/sourceAccess');
+
 // Determine the search keywords
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
@@ -33,6 +37,41 @@ const parseQueryData = (queryString) => {
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 }
+
+//report AccessUser
+const getReportAccessUser = async (req) => {
+  if (!req.user) {
+    return null;
+  }
+
+  if (req.user.role === 'admin') {
+    return req.user;
+  }
+
+  const userId = req.user._id || req.user.id;
+
+  return User.findById(userId)
+    .select('_id role teams')
+    .lean();
+};
+
+const getReportSourceAccessFilter = async (req) => {
+  if (req.user && req.user.role === 'admin') {
+    return {};
+  }
+
+  const accessUser = await getReportAccessUser(req);
+
+  const sources = await Source.find({}, '_id accessPolicy')
+    .lean()
+    .exec();
+
+  const visibleSourceIds = getVisibleSourceIds(accessUser, sources);
+
+  return {
+    _sources: { $in: visibleSourceIds },
+  };
+};
 
 // Detemine whether should dedup overlapping reports
 const shouldDedupByEventIdentifier = (entityLevel, groupId) => {
@@ -85,41 +124,48 @@ const serializeReportResponse = (payload) => {
 };
 
 // Get a list of queried Reports
-exports.report_reports = (req, res) => {
-  // Parse query string
+exports.report_reports = async (req, res) => {
+  try {
+    const queryData = parseQueryData(req.query);
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
 
-  const queryData = parseQueryData(req.query);
-  if (queryData) {
-    let query = new ReportQuery(queryData);
+    if (queryData) {
+      let query = new ReportQuery(queryData);
 
-    const entityLevel = queryData.entityLevel;
-    const hideDuplicateASNsParam = req.query.hideDuplicateASNs;
-    
-    // Determine if we should deduplicate
-    let useDedup = shouldDedupByEventIdentifier(entityLevel, queryData.groupId);
-    
-    // If user explicitly set the toggle, use that value
-    if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {
-      useDedup = hideDuplicateASNsParam === 'true';
+      const entityLevel = queryData.entityLevel;
+      const hideDuplicateASNsParam = req.query.hideDuplicateASNs;
+
+      // Determine if we should deduplicate
+      let useDedup = shouldDedupByEventIdentifier(entityLevel, queryData.groupId);
+
+      // If user explicitly set the toggle, use that value
+      if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {
+        useDedup = hideDuplicateASNsParam === 'true';
+      }
+
+      const handler = (err, reports) => {
+        if (err) return res.status(err.status || 500).send(err.message);
+        return res.send(serializeReportResponse(reports));
+      };
+
+      if (useDedup) {
+        Report.queryReportsDeduped(query, req.query.page, handler, sourceAccessFilter);
+      } else {
+        Report.queryReports(query, req.query.page, handler, sourceAccessFilter);
+      }
+
+      return;
     }
 
-    const handler = (err, reports) => {
-      if (err) return res.status(err.status || 500).send(err.message);
-      return res.send(serializeReportResponse(reports));
-    };
-
-    if (useDedup) {
-      Report.queryReportsDeduped(query, req.query.page, handler);
-    } else {
-      Report.queryReports(query, req.query.page, handler);
-    }
-
-  } else {
     // Return all reports using pagination
-    Report.findSortedPage({}, page, (err, reports) => {
-      if (err) return res.status(err.status).send(err.message);
-      else return res.status(200).send(reports);
+    Report.findSortedPage(sourceAccessFilter, req.query.page, (err, reports) => {
+      if (err) return res.status(err.status || 500).send(err.message);
+      return res.status(200).send(serializeReportResponse(reports));
     });
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to fetch reports.');
   }
 }
 
