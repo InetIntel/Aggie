@@ -4,11 +4,34 @@
 var Source = require('../../models/source');
 var _ = require('lodash');
 
+const User = require('../../models/user');
+const { canViewSource } = require('../../access/sourceAccess');
+
 var sourcePopulate = [
   { path: 'user', select: 'username' },
   { path: 'credentials' },
   { path: 'accessPolicy.teams', select: 'name description active' },
 ];
+
+
+//Access control
+
+const getSourceAccessUser = async (req) => {
+  if (!req.user) {
+    return null;
+  }
+
+  // Admins can see everything, so no extra lookup needed.
+  if (req.user.role === 'admin') {
+    return req.user;
+  }
+
+  const userId = req.user._id || req.user.id;
+
+  return User.findById(userId)
+    .select('_id role teams')
+    .lean();
+};
 
 // Create a new Source
 exports.source_create = (req, res) => {
@@ -27,27 +50,54 @@ exports.source_create = (req, res) => {
 }
 
 // Get a list of all sources
-exports.source_sources = (req, res) => {
-  // Find all, exclude `events` field, populate user
- Source.find({}, '-events', { sort: 'nickname' })
-  .populate(sourcePopulate)
-    .exec(function (err, sources) {
-      if (err) res.status(err.status).send(err.message);
-      else res.status(200).send(sources);
-    });
+exports.source_sources = async (req, res) => {
+  try {
+    // Find all, exclude `events` field, populate user/team access data
+    const sources = await Source.find({}, '-events')
+      .sort('nickname')
+      .populate(sourcePopulate)
+      .lean()
+      .exec();
+
+    const accessUser = await getSourceAccessUser(req);
+    const visibleSources = sources.filter((source) =>
+      canViewSource(accessUser, source)
+    );
+
+    return res.status(200).send(visibleSources);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to fetch sources.');
+  }
 }
 
 exports.source_details = (req, res) => {
   Source.findByIdWithLatestEvents(req.params._id, function (err, source) {
-    if (err) return res.status(err.status).send(err.message);
-    else if (!source) return res.sendStatus(404);
+    if (err) return res.status(err.status || 500).send(err.message);
+    if (!source) return res.sendStatus(404);
+
     Source.populate(
       source,
       sourcePopulate,
-      function (err, source) {
-        if (err) res.status(err.status).send(err.message);
-        else res.status(200).send(source);
-      });
+      async function (err, source) {
+        if (err) return res.status(err.status || 500).send(err.message);
+
+        try {
+          const accessUser = await getSourceAccessUser(req);
+
+          if (!canViewSource(accessUser, source)) {
+            return res.status(403).send('Unauthorized to view this source.');
+          }
+
+          return res.status(200).send(source);
+        } catch (err) {
+          return res
+            .status(err.status || 500)
+            .send(err.message || 'Unable to check source access.');
+        }
+      }
+    );
   });
 }
 
