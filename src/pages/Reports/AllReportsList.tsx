@@ -151,6 +151,39 @@ const AllReportsList = ({ alerts }: IProps) => {
     );
   }
 
+  // Compare-mode selection toggle shared by the table rows and the list rows:
+  // enforce the MAX_COMPARE cap (allow deselect) and warm the chart image on add
+  // so the compare modal renders it immediately.
+  function toggleReportForCompare(report: Report) {
+    if (
+      !multiSelect.exists(report) &&
+      multiSelect.selection.length >= MAX_COMPARE
+    )
+      return;
+    if (!multiSelect.exists(report)) prefetchChart(report);
+    multiSelect.addRemove(report);
+  }
+
+  // List rows can start a comparison straight from a row checkbox while keeping
+  // the mark relevant/irrelevant bar available on the same selection: the first
+  // check flips compare mode on (so the Compare bar + cap kick in), then selects
+  // the report. The relevance bar still renders in list view (see its gate).
+  function selectReportFromList(report: Report) {
+    if (!compareMode) {
+      setCompareMode(true);
+      multiSelect.setActive(true);
+    }
+    toggleReportForCompare(report);
+  }
+
+  // "Select all on this page" is an uncapped relevance action, incompatible with
+  // the 6-item compare cap — so leave compare mode when it's used, keeping just
+  // the mark relevant/irrelevant selection (this also hides the CompareActionBar).
+  function selectAllOnPage() {
+    if (compareMode) setCompareMode(false);
+    multiSelect.addRemoveAll(reports?.results);
+  }
+
   // List view opens a report's detail in the persistent right panel (1/3 column
   // in Reports/index.tsx). Table view shows detail inline instead.
   function onReportItemClick(id: string) {
@@ -209,20 +242,18 @@ const AllReportsList = ({ alerts }: IProps) => {
           Table
         </AggieButton>
       </div>
-      {view === "table" && (
-        <AggieButton
-          className={`px-3 py-1 text-sm rounded-lg border ${
-            compareMode
-              ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
-              : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-          }`}
-          aria-pressed={compareMode}
-          onClick={toggleCompareMode}
-        >
-          <CompareIcon className='w-4 h-4' />
-          Compare
-        </AggieButton>
-      )}
+      <AggieButton
+        className={`px-3 py-1 text-sm rounded-lg border ${
+          compareMode
+            ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
+            : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+        }`}
+        aria-pressed={compareMode}
+        onClick={toggleCompareMode}
+      >
+        <CompareIcon className='w-4 h-4' />
+        Compare
+      </AggieButton>
     </div>
   ) : undefined;
 
@@ -305,16 +336,16 @@ const AllReportsList = ({ alerts }: IProps) => {
             )
           }
         />
-        {!compareMode && multiSelect.isActive && (
+        {multiSelect.isActive && (!compareMode || view === "list") && (
           <div className='px-1 flex flex-wrap gap-2 text-xs font-medium items-center mt-2'>
             <AggieCheck
               active={multiSelect.any()}
               icon={!multiSelect.all() ? faMinus : undefined}
-              onClick={() => multiSelect.addRemoveAll(reports?.results)}
+              onClick={selectAllOnPage}
             />
             <span
               className='cursor-pointer select-none'
-              onClick={() => multiSelect.addRemoveAll(reports?.results)}
+              onClick={selectAllOnPage}
             >
               Select all on this page ({reports?.results?.length ?? 0})
             </span>
@@ -353,19 +384,10 @@ const AllReportsList = ({ alerts }: IProps) => {
           selection={{
             isActive: multiSelect.isActive,
             isChecked: (report) => multiSelect.exists(report),
-            onToggle: (report) => {
-              // In compare mode, block selecting past the cap (allow deselect).
-              if (
-                compareMode &&
-                !multiSelect.exists(report) &&
-                multiSelect.selection.length >= MAX_COMPARE
-              )
-                return;
-              // About to add → warm its chart image ahead of the compare modal.
-              if (compareMode && !multiSelect.exists(report))
-                prefetchChart(report);
-              multiSelect.addRemove(report);
-            },
+            onToggle: (report) =>
+              compareMode
+                ? toggleReportForCompare(report)
+                : multiSelect.addRemove(report),
           }}
         />
       ) : (
@@ -373,7 +395,11 @@ const AllReportsList = ({ alerts }: IProps) => {
         {!!reports?.results && reports?.total > 0 ? (
           reports?.results.map((report) => (
             <div
-              onClick={() => onReportItemClick(report._id)}
+              onClick={() =>
+                compareMode
+                  ? toggleReportForCompare(report)
+                  : onReportItemClick(report._id)
+              }
               className='cursor-pointer group focus-theme'
               key={report._id}
               tabIndex={0}
@@ -384,7 +410,7 @@ const AllReportsList = ({ alerts }: IProps) => {
                 queryKey={reportsQueryKey}
                 isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
-                onCheckChange={() => multiSelect.addRemove(report)}
+                onCheckChange={() => selectReportFromList(report)}
               />
             </div>
           ))

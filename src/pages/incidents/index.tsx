@@ -82,6 +82,28 @@ const Incidents = () => {
     if (!next) setCompareOpen(false);
   }
 
+  // Compare-mode selection toggle shared by the table rows and the list rows:
+  // enforce the MAX_COMPARE cap (allow deselect).
+  function toggleIncidentForCompare(group: Group) {
+    if (
+      !multiSelect.exists(group) &&
+      multiSelect.selection.length >= MAX_COMPARE
+    )
+      return;
+    multiSelect.addRemove(group);
+  }
+
+  // List rows can start a comparison straight from a row checkbox: the first
+  // check flips compare mode on (so the Compare bar + cap kick in and checkboxes
+  // appear on every row), then selects that incident.
+  function selectIncidentFromList(group: Group) {
+    if (!compareMode) {
+      setCompareMode(true);
+      multiSelect.setActive(true);
+    }
+    toggleIncidentForCompare(group);
+  }
+
   // Reset compare mode + selection whenever the view (list/table) changes so
   // checkboxes and the compare set never leak from the table into the list.
   useEffect(() => {
@@ -249,20 +271,18 @@ const Incidents = () => {
             Table
           </AggieButton>
         </div>
-        {view === "table" && (
-          <AggieButton
-            className={`px-3 py-1 text-sm rounded-lg border ${
-              compareMode
-                ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
-                : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-            }`}
-            aria-pressed={compareMode}
-            onClick={toggleCompareMode}
-          >
-            <CompareIcon className='w-4 h-4' />
-            Compare
-          </AggieButton>
-        )}
+        <AggieButton
+          className={`px-3 py-1 text-sm rounded-lg border ${
+            compareMode
+              ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
+              : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+          }`}
+          aria-pressed={compareMode}
+          onClick={toggleCompareMode}
+        >
+          <CompareIcon className='w-4 h-4' />
+          Compare
+        </AggieButton>
         {compareMode && (
           <p className='text-slate-600 dark:text-gray-400'>
             Select up to {MAX_COMPARE} incidents, then compare them from the bar
@@ -279,23 +299,23 @@ const Incidents = () => {
           selection={{
             isActive: multiSelect.isActive,
             isChecked: (group) => multiSelect.exists(group),
-            onToggle: (group) => {
-              // In compare mode, block selecting past the cap (allow deselect).
-              if (
-                compareMode &&
-                !multiSelect.exists(group) &&
-                multiSelect.selection.length >= MAX_COMPARE
-              )
-                return;
-              multiSelect.addRemove(group);
-            },
+            onToggle: (group) =>
+              compareMode
+                ? toggleIncidentForCompare(group)
+                : multiSelect.addRemove(group),
           }}
         />
       ) : (
         <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 z-0 '>
           {!!data && !!data.total ? (
             data.results.map((incident) => (
-              <IncidentListItem key={incident._id} item={incident} />
+              <IncidentListItem
+                key={incident._id}
+                item={incident}
+                isChecked={multiSelect.exists(incident)}
+                isSelectMode={multiSelect.isActive}
+                onCheckChange={() => selectIncidentFromList(incident)}
+              />
             ))
           ) : (
             <div className='w-full bg-white dark:bg-gray-800 py-12 grid place-items-center font-medium'>
