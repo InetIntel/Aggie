@@ -130,51 +130,92 @@ var normalizeAccessPolicy = function (sourceData) {
 };
 
 
-exports.source_update = (req, res, next) => {
+exports.source_update = async (req, res, next) => {
   if (req.params._id === '_events') return next();
-  // Find source to update
-  Source.findById(req.params._id, function (err, source) {
-    if (err) return res.status(err.status).send(err.message);
-    if (!source) return res.sendStatus(404);
+
+  try {
+    const source = await Source.findById(req.params._id);
+
+    if (!source) {
+      return res.sendStatus(404);
+    }
+
+    const accessUser = await getSourceAccessUser(req);
+
+    if (!canViewSource(accessUser, source)) {
+      return res.status(403).send('Unauthorized to update this source.');
+    }
 
     normalizeAccessPolicy(req.body);
-    
+
     // Update the actual values
     _.forEach(_.omit(req.body, ['_id', 'user', 'events']), function (val, key) {
       source[key] = val;
     });
-    // Save source
-    source.save(function (err, numberAffected) {
-      if (err) res.status(err.status).send(err.message);
-      else if (!numberAffected) res.sendStatus(404);
-      else {
-        
-        res.sendStatus(200);
-      }
+
+    await source.save();
+
+    return res.sendStatus(200);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to update source.');
+  }
+}
+
+exports.source_reset_errors = async (req, res) => {
+  try {
+    const source = await Source.findById(req.params._id);
+
+    if (!source) {
+      return res.sendStatus(404);
+    }
+
+    const accessUser = await getSourceAccessUser(req);
+
+    if (!canViewSource(accessUser, source)) {
+      return res.status(403).send('Unauthorized to reset this source.');
+    }
+
+    Source.resetUnreadErrorCount(req.params._id, function (err, source) {
+      if (err) return res.status(err.status || 500).send(err.message);
+      if (!source) return res.sendStatus(404);
+
+      return res.status(200).send(source);
     });
-  });
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to reset source errors.');
+  }
 }
-
-exports.source_reset_errors = (req, res) => {
-  Source.resetUnreadErrorCount(req.params._id, function (err, source) {
-    if (err) return res.status(err.status).send(err.message);
-    else if (!source) return res.sendStatus(404);
-    res.status(200).send(source);
-  });
-}
-
 // Delete a Source
-exports.source_delete = (req, res, next) => {
+exports.source_delete = async (req, res, next) => {
   if (req.params._id === '_all') return next();
-  Source.findById(req.params._id, function (err, source) {
-    if (err) return res.status(err.status).send(err.message);
-    if (!source) return res.sendStatus(404);
+
+  try {
+    const source = await Source.findById(req.params._id);
+
+    if (!source) {
+      return res.sendStatus(404);
+    }
+
+    const accessUser = await getSourceAccessUser(req);
+
+    if (!canViewSource(accessUser, source)) {
+      return res.status(403).send('Unauthorized to delete this source.');
+    }
+
     source.remove((err) => {
-      if (err) return res.status(err.status).send(err.message);
-      
-      res.sendStatus(200);
+      if (err) return res.status(err.status || 500).send(err.message);
+
+      return res.sendStatus(200);
     });
-  });
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to delete source.');
+  }
 }
 
 // Delete all Sources
