@@ -6,6 +6,125 @@ enough context to act on without the original doc.
 
 ---
 
+## Frontend / UI
+
+### Incidents compare modal — surface signal-source badges
+
+**Status:** Not done (leftover from the completed table-views/compare work).
+
+[src/pages/incidents/TableView/CompareIncidentCard.tsx](../../../src/pages/incidents/TableView/CompareIncidentCard.tsx)
+should surface the **signal source(s)** of the incident's member reports — the datasource badges
+(BGP / Active Probing / Telescope) drawn from each report's
+`metadata.rawAPIResponse.rawEvent.datasource`, as shown in the alerts table's Signal column. Reuse the
+badge styling from `SignalCell` in
+[src/pages/Reports/TableView/reportColumns.tsx](../../../src/pages/Reports/TableView/reportColumns.tsx).
+Likely an aggregate of distinct datasource values across the group's `_reports`.
+
+### Make incident compare cards match the alert compare cards
+
+**Status:** Not done. The incident compare cards
+([CompareIncidentCard.tsx](../../../src/pages/incidents/TableView/CompareIncidentCard.tsx)) are a
+simpler read-only summary; bring their look/structure in line with the richer alert cards
+([CompareAlertCard.tsx](../../../src/pages/Reports/TableView/CompareAlertCard.tsx)).
+
+### Alerts table — design-debt polish pass
+
+**Status:** Functional but not visually finished (it was iterated quickly to kill horizontal-overflow
+bugs). Needs a deliberate design pass before it's "done". Specifics:
+
+- **Icon-only actions rely on tooltips.** The four per-row actions (Read/Unread · Ignore · Investigate ·
+  Add to Incident) are icon-only in the action bar; meaning depends on hover `title`/`aria-label`.
+  Consider labels or a clearer affordance (or an overflow menu).
+- **Action bar adds height.** The full-width "More ▾" bar under every row makes the table less dense.
+  Revisit if density matters.
+- **Aggressive column shrinking looks rough.** Content uses `[overflow-wrap:anywhere]`, Source/Incident
+  `truncate` with small `max-w`, trimmed width hints (`w-24`/`w-28`/`w-32`). Functional but visually rough.
+- **Inline detail styling is provisional.** The expanded `ReportDetail` reuses the standalone detail
+  layout as-is inside the expand row; framing/spacing not designed for that context.
+- **Bounded scroll card.** `DataTable` card is `overflow-auto max-h-[75vh]` (for the sticky header); the
+  `75vh` cap is a guess — revisit if it leaves awkward empty space or feels cramped.
+- **Responsive buckets are best-effort.** Breakpoints were hand-tuned to avoid overflow, not chosen for
+  information priority — reconsider which columns matter most and when they appear.
+- **Add alert images.** When the user expands "More Info", also include the source image.
+- **Alert date filtering does not work.** Need to fix.
+- **Enable alert filtering by hours.** I want to see alerts from the past 1-12 hours.
+- **Creating new incident from alerts and hitting cancel closes compare modal.** Ensure that compare modal / alerts in modal persist.
+
+Files: [src/components/DataTable/DataTable.tsx](../../../src/components/DataTable/DataTable.tsx),
+[src/pages/Reports/TableView/reportColumns.tsx](../../../src/pages/Reports/TableView/reportColumns.tsx),
+[src/pages/Reports/TableView/ReportsTable.tsx](../../../src/pages/Reports/TableView/ReportsTable.tsx).
+
+### Incidents table
+
+#### Incidents table features
+
+- **Sankey diagram for impacted ASNs** https://ainita.net/iran-internet-map/
+
+#### Incidents table small layout bugs
+
+- **Status column header overlaps the title** around ~600px width — unresolved.
+- **"N reports" subline** text is very small; bump the size.
+
+File: [src/pages/incidents/TableView/IncidentsTable.tsx](../../../src/pages/incidents/TableView/IncidentsTable.tsx).
+
+### Incidents / alerts filtering
+
+- **Incident:**
+  - sort is by currently incident number
+    - Want to be able by start time
+    - Want to filter by start time
+    - On all card view —> have tags that indicate the source of the reports associated with the incident
+  - Statuses:
+    - Is currently a carryover from elections
+    - What does escalation mean in this new Aggie context?
+    - Need to hash out other statuses to ensure they make sense in an Aggie
+- **Alerts**:
+  - date filter filter does not work: need to fix
+  - IODA API has alerts, event API and they’re all related (need to investigate)
+    - We are not storing recovery, we are just storing an end time
+
+---
+
+## Future options (decided against for now)
+
+### Browser-free IODA chart rendering
+
+**Decision so far:** keep the Playwright/Chromium scrape of the IODA dashboard SVG
+([backend/fetching/utils/iodaUtils.js](../../../backend/fetching/utils/iodaUtils.js) `extractCleanSVGFromPage`).
+The IODA v2 API has **no chart-image endpoint** (no server-rendered SVG/PNG to fetch), so a URL swap
+isn't possible. If the scrape ever becomes a maintenance burden, the data behind the chart _is_
+available directly:
+
+```
+GET https://api.ioda.inetintel.cc.gatech.edu/v2/signals/raw/{entityType}/{entityCode}
+      ?from={unixSeconds}&until={unixSeconds}&datasource={bgp|merit-nt|ping-slash24|gtr|...}&maxPoints={n}
+```
+
+(returns chart time-series JSON — verified HTTP 200). Two browser-free alternatives it unlocks:
+
+1. **Frontend render** — store the compact time-series JSON on the report, render a React chart
+   component. Removes Playwright, jsdom, DOMPurify, **and** the media-storage SVG machinery.
+2. **Server-side SVG render** — render an SVG on the backend (Highcharts export server or a light
+   renderer), keep the existing `/media` storage + `<img>` path.
+
+Trade-off either way: the scrape gets a pixel-perfect chart for free; rendering ourselves means
+reproducing IODA's Highcharts config and maintaining it as their dashboard evolves.
+
+---
+
+## General notes / fixes
+
+- need to figure out which items in alerts and incidents are most important to users to prioritize as table resizes
+- need to handle adding alerts to incidents better. ex: when an alert is already added to an incident, it can't be added to a second incident. would one alert ever be added to multiple incidents? if adding to different incident, the user must be informed that it will override the first incident the alert is associated with.
+- create new incident needs a back button or an x. can this just get turned into a modal?
+- compare modal needs some work for more than 3 items and it needs to normalize the height and width of the items in the modal
+
+- instead of Open, Closed, All, and "Show Only Escalated" change to Verification Stage, Confirmation Stage, Published
+- automatically sort by start time and add start time as a filter
+- Automatically see which sources have reports assigned to an incident in the incident table with a tag sort of visual - enables users to quickly see if an incident is visible in both ioda and cloudflare or just one.
+
+---
+
 ## Backend
 
 ### `saveToDatabase` deletes attachments on every duplicate
@@ -122,109 +241,3 @@ matters (e.g. iterate/refetch until the page is filled, or compute the limit fro
 **Status:** Open question — worth checking. Only IODA alerts appear in the alerts list; Cloudflare
 outage/traffic-anomaly reports seem absent even though the channel ingests them. Confirm whether it's
 a filter (`isOutageEvent`/`entityLevel`), a fetch issue, or a rendering issue.
-
----
-
-## Frontend / UI
-
-### Incidents compare modal — surface signal-source badges
-
-**Status:** Not done (leftover from the completed table-views/compare work).
-
-[src/pages/incidents/TableView/CompareIncidentCard.tsx](../../../src/pages/incidents/TableView/CompareIncidentCard.tsx)
-should surface the **signal source(s)** of the incident's member reports — the datasource badges
-(BGP / Active Probing / Telescope) drawn from each report's
-`metadata.rawAPIResponse.rawEvent.datasource`, as shown in the alerts table's Signal column. Reuse the
-badge styling from `SignalCell` in
-[src/pages/Reports/TableView/reportColumns.tsx](../../../src/pages/Reports/TableView/reportColumns.tsx).
-Likely an aggregate of distinct datasource values across the group's `_reports`.
-
-### Make incident compare cards match the alert compare cards
-
-**Status:** Not done. The incident compare cards
-([CompareIncidentCard.tsx](../../../src/pages/incidents/TableView/CompareIncidentCard.tsx)) are a
-simpler read-only summary; bring their look/structure in line with the richer alert cards
-([CompareAlertCard.tsx](../../../src/pages/Reports/TableView/CompareAlertCard.tsx)).
-
-### Alerts table — design-debt polish pass
-
-**Status:** Functional but not visually finished (it was iterated quickly to kill horizontal-overflow
-bugs). Needs a deliberate design pass before it's "done". Specifics:
-
-- **Icon-only actions rely on tooltips.** The four per-row actions (Read/Unread · Ignore · Investigate ·
-  Add to Incident) are icon-only in the action bar; meaning depends on hover `title`/`aria-label`.
-  Consider labels or a clearer affordance (or an overflow menu).
-- **Action bar adds height.** The full-width "More ▾" bar under every row makes the table less dense.
-  Revisit if density matters.
-- **Aggressive column shrinking looks rough.** Content uses `[overflow-wrap:anywhere]`, Source/Incident
-  `truncate` with small `max-w`, trimmed width hints (`w-24`/`w-28`/`w-32`). Functional but visually rough.
-- **Inline detail styling is provisional.** The expanded `ReportDetail` reuses the standalone detail
-  layout as-is inside the expand row; framing/spacing not designed for that context.
-- **Bounded scroll card.** `DataTable` card is `overflow-auto max-h-[75vh]` (for the sticky header); the
-  `75vh` cap is a guess — revisit if it leaves awkward empty space or feels cramped.
-- **Responsive buckets are best-effort.** Breakpoints were hand-tuned to avoid overflow, not chosen for
-  information priority — reconsider which columns matter most and when they appear.
-- **Add alert images.** When the user expands "More Info", also include the source image.
-
-Files: [src/components/DataTable/DataTable.tsx](../../../src/components/DataTable/DataTable.tsx),
-[src/pages/Reports/TableView/reportColumns.tsx](../../../src/pages/Reports/TableView/reportColumns.tsx),
-[src/pages/Reports/TableView/ReportsTable.tsx](../../../src/pages/Reports/TableView/ReportsTable.tsx).
-
-### Incidents table — small layout bugs
-
-- **Status column header overlaps the title** around ~600px width — unresolved.
-- **"N reports" subline** text is very small; bump the size.
-
-File: [src/pages/incidents/TableView/IncidentsTable.tsx](../../../src/pages/incidents/TableView/IncidentsTable.tsx).
-
-### Incidents / alerts filtering
-
-- **Incident:**
-  - sort is by currently incident number
-    - Want to be able by start time
-    - Want to filter by start time
-    - On all card view —> have tags that indicate the source of the reports associated with the incident
-  - Statuses:
-    - Is currently a carryover from elections
-    - What does escalation mean in this new Aggie context?
-    - Need to hash out other statuses to ensure they make sense in an Aggie
-- **Alerts**:
-  - date filter filter does not work: need to fix
-  - IODA API has alerts, event API and they’re all related (need to investigate)
-    - We are not storing recovery, we are just storing an end time
-
----
-
-## Future options (decided against for now)
-
-### Browser-free IODA chart rendering
-
-**Decision so far:** keep the Playwright/Chromium scrape of the IODA dashboard SVG
-([backend/fetching/utils/iodaUtils.js](../../../backend/fetching/utils/iodaUtils.js) `extractCleanSVGFromPage`).
-The IODA v2 API has **no chart-image endpoint** (no server-rendered SVG/PNG to fetch), so a URL swap
-isn't possible. If the scrape ever becomes a maintenance burden, the data behind the chart _is_
-available directly:
-
-```
-GET https://api.ioda.inetintel.cc.gatech.edu/v2/signals/raw/{entityType}/{entityCode}
-      ?from={unixSeconds}&until={unixSeconds}&datasource={bgp|merit-nt|ping-slash24|gtr|...}&maxPoints={n}
-```
-
-(returns chart time-series JSON — verified HTTP 200). Two browser-free alternatives it unlocks:
-
-1. **Frontend render** — store the compact time-series JSON on the report, render a React chart
-   component. Removes Playwright, jsdom, DOMPurify, **and** the media-storage SVG machinery.
-2. **Server-side SVG render** — render an SVG on the backend (Highcharts export server or a light
-   renderer), keep the existing `/media` storage + `<img>` path.
-
-Trade-off either way: the scrape gets a pixel-perfect chart for free; rendering ourselves means
-reproducing IODA's Highcharts config and maintaining it as their dashboard evolves.
-
----
-
-## General notes / fixes
-
-- need to figure out which items in alerts and incidents are most important to users to prioritize as table resizes
-- need to handle adding alerts to incidents better. ex: when an alert is already added to an incident, it can't be added to a second incident. would one alert ever be added to multiple incidnets? if adding to different incident, the user must be informed that it will override the first incident the alert is associated with.
-- create new incident needs a back button or an x. can this just get turned into a modal?
-- compare modal needs some work for more than 3 items and it needs to normalize the height and width of the items in the modal
