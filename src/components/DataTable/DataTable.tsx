@@ -60,7 +60,7 @@ function DataTable<T>({
 
   const hasSpillover = spilloverColumns(columns).length > 0;
   const hasExpandable = hasSpillover || !!expandedContent;
-  const showSelect = !!selection?.isActive;
+  const showSelect = !!selection && (selection.isActive || !!selection.alwaysShow);
   const actionsCol = !!rowActions;
   // With the toggle bar hidden, a far-right caret marks each expandable row's
   // open/closed state (rows still toggle on row click).
@@ -154,7 +154,7 @@ function DataTable<T>({
           return (
             <tbody
               key={key}
-              className={`border-b border-slate-200 dark:border-gray-700 transition-colors ${
+              className={`group border-b border-slate-200 dark:border-gray-700 transition-colors ${
                 connected
                   ? "bg-aggie-teal-10 dark:bg-aggie-teal-10/10 shadow-[inset_4px_0_0_0_#14b8a6] dark:shadow-[inset_4px_0_0_0_#2dd4bf]"
                   : `${
@@ -178,10 +178,18 @@ function DataTable<T>({
                     className='px-2 pt-2 align-top'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <AggieCheck
-                      active={selection!.isChecked(row)}
-                      onClick={() => selection!.onToggle(row)}
-                    />
+                    <div
+                      className={
+                        selection!.isActive || selection!.isChecked(row)
+                          ? ""
+                          : "opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                      }
+                    >
+                      <AggieCheck
+                        active={selection!.isChecked(row)}
+                        onClick={() => selection!.onToggle(row)}
+                      />
+                    </div>
                   </td>
                 )}
 

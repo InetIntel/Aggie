@@ -22,8 +22,7 @@ import {
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import AggieButton from "../../components/AggieButton";
-import CompareIcon from "../../components/icons/CompareIcon";
-import CompareActionBar from "../../components/CompareModal/CompareActionBar";
+import CompareToolbar from "../../components/CompareModal/CompareToolbar";
 import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
 import { updateByIds } from "../../utils/immutable";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
@@ -93,9 +92,10 @@ const Incidents = () => {
     multiSelect.addRemove(group);
   }
 
-  // List rows can start a comparison straight from a row checkbox: the first
+  // A row checkbox (list or table) can start a comparison directly: the first
   // check flips compare mode on (so the Compare bar + cap kick in and checkboxes
-  // appear on every row), then selects that incident.
+  // appear on every row), then selects that incident. Incidents have no separate
+  // relevance select mode, so !compareMode always means "idle".
   function selectIncidentFromList(group: Group) {
     if (!compareMode) {
       setCompareMode(true);
@@ -271,22 +271,17 @@ const Incidents = () => {
             Table
           </AggieButton>
         </div>
-        <AggieButton
-          className={`px-3 py-1 text-sm rounded-lg border ${
-            compareMode
-              ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
-              : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-          }`}
-          aria-pressed={compareMode}
-          onClick={toggleCompareMode}
-        >
-          <CompareIcon className='w-4 h-4' />
-          Compare
-        </AggieButton>
-        {compareMode && (
+        <CompareToolbar
+          active={compareMode}
+          count={multiSelect.selection.length}
+          noun='incident'
+          onToggle={toggleCompareMode}
+          onCompare={() => setCompareOpen(true)}
+          onClear={() => multiSelect.set([])}
+        />
+        {compareMode && multiSelect.selection.length === 0 && (
           <p className='text-slate-600 dark:text-gray-400'>
-            Select up to {MAX_COMPARE} incidents, then compare them from the bar
-            below.
+            Select up to {MAX_COMPARE} incidents to compare.
           </p>
         )}
         </div>
@@ -298,11 +293,9 @@ const Incidents = () => {
           isLoading={isLoading}
           selection={{
             isActive: multiSelect.isActive,
+            alwaysShow: true,
             isChecked: (group) => multiSelect.exists(group),
-            onToggle: (group) =>
-              compareMode
-                ? toggleIncidentForCompare(group)
-                : multiSelect.addRemove(group),
+            onToggle: (group) => selectIncidentFromList(group),
           }}
         />
       ) : (
@@ -337,15 +330,6 @@ const Incidents = () => {
           {formatPageCount(Number(getParam("page")), 50, data?.total)}
         </small>
       </div>
-
-      {compareMode && multiSelect.selection.length >= 1 && (
-        <CompareActionBar
-          count={multiSelect.selection.length}
-          noun='incident'
-          onCompare={() => setCompareOpen(true)}
-          onClear={() => multiSelect.set([])}
-        />
-      )}
 
       {compareMode && (
         <IncidentsCompareModal
