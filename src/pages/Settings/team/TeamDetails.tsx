@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { addTeamMember, getTeam, removeTeamMember } from "../../../api/teams";
 import { getManageableUsers } from "../../../api/users";
 import type { TeamMember, TeamDetailResponse } from "../../../api/teams/types";
+import type { Session } from "../../../api/session/types";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 
 import { useState } from "react";
@@ -39,7 +40,13 @@ const MemberList = ({
             <p className='text-sm text-slate-600 dark:text-gray-300'>
               {member.email}
             </p>
-            <p className='text-sm'>{member.role}</p>
+            <p className='text-sm'>
+              {member.isTeamLead
+                ? member.role === "team_lead"
+                  ? "Team Lead"
+                  : `Team Lead · ${member.role}`
+                : member.role}
+            </p>
             {onRemove && (
             <button
              type='button'
@@ -62,9 +69,7 @@ const MemberList = ({
 };
 
 interface IProps {
-  session?: {
-    role?: string;
-  };
+  session?: Session;
 }
 
 const TeamDetails = ({ session }: IProps) => {
@@ -110,13 +115,32 @@ const existingMemberIds = new Set(members.map((member) => member._id));
 const availableUsers =
   users?.filter((user) => !existingMemberIds.has(user._id)) || [];
 
-  const teamLeads = members.filter((member) => member.role === "team_lead");
+  const explicitLeadIds = new Set(
+    (data?.team.leads || []).map((lead) =>
+      typeof lead === "string" ? lead : lead._id
+    )
+  );
+  const isLeadMember = (member: TeamMember) =>
+    member.isTeamLead === true ||
+    explicitLeadIds.has(member._id) ||
+    member.role === "team_lead";
+  const teamLeads = members.filter(isLeadMember);
   const isTeamLead = session?.role === "team_lead";
-  const monitors = members.filter((member) => member.role === "monitor");
-  const viewers = members.filter((member) => member.role === "viewer");
-  const admins = members.filter((member) => member.role === "admin");
+  const isScopedTeamLead = session?.isTeamLead === true &&
+    session.role !== "admin" &&
+    session.role !== "team_lead";
+  const monitors = members.filter(
+    (member) => !isLeadMember(member) && member.role === "monitor"
+  );
+  const viewers = members.filter(
+    (member) => !isLeadMember(member) && member.role === "viewer"
+  );
+  const admins = members.filter(
+    (member) => !isLeadMember(member) && member.role === "admin"
+  );
   const otherMembers = members.filter(
     (member) =>
+      !isLeadMember(member) &&
       !["admin", "team_lead", "monitor", "viewer"].includes(member.role)
   );
 
@@ -162,7 +186,16 @@ const availableUsers =
       <select
         className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
         value={selectedUserId}
-        onChange={(event) => setSelectedUserId(event.target.value)}
+        onChange={(event) => {
+          const userId = event.target.value;
+          setSelectedUserId(userId);
+          if (isScopedTeamLead) {
+            const selectedUser = availableUsers.find((user) => user._id === userId);
+            if (selectedUser && ["viewer", "monitor"].includes(selectedUser.role)) {
+              setSelectedRole(selectedUser.role);
+            }
+          }
+        }}
       >
         <option value=''>Select user</option>
         {availableUsers.map((user) => (
@@ -179,10 +212,12 @@ const availableUsers =
         className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
         value={selectedRole}
         onChange={(event) => setSelectedRole(event.target.value)}
+        disabled={isScopedTeamLead}
       >
         <option value='viewer'>Viewer</option>
         <option value='monitor'>Monitor</option>
-        <option value='team_lead'>Team Lead</option>
+        <option value='team_lead_scoped'>Team Lead (this team only)</option>
+        <option value='team_lead'>Team Lead (legacy global)</option>
       </select>
     </label>
 
@@ -205,7 +240,9 @@ const availableUsers =
   </div>
 
   <p className='text-xs text-slate-500 dark:text-gray-400 mt-2'>
-    Adding a user as Team Lead changes their global role to team_lead.
+    {isScopedTeamLead
+      ? "Scoped team leads can add members without changing their global role."
+      : "Use the team-only option for new leads. The legacy global option remains available during the compatibility period."}
   </p>
 </div>
 

@@ -4,6 +4,7 @@ export interface Team extends hasId {
   name: string;
   description?: string;
   active?: boolean;
+  leads?: Array<string | { _id: string }>;
 }
 
 export interface TeamMember {
@@ -13,6 +14,7 @@ export interface TeamMember {
   email: string;
   role: string;
   createdBy?: string;
+  isTeamLead?: boolean;
 }
 
 export interface TeamDetailResponse {

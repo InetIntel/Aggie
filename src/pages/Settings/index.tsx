@@ -13,7 +13,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { getSession } from "../../api/session";
 
-export function menuLinks(role: string | undefined) {
+export function menuLinks(role: string | undefined, isTeamLead = false) {
   switch (role) {
     case "admin":
       return {
@@ -33,6 +33,13 @@ export function menuLinks(role: string | undefined) {
       };      
     case "monitor":
     case "viewer":
+      if (isTeamLead) {
+        return {
+          "Teams": { to: "teams", icon: faUsersCog },
+          "Tags": { to: "tags", icon: faTags },
+          "Sources": { to: "sources", icon: faCloudArrowDown },
+        };
+      }
       return {
         "Tags": { to: "tags", icon: faTags },
         "Sources": { to: "sources", icon: faCloudArrowDown },
@@ -51,7 +58,7 @@ const Settings = () => {
   return (
     <section className='max-w-screen-xl mx-auto w-full grid grid-cols-5 gap-4'>
       <nav className='flex flex-col gap-2 mt-3 pr-3 border-r border-slate-300 min-h-[80vh]'>
-        {Object.entries(menuLinks(session?.role)).map(([name, link]) => (
+        {Object.entries(menuLinks(session?.role, session?.isTeamLead)).map(([name, link]) => (
           <Link
             key={name}
             className={`px-3 py-2 grid grid-cols-[16px_1fr] gap-2 items-center font-medium whitespace-nowrap text-left rounded-lg w-full ${location.pathname.includes(link.to)

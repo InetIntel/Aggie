@@ -11,6 +11,7 @@ export interface Session extends hasId {
   hasDefaultPassword: boolean;
   provider: string;
   role: "admin" | "monitor" |"viewer" |"team_lead" | undefined;
+  isTeamLead?: boolean;
   username: string;
   mfa?: boolean;              // session is MFA-verified
   mfa_enrolled?: boolean;     // account has at least one WebAuthn / TOTP credential

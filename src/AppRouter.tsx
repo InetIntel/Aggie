@@ -102,7 +102,7 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
             <Route path='credentials' element={<CredentialsIndex />} />
           </>
         }
-        {(sessionData?.role === "admin" || sessionData?.role === "team_lead") && (
+        {(sessionData?.role === "admin" || sessionData?.role === "team_lead" || sessionData?.isTeamLead) && (
           <>
           <Route path='teams' element={<TeamsIndex session={sessionData} />} />
           <Route path='team/:id' element={<TeamDetails session={sessionData} />} />
