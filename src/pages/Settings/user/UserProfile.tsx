@@ -174,7 +174,45 @@ const UserProfile = ({ session }: IProps) => {
           <p className='mt-1'>{data?.email}</p>
         </PlaceholderDiv>
 
-                {canManageUserTeams && data && (
+        {isSelf && !canManageUserTeams && data && (
+          <div className='border-t border-slate-300 mt-3 pt-3'>
+            <h3 className='font-medium text-lg mb-1'>Your Teams</h3>
+            <p className='text-sm text-slate-600 dark:text-gray-300 mb-3'>
+              These memberships determine which restricted sources and reports you can access.
+            </p>
+
+            {data.teams && data.teams.length > 0 ? (
+              <div className='grid gap-2 sm:grid-cols-2'>
+                {data.teams.map((team) => (
+                  <div
+                    key={team._id}
+                    className='rounded border border-slate-300 bg-slate-50 p-3 dark:bg-gray-900'
+                  >
+                    <div className='flex items-center justify-between gap-2'>
+                      <span className='font-medium'>{team.name}</span>
+                      {team.active === false && (
+                        <span className='rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-600 dark:bg-gray-700 dark:text-gray-300'>
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    {team.description && (
+                      <p className='mt-1 text-sm text-slate-600 dark:text-gray-300'>
+                        {team.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className='text-sm text-slate-600 dark:text-gray-300'>
+                You are not currently assigned to any teams.
+              </p>
+            )}
+          </div>
+        )}
+
+        {canManageUserTeams && data && (
           <div className='border-t border-slate-300 mt-3 pt-3'>
             <h3 className='font-medium text-lg mb-2'>Teams</h3>
 
