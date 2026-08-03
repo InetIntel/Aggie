@@ -1,4 +1,5 @@
 const User = require("../../models/user");
+const Team = require('../../models/team');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const crypto = require('crypto');
@@ -205,12 +206,14 @@ exports.session = async (req, res, next) => {
 
     const enforced = user.mfaEnforced === true;
     const mfa = !!(req.userToken && req.userToken.mfa === true);
+    const hasExplicitLeadTeam = await Team.exists({ leads: user._id });
 
     const userStripped = {
       _id: user._id,
       username: user.username,
       email: user.email,
       role: user.role,
+      isTeamLead: user.role === 'team_lead' || Boolean(hasExplicitLeadTeam),
       hasDefaultPassword: user.hasDefaultPassword,
       provider: user.provider,
       mfa,

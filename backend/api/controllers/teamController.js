@@ -1,33 +1,44 @@
 // Handles CRUD requests for teams.
 const User = require('../../models/user');
 const Team = require('../../models/team');
+const {
+  canCreateOrDeleteTeams,
+  canManageTeam,
+  isAdmin,
+  isLegacyTeamLead,
+  normalizeIds,
+} = require('../../access/teamAccess');
 
-const assignableRoles = ['viewer', 'monitor', 'team_lead'];
+const assignableRoles = ['viewer', 'monitor', 'team_lead_scoped', 'team_lead'];
 
-const canManageTeams = (user) => {
-  return user && ['admin', 'team_lead'].includes(user.role);
+const serializeTeamDetail = (team, members) => {
+  const plainTeam = typeof team.toObject === 'function' ? team.toObject() : team;
+  const leadIds = new Set(normalizeIds(plainTeam.leads));
+
+  return {
+    team: plainTeam,
+    members: members.map((member) => ({
+      ...member,
+      isTeamLead: leadIds.has(String(member._id)),
+    })),
+  };
 };
 
 // Get all teams
-exports.team_list = (req, res) => {
+exports.team_list = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
-    return res.status(403).send('Unauthorized to view teams.');
+  try {
+    const filter = isAdmin(req.user) || isLegacyTeamLead(req.user)
+      ? {}
+      : { leads: req.user._id };
+    const teams = await Team.find(filter).sort({ name: 1 }).lean();
+    return res.status(200).send(teams);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team query failed');
   }
-
-  Team.find({})
-    .sort({ name: 1 })
-    .lean()
-    .exec((err, teams) => {
-      if (err) {
-        return res
-          .status(err.status || 500)
-          .send(err.message || 'Team query failed');
-      }
-
-      return res.status(200).send(teams);
-    });
 };
 
 // Get teams the current user can manage
@@ -35,7 +46,7 @@ exports.team_manageable_list = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
   try {
-    if (req.user.role === 'admin') {
+    if (isAdmin(req.user)) {
       const teams = await Team.find({})
         .sort({ name: 1 })
         .lean();
@@ -43,7 +54,7 @@ exports.team_manageable_list = async (req, res) => {
       return res.status(200).send(teams);
     }
 
-    if (req.user.role === 'team_lead') {
+    if (isLegacyTeamLead(req.user)) {
       const actor = await User.findById(req.user._id)
         .select('teams')
         .lean();
@@ -59,7 +70,11 @@ exports.team_manageable_list = async (req, res) => {
       return res.status(200).send(teams);
     }
 
-    return res.status(403).send('Unauthorized to view manageable teams.');
+    const teams = await Team.find({ leads: req.user._id })
+      .sort({ name: 1 })
+      .lean();
+
+    return res.status(200).send(teams);
   } catch (err) {
     return res
       .status(err.status || 500)
@@ -71,9 +86,6 @@ exports.team_manageable_list = async (req, res) => {
 exports.team_detail = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
-  return res.status(403).send('Unauthorized to view team details.');
-}
   try {
     const team = await Team.findById(req.params._id)
       .lean();
@@ -82,15 +94,16 @@ exports.team_detail = async (req, res) => {
       return res.sendStatus(404);
     }
 
+    if (!canManageTeam(req.user, team)) {
+      return res.status(403).send('Unauthorized to view team details.');
+    }
+
     const members = await User.find({ teams: req.params._id })
       .select('_id username displayName email role createdBy')
       .sort({ role: 1, username: 1 })
       .lean();
 
-    return res.status(200).send({
-      team,
-      members,
-    });
+    return res.status(200).send(serializeTeamDetail(team, members));
   } catch (err) {
     if (err.name === 'CastError') {
       return res.status(400).send('Invalid team id.');
@@ -106,7 +119,7 @@ exports.team_detail = async (req, res) => {
 exports.team_create = (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
+  if (!canCreateOrDeleteTeams(req.user)) {
     return res.status(403).send('Unauthorized to create teams.');
   }
 
@@ -131,10 +144,6 @@ exports.team_create = (req, res) => {
 exports.team_add_member = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
-    return res.status(403).send('Unauthorized to manage team members.');
-  }
-
   const userId = req.body.userId;
   const role = req.body.role;
 
@@ -143,14 +152,26 @@ exports.team_add_member = async (req, res) => {
   }
 
   if (!assignableRoles.includes(role)) {
-    return res.status(400).send('Role must be viewer, monitor, or team_lead.');
+    return res.status(400).send('Role must be viewer, monitor, team_lead_scoped, or team_lead.');
   }
 
   try {
-    const team = await Team.findById(req.params._id).lean();
+    const team = await Team.findById(req.params._id);
 
     if (!team) {
       return res.sendStatus(404);
+    }
+
+    if (!canManageTeam(req.user, team)) {
+      return res.status(403).send('Unauthorized to manage team members.');
+    }
+
+    if (
+      ['team_lead_scoped', 'team_lead'].includes(role) &&
+      !isAdmin(req.user) &&
+      !isLegacyTeamLead(req.user)
+    ) {
+      return res.status(403).send('Only administrators and legacy team leads can appoint team leads during migration.');
     }
 
     const user = await User.findById(userId).select('-password');
@@ -163,7 +184,14 @@ exports.team_add_member = async (req, res) => {
       return res.status(403).send('Admin users cannot be assigned from the team page.');
     }
 
-    user.role = role;
+    if (
+      !isAdmin(req.user) &&
+      !isLegacyTeamLead(req.user) &&
+      role !== user.role
+    ) {
+      return res.status(403).send('Scoped team leads cannot change global user roles.');
+    }
+
     user.teams = user.teams || [];
 
     const alreadyInTeam = user.teams.some(
@@ -174,17 +202,25 @@ exports.team_add_member = async (req, res) => {
       user.teams.push(req.params._id);
     }
 
+    if (role === 'team_lead_scoped') {
+      team.leads.addToSet(user._id);
+    } else if (role === 'team_lead') {
+      user.role = role;
+      team.leads.addToSet(user._id);
+    } else {
+      user.role = role;
+      team.leads.pull(user._id);
+    }
+
     await user.save();
+    await team.save();
 
     const members = await User.find({ teams: req.params._id })
       .select('_id username displayName email role createdBy')
       .sort({ role: 1, username: 1 })
       .lean();
 
-    return res.status(200).send({
-      team,
-      members,
-    });
+    return res.status(200).send(serializeTeamDetail(team, members));
   } catch (err) {
     return res
       .status(err.status || 500)
@@ -196,15 +232,15 @@ exports.team_add_member = async (req, res) => {
 exports.team_remove_member = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
-    return res.status(403).send('Unauthorized to manage team members.');
-  }
-
   try {
-    const team = await Team.findById(req.params._id).lean();
+    const team = await Team.findById(req.params._id);
 
     if (!team) {
       return res.sendStatus(404);
+    }
+
+    if (!canManageTeam(req.user, team)) {
+      return res.status(403).send('Unauthorized to manage team members.');
     }
 
     const user = await User.findById(req.params.userId).select('-password');
@@ -220,16 +256,15 @@ exports.team_remove_member = async (req, res) => {
     await User.findByIdAndUpdate(req.params.userId, {
       $pull: { teams: req.params._id },
     });
+    team.leads.pull(req.params.userId);
+    await team.save();
 
     const members = await User.find({ teams: req.params._id })
       .select('_id username displayName email role createdBy')
       .sort({ role: 1, username: 1 })
       .lean();
 
-    return res.status(200).send({
-      team,
-      members,
-    });
+    return res.status(200).send(serializeTeamDetail(team, members));
   } catch (err) {
     return res
       .status(err.status || 500)
@@ -241,7 +276,7 @@ exports.team_remove_member = async (req, res) => {
 exports.team_delete = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-if (!canManageTeams(req.user)) {
+if (!canCreateOrDeleteTeams(req.user)) {
   return res.status(403).send('Unauthorized to delete teams.');
 }
 

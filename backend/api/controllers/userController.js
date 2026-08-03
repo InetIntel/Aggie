@@ -44,37 +44,58 @@ exports.user_users = (req, res) => {
 };
 
 // get manageble user list (for admin: all, for team lead: team lead + created users)
-exports.user_manageableUsers = (req, res) => {
+exports.user_manageableUsers = async (req, res) => {
   if (!req.user) return res.status(401).send("Unauthenticated.");
 
-  const role = req.user.role;
-  const self = req.user._id;
-  let filter = { _id: req.user._id }
-  if (role === "admin") {
-    filter = {};
-  } else if (role === "team_lead") {
-    filter = {
-     $or: [
-      { _id: self },
-      { role: { $in: ["viewer", "monitor"] } },
-     ],
-   };
-} else {
-    filter = { _id: self };
-  }
+  try {
+    const role = req.user.role;
+    const self = req.user._id;
+    let filter = { _id: self };
+    let scopedTeamIds = null;
 
-  User.find(filter)
-    .select("-password")
-    .populate(teamPopulate)
-    .lean()
-    .exec((err, users) => {
-      if (err) {
-        return res
-          .status(err.status || 500)
-          .send(err.message || "User query failed");
+    if (role === "admin") {
+      filter = {};
+    } else if (role === "team_lead") {
+      // Compatibility behavior: legacy global leads retain the existing user list.
+      filter = {
+        $or: [
+          { _id: self },
+          { role: { $in: ["viewer", "monitor"] } },
+        ],
+      };
+    } else {
+      const leadTeams = await Team.find({ leads: self }).select('_id').lean();
+      scopedTeamIds = new Set(leadTeams.map((team) => String(team._id)));
+
+      if (scopedTeamIds.size > 0) {
+        filter = {
+          $or: [
+            { _id: self },
+            { role: { $in: ["viewer", "monitor"] } },
+          ],
+        };
       }
-      return res.status(200).send(users.map(normalizeUserTeams));
+    }
+
+    const users = await User.find(filter)
+      .select("-password")
+      .populate(teamPopulate)
+      .lean();
+
+    const normalizedUsers = users.map(normalizeUserTeams).map((user) => {
+      if (!scopedTeamIds) return user;
+      return {
+        ...user,
+        teams: user.teams.filter((team) => scopedTeamIds.has(String(team._id))),
+      };
     });
+
+    return res.status(200).send(normalizedUsers);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || "User query failed");
+  }
 };
 
 // Get a User by id
