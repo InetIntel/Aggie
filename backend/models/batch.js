@@ -13,12 +13,12 @@ var lock = new ReadWriteLock();
 function Batch() { /* empty constructor */ }
 
 // checkout new batch
-Batch.prototype.checkout = function (userId, query, callback) {
+Batch.prototype.checkout = function (userId, query, extraFilter, callback) {
   async.series([
     this.releaseOld,
     this.cancel.bind(this, userId),
-    this.lock.bind(this, userId, query),
-    this.load.bind(this, userId)
+    this.lock.bind(this, userId, query, extraFilter),
+    this.load.bind(this, userId, extraFilter)
   ], function (err, results) {
     if (err) return callback(err);
     callback(null, results[3]);
@@ -42,7 +42,7 @@ Batch.prototype.cancel = function (userId, callback) {
 },
 
   // lock a new batch for given user
-  Batch.prototype.lock = function (userId, query, callback) {
+  Batch.prototype.lock = function (userId, query, extraFilter, callback) {
     var filter = query instanceof ReportQuery ? query.toMongooseFilter() : {};
     var tempDefaultFilter = { irrelevant: "maybe", _group: null };
     tempDefaultFilter = _.extend(tempDefaultFilter, {
@@ -51,9 +51,17 @@ Batch.prototype.cancel = function (userId, callback) {
       read: false
     });
 
+    filter = {
+      $and: [
+        filter,
+        tempDefaultFilter,
+        extraFilter || {},
+      ],
+    };
+
     lock.writeLock(function (release) {
       Report
-        .find(tempDefaultFilter)
+        .find(filter)
         .sort({ storedAt: -1 })
         .limit(ITEMS_PER_BATCH)
         .exec(function (err, reports) {
@@ -73,14 +81,14 @@ Batch.prototype.cancel = function (userId, callback) {
   },
 
   // load a batch for user
-  Batch.prototype.load = function (userId, callback) {
+  Batch.prototype.load = function (userId, extraFilter, callback) {
     var conditions = {
       checkedOutAt: { $ne: null },
       checkedOutBy: userId
     };
 
     Report
-      .find(conditions)
+      .find({ $and: [conditions, extraFilter || {}] })
       .limit(ITEMS_PER_BATCH)
       .exec(callback);
   };

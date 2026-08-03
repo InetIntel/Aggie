@@ -9,6 +9,19 @@ var tags = require("../../shared/tags");
 const Group = require("../../models/group");
 const eventRouter = require("../sockets/event-router");
 const axios = require("axios");
+const Source = require('../../models/source');
+const { buildReportSourceAccessFilter } = require('../../access/sourceAccess');
+
+const getSearchSourceAccessFilter = async (req) => {
+  const accessUser = req.accessUser || req.user || null;
+  if (accessUser && accessUser.role === 'admin') return {};
+
+  const sources = await Source.find({}, '_id accessPolicy')
+    .lean()
+    .exec();
+
+  return buildReportSourceAccessFilter(accessUser, sources);
+};
 
 // Determine the search keywords
 const parseQueryData = (queryString) => {
@@ -38,6 +51,7 @@ exports.search_reports = async (req, res) => {
   console.log("search_reports", JSON.stringify(req.query, null, 2));
   const query_text = req.query.keywords;
   try {
+    const sourceAccessFilter = await getSearchSourceAccessFilter(req);
     const resp = await axios.get(`http://localhost:8080/search?query=${query_text}`);
     const tags = resp.data.tags;
     console.log("Semantic Tag Matches", tags);
@@ -47,6 +61,7 @@ exports.search_reports = async (req, res) => {
       query.aitagnames = { $in: tags };
       // Query for reports using fti
       Report.queryReports(query, req.query.page, (err, reports) => {
+        if (res.headersSent) return;
         if (err) return res.status(err.status).send(err.message);
         else {
           const filteredReports = reports.results;
@@ -54,10 +69,11 @@ exports.search_reports = async (req, res) => {
           console.log("reports length", reports.results.length);
           return res.send({ total: filteredReports.length, results: filteredReports });
         }
-      });
+      }, sourceAccessFilter);
     } else {
       // Return all reports using pagination
-      Report.findSortedPage({}, page, (err, reports) => {
+      Report.findSortedPage(sourceAccessFilter, req.query.page, (err, reports) => {
+        if (res.headersSent) return;
         if (err) return res.status(err.status).send(err.message);
         else return res.status(200).send(reports);
       });
