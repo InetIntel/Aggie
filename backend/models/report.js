@@ -234,14 +234,14 @@ Report.queryReports = function (query, page, callback, extraFilter) {
 
   let filter = query.toMongooseFilter();
 
-if (extraFilter && Object.keys(extraFilter).length) {
-  filter = {
-    $and: [
-      filter,
-      extraFilter,
-    ],
-  };
-}
+  if (extraFilter && Object.keys(extraFilter).length) {
+    filter = {
+      $and: [
+        filter,
+        extraFilter,
+      ],
+    };
+  }
 
   // Re-set search timestamp
   query.since = new Date();
@@ -281,14 +281,14 @@ Report.queryReportsDeduped = async function (query, page, callback, extraFilter)
 
     let filter = query.toMongooseFilter();
 
-if (extraFilter && Object.keys(extraFilter).length) {
-  filter = {
-    $and: [
-      filter,
-      extraFilter,
-    ],
-  };
-}
+    if (extraFilter && Object.keys(extraFilter).length) {
+      filter = {
+        $and: [
+          filter,
+          extraFilter,
+        ],
+      };
+    }
 
     // same extra filters as queryReports
     if (query.escalated === 'escalated') filter.escalated = true;
