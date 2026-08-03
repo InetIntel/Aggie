@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import _ from "lodash";
 import { useMultiSelect } from "../../hooks/useMultiSelect";
 import { useQueryParams } from "../../hooks/useQueryParams";
+import { useMeasuredHeight } from "../../hooks/useMeasuredHeight";
 
 import { formatPageCount } from "../../utils/format";
 import { getReports, getReport } from "../../api/reports";
@@ -75,6 +76,10 @@ const AllReportsList = ({ alerts }: IProps) => {
   // doesn't refetch) and out of the request to the API.
   const apiSearchParams = new URLSearchParams(searchParams);
   apiSearchParams.delete("view");
+  // The real query identity, ignoring the UI-only `view` toggle. Resets (clear
+  // selection, scroll to top) key off this so switching list↔table keeps the
+  // selection — the underlying results are identical across both views.
+  const queryParamsString = apiSearchParams.toString();
   const reportsQueryKey = [
     "reports",
     alerts ? "alerts" : "mediaposts",
@@ -107,7 +112,7 @@ const AllReportsList = ({ alerts }: IProps) => {
       top: 0,
       behavior: "smooth",
     });
-  }, [alerts, searchParams]);
+  }, [alerts, queryParamsString]);
 
   const multiSelect = useMultiSelect({
     allItems: reports?.results,
@@ -126,16 +131,6 @@ const AllReportsList = ({ alerts }: IProps) => {
     multiSelect.setActive(next);
     if (!next) setCompareOpen(false);
   }
-
-  // Reset compare mode + selection whenever the view (list/table) changes so
-  // checkboxes and the compare set never leak from the table into the list.
-  useEffect(() => {
-    setCompareMode(false);
-    setCompareOpen(false);
-    multiSelect.set([]);
-    multiSelect.setActive(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
 
   // Warm the per-report chart image so the compare modal renders it immediately.
   // The dedup list endpoint strips metadata.rawAPIResponse.image (see report.js),
@@ -280,17 +275,8 @@ const AllReportsList = ({ alerts }: IProps) => {
   // park just beneath the bar. The bar's height is dynamic (grows in
   // select/compare mode, wraps when narrow), so measure it and publish it as
   // the `--dt-sticky-top` CSS var that DataTable's header reads.
-  const filtersRef = useRef<HTMLDivElement>(null);
-  const [filtersHeight, setFiltersHeight] = useState(0);
-  useEffect(() => {
-    const el = filtersRef.current;
-    if (!el) return;
-    const measure = () => setFiltersHeight(el.offsetHeight);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const { ref: filtersRef, height: filtersHeight } =
+    useMeasuredHeight<HTMLDivElement>();
 
   return (
     <div style={{ ["--dt-sticky-top" as any]: `${filtersHeight}px` }}>

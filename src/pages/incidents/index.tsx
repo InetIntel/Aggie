@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../hooks/useQueryParams";
+import { useMeasuredHeight } from "../../hooks/useMeasuredHeight";
 import { useMultiSelect } from "../../hooks/useMultiSelect";
 import _ from "lodash";
 
@@ -47,6 +48,13 @@ const Incidents = () => {
   // wrongly surface the "Clear All" button).
   const hasActiveFilter =
     Object.keys(_.omit(getAllParams(searchParams), "view")).length > 0;
+
+  // The real query identity, ignoring the UI-only `view` toggle. The reset
+  // effect keys off this so switching list↔table keeps the selection — the
+  // underlying results are identical across both views.
+  const apiSearchParams = new URLSearchParams(searchParams);
+  apiSearchParams.delete("view");
+  const queryParamsString = apiSearchParams.toString();
 
   const urlView = getParam("view");
   const view: IncidentsViewMode =
@@ -104,16 +112,6 @@ const Incidents = () => {
     toggleIncidentForCompare(group);
   }
 
-  // Reset compare mode + selection whenever the view (list/table) changes so
-  // checkboxes and the compare set never leak from the table into the list.
-  useEffect(() => {
-    setCompareMode(false);
-    setCompareOpen(false);
-    multiSelect.set([]);
-    multiSelect.setActive(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
-
   useEffect(() => {
     document.title = "Incidents - Aggie";
     // refetch on filter change
@@ -127,7 +125,8 @@ const Incidents = () => {
         behavior: "smooth",
       });
     }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryParamsString]);
 
   useEffect(() => {
     const main = document.getElementById("main_view");
@@ -174,17 +173,8 @@ const Incidents = () => {
   // the bar. The bar's height is dynamic (wraps when narrow, grows in compare
   // mode), so measure it and publish it as the `--dt-sticky-top` CSS var that
   // DataTable's header reads.
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const [stickyHeight, setStickyHeight] = useState(0);
-  useEffect(() => {
-    const el = stickyRef.current;
-    if (!el) return;
-    const measure = () => setStickyHeight(el.offsetHeight);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const { ref: stickyRef, height: stickyHeight } =
+    useMeasuredHeight<HTMLDivElement>();
 
   return (
     <section
