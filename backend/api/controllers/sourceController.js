@@ -5,7 +5,7 @@ var Source = require('../../models/source');
 var _ = require('lodash');
 
 const User = require('../../models/user');
-const { canViewSource } = require('../../access/sourceAccess');
+const { canManageSource, canViewSource } = require('../../access/sourceAccess');
 
 var sourcePopulate = [
   { path: 'user', select: 'username' },
@@ -17,6 +17,10 @@ var sourcePopulate = [
 //Access control
 
 const getSourceAccessUser = async (req) => {
+  if (req.accessUser) {
+    return req.accessUser;
+  }
+
   if (!req.user) {
     return null;
   }
@@ -35,6 +39,10 @@ const getSourceAccessUser = async (req) => {
 
 // Create a new Source
 exports.source_create = (req, res) => {
+  if (!canManageSource(req.accessUser || req.user)) {
+    return res.status(403).send('Unauthorized to create sources.');
+  }
+
   // set user as the logged in user
   if (req.user) req.body.user = req.user._id;
 
@@ -64,8 +72,12 @@ exports.source_sources = async (req, res) => {
       canViewSource(accessUser, source)
     );
 
+    if (res.headersSent) return;
+
     return res.status(200).send(visibleSources);
   } catch (err) {
+    if (res.headersSent) return;
+
     return res
       .status(err.status || 500)
       .send(err.message || 'Unable to fetch sources.');
@@ -86,12 +98,16 @@ exports.source_details = (req, res) => {
         try {
           const accessUser = await getSourceAccessUser(req);
 
+          if (res.headersSent) return;
+
           if (!canViewSource(accessUser, source)) {
             return res.status(403).send('Unauthorized to view this source.');
           }
 
           return res.status(200).send(source);
         } catch (err) {
+          if (res.headersSent) return;
+
           return res
             .status(err.status || 500)
             .send(err.message || 'Unable to check source access.');
@@ -142,7 +158,9 @@ exports.source_update = async (req, res, next) => {
 
     const accessUser = await getSourceAccessUser(req);
 
-    if (!canViewSource(accessUser, source)) {
+    if (res.headersSent) return;
+
+    if (!canManageSource(accessUser, source)) {
       return res.status(403).send('Unauthorized to update this source.');
     }
 
@@ -157,6 +175,8 @@ exports.source_update = async (req, res, next) => {
 
     return res.sendStatus(200);
   } catch (err) {
+    if (res.headersSent) return;
+
     return res
       .status(err.status || 500)
       .send(err.message || 'Unable to update source.');
@@ -173,17 +193,22 @@ exports.source_reset_errors = async (req, res) => {
 
     const accessUser = await getSourceAccessUser(req);
 
-    if (!canViewSource(accessUser, source)) {
+    if (res.headersSent) return;
+
+    if (!canManageSource(accessUser, source)) {
       return res.status(403).send('Unauthorized to reset this source.');
     }
 
     Source.resetUnreadErrorCount(req.params._id, function (err, source) {
+      if (res.headersSent) return;
       if (err) return res.status(err.status || 500).send(err.message);
       if (!source) return res.sendStatus(404);
 
       return res.status(200).send(source);
     });
   } catch (err) {
+    if (res.headersSent) return;
+
     return res
       .status(err.status || 500)
       .send(err.message || 'Unable to reset source errors.');
@@ -202,16 +227,21 @@ exports.source_delete = async (req, res, next) => {
 
     const accessUser = await getSourceAccessUser(req);
 
-    if (!canViewSource(accessUser, source)) {
+    if (res.headersSent) return;
+
+    if (!canManageSource(accessUser, source)) {
       return res.status(403).send('Unauthorized to delete this source.');
     }
 
     source.remove((err) => {
+      if (res.headersSent) return;
       if (err) return res.status(err.status || 500).send(err.message);
 
       return res.sendStatus(200);
     });
   } catch (err) {
+    if (res.headersSent) return;
+
     return res
       .status(err.status || 500)
       .send(err.message || 'Unable to delete source.');
@@ -220,6 +250,10 @@ exports.source_delete = async (req, res, next) => {
 
 // Delete all Sources
 exports.source_delete_all = (req, res) => {
+  if (!canManageSource(req.accessUser || req.user)) {
+    return res.status(403).send('Unauthorized to delete sources.');
+  }
+
   Source.find(function (err, sources) {
     if (err) return res.status(err.status).send(err.message);
     if (sources.length === 0) return res.sendStatus(200);
@@ -240,6 +274,10 @@ exports.source_delete_all = (req, res) => {
 
 // update sources TODO: This doesn't work I'm just putting a placeholder here.
 exports.source_update_all = (req, res) => {
+  if (!canManageSource(req.accessUser || req.user)) {
+    return res.status(403).send('Unauthorized to update sources.');
+  }
+
   Source.find(function (err, sources) {
     if (err) return res.status(err.status).send(err.message);
     if (sources.length === 0) return res.sendStatus(200);

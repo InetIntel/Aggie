@@ -118,6 +118,7 @@ User.permissions = {
   'view data': ['viewer', 'monitor', 'admin', 'team_lead'],
   'edit data': ['monitor', 'admin', 'team_lead'],
   'change settings': ['admin', 'team_lead'],
+  'manage sources': ['admin'],
   'view users': ['viewer', 'monitor', 'admin', 'team_lead'],
   'view other users': ['manager', 'admin','team_lead'],
   'update users': ['viewer', 'monitor', 'admin'],
@@ -131,20 +132,31 @@ User.permissions = {
 User.can = (permission) => {
   return (req, res, next) => {
     const user = req.user;
-    if (process.env.ADMIN_PARTY.toLowerCase() === "true") {
-      next();
+    if (String(process.env.ADMIN_PARTY).toLowerCase() === 'true') {
+      req.accessUser = {
+        _id: user && (user._id || user.id),
+        role: 'admin',
+        teams: [],
+      };
+      return next();
     }
-    User.findById(user.id, (err, foundUser) => {
+    if (!user) {
+      return res.status(401).send('Authentication required.');
+    }
+    User.findById(user.id || user._id, (err, foundUser) => {
       if (err) {
-        res.status(422).send("No user found.");
-        return next(err);
+        return res.status(422).send('Unable to verify user permissions.');
+      }
+      if (!foundUser || !foundUser.active) {
+        return res.status(401).send('User account is unavailable.');
       }
       if (User.permissions[permission]) {
         if (User.permissions[permission].indexOf(foundUser.role) > -1) {
+          req.accessUser = foundUser;
           return next();
         }
       }
-      res.status(401).send("You are not authorized to " + permission + ".");
+      return res.status(403).send('You are not authorized to ' + permission + '.');
     });
   };
 };
