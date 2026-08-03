@@ -19,6 +19,11 @@ const teamSchema = new mongoose.Schema({
     default: true,
     index: true,
   },
+  leads: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    default: [],
+    index: true,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Team', teamSchema);
