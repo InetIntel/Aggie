@@ -27,9 +27,9 @@ interface IProps {
 }
 
 const SetPassword = ({ user, onClose }: IProps) => {
-  if (!user) return <></>;
-
   const doSetPassword = useMutation(setPasswordApi);
+
+  if (!user) return <></>;
 
   function onSubmitForm(e: IPasswordSchema, resetForm: () => void) {
     if (!user) return;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   Navigate,
   Route,
@@ -6,9 +6,9 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { getSession } from "./api/session";
 
-import type { AxiosError } from "axios";
 import type { Session } from "./api/session/types";
 
 import Navbar from "./Navbar";
@@ -29,7 +29,6 @@ import Report from "./pages/Reports/Report";
 import NewIncident from "./pages/incidents/NewIncident";
 import FetchIndicator from "./components/FetchIndicator";
 import Settings from "./pages/Settings";
-import { useQueryClient } from "@tanstack/react-query";
 import AllReportsList from "./pages/Reports/AllReportsList";
 import Style from "./pages/Style";
 
@@ -120,53 +119,47 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
 };
 
 const AppRouter = () => {
-  const [hydrating, setHydrating] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userData, setUserData] = useState<Session | undefined>(undefined);
-
   const navigate = useNavigate();
   const location = useLocation();
-  const queryClient = useQueryClient();
 
-  // check if user is authorized
-  // we just wanna check session once, no need for react query.
+  const sessionQuery = useQuery(["session"], getSession, {
+    retry: false,
+    staleTime: 10000,
+    onError: () => {},
+  });
+
+  const { data: userData, isSuccess, isError, status } = sessionQuery;
+  const isLoggedIn = isSuccess && !!userData;
+  const hydrating = status === "loading";
+
+  // Logged in but sitting on /login -> send to the app.
   useEffect(() => {
-    let cancelled = false;
-    getSession()
-      .then((data: Session) => {
-        if(cancelled) return;
-        // did log in
-        setIsLoggedIn(true);
-        if (data) {
-          setUserData(data);
-          queryClient.setQueryData(["session"], data);
-        }
-        if (location.pathname === "/login") {
-          navigate(defaultRoute);
-        }
-      })
-      .catch((err: AxiosError) => {
-        if(cancelled) return;
-        setIsLoggedIn(false);
-        if (location.pathname !== "/login") {
-          const searchParam = new URLSearchParams([
-            ["to", location.pathname + location.search],
-          ]);
-          navigate({ pathname: "/login", search: searchParam.toString() }, { replace: true });
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setHydrating(false);
-      });
-      return () => {cancelled = true;};
-  }, []);
+    if (isLoggedIn && location.pathname === "/login") {
+      navigate(defaultRoute);
+    }
+  }, [isLoggedIn, location.pathname, navigate]);
 
+  // Not authenticated -> bounce to login, preserving where we were headed.
+  useEffect(() => {
+    if (isError && location.pathname !== "/login") {
+      const searchParam = new URLSearchParams([
+        ["to", location.pathname + location.search],
+      ]);
+      navigate(
+        { pathname: "/login", search: searchParam.toString() },
+        { replace: true }
+      );
+    }
+  }, [isError, location.pathname, location.search, navigate]);
 
   return (
     <div className='flex flex-col h-[100svh]'>
       <Navbar isAuthenticated={isLoggedIn} session={userData} />
       <FetchIndicator className='sticky top-0 z-20' />
-      <main id='main_view' className='h-full overflow-y-auto flex-1'>
+      <main
+        id='main_view'
+        className='h-full overflow-y-auto flex-1 [scrollbar-gutter:stable]'
+      >
         {hydrating ? null : isLoggedIn ? (
           <PrivateRoutes
             sessionData={userData}

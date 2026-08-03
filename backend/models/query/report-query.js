@@ -33,6 +33,7 @@ function ReportQuery(options) {
   this.isRelevantReports = options.isRelevantReports;
   this.irrelevant = options.irrelevant;
   this.isOutageEvent = options.isOutageEvent;
+  this.isOutageOngoing = options.isOutageOngoing;
 
 }
 
@@ -47,7 +48,7 @@ ReportQuery.prototype.run = function (callback) {
 
 // Normalize query for comparison
 ReportQuery.prototype.normalize = function () {
-  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports']);
+  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports', 'isOutageOngoing']);
 };
 
 ReportQuery.prototype.toMongooseFilter = function () {
@@ -67,6 +68,10 @@ ReportQuery.prototype.toMongooseFilter = function () {
   if (this.escalated === 'escalated') filter.escalated = true;
 
   filter = _.omitBy(filter, _.isNil);
+  // Reports predating the isOutageOngoing field have no value at all, so "ended" has to
+  // match a missing field too 
+  if (this.isOutageOngoing === true) filter.isOutageOngoing = true;
+  if (this.isOutageOngoing === false) filter.isOutageOngoing = { $ne: true };
   if (this.before) filter.authoredAt = { $lte: this.before }
   if (this.after) filter.authoredAt = Object.assign({}, filter.authoredAt, { $gte: this.after });
   //Two step search for content/author. First search for any terms in content or author using the indexed $text search.

@@ -14,7 +14,12 @@ module.exports = async function saveToDatabase(report, next) {
         
     } catch (error) {
         await deleteSocialAttachments(report?.metadata?.attachments);
-        console.error(`[Fetching-saveToDatabase] Failed - Failed saving reports: ${error.message}.`)
+        if (error.code === 11000) {
+            // Expected dedup: the channel re-fetched a post whose guid is already saved.
+            console.log(`[Fetching-saveToDatabase] Skipped duplicate report (guid already saved): ${report?.guid}.`)
+        } else {
+            console.error(`[Fetching-saveToDatabase] Failed - Failed saving reports: ${error.message}.`)
+        }
     }
     
     await next();

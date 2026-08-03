@@ -152,7 +152,7 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
 
   async function handleTotpDisable() {
     if (
-      !confirm(
+      !window.confirm(
         "Disable TOTP for your account? You will no longer be asked for TOTP codes."
       )
     ) {

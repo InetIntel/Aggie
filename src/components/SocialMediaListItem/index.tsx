@@ -13,7 +13,8 @@ import DateTime from "../DateTime";
 import {
   parseContentType,
   sanitize,
-  signalToNameColor
+  signalToNameColor,
+  SIGNAL_BADGE_CLASS,
 } from "../SocialMediaPost/reportParser";
 import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
@@ -44,7 +45,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
             {renderAuthor(contentType, report)}
           </h1>
           {signal && (
-            <AggieToken className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white dark:text-gray-300 `}>
+            <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
               {signal}
             </AggieToken>
           )}
@@ -238,12 +239,25 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
     //       </p>
     //     </div>
     //   );
-    case "ioda":
-      const rawStart = report?.metadata?.rawAPIResponse?.rawEvent?.start;
+    case "ioda": {
+      const iodaRaw = report?.metadata?.rawAPIResponse;
+      const rawStart = iodaRaw?.rawEvent?.start;
       const start = new Date(rawStart * 1000); // Convert to milliseconds
       const startUtc =
         start.toISOString().replace('T', ' ').substring(0, 16);
-      const rawDuration = report?.metadata?.rawAPIResponse?.rawEvent?.duration;
+
+      // While the outage is ongoing, `rawEvent.duration` only runs up to the last
+      // fetch, so deriving an end from it would show a fake, creeping end time.
+      if (iodaRaw?.isOngoing) {
+        return (
+          <p className="dark:text-gray-300">
+            {report?.author}<br />
+            {startUtc} to Present
+          </p>
+        );
+      }
+
+      const rawDuration = iodaRaw?.rawEvent?.duration;
       const end = new Date((rawStart + rawDuration) * 1000);
       const endUtc =
         end.toISOString().replace('T', ' ').substring(0, 16);
@@ -256,6 +270,7 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
           }
         </p>
       );
+    }
     case "cloudflare":
       const endDate = 
         report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";

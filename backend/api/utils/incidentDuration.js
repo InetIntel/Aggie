@@ -6,16 +6,21 @@ const Report = require('../../models/report');
 /**
  * Given a set of reports, compute:
  *   - earliest outageStartedAt/authoredAt (minStart)
- *   - latest outageEndedAt (maxEnd)
+ *   - latest outageEndedAt (maxEnd), or null if any member outage is still running
  *   - duration in seconds (or null if we don't have a closed interval)
  */
 function computeIncidentTimeBoundsFromReports(reports) {
   let minStart = null;
   let maxEnd = null;
+  let isOngoing = false;
 
   for (const r of reports) {
 
     if (!r.isOutageEvent) {continue};
+
+    if (r.isOutageOngoing) {
+      isOngoing = true;
+    }
 
     const start = r.outageStartedAt || r.authoredAt || null;
     if (start instanceof Date && !Number.isNaN(start.getTime())) {
@@ -32,6 +37,12 @@ function computeIncidentTimeBoundsFromReports(reports) {
     }
   }
 
+  // The incident has not ended while any of its outages is still running, even if
+  // its other reports have closed ends.
+  if (isOngoing) {
+    return { minStart, maxEnd: null, durationSeconds: null, isOngoing };
+  }
+
   let durationSeconds = null;
   if (minStart && maxEnd) {
     durationSeconds = Math.floor((maxEnd.getTime() - minStart.getTime()) / 1000);
@@ -40,7 +51,7 @@ function computeIncidentTimeBoundsFromReports(reports) {
     }
   }
 
-  return { minStart, maxEnd, durationSeconds };
+  return { minStart, maxEnd, durationSeconds, isOngoing };
 }
 
 /**
@@ -62,7 +73,7 @@ async function recomputeIncidentDurationForGroup(groupId) {
   }
 
   const reports = await Report.find({ _id: { $in: group._reports } })
-    .select('isOutageEvent outageStartedAt outageEndedAt authoredAt')
+    .select('isOutageEvent isOutageOngoing outageStartedAt outageEndedAt authoredAt')
     .lean()
     .exec();
 

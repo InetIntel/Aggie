@@ -25,6 +25,7 @@ import { IncidentOverallStatus, IncidentStatuses } from "../IncidentStatuses";
 import { getAsnsByIds } from "../../../api/asn";
 import type { AsnInfoMap } from "../../../api/asn/types";
 import { formatDurationFromSeconds } from "../../../utils/format";
+import ImpactedAsnTable from "./ImpactedAsnTable";
 
 
 interface IProps {
@@ -180,145 +181,10 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
     return `${year}-${month}-${day} ${hour}:${minute}`;
   }
 
-  const renderImpactedAsns = () => {
-    if (!group || !impactedAsns.length) {
-      return (
-        <p className="italic text-slate-600 dark:text-gray-400">
-          No ASN Set
-        </p>
-      );
-    }
-
-    if (isAsnLoading && !asnMap) {
-      return (
-        <p className="italic text-slate-600 dark:text-gray-400">
-          Loading ASN metadata…
-        </p>
-      );
-    }
-
-    return (
-      <div>
-            {/* <div className="flex flex-wrap gap-2">
-        {impactedAsns.map((asn) => {
-          const info = asnMap?.[asn];
-          const labelNumber = info?.number ?? asn.replace(/^as/i, "");
-          const labelName = info?.name?.trim();
-          const country = info?.country?.toUpperCase();
-                    const labelParts = [
-            `AS${labelNumber}`,
-            labelName || undefined,
-            country ? `(${country})` : undefined,
-          ].filter(Boolean);
-
-          return (
-            <span
-              key={asn}
-              className="inline-flex items-center px-2 py-0.5 rounded-full border border-slate-300 bg-white text-sm text-slate-800 dark:bg-gray-800 dark:border-slate-600 dark:text-gray-200"
-            >
-              {labelParts.join(" — ")}
-            </span>
-          );
-        })}
-        </div> */}
-      <div className="w-full max-h-72 overflow-auto rounded-lg border border-slate-300 bg-white dark:bg-gray-800 dark:border-slate-600">
-        <table className="min-w-[24rem] w-full text-sm">
-          <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-gray-700 border-b border-slate-300 dark:border-slate-600">
-            <tr className="text-center text-slate-600 dark:text-gray-300">
-              <th className="px-3 py-2 w-30 font-medium text-black dark:text-gray-300 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
-                  onClick={() => updateAsnSort("asn")}
-                >
-                  ASN
-                  <FontAwesomeIcon
-                    icon={getAsnSortIcon("asn")}
-                    className="text-slate-500 dark:text-gray-400"
-                  />
-                </button>
-              </th>
-              <th className="px-3 py-2 font-medium text-black dark:text-gray-300 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                Organization
-              </th>
-              {/* <th className="px-2 py-2 font-bold border-b border-r border-slate-200 dark:border-slate-600 last:border-r-0">
-                Country
-              </th> */}
-              <th className="px-3 py-2 font-medium text-black dark:text-gray-300 w-[25%] border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
-                  onClick={() => updateAsnSort("direct")}
-                >
-                  Direct Population Coverage
-                  <FontAwesomeIcon
-                    icon={getAsnSortIcon("direct")}
-                    className="text-slate-500 dark:text-gray-400"
-                  />
-                </button>
-              </th>
-              <th className="px-3 py-2 font-medium text-black dark:text-gray-300 w-[25%] border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-gray-100"
-                  onClick={() => updateAsnSort("indirect")}
-                >
-                  Indirect Population Coverage
-                  <FontAwesomeIcon
-                    icon={getAsnSortIcon("indirect")}
-                    className="text-slate-500 dark:text-gray-400"
-                  />
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="text-center text-slate-800 dark:text-gray-200">
-            {sortedImpactedAsns.map((asn) => {
-              const info = getAsnInfo(asn);
-              const labelNumber = info?.number ?? asn.replace(/^as/i, "");
-              const labelName = info?.name?.trim();
-              const directCoverageBorderClass = getCoverageBorderClass(
-                info?.populationCoverageDirect
-              );
-              const indirectCoverageBorderClass = getCoverageBorderClass(
-                info?.populationCoverageIndirect
-              );
-              // const country = info?.country?.toUpperCase();
-
-              return (
-                <tr key={asn} className="border-b border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-gray-700 last:border-b-0">
-                  <td className="px-3 py-2 font-medium whitespace-nowrap border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                    {`AS${labelNumber}`}
-                  </td>
-                  <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                    {labelName || "—"}
-                  </td>
-                  {/* <td className="px-2 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
-                    {country || "—"}
-                  </td> */}
-                  <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${directCoverageBorderClass}`}
-                    >
-                      {formatCoveragePercent(info?.populationCoverageDirect)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 border-r border-slate-300 dark:border-slate-600 last:border-r-0">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 border rounded text-black text-sm font-medium dark:text-gray-300 ${indirectCoverageBorderClass}`}
-                    >
-                      {formatCoveragePercent(info?.populationCoverageIndirect)}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      </div>
-    );
-  };
+  // The impacted-ASN table now lives in a shared component (reused by the
+  // incidents table expanded row). The sort state/helpers above are kept for
+  // potential future use even though this render no longer references them.
+  const renderImpactedAsns = () => <ImpactedAsnTable asns={impactedAsns} />;
 
   const renderImpactedGeoScopes = () => {
     if (!group || !impactedGeoScopes.length) {
@@ -449,7 +315,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
         >
           {(group?.incidentStartedAt || group?.incidentEndedAt) ? (
             <p className='whitespace-pre-line max-w-prose text-black dark:text-gray-300'>
-              {formatIsoTime(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {formatIsoTime(group?.incidentEndedAt)}
+              {formatIsoTime(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {group?.incidentEndedAt ? formatIsoTime(group?.incidentEndedAt) : "Present"}
             </p>
           ) : (
             <p className='italic text-slate-600 dark:text-gray-400'>No Date Set</p>

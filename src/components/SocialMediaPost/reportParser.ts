@@ -76,6 +76,14 @@ export function sanitize(string: string) {
   //});
 }
 
+// Shared Tailwind classes for the datasource/signal badge (BGP / Active Probing /
+// Telescope) so every render site stays visually consistent. The `bgColor` from
+// signalToNameColor is applied alongside these. SIGNAL_BADGE_BASE omits the text
+// size so compact contexts can override it (e.g. text-xs).
+export const SIGNAL_BADGE_BASE =
+  "font-medium px-1 rounded-lg text-white dark:text-gray-300";
+export const SIGNAL_BADGE_CLASS = `${SIGNAL_BADGE_BASE} text-sm`;
+
 export function signalToNameColor(rawSignal: string) {
   switch(rawSignal) {
     case "bgp":
@@ -87,4 +95,36 @@ export function signalToNameColor(rawSignal: string) {
     default:
       return [rawSignal, ""];
   }
+}
+
+// When the app is deployed under a subpath (e.g. https://host/aggie), media is served
+// by the node app at <base>/media/<key> — a bare "/media/..." would resolve against the
+// origin and bypass the app (nginx returns the SPA), so <img> tags break. Derive the base
+// from PUBLIC_URL exactly like src/index.tsx does for the axios baseURL. Empty at the
+// domain root and in dev.
+const MEDIA_BASE_PATH = (() => {
+  const pub = process.env.PUBLIC_URL;
+  if (!pub) return "";
+  try {
+    return new URL(pub).pathname.replace(/\/$/, "");
+  } catch {
+    // PUBLIC_URL may be a bare path ("/aggie") rather than a full URL.
+    return pub.replace(/\/$/, "");
+  }
+})();
+
+// Resolve a chart image value to a usable <img> src. IODA/Cloudflare charts now live
+// in media storage and the report carries a bare key ("ioda/charts/<hash>.svg"),
+// served by the backend at <base>/media/<key>. Absolute URLs (legacy Cloudflare) and
+// already-rooted paths pass through unchanged.
+export function resolveMediaUrl(value?: string): string {
+  if (!value) return "";
+  if (/^https?:\/\//.test(value) || value.startsWith("/")) return value;
+  return `${MEDIA_BASE_PATH}/media/${value.replace(/^\/+/, "")}`;
+}
+
+// True when the image value is a legacy inline SVG markup string rather than a
+// storage key / URL.
+export function isInlineSvg(value?: string): boolean {
+  return !!value && value.trimStart().startsWith("<");
 }

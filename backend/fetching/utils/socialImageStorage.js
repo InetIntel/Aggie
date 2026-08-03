@@ -10,6 +10,11 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 
 const MEDIA_ROUTE_PREFIX = '/media';
+// When deployed under a subpath (APP_BASE_PATH, e.g. "/aggie"), browser-facing media
+// URLs must include it — nginx only routes <base>/* to the node app, so a bare
+// "/media/..." resolves to the domain root and returns the SPA instead of the file.
+// Empty at the domain root and in dev.
+const APP_BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/+$/, '');
 const MEDIA_ROOT = process.env.MEDIA_ROOT || path.join(__dirname, '../../../public/media');
 const THUMBNAIL_MAX_SIZE = Number(process.env.SOCIAL_IMAGE_THUMB_SIZE || 320);
 
@@ -33,7 +38,7 @@ function getMediaRoot() {
 function buildMediaUrl(key) {
   const normalizedKey = normalizeKey(key);
   if (!normalizedKey) return null;
-  return `${MEDIA_ROUTE_PREFIX}/${normalizedKey}`;
+  return `${APP_BASE_PATH}${MEDIA_ROUTE_PREFIX}/${normalizedKey}`;
 }
 
 function resolveMediaPath(key) {
@@ -147,6 +152,22 @@ async function persistSocialImage({ buffer, sourcePlatform, mimeType }) {
   }
 }
 
+async function persistSvgChart({ svg, guid }) {
+  if (!svg || typeof svg !== 'string' || !guid) return null;
+
+  // Deterministic, filesystem-safe key per event. IODA re-scrapes and overwrites
+  // the chart on every poll while an outage is ongoing; keying by guid means the
+  // re-fetch overwrites the same file in place instead of orphaning a new one.
+  const hash = crypto.createHash('sha1').update(String(guid)).digest('hex');
+  const key = `ioda/charts/${hash}.svg`;
+  const fullPath = resolveMediaPath(key);
+
+  await ensureParentDir(fullPath);
+  await fs.writeFile(fullPath, svg, 'utf-8');
+
+  return key; // stored in place of the inline SVG string
+}
+
 async function deleteMediaByKey(key) {
   const normalizedKey = normalizeKey(key);
   if (!normalizedKey) return;
@@ -172,8 +193,10 @@ async function deleteSocialAttachments(attachments) {
 module.exports = {
   MEDIA_ROUTE_PREFIX,
   buildMediaUrl,
+  deleteMediaByKey,
   deleteSocialAttachments,
   detectImageMimeType,
   getMediaRoot,
   persistSocialImage,
+  persistSvgChart,
 };
