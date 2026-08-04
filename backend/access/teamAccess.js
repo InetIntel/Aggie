@@ -30,8 +30,39 @@ const canCreateOrDeleteTeams = (user) => {
   return isAdmin(user) || isLegacyTeamLead(user);
 };
 
+const canCreateUsers = (user, explicitlyLedTeamIds = []) => {
+  return isAdmin(user) ||
+    isLegacyTeamLead(user) ||
+    normalizeIds(explicitlyLedTeamIds).length > 0;
+};
+
+const canCreateUserRole = (user, role) => {
+  if (isAdmin(user)) {
+    return ['viewer', 'monitor', 'admin', 'team_lead'].includes(role);
+  }
+
+  return ['viewer', 'monitor'].includes(role);
+};
+
+const canAssignCreatedUserToTeams = (
+  user,
+  requestedTeamIds = [],
+  explicitlyLedTeamIds = []
+) => {
+  if (isAdmin(user) || isLegacyTeamLead(user)) return true;
+
+  const requestedIds = normalizeIds(requestedTeamIds);
+  if (requestedIds.length === 0) return false;
+
+  const ledIds = new Set(normalizeIds(explicitlyLedTeamIds));
+  return requestedIds.every((teamId) => ledIds.has(teamId));
+};
+
 module.exports = {
+  canAssignCreatedUserToTeams,
   canCreateOrDeleteTeams,
+  canCreateUserRole,
+  canCreateUsers,
   canManageTeam,
   isAdmin,
   isExplicitTeamLead,

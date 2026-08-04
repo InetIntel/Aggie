@@ -55,9 +55,18 @@ interface IProps {
   onClose: () => void;
   canEditRole?: boolean;
   currentUserRole?: UserRoles;
+  scopedTeamLead?: boolean;
+  creationTeamIds?: string[];
 }
 
-const CreateEditUserForm = ({ user, onClose, canEditRole, currentUserRole }: IProps) => {
+const CreateEditUserForm = ({
+  user,
+  onClose,
+  canEditRole,
+  currentUserRole,
+  scopedTeamLead = false,
+  creationTeamIds = [],
+}: IProps) => {
   const queryClient = useQueryClient();
 
   const doCreateUser = useMutation(newUser, {
@@ -79,7 +88,8 @@ const CreateEditUserForm = ({ user, onClose, canEditRole, currentUserRole }: IPr
       return; 
     }
     if (!user) {
-      doCreateUser.mutate(data);
+      const creationData = data as createSchema;
+      doCreateUser.mutate({ ...creationData, teams: creationTeamIds });
     } else {
       const withId = { ...data, _id: user._id };
       doEditUser.mutate(withId);
@@ -88,7 +98,7 @@ const CreateEditUserForm = ({ user, onClose, canEditRole, currentUserRole }: IPr
 
   const isLoading = doCreateUser.isLoading || doEditUser.isLoading;
   const isCreate = !user;
-  const isTeamLead = currentUserRole === 'team_lead';
+  const isTeamLead = currentUserRole === 'team_lead' || scopedTeamLead;
   
   const allowedRoleList = (isCreate && isTeamLead) ? (['viewer','monitor']) : USER_ROLES;
   const inputsDisabled = isLoading || (!!user && isTeamLead);

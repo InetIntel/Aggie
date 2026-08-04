@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { User, UserEditableData } from "./types";
+import type { User, UserCreationData, UserEditableData } from "./types";
 
 export const getUsers = async () => {
   const { data } = await axios.get<User[] | undefined>("/api/user");
@@ -19,7 +19,7 @@ export const getUser = async (id: string) => {
 };
 
 // We use UserEditableData because we don't actually pass a full user object when creating one.
-export const newUser = async (user: UserEditableData) => {
+export const newUser = async (user: UserCreationData) => {
   const { data } = await axios.post("/api/user/", user);
   return data;
 };

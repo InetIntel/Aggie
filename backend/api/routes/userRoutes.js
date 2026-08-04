@@ -12,7 +12,10 @@ router.get('/manageable', userController.user_manageableUsers);
 
 
 // Create a user
-router.post('', User.can('change settings'), userController.user_create);
+// Authorization is team-aware and is enforced in the controller. In addition
+// to admins and legacy global team leads, explicit team leads may create users
+// for teams they lead.
+router.post('', userController.user_create);
 
 // Get Individual User
 router.get('/:_id', userController.user_detail);

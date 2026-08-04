@@ -41,4 +41,5 @@ export interface UserEditableData {
 
 export interface UserCreationData extends UserEditableData {
   password: string;
+  teams?: string[];
 }

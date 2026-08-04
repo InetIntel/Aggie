@@ -5,6 +5,11 @@ const validator = require('validator');
 const Team = require('../../models/team');
 const database = require('../../database');
 const mongoose = database.mongoose;
+const {
+  canAssignCreatedUserToTeams,
+  canCreateUserRole,
+  canCreateUsers,
+} = require('../../access/teamAccess');
 
 
 // helpers for team items
@@ -129,7 +134,7 @@ exports.user_detail = (req, res) => {
 };
 
 // Create a new User
-exports.user_create = (req, res) => {
+exports.user_create = async (req, res) => {
   console.log(
     'Attempting to register user with username: ' +
     req.body.username +
@@ -141,13 +146,67 @@ exports.user_create = (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
   if (!validator.isEmail(req.body.email)) {
-    res.status(400).send('Please provide a valid email.');
-  } else {
+    return res.status(400).send('Please provide a valid email.');
+  }
 
-    if (req.user.role === 'team_lead') {
-      const desiredRole = (req.body.role || '').toLowerCase();
-      if (!['viewer', 'monitor'].includes(desiredRole)) {
-        return res.status(403).send('Unauthorized.Team lead can only create viewer or monitor users.');
+  try {
+    const actor = await User.findById(req.user._id)
+      .select('_id role')
+      .lean();
+
+    if (!actor) return res.status(401).send('Unauthenticated.');
+
+    if (req.body.teams !== undefined && !Array.isArray(req.body.teams)) {
+      return res.status(400).send('Please provide teams as an array.');
+    }
+
+    const requestedTeamIds = normalizeIds(req.body.teams);
+    if (requestedTeamIds.some((id) => !isValidObjectId(id))) {
+      return res.status(400).send('One or more team ids are invalid.');
+    }
+
+    const explicitlyLedTeams = await Team.find({ leads: actor._id })
+      .select('_id')
+      .lean();
+    const explicitlyLedTeamIds = explicitlyLedTeams.map((team) => team._id);
+
+    if (!canCreateUsers(actor, explicitlyLedTeamIds)) {
+      return res.status(403).send('Unauthorized to create users.');
+    }
+
+    const desiredRole = String(req.body.role || '').toLowerCase();
+    const supportedRoles = ['viewer', 'monitor', 'admin', 'team_lead'];
+    if (!supportedRoles.includes(desiredRole)) {
+      return res.status(400).send('Please provide a valid user role.');
+    }
+
+    if (!canCreateUserRole(actor, desiredRole)) {
+      return res
+        .status(403)
+        .send('Team leads can only create viewer or monitor users.');
+    }
+
+    if (!canAssignCreatedUserToTeams(
+      actor,
+      requestedTeamIds,
+      explicitlyLedTeamIds
+    )) {
+      if (requestedTeamIds.length === 0) {
+        return res
+          .status(400)
+          .send('Scoped team leads must assign the user to a team they lead.');
+      }
+      return res
+        .status(403)
+        .send('Scoped team leads can only create users for teams they lead.');
+    }
+
+    if (requestedTeamIds.length > 0) {
+      const existingTeamCount = await Team.countDocuments({
+        _id: { $in: requestedTeamIds },
+      });
+      if (existingTeamCount !== requestedTeamIds.length) {
+        return res.status(400).send('One or more teams were not found.');
       }
     }
 
@@ -155,25 +214,24 @@ exports.user_create = (req, res) => {
       username: req.body.username,
       displayName: req.body.displayName,
       email: req.body.email,
-      role: req.body.role,
-      createdBy: req.user._id,    
+      role: desiredRole,
+      teams: requestedTeamIds,
+      createdBy: actor._id,
     };
 
-    User.register(
-      payload,
-      req.body.password,
-      (err, user) => {
-        if (err) {
-          res.status(err.status).send(err.message);
-        } else {
-          const authenticate = User.authenticate();
-          authenticate(req.body.username, req.body.password, (err, result) => {
-            if (err) res.status(err.status).send(err.message);
-            else res.status(200).send(user);
-          });
-        }
+    User.register(payload, req.body.password, (err, user) => {
+      if (err) {
+        return res
+          .status(err.status || 400)
+          .send(err.message || 'Unable to create user.');
       }
-    );
+
+      return res.status(200).send(user);
+    });
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to create user.');
   }
   /*
   User.register(req.body, function(err, user) {

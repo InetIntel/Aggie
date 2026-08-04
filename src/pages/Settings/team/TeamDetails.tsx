@@ -6,6 +6,9 @@ import { getManageableUsers } from "../../../api/users";
 import type { TeamMember, TeamDetailResponse } from "../../../api/teams/types";
 import type { Session } from "../../../api/session/types";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
+import AggieButton from "../../../components/AggieButton";
+import AggieDialog from "../../../components/AggieDialog";
+import CreateEditUserForm from "../user/CreateEditUserForm";
 
 import { useState } from "react";
 
@@ -78,6 +81,7 @@ const TeamDetails = ({ session }: IProps) => {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedRole, setSelectedRole] = useState("viewer");
   const [removingUserId, setRemovingUserId] = useState<string | undefined>();
+  const [createUserOpen, setCreateUserOpen] = useState(false);
   const { data: users } = useQuery(["users", "manageable"], getManageableUsers);
   const doAddMember = useMutation(addTeamMember, {
   onSuccess: (updatedTeam: TeamDetailResponse) => {
@@ -178,7 +182,17 @@ const availableUsers =
           </div>
         </div>
         <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 p-3 mb-4'>
-  <h3 className='text-xl font-medium mb-2'>Add team member</h3>
+  <div className='flex justify-between items-center gap-3 mb-2'>
+    <h3 className='text-xl font-medium'>Add team member</h3>
+    <AggieButton
+      type='button'
+      variant='secondary'
+      className='px-3 py-2 text-sm'
+      onClick={() => setCreateUserOpen(true)}
+    >
+      Create new member
+    </AggieButton>
+  </div>
 
   <div className='grid grid-cols-1 md:grid-cols-[1fr_180px_120px] gap-2 items-end'>
     <label className='flex flex-col gap-1 text-sm'>
@@ -286,6 +300,24 @@ const availableUsers =
           )}
         </div>
       </PlaceholderDiv>
+
+      <AggieDialog
+        isOpen={createUserOpen}
+        onClose={() => setCreateUserOpen(false)}
+        className='px-3 py-4 w-full max-w-lg'
+        data={{ title: `Create member for ${data?.team.name || "team"}` }}
+      >
+        <CreateEditUserForm
+          onClose={() => {
+            setCreateUserOpen(false);
+            queryClient.invalidateQueries(["teams", params.id]);
+            queryClient.invalidateQueries(["users", "manageable"]);
+          }}
+          currentUserRole={session?.role}
+          scopedTeamLead={isScopedTeamLead}
+          creationTeamIds={params.id ? [params.id] : []}
+        />
+      </AggieDialog>
     </section>
   );
 };
