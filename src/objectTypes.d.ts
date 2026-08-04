@@ -376,6 +376,7 @@ type MediaType =
   | "twitter"
   | "instagram"
   | "RSS"
+  | "OONI"
   | "elmo"
   | "SMS GH"
   | "whatsapp"

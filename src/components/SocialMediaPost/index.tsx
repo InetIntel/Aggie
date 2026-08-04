@@ -17,6 +17,7 @@ import TruthSocialPost from "./TruthSocialPost";
 import SocialMediaIcon from "./SocialMediaIcon";
 import RSSPost from "./RSSPost";
 import TwitterKWSearchPost from "./TwitterKWSearchPost";
+import OONIPost from "./OONIPost";
 
 interface IProps {
   report: Report;
@@ -33,6 +34,14 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
             username={website.host}
             createdAt={report.authoredAt}
             url={report.metadata.accountUrl}
+          />
+        );
+      case "OONI":
+        return (
+          <SocialMediaAuthor
+            username={report.author}
+            createdAt={report.authoredAt}
+            url={report.url}
           />
         );
       default:
@@ -58,6 +67,8 @@ const SocialMediaPost = ({ report, showMedia }: IProps) => {
         return <TwitterKWSearchPost report={report} />;
       case "RSS":
         return <RSSPost report={report} />;
+      case "OONI":
+        return <OONIPost report={report} />;
       case "truthsocial":
         return <TruthSocialPost report={report} />;
       case "youtube":

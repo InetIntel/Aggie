@@ -14,6 +14,7 @@ export const MEDIA_OPTIONS = [
   "tiktok",
   "instagram",
   "RSS",
+  "OONI",
   // "elmo",
   // "SMS GH",
   "truthsocial",
@@ -31,7 +32,7 @@ export type ClosedOptions = (typeof CLOSED_OPTIONS)[number];
 export const IRRELEVANCE_OPTIONS = ["true", "maybe", "false"] as const;
 export type IrrelevanceOptions = (typeof IRRELEVANCE_OPTIONS)[number];
 
-export const CREDENTIAL_OPTIONS = ["junkipedia", "rss", "twitter"] as const;
+export const CREDENTIAL_OPTIONS = ["junkipedia", "rss", "ooni", "twitter"] as const;
 export type CredentialOption = (typeof CREDENTIAL_OPTIONS)[number];
 
 export const GROUP_SORTBY = [

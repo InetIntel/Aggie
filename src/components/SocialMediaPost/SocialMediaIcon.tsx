@@ -10,7 +10,7 @@ import {
 } from "@fortawesome/free-brands-svg-icons";
 import { faQuestionCircle } from "@fortawesome/free-regular-svg-icons";
 import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import { faRss } from "@fortawesome/free-solid-svg-icons";
+import { faGlobe, faRss } from "@fortawesome/free-solid-svg-icons";
 
 const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
   tiktok: faTiktok,
@@ -18,6 +18,7 @@ const mediaIcons: Record<MediaOptions, IconDefinition | BrandsDef> = {
   youtube: faYoutube,
   twitter: faTwitter,
   RSS: faRss,
+  OONI: faGlobe,
   facebook: faFacebook,
   truthsocial: faQuestionCircle,
   // elmo: faQuestionCircle,

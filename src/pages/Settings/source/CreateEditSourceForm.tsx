@@ -166,6 +166,48 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     </FormikWithSchema>
   );
 
+  const OoniSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source name is a required field"),
+    lists: Yup.string().required("At least one ASN is required"),
+    credentials: Yup.string().required(
+      "An OONI credential is required to create a source"
+    ),
+  });
+  type IOoniSchema = Yup.InferType<typeof OoniSchema>;
+
+  const OONIForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "44244 58224",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || defaultCredential?._id,
+        sourceURL: source?.url || "",
+        url: "https://api.ooni.org/api/v1/aggregation",
+      }}
+      schema={OoniSchema}
+      onSubmit={(values: IOoniSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <FormikInput name='lists' label='ASNs (space or comma separated)' />
+      <FormikDropdown
+        list={
+          credentialsList?.map((i) => {
+            return { _id: i._id, label: i.name };
+          }) || [{ _id: "", label: "loading" }]
+        }
+        label={"OONI Credentials"}
+        name={"credentials"}
+      />
+    </FormikWithSchema>
+  );
+
 
 
   const twitterSchema = Yup.object().shape({
@@ -292,6 +334,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       </Listbox>
       {credentialType === "junkipedia" && JunkipediaForm}
       {credentialType === "rss" && RSSForm}
+      {credentialType === "ooni" && OONIForm}
       {credentialType === "twitter" && TwitterForm}
       {/* {credentialType === "telegram" && TelegramForm} */}
     </>

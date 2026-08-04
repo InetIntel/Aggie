@@ -109,6 +109,28 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       <FormikInput name='name' label='Credential Name' />
     </FormikWithSchema>
   );
+
+  const ooniSchema = Yup.object().shape({
+    name: Yup.string().required("Credentials name required"),
+  });
+  type IOoniSchema = Yup.InferType<typeof ooniSchema>;
+
+  const ooniForm = (
+    <FormikWithSchema
+      schema={ooniSchema}
+      onSubmit={(values: IOoniSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "ooni",
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Credential Name' />
+    </FormikWithSchema>
+  );
   const twitterSchema = Yup.object().shape({
     name: Yup.string().required("Credentials name required"),
     consumerKey: Yup.string().required("Consumer key required."),
@@ -187,6 +209,7 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       </Listbox>
       {credentialType === "junkipedia" && junkipediaForm}
       {credentialType === "rss" && rssForm}
+      {credentialType === "ooni" && ooniForm}
       {credentialType === "twitter" && twitterForm}
       {/* {credentialType === "telegram" && telegramForm} */}
     </>
