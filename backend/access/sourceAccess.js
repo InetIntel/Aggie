@@ -1,5 +1,7 @@
 'use strict';
 
+const { hasPermission } = require('./permissions');
+
 const normalizeIds = (values) => {
   if (!Array.isArray(values)) return [];
 
@@ -101,7 +103,7 @@ const canViewSourceDataForDate = (user, source, recordDate) => {
   return false;
 };
 
-const canManageSource = (user) => isAdmin(user);
+const canManageSource = (user) => hasPermission(user, 'manage sources');
 
 const getSourceId = (source) => {
   if (!source) return null;

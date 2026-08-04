@@ -11,6 +11,7 @@ export interface Session extends hasId {
   hasDefaultPassword: boolean;
   provider: string;
   role: "admin" | "monitor" |"viewer" |"team_lead" | undefined;
+  permissions?: Permission[];
   isTeamLead?: boolean;
   username: string;
   mfa?: boolean;              // session is MFA-verified
@@ -85,3 +86,17 @@ export interface TotpRecoveryCodesResponse {
   ok: boolean;
   recoveryCodes: string[];
 }
+
+export type Permission =
+  | "manage trends"
+  | "view data"
+  | "edit data"
+  | "change settings"
+  | "manage sources"
+  | "view users"
+  | "view other users"
+  | "update users"
+  | "delete users"
+  | "admin users"
+  | "change admin password"
+  | "edit tags";

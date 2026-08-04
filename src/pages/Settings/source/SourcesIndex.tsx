@@ -32,6 +32,7 @@ const SourcesIndex = (props: IProps) => {
   const queryClient = useQueryClient();
   const { data, isError, error } = useQuery(["sources"], getSources);
   const { data: session } = useQuery(["session"], getSession);
+  const canManageSources = session?.permissions?.includes("manage sources") === true;
 
   const [deletionModal, setDeletionModal] = useState<Source>();
   const [openCreate, setOpenCreate] = useState("");
@@ -64,7 +65,7 @@ const SourcesIndex = (props: IProps) => {
     <div className='mt-3'>
       <div className='flex justify-between items-center mt-3'>
         <h1 className='font-medium my-3 text-3xl'>Sources</h1>
-        { (session?.role === "admin" || session?.role === "team_lead") &&
+        {canManageSources &&
           <AggieButton
             onClick={() => setOpenCreate("new")}
             variant='primary'
@@ -75,7 +76,7 @@ const SourcesIndex = (props: IProps) => {
           </AggieButton>
         }
       </div>
-      { (session?.role === "admin" || session?.role === "team_lead") && <Configuration /> }
+      {canManageSources && <Configuration />}
       <section className='bg-white dark:bg-gray-800 rounded-lg border border-slate-300 divide-y divide-slate-300 mt-3'>
         {data &&
           data.map((source) => (
@@ -95,7 +96,7 @@ const SourcesIndex = (props: IProps) => {
 
                 <p className='text-sm '>{source.keywords}</p>
               </main>
-              { (session?.role === "admin" || session?.role === "team_lead") &&
+              {canManageSources &&
                 <div>
                   <p className=' bg-slate-200 dark:bg-gray-600 rounded-full px-2  w-fit  py-1'>
                     <Link
@@ -129,7 +130,7 @@ const SourcesIndex = (props: IProps) => {
                   </Link>
                 </p>
               </div>
-              { (session?.role === "admin" || session?.role === "team_lead") &&
+              {canManageSources &&
                 <div className='flex justify-end items-center gap-2'>
                   <p className='text-xs font-medium text-slate-600 dark:text-gray-400'>
                     {source.enabled ? "Enabled" : "Disabled"}
@@ -180,7 +181,7 @@ const SourcesIndex = (props: IProps) => {
             </article>
           ))}
       </section>
-      { (session?.role === "admin" || session?.role === "team_lead") && <>
+      {canManageSources && <>
         <ConfirmationDialog
           isOpen={!!deletionModal}
           variant='danger'

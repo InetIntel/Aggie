@@ -3,6 +3,11 @@ var database = require('../database');
 const mongoose = database.mongoose;
 const Schema = mongoose.Schema;
 const passportLocalMongoose = require('passport-local-mongoose');
+const {
+  PERMISSION_KEYS,
+  PERMISSION_ROLES,
+  hasPermission,
+} = require('../access/permissions');
 require('dotenv').config()
 
 function bufferToBase64url(buf) {
@@ -41,6 +46,18 @@ var userSchema = new Schema({
   password: { type: String },
   hasDefaultPassword: { type: Boolean, default: true },
   role: { type: String, default: 'viewer' },
+  permissionOverrides: {
+    allow: {
+      type: [String],
+      enum: PERMISSION_KEYS,
+      default: [],
+    },
+    deny: {
+      type: [String],
+      enum: PERMISSION_KEYS,
+      default: [],
+    },
+  },
   teams: {
       type: [{ type: Schema.Types.ObjectId, ref: 'Team' }],
       default: [],
@@ -113,20 +130,9 @@ userSchema.plugin(passportLocalMongoose, {
 
 var User = mongoose.model('User', userSchema);
 
-User.permissions = {
-  'manage trends': ['admin'],
-  'view data': ['viewer', 'monitor', 'admin', 'team_lead'],
-  'edit data': ['monitor', 'admin', 'team_lead'],
-  'change settings': ['admin', 'team_lead'],
-  'manage sources': ['admin'],
-  'view users': ['viewer', 'monitor', 'admin', 'team_lead'],
-  'view other users': ['manager', 'admin','team_lead'],
-  'update users': ['viewer', 'monitor', 'admin'],
-  'delete users': ['admin', 'team_lead'],
-  'admin users': ['admin'],
-  'change admin password': ['admin'],
-  'edit tags': ['manager', 'admin']
-};
+// Kept as a public model property for compatibility with existing callers.
+User.permissions = PERMISSION_ROLES;
+User.hasPermission = hasPermission;
 
 // Determine if a user can do a certain action
 User.can = (permission) => {
@@ -150,11 +156,9 @@ User.can = (permission) => {
       if (!foundUser || !foundUser.active) {
         return res.status(401).send('User account is unavailable.');
       }
-      if (User.permissions[permission]) {
-        if (User.permissions[permission].indexOf(foundUser.role) > -1) {
-          req.accessUser = foundUser;
-          return next();
-        }
+      if (hasPermission(foundUser, permission)) {
+        req.accessUser = foundUser;
+        return next();
       }
       return res.status(403).send('You are not authorized to ' + permission + '.');
     });

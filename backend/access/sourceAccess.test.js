@@ -89,9 +89,18 @@ test('admins do not receive a source filter', () => {
   );
 });
 
-test('only admins may manage source configuration', () => {
+test('role defaults allow only admins to manage source configuration', () => {
   assert.equal(canManageSource({ role: 'admin' }), true);
   assert.equal(canManageSource({ role: 'team_lead' }), false);
   assert.equal(canManageSource({ role: 'monitor' }), false);
   assert.equal(canManageSource({ role: 'viewer' }), false);
+});
+
+test('a manage sources override grants source management without changing role', () => {
+  const monitor = {
+    role: 'monitor',
+    permissionOverrides: { allow: ['manage sources'], deny: [] },
+  };
+
+  assert.equal(canManageSource(monitor), true);
 });

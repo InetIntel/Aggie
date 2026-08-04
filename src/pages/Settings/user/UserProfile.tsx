@@ -23,6 +23,7 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { UserRoles } from "../../../api/users/types";
 import SecuritySection from "./components/SecuritySection";
+import PermissionEditor from "./components/PermissionEditor";
 
 interface IProps {
   session: Session | undefined;
@@ -254,6 +255,10 @@ const UserProfile = ({ session }: IProps) => {
               </AggieButton>
             </div>
           </div>
+        )}
+
+        {isAdmin && !isSelf && data && data.role !== "admin" && (
+          <PermissionEditor userId={data._id} />
         )}
 
         <SecuritySection

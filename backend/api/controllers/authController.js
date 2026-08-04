@@ -1,5 +1,6 @@
 const User = require("../../models/user");
 const Team = require('../../models/team');
+const { getEffectivePermissions } = require('../../access/permissions');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const crypto = require('crypto');
@@ -213,6 +214,7 @@ exports.session = async (req, res, next) => {
       username: user.username,
       email: user.email,
       role: user.role,
+      permissions: getEffectivePermissions(user),
       isTeamLead: user.role === 'team_lead' || Boolean(hasExplicitLeadTeam),
       hasDefaultPassword: user.hasDefaultPassword,
       provider: user.provider,
