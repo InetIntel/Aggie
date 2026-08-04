@@ -1,11 +1,10 @@
 const { PollChannel } = require('downstream');
 const Report = require('../../models/report');
-const { fetchDailyMeasurements, fetchMeasurements } = require('../ooniApi');
+const { fetchDailyMeasurements } = require('../ooniApi');
 const { normalizeDailyCounts, evaluateAlert } = require('../ooniAlerts');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ALERT_DELAY_HOURS = 6;
-const EVIDENCE_LIMIT = 5;
 const NETWORK_NAMES = {
   44244: 'IranCell',
   58224: 'MCCI',
@@ -32,29 +31,7 @@ function alertGuid(asn, alertDate) {
 
 function alertContent(asn, alerts) {
   const network = NETWORK_NAMES[asn] || `AS${asn}`;
-  const messages = alerts.map((alert) => {
-    if (alert.type === 'zero_measurements') {
-      return `no web connectivity measurements were recorded on ${alert.measurementDay}`;
-    }
-    return `the 2-day measurement average declined ${(alert.declineFraction * 100).toFixed(1)}%`;
-  });
-  return `OONI volume alert for ${network} (AS${asn}): ${messages.join('; ')}.`;
-}
-
-function measurementEvidence(measurement) {
-  return {
-    input: measurement.input,
-    measurementStartTime: measurement.measurement_start_time,
-    measurementUid: measurement.measurement_uid,
-    measurementUrl: measurement.measurement_url,
-    anomaly: measurement.anomaly,
-    confirmed: measurement.confirmed,
-    failure: measurement.failure,
-    blockingType: measurement.scores && measurement.scores.analysis
-      ? measurement.scores.analysis.blocking_type
-      : null,
-    verificationStatus: measurement.verification_status,
-  };
+  return `OONI volume alert for ${network} (AS${asn}): no web connectivity measurements were recorded on ${alerts[0].measurementDay}.`;
 }
 
 class OONIChannel extends PollChannel {
@@ -76,59 +53,11 @@ class OONIChannel extends PollChannel {
     this.asns = asns;
     this.interval = options.interval || OONIChannel.INTERVAL;
     this.fetchDailyMeasurements = options.fetchDailyMeasurements || fetchDailyMeasurements;
-    this.fetchMeasurements = options.fetchMeasurements || fetchMeasurements;
-  }
-
-  async fetchEvidence(asn, alerts) {
-    const decline = alerts.find((alert) => alert.type === 'measurement_decline');
-    if (!decline) {
-      return {
-        available: false,
-        reason: 'No measurements were available on the zero-measurement day.',
-        confirmed: [],
-        anomalous: [],
-      };
-    }
-
-    const query = {
-      asn,
-      since: decline.recentStart,
-      until: decline.alertDate,
-    };
-    try {
-      const [confirmed, anomalous] = await Promise.all([
-        this.fetchMeasurements({ ...query, confirmed: true, limit: EVIDENCE_LIMIT }),
-        this.fetchMeasurements({
-          ...query,
-          anomaly: true,
-          confirmed: false,
-          limit: EVIDENCE_LIMIT,
-        }),
-      ]);
-
-      return {
-        available: true,
-        windowStart: decline.recentStart,
-        windowEnd: decline.recentEnd,
-        confirmed: confirmed.slice(0, EVIDENCE_LIMIT).map(measurementEvidence),
-        anomalous: anomalous
-          .filter((measurement) => !measurement.confirmed)
-          .slice(0, EVIDENCE_LIMIT)
-          .map(measurementEvidence),
-      };
-    } catch (error) {
-      return {
-        available: false,
-        reason: `Related measurements could not be loaded: ${error.message}`,
-        confirmed: [],
-        anomalous: [],
-      };
-    }
   }
 
   async fetch() {
     const alertDate = alertDateFor(new Date());
-    const since = dayString(shiftDay(alertDate, -16));
+    const since = dayString(shiftDay(alertDate, -1));
     const until = dayString(alertDate);
     const posts = [];
 
@@ -141,8 +70,7 @@ class OONIChannel extends PollChannel {
       const guid = alertGuid(asn, dayString(alertDate));
       if (await Report.exists({ guid })) continue;
 
-      const evidence = await this.fetchEvidence(asn, alerts);
-      const post = this.parse({ asn, alerts, evidence, guid, fetchedAt: new Date() });
+      const post = this.parse({ asn, alerts, guid, fetchedAt: new Date() });
       posts.push(post);
       this.enqueue(post);
     }
@@ -151,13 +79,13 @@ class OONIChannel extends PollChannel {
   }
 
   parse(rawMessage) {
-    const { asn, alerts, evidence, guid, fetchedAt } = rawMessage;
+    const { asn, alerts, guid, fetchedAt } = rawMessage;
     const alertDate = alerts[0].alertDate;
     const searchParams = new URLSearchParams({
       probe_cc: 'IR',
       probe_asn: `AS${asn}`,
       test_name: 'web_connectivity',
-      since: evidence.windowStart || alerts[0].measurementDay,
+      since: alerts[0].measurementDay,
       until: alertDate,
     });
 
@@ -176,7 +104,6 @@ class OONIChannel extends PollChannel {
         testName: 'web_connectivity',
         alertDate,
         triggers: alerts,
-        evidence,
       },
     };
   }

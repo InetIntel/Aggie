@@ -12,10 +12,6 @@ function shiftDay(value, offset) {
   return new Date(value.getTime() + offset * DAY_MS);
 }
 
-function mean(values) {
-  return values.reduce((total, value) => total + value, 0) / values.length;
-}
-
 function normalizeDailyCounts(rows, since, until) {
   const countsByDay = new Map();
   rows.forEach((row) => {
@@ -34,54 +30,24 @@ function normalizeDailyCounts(rows, since, until) {
   return normalized;
 }
 
-function evaluateAlert(dailyCounts, alertDate, declineThreshold = 0.3) {
+function evaluateAlert(dailyCounts, alertDate) {
   const date = toDay(alertDate);
   const countsByDay = new Map(
     dailyCounts.map(({ day, measurementCount }) => [day, measurementCount]),
   );
-  const count = (offset) => countsByDay.get(dayString(shiftDay(date, offset))) || 0;
-  const alerts = [];
   const latestDay = dayString(shiftDay(date, -1));
-  const latestCount = count(-1);
+  const latestCount = countsByDay.get(latestDay) || 0;
 
-  if (latestCount === 0) {
-    alerts.push({
+  if (latestCount !== 0) return [];
+
+  return [
+    {
       type: 'zero_measurements',
       alertDate: dayString(date),
       measurementDay: latestDay,
       measurementCount: 0,
-    });
-  }
-
-  const recentCounts = [count(-2), count(-1)];
-  const baselineCounts = [];
-  for (let offset = -16; offset <= -3; offset++) {
-    const value = count(offset);
-    if (value > 0) baselineCounts.push(value);
-  }
-
-  if (baselineCounts.length > 0) {
-    const recentAverage = mean(recentCounts);
-    const baselineAverage = mean(baselineCounts);
-    const declineFraction = 1 - recentAverage / baselineAverage;
-    if (declineFraction >= declineThreshold) {
-      alerts.push({
-        type: 'measurement_decline',
-        alertDate: dayString(date),
-        recentStart: dayString(shiftDay(date, -2)),
-        recentEnd: latestDay,
-        recentCounts,
-        recentAverage,
-        baselineStart: dayString(shiftDay(date, -16)),
-        baselineEnd: dayString(shiftDay(date, -3)),
-        baselineNonZeroDays: baselineCounts.length,
-        baselineAverage,
-        declineFraction,
-      });
-    }
-  }
-
-  return alerts;
+    },
+  ];
 }
 
 module.exports = {

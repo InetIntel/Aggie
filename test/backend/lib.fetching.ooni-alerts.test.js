@@ -32,7 +32,7 @@ describe('OONI alerts', function() {
     });
   });
 
-  it('compares the latest two days with the prior 14 non-zero days', function() {
+  it('does not alert when the completed day has measurements', function() {
     const daily = [];
     for (let day = 1; day <= 16; day++) {
       daily.push({
@@ -43,24 +43,6 @@ describe('OONI alerts', function() {
 
     const alerts = evaluateAlert(daily, '2025-12-17');
 
-    expect(alerts).to.have.length(1);
-    expect(alerts[0].type).to.equal('measurement_decline');
-    expect(alerts[0].baselineNonZeroDays).to.equal(14);
-    expect(alerts[0].declineFraction).to.equal(0.4);
-  });
-
-  it('excludes zero values from the 14-day baseline', function() {
-    const daily = [];
-    for (let day = 1; day <= 16; day++) {
-      daily.push({
-        day: `2025-12-${String(day).padStart(2, '0')}`,
-        measurementCount: day === 1 ? 0 : (day <= 14 ? 100 : 60),
-      });
-    }
-
-    const alerts = evaluateAlert(daily, '2025-12-17');
-
-    expect(alerts[0].baselineNonZeroDays).to.equal(13);
-    expect(alerts[0].baselineAverage).to.equal(100);
+    expect(alerts).to.deep.equal([]);
   });
 });

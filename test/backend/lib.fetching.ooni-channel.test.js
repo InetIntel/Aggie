@@ -14,7 +14,6 @@ describe('OONI channel', function() {
       fetchDailyMeasurements: async () => [
         { measurement_start_day: '2026-08-03', measurement_count: 0 },
       ],
-      fetchMeasurements: async () => [],
     });
 
     channel.enqueue = (post) => queued.push(post);

@@ -21,7 +21,7 @@ function csvValue(value) {
 
 async function main() {
   const alertUntil = process.argv[2] || new Date().toISOString().slice(0, 10);
-  const dataSince = shiftDay(ALERT_SINCE, -16);
+  const dataSince = shiftDay(ALERT_SINCE, -1);
   const dataUntil = alertUntil;
   const output = [];
 
@@ -46,69 +46,25 @@ async function main() {
   const outputPath = path.join(outputDirectory, 'ooni-alert-backtest.json');
   fs.writeFileSync(outputPath, `${JSON.stringify(output, null, 2)}\n`);
   const csvFields = [
-    'asn', 'networkName', 'alertDate', 'triggerTypes', 'measurementDay',
-    'measurementCount', 'recentStart', 'recentEnd', 'recentCounts',
-    'recentAverage', 'baselineStart', 'baselineEnd', 'baselineNonZeroDays',
-    'baselineAverage', 'declineFraction',
+    'asn', 'networkName', 'alertDate', 'triggerType', 'measurementDay',
+    'measurementCount',
   ];
   const csvRows = output.map((alert) => {
-    const zero = alert.triggers.find((trigger) => trigger.type === 'zero_measurements') || {};
-    const decline = alert.triggers.find((trigger) => trigger.type === 'measurement_decline') || {};
+    const trigger = alert.triggers[0];
     const row = {
       ...alert,
-      triggerTypes: alert.triggers.map((trigger) => trigger.type),
-      ...zero,
-      ...decline,
+      triggerType: trigger.type,
+      ...trigger,
     };
     return csvFields.map((field) => csvValue(row[field])).join(',');
   });
   const csvPath = path.join(outputDirectory, 'ooni-alert-backtest.csv');
   fs.writeFileSync(csvPath, `${csvFields.join(',')}\n${csvRows.join('\n')}\n`);
-  const triggerCsvFields = [
-    'asn', 'networkName', 'alertDate', 'triggerType', 'zeroMeasurementDay',
-    'zeroMeasurementCount', 'recentStart', 'recentEnd', 'recentCounts',
-    'recentAverage', 'baselineStart', 'baselineEnd', 'baselineNonZeroDays',
-    'baselineAverage', 'declineFraction', 'declinePercent',
-  ];
-  const triggerCsvRows = output.flatMap((alert) => {
-    // When both triggers fire on the same day, keep only the zero-measurement alert.
-    const hasZero = alert.triggers.some((trigger) => trigger.type === 'zero_measurements');
-    const triggers = hasZero
-      ? alert.triggers.filter((trigger) => trigger.type === 'zero_measurements')
-      : alert.triggers;
-    return triggers.map((trigger) => {
-    const row = {
-      asn: alert.asn,
-      networkName: alert.networkName,
-      alertDate: alert.alertDate,
-      triggerType: trigger.type,
-      ...trigger,
-      zeroMeasurementDay: trigger.type === 'zero_measurements'
-        ? trigger.measurementDay
-        : null,
-      zeroMeasurementCount: trigger.type === 'zero_measurements'
-        ? trigger.measurementCount
-        : null,
-      declinePercent: trigger.declineFraction == null
-        ? null
-        : trigger.declineFraction * 100,
-    };
-    return triggerCsvFields.map((field) => csvValue(row[field])).join(',');
-  });
-  });
-  const triggerCsvPath = path.join(outputDirectory, 'ooni-alert-triggers.csv');
-  fs.writeFileSync(
-    triggerCsvPath,
-    `${triggerCsvFields.join(',')}\n${triggerCsvRows.join('\n')}\n`,
-  );
   console.log(`Wrote ${output.length} alerts to ${outputPath}`);
   console.log(`Wrote CSV output to ${csvPath}`);
-  console.log(`Wrote ${triggerCsvRows.length} individual triggers to ${triggerCsvPath}`);
   ASNS.forEach((asn) => {
     const alerts = output.filter((alert) => alert.asn === asn);
-    const zeros = alerts.filter((alert) => alert.triggers.some((trigger) => trigger.type === 'zero_measurements')).length;
-    const declines = alerts.filter((alert) => alert.triggers.some((trigger) => trigger.type === 'measurement_decline')).length;
-    console.log(`AS${asn}: ${alerts.length} reports (${zeros} zero-measurement triggers, ${declines} decline triggers)`);
+    console.log(`AS${asn}: ${alerts.length} zero-measurement reports`);
   });
 }
 
