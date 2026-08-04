@@ -10,6 +10,7 @@
     "dev:frontend": "cross-env PORT=8000 react-scripts start",
     "dev:backend": "cross-env ENVIRONMENT=development nodemon app.js",
     "dev:all": "npm run dev",
+    "backtest:ooni": "node scripts/backtest-ooni-alerts.js",
     "build": "cross-env CI=false react-scripts build",
     "start": "ENVIRONMENT=production node app.js",
     "postinstall": "node install.js"

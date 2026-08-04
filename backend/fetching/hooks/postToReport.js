@@ -29,7 +29,7 @@ module.exports = async function postToReport(post, next) {
 
 
     let metadata;
-    if (platform === 'RSS') {
+    if (platform === 'RSS' || platform === 'OONI') {
         // What do we want here?
         metadata = {
             // title: raw.title || null,

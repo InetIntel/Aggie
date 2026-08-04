@@ -1,0 +1,90 @@
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function toDay(value) {
+  return new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
+}
+
+function dayString(value) {
+  return value.toISOString().slice(0, 10);
+}
+
+function shiftDay(value, offset) {
+  return new Date(value.getTime() + offset * DAY_MS);
+}
+
+function mean(values) {
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function normalizeDailyCounts(rows, since, until) {
+  const countsByDay = new Map();
+  rows.forEach((row) => {
+    const day = (row.measurement_start_day || '').slice(0, 10);
+    if (day) countsByDay.set(day, Number(row.measurement_count) || 0);
+  });
+
+  const normalized = [];
+  for (let day = toDay(since); day < toDay(until); day = shiftDay(day, 1)) {
+    const key = dayString(day);
+    normalized.push({
+      day: key,
+      measurementCount: countsByDay.get(key) || 0,
+    });
+  }
+  return normalized;
+}
+
+function evaluateAlert(dailyCounts, alertDate, declineThreshold = 0.3) {
+  const date = toDay(alertDate);
+  const countsByDay = new Map(
+    dailyCounts.map(({ day, measurementCount }) => [day, measurementCount]),
+  );
+  const count = (offset) => countsByDay.get(dayString(shiftDay(date, offset))) || 0;
+  const alerts = [];
+  const latestDay = dayString(shiftDay(date, -1));
+  const latestCount = count(-1);
+
+  if (latestCount === 0) {
+    alerts.push({
+      type: 'zero_measurements',
+      alertDate: dayString(date),
+      measurementDay: latestDay,
+      measurementCount: 0,
+    });
+  }
+
+  const recentCounts = [count(-2), count(-1)];
+  const baselineCounts = [];
+  for (let offset = -16; offset <= -3; offset++) {
+    const value = count(offset);
+    if (value > 0) baselineCounts.push(value);
+  }
+
+  if (baselineCounts.length > 0) {
+    const recentAverage = mean(recentCounts);
+    const baselineAverage = mean(baselineCounts);
+    const declineFraction = 1 - recentAverage / baselineAverage;
+    if (declineFraction >= declineThreshold) {
+      alerts.push({
+        type: 'measurement_decline',
+        alertDate: dayString(date),
+        recentStart: dayString(shiftDay(date, -2)),
+        recentEnd: latestDay,
+        recentCounts,
+        recentAverage,
+        baselineStart: dayString(shiftDay(date, -16)),
+        baselineEnd: dayString(shiftDay(date, -3)),
+        baselineNonZeroDays: baselineCounts.length,
+        baselineAverage,
+        declineFraction,
+      });
+    }
+  }
+
+  return alerts;
+}
+
+module.exports = {
+  normalizeDailyCounts,
+  evaluateAlert,
+};

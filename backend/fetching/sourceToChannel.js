@@ -12,6 +12,7 @@ const downstream = require('./downstream');
 const AggieCrowdTangleChannel = require('./channels/crowdtangle');
 const TelegramChannel = require('./channels/telegram');
 const RSSChannel = require('./channels/rss');
+const OONIChannel = require('./channels/ooni');
 
 const { TwitterPageChannel, JunkipediaChannel } = builtin;
 
@@ -186,6 +187,13 @@ function createChannel(source) {
                 regex: regex,
             };
             channel = new RSSChannel(options);
+            break;
+        case 'ooni':
+            options = {
+                ...options,
+                asns: lists,
+            };
+            channel = new OONIChannel(options);
             break;
         default:
     }
