@@ -142,6 +142,39 @@ options — **recommend (a)** for simplicity:
   (bounded by their stored window) and populates `chart`, then old `image` keys can be
   retired. Only worth it if a uniform look across old reports is required.
 
+## Development & test fixtures
+
+We already have a rich local corpus to build and visually validate against:
+`public/media/ioda/charts/` holds **~1,300 real Highcharts SVGs** (`Created with
+Highcharts 11.4.3`, `highcharts-areaspline-series` — so the recharts mirror is an
+**`AreaChart`**, not a plain line chart). Representative cases: smallest ~130 KB, typical
+~290 KB, stress-case ~5.6 MB.
+
+**These SVGs are the ground-truth target, not the render input.** The recharts component
+draws from **signals JSON** (live IODA API), so development needs *paired* fixtures — a
+rendered SVG next to the signal JSON that produced it — to tune "match IODA closely"
+side-by-side. The filename is `sha1(guid)` and can't be reversed, but the **report
+documents carry the mapping**: `metadata.rawAPIResponse.rawEvent.location` (e.g.
+`region/4442`) + start/end give the entity and window, and `rawAPIResponse.image` holds the
+matching SVG key.
+
+**Fixture-extraction script (dev-only, throwaway) → `scratchpad/`:**
+
+- Connect to Mongo (reuse `backend/database.js`), pull ~10 IODA reports spanning entity
+  types (region / asn / geoasn) and a size mix.
+- For each: read `location` + the `[from,until]` window (mirror the dashboard window math
+  in [ioda.js:307-314](../../../backend/fetching/channels/ioda.js#L307-L314)), fetch
+  `signals/raw/{location}?from=&until=&maxPoints=150`, and write a fixture pair:
+  - `scratchpad/ioda-fixtures/<guid>.signals.json` — the source JSON,
+  - `scratchpad/ioda-fixtures/<guid>.reference.svg` — copied from
+    `public/media/ioda/charts/<sha1>.svg` (the render target),
+  - an `index.json` listing each pair with `location`, `datasource`, window, and byte sizes.
+- Build `IodaChart.tsx` against these static JSON files first (no live fetch, no backend
+  running); drop each `reference.svg` beside the recharts output to eyeball fidelity, then
+  iterate on normalization + the `-norm`/`-sarima` band until they match.
+
+This makes the frontend work fully offline and reproducible before any backend change lands.
+
 ## Files to modify
 
 - `backend/fetching/channels/ioda.js` — remove browser/scrape; fetch + store signals JSON.
@@ -156,6 +189,7 @@ options — **recommend (a)** for simplicity:
 - `src/components/SocialMediaPost/IodaEvent.tsx` — use the new hook.
 - `src/api/reports/types.ts` — type the `chart` field.
 - `docs/claude/plans/media-bytes-to-mongodb.md` — note IODA is now out of scope.
+- `scratchpad/extract-ioda-fixtures.js` — **new**, dev-only; writes paired JSON+SVG fixtures.
 
 ## Verification
 
