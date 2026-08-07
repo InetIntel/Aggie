@@ -1,5 +1,27 @@
 # Plan: Store IODA charts as signal JSON and render with recharts (drop the SVG scrape)
 
+> **Status: implemented.** Corrections found during implementation (this doc's original
+> assumptions were partly wrong):
+> - **Signals entity = raw `event.location`**, NOT the geoasn-stripped `entityCode`. The
+>   dashboard link strips the `geo` prefix (`geoasn/47262-IR` → `asn/47262-IR`) for page routing,
+>   but the signals API **rejects** the stripped form (HTTP 500) and wants `geoasn/47262-IR`.
+>   `event.location` works for region/asn/geoasn alike. (See `iodaUtils.fetchSignals` + `ioda.js`.)
+> - **`data` is nested** (`data[0]` is the series list) and **`values[]` carry no timestamps** —
+>   points are reconstructed as `from + i*step`.
+> - **`predicted` (gtr-norm/gtr-sarima) is essentially never populated** for region/asn/geoasn
+>   outage entities (gtr returns no data for them). The band code stays but no-ops; the chart is
+>   the 2–3 normalized signal lines.
+> - **There is no `ExpandableChart.tsx`.** IODA rendering is inlined in `IodaEvent.tsx` and the
+>   compare view `CompareCardBody.tsx` (where enlarge/zoom lives). A **new `IodaChart.tsx`** is
+>   branched into both; the legacy `image` path stays as fallback.
+> - **`useReportChartImage` was NOT renamed** — it still serves Cloudflare + legacy IODA images.
+>   A sibling **`useReportChartSeries.ts`** returns the new `chart`.
+> - **No DB projection existed**; the list serializer (`serializeReportResponse`) now strips
+>   `chart` per row, detail keeps it.
+> - **`jsdom` stays** in `package.json` (Mastodon uses it); only `playwright` + `dompurify` removed.
+> - Normalization: each signal is scaled to **% of its own max** over the window (matches the
+>   scraped 0–100% axis).
+
 ## Context
 
 IODA outage reports show a chart. Today that chart is **not** data we own — on every

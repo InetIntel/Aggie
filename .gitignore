@@ -54,3 +54,6 @@ build
 backend/api/uploads
 
 .claude/
+
+# dev-only throwaway scripts + generated fixtures (IODA signal migration)
+scratchpad/

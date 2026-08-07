@@ -84,6 +84,33 @@ export const SIGNAL_BADGE_BASE =
   "font-medium px-1 rounded-lg text-white dark:text-gray-300";
 export const SIGNAL_BADGE_CLASS = `${SIGNAL_BADGE_BASE} text-sm`;
 
+// Raw hex per signal, for contexts that can't use the Tailwind classes below (e.g.
+// recharts SVG line strokes). Keep in sync with the hexes hard-coded in
+// signalToNameColor — Tailwind's JIT needs the class strings to be literal, so the two
+// can't share a computed value.
+export const SIGNAL_HEX: Record<string, string> = {
+  bgp: "#33A02C", // BGP — green
+  "ping-slash24": "#1F78B4", // Active Probing — blue
+  "merit-nt": "#ED9B40", // Telescope — orange
+  mozilla: "#6A3D9A", // Mozilla — purple (completes the ColorBrewer Paired set)
+};
+
+export const SIGNAL_LABEL: Record<string, string> = {
+  bgp: "BGP",
+  "ping-slash24": "Active Probing",
+  "merit-nt": "Telescope",
+  mozilla: "Mozilla",
+};
+
+// Full descriptive labels IODA's dashboard shows in the chart legend (name + the metric
+// each signal measures). Used by IodaChart; the short SIGNAL_LABEL still names the badges.
+export const SIGNAL_CHART_LABEL: Record<string, string> = {
+  "merit-nt": "Telescope (# Unique Source IPs)",
+  bgp: "BGP (#Visible /24s)",
+  "ping-slash24": "Active Probing (#/24s Up)",
+  mozilla: "Mozilla (City Count)",
+};
+
 export function signalToNameColor(rawSignal: string) {
   switch(rawSignal) {
     case "bgp":

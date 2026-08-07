@@ -152,22 +152,6 @@ async function persistSocialImage({ buffer, sourcePlatform, mimeType }) {
   }
 }
 
-async function persistSvgChart({ svg, guid }) {
-  if (!svg || typeof svg !== 'string' || !guid) return null;
-
-  // Deterministic, filesystem-safe key per event. IODA re-scrapes and overwrites
-  // the chart on every poll while an outage is ongoing; keying by guid means the
-  // re-fetch overwrites the same file in place instead of orphaning a new one.
-  const hash = crypto.createHash('sha1').update(String(guid)).digest('hex');
-  const key = `ioda/charts/${hash}.svg`;
-  const fullPath = resolveMediaPath(key);
-
-  await ensureParentDir(fullPath);
-  await fs.writeFile(fullPath, svg, 'utf-8');
-
-  return key; // stored in place of the inline SVG string
-}
-
 async function deleteMediaByKey(key) {
   const normalizedKey = normalizeKey(key);
   if (!normalizedKey) return;
@@ -198,5 +182,4 @@ module.exports = {
   detectImageMimeType,
   getMediaRoot,
   persistSocialImage,
-  persistSvgChart,
 };

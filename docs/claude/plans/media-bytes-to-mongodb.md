@@ -1,5 +1,11 @@
 # Plan: Migrate media bytes from `public/media/` into a MongoDB collection
 
+> **Scope update (IODA removed):** IODA charts are no longer bytes to migrate. They are now
+> stored as compact **signal JSON inline on the report** and rendered client-side with recharts
+> (see `ioda-signals-json-to-recharts.md`, implemented). `persistSvgChart` and the
+> `ioda/charts/*` media keys are gone for new reports, and a backfill populates the series on old
+> ones. **Only Mastodon and Telegram (user) social images remain in scope for this migration.**
+
 ## Context
 
 Image bytes for **Mastodon**, **Telegram (user)**, and **IODA charts** currently live on the
