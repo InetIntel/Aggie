@@ -244,21 +244,49 @@ const IodaChart = ({ chart, compact, fill, outageStart, outageEnd }: IProps) => 
 };
 
 // Custom legend: colored line swatch carries identity, label stays in neutral ink.
-const ChartLegend = ({ datasources }: { datasources: string[] }) => (
-  <div className='mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs'>
-    {datasources.map((ds) => (
-      <span key={ds} className='inline-flex items-center gap-1.5'>
-        <span
-          className='inline-block h-0.5 w-4 rounded'
-          style={{ backgroundColor: SIGNAL_HEX[ds] || "#64748b" }}
-        />
-        <span className='text-slate-600 dark:text-gray-300'>
-          {SIGNAL_CHART_LABEL[ds] || SIGNAL_LABEL[ds] || ds}
+// Centered when the items fit on one line; left-aligned once they wrap (centered wrapped
+// rows read as ragged/off on narrow cards). CSS can't switch on wrap, so we detect it by
+// checking whether any item sits on a lower row than the first.
+const ChartLegend = ({ datasources }: { datasources: string[] }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [wrapped, setWrapped] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const check = () => {
+      const items = Array.from(el.children) as HTMLElement[];
+      const firstTop = items[0]?.offsetTop ?? 0;
+      // justify-content doesn't affect wrapping, so toggling alignment can't oscillate.
+      setWrapped(items.some((it) => it.offsetTop > firstTop));
+    };
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    check();
+    return () => ro.disconnect();
+  }, [datasources]);
+
+  return (
+    <div
+      ref={ref}
+      className={`mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs ${
+        wrapped ? "justify-start" : "justify-center"
+      }`}
+    >
+      {datasources.map((ds) => (
+        <span key={ds} className='inline-flex items-center gap-1.5'>
+          <span
+            className='inline-block h-0.5 w-4 rounded'
+            style={{ backgroundColor: SIGNAL_HEX[ds] || "#64748b" }}
+          />
+          <span className='text-slate-600 dark:text-gray-300'>
+            {SIGNAL_CHART_LABEL[ds] || SIGNAL_LABEL[ds] || ds}
+          </span>
         </span>
-      </span>
-    ))}
-  </div>
-);
+      ))}
+    </div>
+  );
+};
 
 const SignalTooltip = ({ payload, label }: TooltipProps<number, string>) => {
   if (!payload || !payload.length) return null;
