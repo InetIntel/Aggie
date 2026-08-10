@@ -1,9 +1,19 @@
 # Media & Image Storage
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-08-10_
 
-How Aggie stores images from reports — social media attachments and IODA/Cloudflare
-charts — and what that means for sharing media across environments (e.g. QA vs. production).
+How Aggie stores images from reports — social media attachments and Cloudflare charts —
+and what that means for sharing media across environments (e.g. QA vs. production).
+
+> **IODA note:** as of the signal-JSON migration (see
+> `docs/claude/plans/ioda-signals-json-to-recharts.md`), new IODA reports no longer store a
+> chart image. They carry compact signal JSON inline (`metadata.rawAPIResponse.chart`) and
+> render client-side with recharts — no `/media` bytes; the live channel no longer calls
+> `persistSvgChart`. Only **legacy** pre-migration IODA reports still reference on-disk
+> `ioda/charts/*.svg` files via `metadata.rawAPIResponse.image` (kept as a rendering
+> fallback), populated by the `persistSvgChart` backfill (see
+> `scripts/migrate-ioda-svg-to-storage.js`). Everything below about IODA describes that
+> legacy path.
 
 ## TL;DR
 
@@ -11,8 +21,9 @@ charts — and what that means for sharing media across environments (e.g. QA vs
   `MEDIA_ROOT`), served as a static, **unauthenticated** route at `GET /media/<key>`.
 - **MongoDB only stores a pointer** (a key/path string) — never the image bytes. There is
   no GridFS or binary blob in the DB.
-- Only **Mastodon, Telegram (user), and IODA** download bytes locally. Twitter, Instagram,
-  Facebook (via Junkipedia), and Cloudflare keep only a **remote URL**.
+- Only **Mastodon and Telegram (user)** download bytes locally. Twitter, Instagram,
+  Facebook (via Junkipedia), and Cloudflare keep only a **remote URL**. New IODA reports store
+  signal JSON inline (no bytes); only legacy IODA reports still point at on-disk SVGs.
 
 ## Where media lives
 
@@ -42,7 +53,7 @@ public/media/
 |--------|:--:|--------|
 | **Mastodon** | ✅ Yes | `metadata.attachments[].imageKey` = `social/full/{token}.{ext}` (+ `thumbnailKey`) |
 | **Telegram (user)** | ✅ Yes | Same as Mastodon |
-| **IODA charts** | ✅ Yes | `metadata.rawAPIResponse.image` = `ioda/charts/{sha1(guid)}.svg` |
+| **IODA charts** (legacy only) | ✅ Yes | `metadata.rawAPIResponse.image` = `ioda/charts/{sha1(guid)}.svg`; new reports store `metadata.rawAPIResponse.chart` JSON instead (no bytes) |
 | **Twitter / Instagram / Facebook** (Junkipedia) | ❌ No | `metadata.mediaUrl` = external CDN URL |
 | **Cloudflare Radar charts** | ❌ No | `metadata.rawAPIResponse.image` = absolute `radar.cloudflare.com` URL |
 
@@ -59,9 +70,12 @@ public/media/
   Keys use `crypto.randomBytes(16)` — random, so the same post fetched in two environments
   produces **different** files.
 
-- **IODA charts** → `persistSvgChart()` writes an SVG keyed by `sha1(guid)`. This is
-  **deterministic**: a re-fetch overwrites the same file (no orphans), and the same report
-  produces the same key across environments.
+- **IODA charts (legacy path)** → `persistSvgChart()` writes an SVG keyed by `sha1(guid)`
+  (deterministic, overwritten on re-run). The signal-JSON migration removed the *live channel's*
+  call to it — new IODA reports store `metadata.rawAPIResponse.chart` JSON inline and are drawn
+  by `IodaChart.tsx` (recharts). The helper is **retained** for the one-off backfill
+  `scripts/migrate-ioda-svg-to-storage.js`, which moves legacy inline SVGs onto disk so old
+  reports keep rendering via the `image` fallback.
 
 - **Serving to the frontend** — `serializeReport()` in
   [`backend/api/controllers/reportController.js`](../../../backend/api/controllers/reportController.js)
@@ -108,10 +122,10 @@ is currently filesystem-only (`fs.writeFile` + `express.static`).
 
 ## Key files
 
-- [`backend/fetching/utils/socialImageStorage.js`](../../../backend/fetching/utils/socialImageStorage.js) — storage/serving core (`persistSocialImage`, `persistSvgChart`, `buildMediaUrl`, `getMediaRoot`)
+- [`backend/fetching/utils/socialImageStorage.js`](../../../backend/fetching/utils/socialImageStorage.js) — storage/serving core (`persistSocialImage`, `buildMediaUrl`, `getMediaRoot`; `persistSvgChart` retained for the legacy IODA backfill)
 - [`backend/fetching/channels/mastodon.js`](../../../backend/fetching/channels/mastodon.js) — Mastodon image download
 - [`backend/fetching/channels/telegramUser.js`](../../../backend/fetching/channels/telegramUser.js) — Telegram image download
-- [`backend/fetching/channels/ioda.js`](../../../backend/fetching/channels/ioda.js) — IODA chart SVG extraction & persistence
+- [`backend/fetching/channels/ioda.js`](../../../backend/fetching/channels/ioda.js) — IODA signal-JSON fetch (`fetchSignals`), stored inline as `metadata.rawAPIResponse.chart`
 - [`backend/fetching/channels/cloudflare.js`](../../../backend/fetching/channels/cloudflare.js) — Cloudflare chart URL (no download)
 - [`backend/api/controllers/reportController.js`](../../../backend/api/controllers/reportController.js) — `serializeReport()` URL construction
 - [`backend/models/report.js`](../../../backend/models/report.js) — Report schema (`_media`, `metadata.attachments`)

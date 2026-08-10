@@ -152,6 +152,25 @@ async function persistSocialImage({ buffer, sourcePlatform, mimeType }) {
   }
 }
 
+// Retained for the one-off backfill `scripts/migrate-ioda-svg-to-storage.js`, which moves
+// legacy inline IODA chart SVGs out of Mongo and onto disk so old reports keep rendering via
+// the `image` fallback. The live IODA channel no longer calls this — new reports store signal
+// JSON (`metadata.rawAPIResponse.chart`) and render with recharts (IodaChart.tsx).
+async function persistSvgChart({ svg, guid }) {
+  if (!svg || typeof svg !== 'string' || !guid) return null;
+
+  // Deterministic, filesystem-safe key per event, keyed by guid so a re-run overwrites the
+  // same file in place instead of orphaning a new one.
+  const hash = crypto.createHash('sha1').update(String(guid)).digest('hex');
+  const key = `ioda/charts/${hash}.svg`;
+  const fullPath = resolveMediaPath(key);
+
+  await ensureParentDir(fullPath);
+  await fs.writeFile(fullPath, svg, 'utf-8');
+
+  return key; // stored in place of the inline SVG string
+}
+
 async function deleteMediaByKey(key) {
   const normalizedKey = normalizeKey(key);
   if (!normalizedKey) return;
@@ -182,4 +201,5 @@ module.exports = {
   detectImageMimeType,
   getMediaRoot,
   persistSocialImage,
+  persistSvgChart,
 };
