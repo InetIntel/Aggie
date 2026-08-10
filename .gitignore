@@ -33,6 +33,7 @@ backend/migrations/.migrate
 public/css/styles.css
 public/uploads
 public/media
+public/ioda-charts-backup
 
 buildAssets
 docs/_build

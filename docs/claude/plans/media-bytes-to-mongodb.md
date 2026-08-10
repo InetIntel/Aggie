@@ -1,19 +1,52 @@
 # Plan: Migrate media bytes from `public/media/` into a MongoDB collection
 
-> **Scope update (IODA removed):** IODA charts are no longer bytes to migrate. They are now
-> stored as compact **signal JSON inline on the report** and rendered client-side with recharts
-> (see `ioda-signals-json-to-recharts.md`, implemented). `persistSvgChart` and the
-> `ioda/charts/*` media keys are gone for new reports, and a backfill populates the series on old
-> ones. **Only Mastodon and Telegram (user) social images remain in scope for this migration.**
+> **Scope note (IODA partially in scope):** New IODA reports store compact **signal JSON inline on
+> the report** and render with recharts (see `ioda-signals-json-to-recharts.md`, implemented).
+> **Step 1 below** backfills that JSON onto *legacy* reports by re-fetching signals; whatever IODA
+> can no longer serve keeps its scraped SVG as a fallback. So the bytes this migration moves are
+> **social images (Mastodon/Telegram)** plus the **small residual set of un-convertible IODA SVGs**
+> — not the full ~427 MB of chart SVGs, which Step 1 converts to ~KB-sized JSON on the reports.
+
+## Step 1 — prerequisite: backfill legacy IODA SVGs to JSON
+
+Run **`scripts/backfill-ioda-svg-to-json.js`** *before* the media-bytes migration below. It walks
+legacy IODA reports (`metadata.rawAPIResponse.image` present, no `chart`), reconstructs the signals
+window from `rawEvent.location/start/duration`, and re-fetches the series via `fetchSignals` (the
+same call the live channel makes — an SVG is a rendered picture and can't be decoded back to data,
+so the real series must come from IODA's API).
+
+- **Converted** (signals returned data): sets `metadata.rawAPIResponse.chart`, deletes `.image`, and
+  **moves** the disk SVG into `../ioda-charts-backup` (a dir **outside `MEDIA_ROOT`**, so the media
+  backfill below never re-ingests it). Never deletes — bad conversions are restorable.
+- **Kept as SVG** (IODA has no data for that old window): the report keeps its SVG fallback; an
+  inline SVG is promoted onto disk (`persistSvgChart`) so it migrates uniformly in Step 2.
+- **`--dry-run`** classifies every report (`converted / keptAsSvg / skipped / failed`) without
+  writing, so you know the residual SVG count — and thus the Step-2 collection size — up front.
+
+**Sizing (measured on dev `aggie`):** 545 IODA reports, ~461 convertible; each `chart` JSON averages
+~6.7 KB, so Step 1 adds only ~3 MB to `reports` while moving ~427 MB of SVG off disk. The
+`mediaassets` collection therefore holds only the residual un-convertible IODA SVGs + social images
+— **not** 427 MB.
+
+**Frontend:** no change. `src/components/SocialMediaPost/IodaEvent.tsx` already renders all three
+shapes — recharts when `chart.series` exists, else an inline SVG, else a `/media` `<img>` via
+`resolveMediaUrl` — so converted and kept-as-SVG reports both render correctly.
+
+## Step 2 — move remaining media bytes into MongoDB
+
+> Everything below covers Step 2. It assumes Step 1 has run, so the only local bytes left under
+> `public/media/` are social images plus the residual un-convertible `ioda/charts/*.svg` files. The
+> one-time backfill (`backfillMediaToMongo.js`) walks `getMediaRoot()`'s subtrees; the
+> `ioda-charts-backup` dir is outside `MEDIA_ROOT` and is therefore skipped automatically.
 
 ## Context
 
-Image bytes for **Mastodon**, **Telegram (user)**, and **IODA charts** currently live on the
-VM's local filesystem under `public/media/` (overridable via `MEDIA_ROOT`) and are served
-**unauthenticated** as static files at `GET /media/<key>`. MongoDB stores only small **string
-keys**, never bytes. This makes media non-portable: sharing the DB doesn't share the images, so
-QA and prod each need their own disk, mounted and backed up separately, and image durability is
-tied to the VM disk instead of the database.
+Image bytes for **Mastodon**, **Telegram (user)**, and **residual IODA charts** (the un-convertible
+SVGs left after Step 1) currently live on the VM's local filesystem under `public/media/`
+(overridable via `MEDIA_ROOT`) and are served **unauthenticated** as static files at
+`GET /media/<key>`. MongoDB stores only small **string keys**, never bytes. This makes media
+non-portable: sharing the DB doesn't share the images, so QA and prod each need their own disk,
+mounted and backed up separately, and image durability is tied to the VM disk instead of the database.
 
 **Goal:** store the bytes **in MongoDB** so media travels with the database — no separate
 filesystem to mount, rsync, or back up. Twitter/Instagram/Facebook (Junkipedia) and Cloudflare
@@ -35,8 +68,11 @@ channels, hooks, and the entire frontend are untouched.
   (a latent bug) — this migration fixes it with real ~320px thumbnails.
 - **Serving auth:** keep `/media/<key>` **unauthenticated**, exactly as today. Zero frontend
   changes. (Auth is a separate future hardening task.)
-- **Existing files:** **backfill** everything currently in `public/media/` into Mongo via a
-  one-time script; retire the folder afterward.
+- **Existing files:** **backfill** the *referenced* bytes currently in `public/media/` into Mongo
+  via a one-time script (see the reference-aware rule in §4), then retire the folder afterward.
+- **Orphans:** files on disk that **no report references** (e.g. IODA chart SVGs whose reports were
+  pruned) are **not** migrated — they'd be dead weight in Mongo. After Step 1's IODA→JSON backfill,
+  everything left in `ioda/charts/` on dev is orphaned; the backfill must skip these, not ingest them.
 
 ## Data model — `backend/models/mediaAsset.js` (new), collection `mediaassets`
 
@@ -141,11 +177,26 @@ Follow the existing script bootstrap (verified in `backfill-outage-ongoing.js`,
 require) → `require('../models/mediaAsset')` → `main().then(() => process.exit(0)).catch(... process.exit(1))`.
 Support a `--dry-run` flag (`process.argv.includes('--dry-run')`).
 
-- Walk `getMediaRoot()`'s three subtrees: `social/full`, `social/thumb`, `ioda/charts`.
-- For each file: derive `key` from the path relative to the media root, read bytes, infer
-  `contentType` (reuse `detectImageMimeType`; `.svg` → `image/svg+xml`), derive `kind` from the
-  subtree, then `updateOne({key}, {$set:{...}}, {upsert:true})` (idempotent).
-- Log counts per subtree. Leave disk files in place until verified.
+**Reference-aware — migrate only bytes a report actually points at.** A file-driven walk would
+ingest *orphans* (files whose reports were pruned) as dead weight — after Step 1 the entire
+`ioda/charts/` subtree on dev is orphaned (~937 files / ~322 MB). So build the migration from the
+**referenced keys**, not the disk tree:
+
+1. **Collect referenced keys** from Mongo:
+   - IODA residual SVGs: `Report.distinct('metadata.rawAPIResponse.image', { _media: 'ioda', 'metadata.rawAPIResponse.image': { $type: 'string' } })`, keep only values that are storage keys (not inline SVG `^<` and not absolute URLs). On dev this is **empty** (Step 1 converted everything); on prod it's the un-convertible residuals.
+   - Social images: the `imageKey` + `thumbnailKey` on report social attachments (whatever field holds them — confirm against `saveToDatabase.js` / the social channels before writing).
+2. **For each referenced key:** resolve to a disk path under `getMediaRoot()`, read bytes, infer
+   `contentType` (reuse `detectImageMimeType`; `.svg` → `image/svg+xml`), derive `kind` from the
+   key prefix, then `updateOne({key}, {$set:{...}}, {upsert:true})` (idempotent). If a referenced
+   key has **no file on disk**, log it as a dangling reference (don't fail the run).
+3. **Skip the `ioda-charts-backup` dir** entirely — it's outside `MEDIA_ROOT` so a `getMediaRoot()`
+   walk never sees it, but if any step reads the tree directly, exclude it explicitly.
+4. **Report orphans without migrating them:** after the pass, walk the disk subtrees once to *count*
+   files whose key was not in the referenced set, and log `orphaned=<n> (<bytes>)` so the operator
+   can sweep/delete them separately (per the "back up, don't delete" preference — move to a backup
+   dir rather than `unlink`). Never silently ingest or silently drop them.
+- Log counts: `migrated`, `dangling` (referenced but missing on disk), `orphaned` (on disk, unreferenced).
+  Leave disk files in place until verified.
 
 ### 5. `package.json` — add `sharp` as a prod dependency
 
@@ -185,9 +236,11 @@ Rewrite the "Where media lives" / "How it's persisted" / cross-instance sections
 4. **End-to-end UI:** open a report with a social attachment and an IODA report → thumbnails
    render in the feed/`MediaPreview`, full image in detail, IODA chart via `ExpandableChart` — all
    unchanged, now served from Mongo.
-5. **Backfill:** run `node backend/scripts/backfillMediaToMongo.js --dry-run` against a copy of
-   `public/media/` → counts match file counts; run for real → existing reports' images still load;
-   re-run → no duplicates (idempotent).
+5. **Backfill (reference-aware):** run `node backend/scripts/backfillMediaToMongo.js --dry-run` →
+   `migrated` matches the count of **referenced** keys (on dev, IODA residuals = 0 after Step 1, so
+   only social keys), and `orphaned` accounts for the ~937 unreferenced `ioda/charts` files (~322 MB)
+   — which must **not** be in `migrated`. Run for real → existing reports' images still load; re-run
+   → no duplicates (idempotent). Confirm `mediaassets` contains **no** orphan `ioda-chart` docs.
 6. **Cutover:** grep confirms nothing else serves media from disk (`express.static`/`getMediaRoot`
    only in the retained backfill path); on a scratch instance, delete `public/media/` and confirm
    all images still serve from Mongo.
