@@ -34,6 +34,9 @@ public/css/styles.css
 public/uploads
 public/media
 
+# Dev media root when MEDIA_ROOT is pointed outside public/ (see .env.example)
+media-store
+
 buildAssets
 docs/_build
 
