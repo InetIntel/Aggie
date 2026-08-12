@@ -98,7 +98,8 @@ module.exports = async function postToReport(post, next) {
     } else if (
         platform === 'ioda' ||
         platform === 'cloudflare' ||
-        platform === 'telegramBot'
+        platform === 'telegramBot' ||
+        platform === 'OONI'
     ) {
         metadata = {rawAPIResponse: raw} || null;
     } else if (platform === 'telegramUser') {
