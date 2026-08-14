@@ -1,4 +1,14 @@
-# Incidents / Alerts Filtering Enhancements
+# feat/incident-alert-filtering — Branch Plan & Shipped Work
+
+> **Scope note.** This is the consolidated record for the `feat/incident-alert-filtering`
+> branch. The four filtering **Workstreams (A–D)** below are the branch's core goal
+> (A/B/C shipped, **D — IODA recovery tracking — is the one remaining piece**). The
+> **["Other work shipped on this branch"](#other-work-shipped-on-this-branch-consolidated)**
+> section near the end folds in the adjacent alerts/incidents plans that also shipped here
+> (previously their own docs). Two plans that did **not** ship stay as standalone docs:
+> [cloudflare-chart-caching.md](cloudflare-chart-caching.md) (design-only) and
+> [fix-assign-user-in-operator-crash.md](fix-assign-user-in-operator-crash.md) (live bug).
+> Open follow-ups for all of this work live in [todo.md](todo.md).
 
 ## Context
 
@@ -208,6 +218,76 @@ if ((endChanged || statusFlipped) && existingReport._group)
 A and B are small, high-value, low-risk — ship first. C is a self-contained enrichment + badge. D (recovery tracking) is the largest (fetch-channel + schema + migration) and should land last with its own verification. Statuses remain deferred.
 
 **Update (2026-07-31):** A, B, and C are all shipped as planned. Only **D (IODA recovery tracking)** remains — the next piece of work, to be landed with its own verification per the Workstream D section above.
+
+---
+
+## Other work shipped on this branch (consolidated)
+
+These plans previously lived as separate docs in `docs/claude/plans/`; each shipped on
+`feat/incident-alert-filtering` and is folded here as a compact record. Full original
+design text is recoverable from git history. Residual/backlog items are pointed at
+[todo.md](todo.md).
+
+### Incident lifecycle-stage filter — ✅ shipped (`be27bc30`)
+
+Replaced the incidents list's **Open / Closed / All** radio (a stale elections carryover)
+with a **multi-select lifecycle-stage filter** (Verification / Confirmation / Published,
+OR semantics) plus a separate **"Include closed"** toggle. Default view = all non-closed
+incidents. Stages derive from the existing `verification_status` / `confirmation_status` /
+`publication_status` fields (strict-pipeline precedence: publication > confirmation >
+verification) — no schema change. This is filtering work and belongs alongside Workstreams
+A–D above.
+
+- **Backend:** `stages` added to `Group.filterAttributes` ([backend/shared/group.js](../../../backend/shared/group.js)); `stages` → real predicates translated in `Group.queryGroups` ([backend/models/group.js](../../../backend/models/group.js)), pushed as an `$and`/`$or` clause; existing `closed` handling reused (`closed=all` surfaces closed).
+- **Frontend:** `stages?: string` on `GroupQueryState` ([src/api/groups/types.ts](../../../src/api/groups/types.ts)); stage toggle set + "Include closed" checkbox in [src/pages/incidents/IncidentsFilters.tsx](../../../src/pages/incidents/IncidentsFilters.tsx); title-search clears the stage filter. Status **display** badges (`IncidentStatuses.tsx`) unchanged.
+
+### Alerts "ASN / Network" column — ✅ shipped (`0a441f53`)
+
+Repurposed the alerts table's redundant **Source** column (which just re-printed
+"IODA"/"Cloudflare", duplicating the Platform icon) into a stacked **ASN / Network** cell —
+ASN emphasized on top, network name truncated below. All data was already on the row
+(`report.asn`, `metadata.rawAPIResponse.entityName`/`entityScope`), so **no backend change**;
+works on historical alerts. Network name = `entityName` with the trailing ` - <scope>`
+stripped; non-ASN (country/region) outages degrade to a single line.
+
+- **Frontend:** `reportNetwork()` resolver + `NetworkCell` and updated column def in [src/pages/Reports/TableView/reportColumns.tsx](../../../src/pages/Reports/TableView/reportColumns.tsx); `asn?: string` added to the `Report` type ([src/api/reports/types.ts](../../../src/api/reports/types.ts)).
+
+### Compare in list view (alerts + incidents) — ✅ shipped (`359adc8f`, `44552732`)
+
+The side-by-side **Compare** feature (previously table-view only) now also works in the
+**list view** of both pages. The compare state/modal were already view-agnostic; the change
+only unlocked the **trigger surface**: show the Compare button in list view and make list
+rows feed the compare selection (cap enforcement + chart prefetch for alerts).
+
+- **Frontend:** ungate the Compare button + shared `toggleReportForCompare` / `toggleIncidentForCompare` helpers in [src/pages/Reports/AllReportsList.tsx](../../../src/pages/Reports/AllReportsList.tsx) and [src/pages/incidents/index.tsx](../../../src/pages/incidents/index.tsx); added selection support (via `MultiSelectListItem`) to [src/pages/incidents/IncidentListItem.tsx](../../../src/pages/incidents/IncidentListItem.tsx). Reused `useMultiSelect`, `CompareActionBar`, the compare modals, and `MAX_COMPARE`. Selection resets on list↔table switch (kept intentionally). *Backlog: compare-modal polish for >3 items — see [todo.md](todo.md).*
+
+### User-configurable date/time display preferences — ✅ shipped (`ee93c3ef`)
+
+Added per-user **Clock (12h/24h)**, **Date order (MDY/DMY)**, and **Timezone (local/UTC)**
+preferences (defaults: 24h + DMY + local) and centralized scattered date/time formatting
+into one preference-driven formatter so every display site honors the choice.
+
+- **Backend:** `preferences` sub-doc on the user schema ([backend/models/user.js](../../../backend/models/user.js)); whitelisted self-update in `user_update` ([userController.js](../../../backend/api/controllers/userController.js)); exposed in the session payload ([authController.js](../../../backend/api/controllers/authController.js)).
+- **Frontend:** pure builders in `src/utils/dateFormat.ts` + `useFormatters()` hook (reads the `["session"]` query); display sites migrated to the hook; a **"Display preferences"** section in [src/pages/Settings/user/UserProfile.tsx](../../../src/pages/Settings/user/UserProfile.tsx). Preference types on `Session`/`User`.
+
+### Alerts reload / re-render fix — ✅ partial (`769cb6d3`, `06819849`)
+
+Root cause of the reported "the Alerts page hard-refreshes and wipes my progress" was **not**
+a re-render or a 401 — it was the **CRA dev-server live-reloading** whenever the FETCH process
+wrote fetched media into `public/media`. **Fix shipped:** `MEDIA_ROOT` now defaults to
+`media-store/` in dev (only `public/media` in production), one change in
+[backend/fetching/utils/socialImageStorage.js](../../../backend/fetching/utils/socialImageStorage.js);
+`/media` is still served by the backend, no env var required. A `ResizeObserver`
+crash-on-view-switch fix and compare-selection persistence also shipped (`06819849`).
+
+The deeper **re-render perf work (steps 1–6:** `keepPreviousData`/`refetchOnWindowFocus:false`,
+prop memoization, `React.memo` on rows, scroll-save/restore, view-toggle remount, socket
+re-bind churn**) was implemented and then reverted** once the media-reload root cause was
+found — it was never the cause of the reload. The confirmed standing re-render drivers
+(from the merged findings doc) are: `react-time-ago` per-row tickers on Alerts, socket-listener
+re-bind churn (`useSocketSubscribe` `[eventHandler]` dep), `isFetching`/focus/interval pulses,
+and whole-list cache replacement re-rendering unmemoized rows. **These remain a separate perf
+backlog — see [todo.md](todo.md).**
 
 ---
 

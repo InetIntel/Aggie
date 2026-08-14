@@ -4,6 +4,13 @@ Running list of notable behaviors and follow-ups to pick up later. Items below w
 consolidated here from finished plan docs (the completed plans were removed); each carries
 enough context to act on without the original doc.
 
+> **Branch record.** Work that **shipped** on `feat/incident-alert-filtering` is documented in
+> [incidents-alerts-filtering.md](incidents-alerts-filtering.md) (filtering Workstreams A–D +
+> the "Other work shipped on this branch" section). Only two plan docs remain standalone because
+> they did **not** ship: [cloudflare-chart-caching.md](cloudflare-chart-caching.md) (design-only)
+> and [fix-assign-user-in-operator-crash.md](fix-assign-user-in-operator-crash.md) (live bug —
+> see *General notes / fixes* below).
+
 ---
 
 ## Frontend / UI
@@ -53,6 +60,20 @@ bugs). Needs a deliberate design pass before it's "done". Specifics:
 Files: [src/components/DataTable/DataTable.tsx](../../../src/components/DataTable/DataTable.tsx),
 [src/pages/Reports/TableView/reportColumns.tsx](../../../src/pages/Reports/TableView/reportColumns.tsx),
 [src/pages/Reports/TableView/ReportsTable.tsx](../../../src/pages/Reports/TableView/ReportsTable.tsx).
+
+### Alerts / Incidents re-render performance (backlog)
+
+**Status:** Not done. The perf steps (1–6) were implemented and then **reverted** once the
+real "hard refresh" cause turned out to be the CRA dev-server reloading on `public/media`
+writes (fixed via `MEDIA_ROOT`; see the *Alerts reload / re-render fix* subsection in
+[incidents-alerts-filtering.md](incidents-alerts-filtering.md#other-work-shipped-on-this-branch-consolidated)).
+The re-render *drivers* below are real but were never the reload cause — pursue as a separate perf PR:
+
+- **`react-time-ago` per-row tickers** on Alerts rows self-update ~1s and look like constant list thrash ([src/components/DateTime.tsx](../../../src/components/DateTime.tsx)).
+- **Socket-listener re-bind churn** — `useSocketSubscribe` depends on `[eventHandler]` and the handler is redefined each render, so it tears down/re-adds the listener every render (console spam) on both pages. Fix: wrap handlers in a stable `useEventCallback`/`useCallback` ([src/pages/Reports/index.tsx](../../../src/pages/Reports/index.tsx), [src/pages/incidents/index.tsx](../../../src/pages/incidents/index.tsx), [src/hooks/WebsocketProvider.tsx](../../../src/hooks/WebsocketProvider.tsx)).
+- **`isFetching` + focus + interval pulses** — `refetchInterval: 120000` + v4 `refetchOnWindowFocus` default + StrictMode dev double-render. Consider `refetchOnWindowFocus: false` + `keepPreviousData`.
+- **Whole-list cache replacement** — a socket `reports:update`/`groups:update` rebuilds the list with a new array/object ref even when no changed id is on the page, re-rendering every (unmemoized) row. Fix: `React.memo` rows with stable props, and/or skip `setQueryData` when ids don't intersect the page.
+- **Scroll/selection loss on nav** (alerts only) — the mount reset effect scrolls to top and wipes selection without a POP guard or scroll save/restore (incidents already does this right — mirror it).
 
 ### Incidents table
 
@@ -114,6 +135,7 @@ reproducing IODA's Highcharts config and maintaining it as their dashboard evolv
 
 ## General notes / fixes
 
+- **Live bug — assigning a user to an incident crashes** with `Cannot use 'in' operator to search for 'username'`. `formatAssignedTo` in [src/pages/incidents/TableView/IncidentsTable.tsx:37](../../../src/pages/incidents/TableView/IncidentsTable.tsx#L37) applies `in` to a raw ObjectId string after the optimistic cache update spreads `assignedTo: string[]` over the cached group. Full write-up and fix in [fix-assign-user-in-operator-crash.md](fix-assign-user-in-operator-crash.md) (not yet shipped).
 - need to figure out which items in alerts and incidents are most important to users to prioritize as table resizes
 - need to handle adding alerts to incidents better. ex: when an alert is already added to an incident, it can't be added to a second incident. would one alert ever be added to multiple incidents? if adding to different incident, the user must be informed that it will override the first incident the alert is associated with.
 - create new incident needs a back button or an x. can this just get turned into a modal?
