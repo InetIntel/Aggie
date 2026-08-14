@@ -28,9 +28,13 @@ test('creates one deterministic report from zero-measurement data', async () => 
   ]);
   assert.equal(posts.length, 1);
   assert.equal(queued.length, 1);
-  assert.equal(posts[0].platform, 'OONI');
+  assert.equal(posts[0].platform, 'ooni');
   assert.equal(posts[0].platformID, 'ooni:44244:volume:2026-08-12');
+  assert.equal(posts[0].isOutageEvent, true);
+  assert.equal(posts[0].isAsnScoped, true);
+  assert.equal(posts[0].asn, 'as44244');
   assert.equal(posts[0].raw.networkName, 'IranCell');
+  assert.equal(posts[0].raw.entityLevel, 'AS');
   assert.equal(posts[0].raw.triggers[0].measurementDay, '2026-08-11');
 });
 

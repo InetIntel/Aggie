@@ -92,23 +92,29 @@ class OONIChannel extends PollChannel {
       until: alertDate,
     });
 
-    return new SocialMediaPost({
+    const post = new SocialMediaPost({
       authoredAt: new Date(`${alertDate}T00:00:00.000Z`),
       fetchedAt,
       author: `OONI AS${asn}`,
       content: alertContent(asn, alerts),
       url: `https://explorer.ooni.org/search?${searchParams}`,
-      platform: 'OONI',
+      platform: 'ooni',
       platformID: guid,
       raw: {
         probeCC: 'IR',
         probeASN: asn,
         networkName: NETWORK_NAMES[asn] || null,
         testName: 'web_connectivity',
+        entityLevel: 'AS',
         alertDate,
         triggers: alerts,
       },
     });
+
+    post.isOutageEvent = true;
+    post.isAsnScoped = true;
+    post.asn = `as${asn}`;
+    return post;
   }
 }
 

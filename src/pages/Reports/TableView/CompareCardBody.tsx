@@ -39,12 +39,13 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   const [zoomed, setZoomed] = useState(false);
   const media = report._media?.[0];
   const raw = report?.metadata?.rawAPIResponse;
-  const platformLabel = media === "cloudflare" ? "Cloudflare" : "IODA";
+  const isOoni = media === "ooni";
+  const platformLabel = media === "cloudflare" ? "Cloudflare" : isOoni ? "OONI" : "IODA";
 
   // The reports LIST endpoint strips metadata.rawAPIResponse.image (the chart, now a
   // media-storage key) to keep payloads small, so it's absent on the report objects
   // fed into the compare modal. The hook lazily fetches the full report per card.
-  const image = useReportChartImage(report);
+  const image = useReportChartImage(report, !isOoni);
 
   const start = formatStamp(report?.authoredAt);
 
@@ -53,7 +54,12 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   let signal: string;
   let bgColor: string;
 
-  if (media === "cloudflare") {
+  if (isOoni) {
+    end = "—";
+    duration = "Daily measurement";
+    signal = "Zero Measurements";
+    bgColor = "bg-red-600";
+  } else if (media === "cloudflare") {
     const endRaw: string | undefined = raw?.rawEvent?.endDate;
     end = endRaw ? formatStamp(endRaw) : "—";
     duration = endRaw ? formatDuration(report?.authoredAt, endRaw) || "—" : "—";
@@ -73,7 +79,29 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   // The chart value is usually a media-storage key (served at /media/<key>) but may
   // be a legacy inline SVG string or an absolute URL. Branch on the shape.
   let chart: JSX.Element;
-  if (!image) {
+  if (isOoni) {
+    const trigger = raw?.triggers?.[0];
+    chart = (
+      <dl className='grid w-full grid-cols-2 gap-3 text-sm'>
+        <div>
+          <dt className='text-slate-500 dark:text-gray-400'>Network</dt>
+          <dd className='font-semibold'>{raw?.networkName || report.author}</dd>
+        </div>
+        <div>
+          <dt className='text-slate-500 dark:text-gray-400'>ASN</dt>
+          <dd className='font-semibold'>{raw?.probeASN ? `AS${raw.probeASN}` : "—"}</dd>
+        </div>
+        <div>
+          <dt className='text-slate-500 dark:text-gray-400'>Measurement day</dt>
+          <dd className='font-semibold'>{trigger?.measurementDay || "—"}</dd>
+        </div>
+        <div>
+          <dt className='text-slate-500 dark:text-gray-400'>Measurements</dt>
+          <dd className='font-semibold'>{trigger?.measurementCount ?? 0}</dd>
+        </div>
+      </dl>
+    );
+  } else if (!image) {
     chart = <span className='text-slate-400 dark:text-gray-500'>Loading chart…</span>;
   } else if (isInlineSvg(image)) {
     chart = (
@@ -165,7 +193,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
         }`}
       >
         {chart}
-        {!fillWidth && !!image && (
+        {!isOoni && !fillWidth && !!image && (
           <button
             type='button'
             title='Enlarge chart'
@@ -189,7 +217,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
 
       {/* Enlarged view: the chart fills the whole card (full width) over the
           metadata bands so it's readable in a cramped grid; ✕ collapses it. */}
-      {zoomed && !!image && (
+      {!isOoni && zoomed && !!image && (
         <div
           className='absolute inset-0 z-20 bg-white dark:bg-gray-800 flex items-center justify-center p-2'
           onClick={(e) => e.stopPropagation()}

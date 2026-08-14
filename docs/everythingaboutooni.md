@@ -49,7 +49,7 @@ ooni:<asn>:volume:<alert-date>
 The channel checks for an existing report before enqueueing. The report model's
 unique `guid` index provides the final database-level duplicate guard.
 
-The channel emits platform `OONI`, an OONI Explorer URL, and raw metadata shaped
+The channel emits platform `ooni`, an OONI Explorer URL, and raw metadata shaped
 like this:
 
 ```json
@@ -58,6 +58,7 @@ like this:
   "probeASN": 44244,
   "networkName": "IranCell",
   "testName": "web_connectivity",
+  "entityLevel": "AS",
   "alertDate": "2026-01-10",
   "triggers": [
     {
@@ -70,8 +71,10 @@ like this:
 }
 ```
 
-`postToReport` stores this object as `metadata.rawAPIResponse`, assigns the
-source and tags, and saves the post through the normal report pipeline.
+The post also sets `isOutageEvent`, `isAsnScoped`, and `asn`, allowing the
+existing Alerts query to retrieve it. `postToReport` stores the raw object as
+`metadata.rawAPIResponse`, assigns the source and tags, and saves the post
+through the normal report pipeline.
 
 ## Implementation files
 
@@ -83,6 +86,10 @@ source and tags, and saves the post through the normal report pipeline.
 - `backend/config/models/sourceConfigs.js`: registers the `ooni` source type.
 - `backend/config/models/credentialsConfigs.js`: registers the public credential type.
 - `scripts/backtest-ooni-alerts.js`: historical evaluation and JSON/CSV export.
+- `src/pages/Settings/Credentials/CreateCredentialForm.tsx`: creates no-secret OONI credentials.
+- `src/pages/Settings/source/CreateEditSourceForm.tsx`: creates and edits ASN lists.
+- `src/components/SocialMediaPost/OoniEvent.tsx`: renders OONI alert details.
+- `src/pages/Reports/TableView/CompareCardBody.tsx`: compares OONI alerts without chart assumptions.
 
 ## Tests
 
@@ -101,5 +108,5 @@ selection, report content, and duplicate suppression.
 - Country code and known network names are intentionally Iran-specific.
 - Consecutive zero days create separate daily reports.
 - API retries and an incident-level cooldown are not included.
-- Staging's generic report card renders OONI reports; there is no dedicated OONI
-  Settings form or report component in this port.
+- Measurement-decline alerts, domain analysis, and Docker deployment are not
+  included.

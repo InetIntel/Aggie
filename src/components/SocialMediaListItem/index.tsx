@@ -112,6 +112,8 @@ function renderAuthor(
       return "IODA";
     case "cloudflare":
       return report?.metadata?.rawAPIResponse?.dataSource;
+    case "ooni":
+      return report?.metadata?.rawAPIResponse?.networkName || report.author;
     case "mastodon":
       return report.metadata.accountHandle || report.author;
     default:

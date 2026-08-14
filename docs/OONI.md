@@ -17,21 +17,24 @@ day, reducing false alerts while OONI finishes publishing daily aggregates.
 
 ## Configuration
 
-OONI's API is public, but Aggie's source model requires a credential. Create a
-credential with type `ooni` and no API secrets, then create a source with:
+OONI's API is public, but Aggie's source model requires a credential. In
+Settings, create an `ooni` credential with a name and no API secrets. Then
+create an `ooni` source with one or more positive ASNs separated by spaces or
+commas. The normal values are `44244, 58224`.
+
+The corresponding stored source fields are:
 
 - `media`: `ooni`
 - `lists`: space- or comma-separated ASNs, normally `44244 58224`
 - `credentials`: the OONI credential ID
 - `enabled`: `true`
 
-The current staging Settings forms do not expose OONI, so create these records
-through the authenticated credentials and sources APIs. Global fetching must
-also be enabled.
+Global fetching must also be enabled.
 
-OONI alerts appear as normal reports with media type `OONI`. Report metadata
-contains the ASN, network name, alert date, and zero-measurement trigger. The
-report URL opens the matching OONI Explorer query.
+OONI reports are ASN-scoped outage events and appear in the Alerts view with
+media type `ooni` and entity level `AS`. List, detail, table, and comparison
+views show the network, ASN, measurement day, and measurement count. The report
+URL opens the matching OONI Explorer query.
 
 ## Historical backtest
 
@@ -46,4 +49,6 @@ to the ignored `data/ooni-alert-backtest.json` and
 `data/ooni-alert-backtest.csv` files.
 
 The integration emits only zero-measurement alerts. There is no incident-level
-cooldown beyond one deterministic report per ASN and alert date.
+cooldown beyond one deterministic report per ASN and alert date. Docker
+deployment, measurement-decline detection, and domain analysis are outside
+this integration.

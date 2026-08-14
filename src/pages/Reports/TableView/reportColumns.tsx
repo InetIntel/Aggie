@@ -28,6 +28,8 @@ export const reportSource = (report: Report): string => {
   if (media === "ioda") return "IODA";
   if (media === "cloudflare")
     return report?.metadata?.rawAPIResponse?.dataSource || "Cloudflare";
+  if (media === "ooni")
+    return report?.metadata?.rawAPIResponse?.networkName || report.author || "OONI";
   return report._sourceNicknames?.[0] || report.author || "";
 };
 

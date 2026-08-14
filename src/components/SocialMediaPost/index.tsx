@@ -19,6 +19,7 @@ import RSSPost from "./RSSPost";
 import TwitterKWSearchPost from "./TwitterKWSearchPost";
 import IodaEvent from "./IodaEvent";
 import TrafficEvent from "./TrafficEvent";
+import OoniEvent from "./OoniEvent";
 
 interface IProps {
   report: Report;
@@ -74,6 +75,8 @@ const SocialMediaPost = ({ report, showMedia, compact }: IProps) => {
         return <IodaEvent report={report} compact={compact} />;
       case "cloudflare":
         return <TrafficEvent report={report} compact={compact} />;
+      case "ooni":
+        return <OoniEvent report={report} />;
       default:
         return (
           <>

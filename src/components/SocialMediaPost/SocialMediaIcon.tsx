@@ -8,7 +8,7 @@ import {
 } from "@fortawesome/free-brands-svg-icons";
 import { faQuestionCircle } from "@fortawesome/free-regular-svg-icons";
 import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import { faRss } from "@fortawesome/free-solid-svg-icons";
+import { faGlobe } from "@fortawesome/free-solid-svg-icons";
 
 const mediaIcons: Record<string, IconDefinition | BrandsDef> = {
   // tiktok: faTiktok,
@@ -24,6 +24,7 @@ const mediaIcons: Record<string, IconDefinition | BrandsDef> = {
   mastodon: faMastodon,
   ioda: faQuestionCircle,
   cloudflare: faCloudflare,
+  ooni: faGlobe,
 };
 
 const SocialMediaIcon = ({
