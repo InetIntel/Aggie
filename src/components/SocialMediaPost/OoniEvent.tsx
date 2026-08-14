@@ -4,6 +4,7 @@ const OoniEvent = ({ report }: { report: Report }) => {
   const raw = report.metadata?.rawAPIResponse;
   const trigger = raw?.triggers?.[0];
   const asn = raw?.probeASN ? `AS${raw.probeASN}` : report.author;
+  const zeroDomains: string[] = raw?.zeroDomains || [];
 
   return (
     <div className='space-y-3'>
@@ -26,6 +27,14 @@ const OoniEvent = ({ report }: { report: Report }) => {
           <dd className='font-medium'>{trigger?.measurementCount ?? 0}</dd>
         </div>
       </dl>
+      {raw?.domainMode === "selected" && (
+        <div className='border-t border-slate-200 pt-3 text-sm dark:border-gray-700'>
+          <p className='text-slate-500 dark:text-gray-400'>Domains with zero measurements at alert time</p>
+          <p className='mt-1 break-words font-medium'>
+            {zeroDomains.length > 0 ? zeroDomains.join(", ") : "None"}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

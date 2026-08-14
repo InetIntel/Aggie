@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeDailyCounts, evaluateAlert } = require('./ooniAlerts');
+const {
+  normalizeDailyCounts,
+  evaluateAlert,
+  normalizeDomainConfig,
+  evaluateDomainAlerts,
+} = require('./ooniAlerts');
+const defaultDomainConfig = require('./config/ooni.json');
 
 test('fills omitted aggregation days with zero measurements', () => {
   const rows = [
@@ -37,4 +43,43 @@ test('does not alert when the completed day has measurements', () => {
   ], '2025-12-17');
 
   assert.deepEqual(alerts, []);
+});
+
+test('groups zero-measurement watched domains into domain triggers', () => {
+  const alerts = evaluateDomainAlerts([
+    { domain: 'example.com', measurement_count: 3 },
+  ], ['example.com', 'missing.example'], '2025-12-17');
+
+  assert.deepEqual(alerts, [{
+    type: 'zero_domain_measurements',
+    domain: 'missing.example',
+    alertDate: '2025-12-17',
+    measurementDay: '2025-12-16',
+    measurementCount: 0,
+  }]);
+});
+
+test('does not alert when every watched domain has measurements', () => {
+  const alerts = evaluateDomainAlerts([
+    { domain: 'one.example', measurement_count: 2 },
+    { domain: 'two.example', measurement_count: 1 },
+  ], ['one.example', 'two.example'], '2025-12-17');
+
+  assert.deepEqual(alerts, []);
+});
+
+test('normalizes and validates the repository domain configuration', () => {
+  assert.equal(defaultDomainConfig.useAllDomains, false);
+  assert.equal(defaultDomainConfig.domains.length, 50);
+  assert.deepEqual(normalizeDomainConfig({
+    useAllDomains: false,
+    domains: ['Example.com', 'example.com'],
+  }), {
+    useAllDomains: false,
+    domains: ['example.com'],
+  });
+  assert.throws(
+    () => normalizeDomainConfig({ useAllDomains: false, domains: ['invalid domain'] }),
+    /invalid domain/,
+  );
 });

@@ -50,7 +50,46 @@ function evaluateAlert(dailyCounts, alertDate) {
   ];
 }
 
+function normalizeDomainConfig(config) {
+  const useAllDomains = config?.useAllDomains === true;
+  const domains = [...new Set(
+    (config?.domains || []).map((domain) => String(domain).trim().toLowerCase()),
+  )];
+  const validDomain = /^(?=.{1,253}$)(?!-)(?:[a-z0-9-]+\.)+[a-z0-9-]+$/;
+
+  if (!useAllDomains && domains.length === 0) {
+    throw new Error('OONI domain configuration requires at least one domain.');
+  }
+  if (domains.some((domain) => !validDomain.test(domain))) {
+    throw new Error('OONI domain configuration contains an invalid domain.');
+  }
+
+  return { useAllDomains, domains };
+}
+
+function evaluateDomainAlerts(rows, domains, alertDate) {
+  const normalizedConfig = normalizeDomainConfig({ domains });
+  const counts = new Map();
+  rows.forEach((row) => {
+    const domain = String(row.domain || '').trim().toLowerCase();
+    if (domain) counts.set(domain, Number(row.measurement_count) || 0);
+  });
+
+  const measurementDay = dayString(shiftDay(toDay(alertDate), -1));
+  return normalizedConfig.domains
+    .filter((domain) => (counts.get(domain) || 0) === 0)
+    .map((domain) => ({
+      type: 'zero_domain_measurements',
+      domain,
+      alertDate: dayString(toDay(alertDate)),
+      measurementDay,
+      measurementCount: 0,
+    }));
+}
+
 module.exports = {
   normalizeDailyCounts,
   evaluateAlert,
+  normalizeDomainConfig,
+  evaluateDomainAlerts,
 };

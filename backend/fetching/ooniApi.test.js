@@ -38,3 +38,19 @@ test('throws when the OONI aggregation request fails', async () => {
     /OONI aggregation request failed \(503\)/,
   );
 });
+
+test('supports grouping measurements by domain', async () => {
+  let requestedUrl;
+  await fetchDailyMeasurements({
+    asn: 44244,
+    since: '2026-08-10',
+    until: '2026-08-11',
+    axisX: 'domain',
+    fetchImpl: async (url) => {
+      requestedUrl = new URL(url);
+      return { ok: true, json: async () => ({ result: [] }) };
+    },
+  });
+
+  assert.equal(requestedUrl.searchParams.get('axis_x'), 'domain');
+});

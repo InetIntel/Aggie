@@ -1,11 +1,17 @@
 const AGGREGATION_URL = 'https://api.ooni.org/api/v1/aggregation';
 
-async function fetchDailyMeasurements({ asn, since, until, fetchImpl = fetch }) {
+async function fetchDailyMeasurements({
+  asn,
+  since,
+  until,
+  axisX = 'measurement_start_day',
+  fetchImpl = fetch,
+}) {
   const params = new URLSearchParams({
     probe_cc: 'IR',
     probe_asn: String(asn),
     test_name: 'web_connectivity',
-    axis_x: 'measurement_start_day',
+    axis_x: axisX,
     since,
     until,
   });

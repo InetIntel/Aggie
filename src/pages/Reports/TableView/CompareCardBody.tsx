@@ -96,8 +96,10 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
           <dd className='font-semibold'>{trigger?.measurementDay || "—"}</dd>
         </div>
         <div>
-          <dt className='text-slate-500 dark:text-gray-400'>Measurements</dt>
-          <dd className='font-semibold'>{trigger?.measurementCount ?? 0}</dd>
+          <dt className='text-slate-500 dark:text-gray-400'>Zero domains</dt>
+          <dd className='font-semibold'>
+            {raw?.domainMode === "selected" ? raw?.zeroDomains?.length || 0 : "All domains"}
+          </dd>
         </div>
       </dl>
     );
