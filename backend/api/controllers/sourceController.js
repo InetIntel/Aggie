@@ -32,8 +32,36 @@ exports.source_sources = (req, res) => {
  Source.find({}, '-events', { sort: 'nickname' })
   .populate(sourcePopulate)
     .exec(function (err, sources) {
-      if (err) res.status(err.status).send(err.message);
-      else res.status(200).send(sources);
+      if (err) return res.status(err.status).send(err.message);
+      // The list payload strips `events` to stay lean, so compute the distinct
+      // error count per source in the DB and merge it into the response.
+      var pipeline = [
+        { $project: {
+            distinctErrorCount: {
+              $size: {
+                $setUnion: [
+                  { $map: {
+                      input: { $slice: [{ $ifNull: ['$events', []] }, -50] },
+                      as: 'e',
+                      in: '$$e.message',
+                  } },
+                  [],
+                ],
+              },
+            },
+        } },
+      ];
+      Source.aggregate(pipeline, function (aggErr, counts) {
+        if (aggErr) return res.status(aggErr.status).send(aggErr.message);
+        var countById = {};
+        counts.forEach(function (c) { countById[c._id.toString()] = c.distinctErrorCount; });
+        var result = sources.map(function (source) {
+          var obj = source.toObject();
+          obj.distinctErrorCount = countById[source._id.toString()] || 0;
+          return obj;
+        });
+        res.status(200).send(result);
+      });
     });
 }
 
@@ -45,8 +73,11 @@ exports.source_details = (req, res) => {
       source,
       sourcePopulate,
       function (err, source) {
-        if (err) res.status(err.status).send(err.message);
-        else res.status(200).send(source);
+        if (err) return res.status(err.status).send(err.message);
+        var obj = source.toObject();
+        // `events` is already capped to the latest window here; dedup for the badge.
+        obj.distinctErrorCount = Source.distinctErrorCount(source.events);
+        res.status(200).send(obj);
       });
   });
 }

@@ -81,6 +81,27 @@ export const CREDENTIAL_OPTIONS = [
 ] as const;
 export type CredentialOption = (typeof CREDENTIAL_OPTIONS)[number];
 
+// Temporary product cap: one Connection per provider. The multi-connection UI
+// (the "Connect {provider}" button when a connection already exists) is kept in
+// place and simply gated on this flag — flip to `true` to re-enable it later.
+export const ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER = false;
+
+// Friendly, user-facing name for each provider type. Use this anywhere a
+// provider/credential type would otherwise be shown as its raw identifier
+// (e.g. "telegramUser", "ioda") in the UI.
+export const PROVIDER_LABELS: Record<string, string> = {
+  junkipedia: "Junkipedia",
+  telegramBot: "Telegram Bot",
+  telegramUser: "Telegram",
+  mastodon: "Mastodon",
+  ioda: "IODA",
+  cloudflare: "Cloudflare",
+};
+
+// Fall back to the raw value if we don't have a friendly label for it.
+export const providerLabel = (type?: string) =>
+  (type && PROVIDER_LABELS[type]) || type || "";
+
 export const GROUP_SORTBY = [
   "descStartDate",
   "ascStartDate",

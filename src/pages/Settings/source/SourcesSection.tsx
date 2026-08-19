@@ -80,7 +80,7 @@ const SourcesSection = () => {
   return (
     <div>
       <div className='flex justify-between items-center'>
-        <h1 className='font-medium my-3 text-3xl'>Sources</h1>
+        <h1 className='font-medium my-3 text-3xl'>Feeds</h1>
         {isManager && (
           <AggieButton
             onClick={() => setOpenCreate("new")}
@@ -88,7 +88,7 @@ const SourcesSection = () => {
             padding='px-3 py-2'
             icon={faPlusCircle}
           >
-            Create New Source
+            Add feed
           </AggieButton>
         )}
       </div>
@@ -119,7 +119,7 @@ const SourcesSection = () => {
                     <Link
                       to={`/settings/connections`}
                       className='hover:underline flex items-center gap-2'
-                      title='API Key Credential'
+                      title='Connection'
                     >
                       <FontAwesomeIcon
                         icon={faKey}
@@ -132,21 +132,24 @@ const SourcesSection = () => {
                 </div>
               )}
               <div>
-                <p className='flex items-center gap-2 bg-orange-100 rounded-full px-2  w-fit py-1'>
-                  <button
-                    type='button'
-                    onClick={() => openDetails(source._id)}
-                    className='hover:underline text-orange-800 flex items-center gap-2'
-                    title='Errors due to fetching source'
-                  >
-                    <FontAwesomeIcon
-                      icon={faExclamationTriangle}
-                      size='xs'
-                      className='text-orange-600'
-                    />
-                    {source.unreadErrorCount} Warnings
-                  </button>
-                </p>
+                {source.distinctErrorCount > 0 && (
+                  <p className='flex items-center gap-2 bg-orange-100 rounded-full px-2  w-fit py-1'>
+                    <button
+                      type='button'
+                      onClick={() => openDetails(source._id)}
+                      className='hover:underline text-orange-800 flex items-center gap-2'
+                      title='Errors while fetching this feed'
+                    >
+                      <FontAwesomeIcon
+                        icon={faExclamationTriangle}
+                        size='xs'
+                        className='text-orange-600'
+                      />
+                      {source.distinctErrorCount}{" "}
+                      {source.distinctErrorCount === 1 ? "Warning" : "Warnings"}
+                    </button>
+                  </p>
+                )}
               </div>
               {isManager && (
                 <div className='flex justify-end items-center gap-2'>
@@ -168,7 +171,7 @@ const SourcesSection = () => {
                           enabled: !source.enabled,
                         });
                       }}
-                      label='Enable Source'
+                      label='Enable Feed'
                       disabled={doEnableSource.isLoading}
                     />
                   </div>
@@ -206,7 +209,7 @@ const SourcesSection = () => {
             variant='danger'
             disabled={doDeleteSource.isLoading}
             className='w-full max-w-lg text-center'
-            title={`Delete: ${
+            title={`Delete feed: ${
               data?.find((c) => c._id === deletionModal?._id)?.nickname
             }?`}
             confirmText={"Delete"}
@@ -218,7 +221,7 @@ const SourcesSection = () => {
           <AggieDialog
             isOpen={!!openCreate}
             onClose={() => setOpenCreate("")}
-            data={{ title: openCreate === "new" ? "Create New Source" : "Edit Source" }}
+            data={{ title: openCreate === "new" ? "Add feed" : "Edit feed" }}
             className='p-3 w-full max-w-lg'
           >
             <CreateEditSourceForm

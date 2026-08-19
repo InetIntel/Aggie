@@ -19,20 +19,20 @@ export function menuLinks(role: string | undefined) {
         "Manage Users": { to: "users", icon: faUsersCog },
         "Teams": { to: "teams", icon: faUsersCog },
         // "Manage Tags": { to: "tags", icon: faTags },
-        "Manage APIs": { to: "connections", icon: faCloudArrowDown },
+        "Feeds": { to: "connections", icon: faCloudArrowDown },
       };
     case "team_lead":
       return {
         "Manage Users": { to: "users", icon: faUsersCog },
         "Teams": { to: "teams", icon: faUsersCog },
         // "Manage Tags": { to: "tags", icon: faTags },
-        "Manage APIs": { to: "connections", icon: faCloudArrowDown },
+        "Feeds": { to: "connections", icon: faCloudArrowDown },
       };
     case "monitor":
     case "viewer":
       return {
         "Tags": { to: "tags", icon: faTags },
-        "Sources": { to: "sources", icon: faCloudArrowDown },
+        "Feeds": { to: "sources", icon: faCloudArrowDown },
       };
     default:
       return {};

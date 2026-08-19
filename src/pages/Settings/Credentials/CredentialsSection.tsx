@@ -5,6 +5,7 @@ import { deleteCredential, getCredentials } from "../../../api/credentials";
 import type { Credential } from "../../../api/credentials/types";
 
 import CreateCredentialForm from "./CreateCredentialForm";
+import { providerLabel } from "../../../api/common";
 import AxiosErrorCard from "../../../components/AxiosErrorCard";
 import AggieButton from "../../../components/AggieButton";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
@@ -44,27 +45,27 @@ const CredentialsSection = () => {
   return (
     <section className=' w-full'>
       <div className='flex justify-between items-center'>
-        <h1 className={"my-3 text-3xl font-medium"}>Credentials</h1>
+        <h1 className={"my-3 text-3xl font-medium"}>Connections</h1>
         <AggieButton
           onClick={() => setOpenCreate(true)}
           variant='primary'
           padding='px-3 py-2'
           icon={faPlusCircle}
         >
-          Create New Credential
+          Add connection
         </AggieButton>
       </div>
       <p className='text-sm text-slate-500 dark:text-gray-400 mb-3'>
-        API credentials your sources authenticate with. You can add more than one of
-        the same type — the name is just a label to tell them apart, and is filled in
-        for you.
+        The logins and API keys your feeds authenticate with. You can add more than
+        one for the same provider — the name is just a label to tell them apart, and
+        is filled in for you.
       </p>
       <div className='flex flex-col overflow-hidden bg-white dark:bg-gray-800 border border-slate-300 rounded-lg divide-y divide-slate-300'>
         <header
           className={`${grid} px-3 py-3 font-medium text-sm border-b border-slate-300`}
         >
-          <p>Type</p>
-          <p>Label</p>
+          <p>Provider</p>
+          <p>Name</p>
         </header>
         {data ? (
           data.map((credential) => (
@@ -74,7 +75,7 @@ const CredentialsSection = () => {
             >
               <div className='text-sm items-center'>
                 <span className='px-2 py-1 rounded bg-slate-200 dark:bg-gray-600 font-medium'>
-                  {credential.type}
+                  {providerLabel(credential.type)}
                 </span>
               </div>
               <p className='col-start-2 -col-end-1 font-medium flex justify-between items-center'>
@@ -104,7 +105,7 @@ const CredentialsSection = () => {
           variant='danger'
           disabled={doDeleteCredential.isLoading}
           className='w-full max-w-lg text-center'
-          title={`Delete: ${
+          title={`Delete connection: ${
             data?.find((c) => c._id === deletionModal?._id)?.name
           }?`}
           confirmText={"Delete"}
@@ -117,7 +118,7 @@ const CredentialsSection = () => {
       <AggieDialog
         isOpen={openCreate}
         onClose={() => setOpenCreate(false)}
-        data={{ title: "Create New Credential" }}
+        data={{ title: "Add connection" }}
         className='p-3 w-full max-w-lg'
       >
         <CreateCredentialForm onClose={() => setOpenCreate(false)} />

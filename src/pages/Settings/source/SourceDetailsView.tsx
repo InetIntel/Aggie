@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteSource, editSource, getSource } from "../../../api/sources";
 import { getSession } from "../../../api/session";
 import type { SourceEvent } from "../../../api/session/types";
+import { providerLabel } from "../../../api/common";
 
 import AggieSwitch from "../../../components/AggieSwitch";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
@@ -77,7 +78,7 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
 
       {editing ? (
         <div className='flex flex-col'>
-          <h2 className='text-3xl font-medium my-3'>Edit Source</h2>
+          <h2 className='text-3xl font-medium my-3'>Edit feed</h2>
           <CreateEditSourceForm
             source={data}
             onClose={() => setEditing(false)}
@@ -111,7 +112,7 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
                           enabled: !data?.enabled,
                         });
                       }}
-                      label='Enable Source'
+                      label='Enable Feed'
                       disabled={isLoading}
                     />
                   </div>
@@ -142,23 +143,23 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
           </div>
           <section className='bg-white dark:bg-gray-800 rounded-lg px-3 py-3 flex flex-col gap-2'>
             <div className='grid grid-cols-4 '>
-              <p className='text-slate-600 dark:text-gray-400'>Media Source</p>
+              <p className='text-slate-600 dark:text-gray-400'>Provider</p>
               <div className='col-span-3'>
                 <span className='rounded px-2 py-1 bg-slate-300 dark:bg-gray-500 font-medium'>
-                  {data?.media}
+                  {providerLabel(data?.media)}
                 </span>
               </div>
             </div>
 
             {isManager && (
               <div className='grid grid-cols-4'>
-                <p className='text-slate-600 dark:text-gray-400'>Credential</p>
+                <p className='text-slate-600 dark:text-gray-400'>Connection</p>
                 <div className='col-span-3'>
                   <p className=' bg-slate-200 dark:bg-gray-600 rounded-full px-2  w-fit  py-1'>
                     <Link
                       to={`/settings/connections`}
                       className='hover:underline flex items-center gap-2'
-                      title='API Key Credential'
+                      title='Connection'
                     >
                       <FontAwesomeIcon
                         icon={faKey}
@@ -207,6 +208,15 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
               <p>No Events Found</p>
             )}
           </section>
+          {isManager && data && (
+            <section className='bg-white dark:bg-gray-800 rounded-lg px-3 py-3 mt-3 flex flex-col gap-2'>
+              <h3 className='text-xl font-medium'>Edit feed</h3>
+              <CreateEditSourceForm
+                source={data}
+                onClose={onClose ?? (() => setEditing(false))}
+              />
+            </section>
+          )}
         </>
       )}
 
@@ -215,7 +225,7 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
         variant='danger'
         disabled={doDeleteSource.isLoading}
         className='w-full max-w-lg text-center'
-        title={`Delete: ${data?.nickname}?`}
+        title={`Delete feed: ${data?.nickname}?`}
         confirmText={"Delete"}
         onClose={() => setDeletionModal(false)}
         onConfirm={() => !!data && doDeleteSource.mutate(data)}

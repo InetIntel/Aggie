@@ -19,6 +19,10 @@ export interface SourceAccessPolicy {
 export interface Source extends hasId {
   enabled: boolean;
   unreadErrorCount: number;
+  // Number of *distinct* error messages (deduped, recent window). Computed
+  // server-side; use this for the warning badge instead of unreadErrorCount,
+  // which is a cumulative per-fetch-cycle tally.
+  distinctErrorCount: number;
   tags?: string[];
   url: string;
   media: string;

@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 
-import { deleteSource, editSource } from "../../../api/sources";
+import { deleteSource, editSource, getSource } from "../../../api/sources";
 import type { Source } from "../../../api/sources/types";
 import { deleteCredential } from "../../../api/credentials";
 import type { Credential } from "../../../api/credentials/types";
-import type { CredentialOption } from "../../../api/common";
+import {
+  providerLabel,
+  ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER,
+  type CredentialOption,
+} from "../../../api/common";
 
 import AggieSwitch from "../../../components/AggieSwitch";
 import DropdownMenu from "../../../components/DropdownMenu";
@@ -22,21 +27,13 @@ import {
   faEdit,
   faEllipsisH,
   faExclamationTriangle,
+  faEye,
   faKey,
   faPlusCircle,
   faSpinner,
   faTrash,
   faTrashAlt,
 } from "@fortawesome/free-solid-svg-icons";
-
-// Human-friendly heading for each API type.
-const TYPE_LABELS: Record<CredentialOption, string> = {
-  junkipedia: "Junkipedia",
-  telegramUser: "Telegram",
-  mastodon: "Mastodon",
-  ioda: "Ioda",
-  cloudflare: "Cloudflare",
-};
 
 interface IProps {
   type: CredentialOption;
@@ -45,15 +42,20 @@ interface IProps {
   isManager: boolean;
 }
 
-// One card per API type on the consolidated Connections page. Co-locates that
-// type's credentials ("Add {type} api") and its sources ("Add {type} source"),
-// reusing the same dialogs/mutations the standalone sections use.
+// One card per provider on the Feeds page. Co-locates that provider's
+// connections ("Connect {provider}") and its feeds ("Add feed"), reusing the
+// same dialogs/mutations the standalone sections use.
 const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
   const queryClient = useQueryClient();
-  const label = TYPE_LABELS[type] ?? type;
+  const label = providerLabel(type);
 
   const typeSources = sources.filter((source) => source.media === type);
   const typeCredentials = credentials.filter((cred) => cred.type === type);
+
+  // Capped at one connection per provider for now (see the flag). Once a
+  // connection exists, hide the "Connect" button until the cap is lifted.
+  const canAddConnection =
+    ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER || typeCredentials.length === 0;
 
   const [openCreateCredential, setOpenCreateCredential] = useState(false);
   const [credentialDeletion, setCredentialDeletion] = useState<Credential>();
@@ -90,11 +92,39 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
     setDetailsEditing(false);
   };
 
+  // Peek at a feed's warnings without opening the details popup. The list
+  // payload strips `events`, so fetch the source detail for the latest message.
+  const showWarnings = async (source: Source) => {
+    const count = source.distinctErrorCount;
+    const plural = count === 1 ? "warning" : "warnings";
+    const t = toast.loading(`Loading warnings for ${source.nickname}…`);
+    try {
+      const full = await queryClient.fetchQuery(["source", source._id], () =>
+        getSource(source._id)
+      );
+      const events = full?.events ?? [];
+      const latest = events.length
+        ? [...events].sort(
+            (a, b) =>
+              new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+          )[0]
+        : undefined;
+      const summary = latest
+        ? `${count} ${plural} — latest: ${latest.message} (${new Date(
+            latest.datetime
+          ).toLocaleString()})`
+        : `${count} ${plural} for ${source.nickname}`;
+      toast(summary, { id: t, icon: "⚠️" });
+    } catch {
+      toast.error(`Couldn't load warnings for ${source.nickname}`, { id: t });
+    }
+  };
+
   return (
     <section className='mb-6'>
       <div className='flex flex-wrap justify-between items-center gap-2 mb-2'>
         <h2 className='text-xl font-semibold'>{label}</h2>
-        {isManager && (
+        {isManager && canAddConnection && (
           <AggieButton
             onClick={() => setOpenCreateCredential(true)}
             variant='primary'
@@ -102,45 +132,55 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
             className='text-sm'
             icon={faPlusCircle}
           >
-            Add {label} api
+            Connect {label}
           </AggieButton>
         )}
       </div>
 
-      {/* Credentials for this type */}
+      {/* Connections for this provider */}
       {isManager && (
-        <div className='flex flex-wrap items-center gap-2 mb-3'>
-          {typeCredentials.length > 0 ? (
-            typeCredentials.map((credential) => (
-              <span
-                key={credential._id}
-                className='flex items-center gap-2 bg-slate-200 dark:bg-gray-600 rounded-full pl-3 pr-1 py-1 text-sm font-medium'
-              >
-                <FontAwesomeIcon
-                  icon={faKey}
-                  size='xs'
-                  className='text-slate-500 dark:text-gray-400'
-                />
-                {credential.name}
-                <button
-                  type='button'
-                  onClick={() => setCredentialDeletion(credential)}
-                  title='Delete credential'
-                  className='hover:bg-slate-300 dark:hover:bg-gray-500 rounded-full w-6 h-6 flex items-center justify-center text-slate-500 dark:text-gray-300'
+        <>
+          <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400 mb-1'>
+            Connections
+          </p>
+          <div className='flex flex-wrap items-center gap-2 mb-3'>
+            {typeCredentials.length > 0 ? (
+              typeCredentials.map((credential) => (
+                <span
+                  key={credential._id}
+                  className='flex items-center gap-2 bg-slate-200 dark:bg-gray-600 rounded-full pl-3 pr-1 py-1 text-sm font-medium'
                 >
-                  <FontAwesomeIcon icon={faTrash} size='xs' />
-                </button>
-              </span>
-            ))
-          ) : (
-            <p className='text-sm text-slate-500 dark:text-gray-400'>
-              No {label} credentials yet.
-            </p>
-          )}
-        </div>
+                  <FontAwesomeIcon
+                    icon={faKey}
+                    size='xs'
+                    className='text-slate-500 dark:text-gray-400'
+                  />
+                  {credential.name}
+                  <button
+                    type='button'
+                    onClick={() => setCredentialDeletion(credential)}
+                    title='Delete connection'
+                    className='hover:bg-slate-300 dark:hover:bg-gray-500 rounded-full w-6 h-6 flex items-center justify-center text-slate-500 dark:text-gray-300'
+                  >
+                    <FontAwesomeIcon icon={faTrash} size='xs' />
+                  </button>
+                </span>
+              ))
+            ) : (
+              <p className='text-sm text-slate-500 dark:text-gray-400'>
+                No {label} connections yet.
+              </p>
+            )}
+          </div>
+        </>
       )}
 
-      {/* Sources for this type */}
+      {/* Feeds for this provider */}
+      {isManager && (
+        <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400 mb-1'>
+          Feeds
+        </p>
+      )}
       <div className='bg-white dark:bg-gray-800 rounded-lg border border-slate-300 divide-y divide-slate-300'>
         {typeSources.length > 0 ? (
           typeSources.map((source) => (
@@ -149,15 +189,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
               className='flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between py-3 px-3 text-slate-600 dark:text-gray-400 text-xs font-medium'
             >
               <main className='min-w-0 lg:flex-1'>
-                <button
-                  type='button'
-                  onClick={() => openDetails(source._id)}
-                  className='hover:underline text-left max-w-full'
-                >
-                  <h3 className='font-medium text-blue-600 text-lg truncate'>
-                    {source.nickname}
-                  </h3>
-                </button>
+                <h3 className='font-bold truncate'>{source.nickname}</h3>
                 <p className='text-sm break-words'>{source.keywords}</p>
               </main>
               <div className='flex flex-wrap items-center gap-2'>
@@ -165,7 +197,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
                   <p className='bg-slate-200 dark:bg-gray-600 rounded-full px-2 max-w-full py-1'>
                     <span
                       className='flex items-center gap-2 min-w-0'
-                      title='API Key Credential'
+                      title='Connection'
                     >
                       <FontAwesomeIcon
                         icon={faKey}
@@ -176,21 +208,24 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
                     </span>
                   </p>
                 )}
-                <p className='flex items-center gap-2 bg-orange-100 rounded-full px-2 w-fit py-1 shrink-0'>
-                  <button
-                    type='button'
-                    onClick={() => openDetails(source._id)}
-                    className='hover:underline text-orange-800 flex items-center gap-2'
-                    title='Errors due to fetching source'
-                  >
-                    <FontAwesomeIcon
-                      icon={faExclamationTriangle}
-                      size='xs'
-                      className='text-orange-600'
-                    />
-                    {source.unreadErrorCount} Warnings
-                  </button>
-                </p>
+                {source.distinctErrorCount > 0 && (
+                  <p className='flex items-center gap-2 bg-orange-100 rounded-full px-2 w-fit py-1 shrink-0'>
+                    <button
+                      type='button'
+                      onClick={() => showWarnings(source)}
+                      className='hover:underline text-orange-800 flex items-center gap-2'
+                      title='Errors while fetching this feed'
+                    >
+                      <FontAwesomeIcon
+                        icon={faExclamationTriangle}
+                        size='xs'
+                        className='text-orange-600'
+                      />
+                      {source.distinctErrorCount}{" "}
+                      {source.distinctErrorCount === 1 ? "Warning" : "Warnings"}
+                    </button>
+                  </p>
+                )}
               </div>
               {isManager && (
                 <div className='flex items-center gap-2 lg:justify-end shrink-0'>
@@ -212,7 +247,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
                           enabled: !source.enabled,
                         });
                       }}
-                      label='Enable Source'
+                      label='Enable Feed'
                       disabled={doEnableSource.isLoading}
                     />
                   </div>
@@ -223,6 +258,13 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
                     panelClassName='overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
+                    <AggieButton
+                      className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
+                      onClick={() => openDetails(source._id)}
+                    >
+                      <FontAwesomeIcon icon={faEye} />
+                      View details
+                    </AggieButton>
                     <AggieButton
                       className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => openDetails(source._id, true)}
@@ -244,7 +286,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
           ))
         ) : (
           <p className='px-3 py-4 text-sm text-slate-500 dark:text-gray-400'>
-            No {label} sources yet.
+            No {label} feeds yet.
           </p>
         )}
         {isManager && (
@@ -258,11 +300,11 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
               disabled={typeCredentials.length === 0}
               title={
                 typeCredentials.length === 0
-                  ? `Add a ${label} credential first`
+                  ? `Connect ${label} first`
                   : undefined
               }
             >
-              Add {label} source
+              Add feed
             </AggieButton>
           </div>
         )}
@@ -274,7 +316,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
           <AggieDialog
             isOpen={openCreateCredential}
             onClose={() => setOpenCreateCredential(false)}
-            data={{ title: `Add ${label} credential` }}
+            data={{ title: `Connect ${label}` }}
             className='p-3 w-full max-w-lg'
           >
             <CreateCredentialForm
@@ -288,7 +330,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
             variant='danger'
             disabled={doDeleteCredential.isLoading}
             className='w-full max-w-lg text-center'
-            title={`Delete: ${credentialDeletion?.name}?`}
+            title={`Delete connection: ${credentialDeletion?.name}?`}
             confirmText={"Delete"}
             onClose={() => setCredentialDeletion(undefined)}
             onConfirm={() =>
@@ -301,7 +343,18 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
             isOpen={!!openSource}
             onClose={() => setOpenSource("")}
             data={{
-              title: openSource === "new" ? `Add ${label} source` : "Edit Source",
+              title:
+                openSource === "new" ? (
+                  <>
+                    Add{" "}
+                    <span className='font-bold text-green-800 dark:text-green-600'>
+                      {label}
+                    </span>{" "}
+                    feed
+                  </>
+                ) : (
+                  "Edit feed"
+                ),
             }}
             className='p-3 w-full max-w-lg'
           >
@@ -317,7 +370,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
             variant='danger'
             disabled={doDeleteSource.isLoading}
             className='w-full max-w-lg text-center'
-            title={`Delete: ${sourceDeletion?.nickname}?`}
+            title={`Delete feed: ${sourceDeletion?.nickname}?`}
             confirmText={"Delete"}
             onClose={() => setSourceDeletion(undefined)}
             onConfirm={() =>

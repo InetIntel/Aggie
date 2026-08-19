@@ -12,18 +12,15 @@ import { Listbox } from "@headlessui/react";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
 import FormikWithSchema from "../../../components/FormikWithSchema";
-import AggieDialog from "../../../components/AggieDialog";
-import CreateCredentialForm from "../Credentials/CreateCredentialForm";
 import type { Credential } from "../../../api/credentials/types";
 
 import {
   faChevronDown,
   faCheck,
   faXmark,
-  faPlusCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { CredentialOption, CREDENTIAL_OPTIONS } from "../../../api/common";
+import { CredentialOption, CREDENTIAL_OPTIONS, providerLabel } from "../../../api/common";
 
 import { getTeams } from "../../../api/teams";
 import type { Team } from "../../../api/teams/types";
@@ -36,45 +33,42 @@ interface IProps {
   defaultType?: CredentialOption;
 }
 
-// The "Source Name" is just a display label for the source (the `nickname`
+// The "Feed name" is just a display label for the feed (the `nickname`
 // field) — it does not affect what gets fetched. Spell that out so users don't
-// confuse it with the account/handle, the credential, or the media type.
+// confuse it with the account/handle, the connection, or the provider.
 const SourceNameField = () => (
   <div className='flex flex-col gap-1'>
     <FormikInput
       name='nickname'
-      label='Source Name'
-      placeholder="A label for this source, e.g. 'Elections — Mastodon #wildfire'"
+      label='Feed name'
+      placeholder="A label for this feed, e.g. 'Elections — Mastodon #wildfire'"
     />
     <p className='text-xs text-slate-500 dark:text-gray-400'>
-      A name to identify this source in your lists. It's only a label — it doesn't
-      change what gets fetched. Pick something recognizable, like the topic plus the
-      account or hashtag.
+      A name to identify this feed in your lists; the items it collects appear as
+      Reports. It's only a label — it doesn't change what gets fetched. Pick
+      something recognizable, like the topic plus the account or hashtag.
     </p>
   </div>
 );
 
-// Credential picker that keeps credential management in line with the source:
-// pick an existing credential of this type, or create one inline (in a nested
-// dialog so we don't nest <form>s) — the new credential is auto-selected.
+// Credential picker: pick an existing credential of this type. Connections are
+// configured ahead of time on the Connections page, so there's no inline "add
+// connection" here — the feed form only chooses among what already exists.
 const CredentialPickerField = ({
-  type,
   label,
   credentialsList,
 }: {
-  type: CredentialOption;
   label: string;
   credentialsList?: Credential[];
 }) => {
   const [, meta, helpers] = useField<string>("credentials");
-  const [addOpen, setAddOpen] = useState(false);
 
   const options =
     credentialsList?.map((cred) => ({ _id: cred._id, label: cred.name })) || [];
 
   // Convenience: when nothing is selected yet (new source) and credentials of
   // this type exist, default to the first one. Runs once options are available;
-  // never overrides an explicit choice (including one just created inline).
+  // never overrides an explicit choice.
   const value = meta.value;
   useEffect(() => {
     if (!value && options.length) {
@@ -89,33 +83,11 @@ const CredentialPickerField = ({
         list={
           options.length
             ? options
-            : [{ _id: "", label: "No credentials yet — add one below" }]
+            : [{ _id: "", label: "No connections yet — add one in Connections" }]
         }
         label={label}
         name={"credentials"}
       />
-      <button
-        type='button'
-        onClick={() => setAddOpen(true)}
-        className='self-start text-sm text-blue-600 hover:underline inline-flex items-center gap-1'
-      >
-        <FontAwesomeIcon icon={faPlusCircle} /> Add new credential
-      </button>
-      <AggieDialog
-        isOpen={addOpen}
-        onClose={() => setAddOpen(false)}
-        data={{ title: `New ${type} credential` }}
-        className='p-3 w-full max-w-lg'
-      >
-        <CreateCredentialForm
-          lockedType={type}
-          onClose={() => setAddOpen(false)}
-          onCreated={(cred) => {
-            helpers.setValue(cred._id);
-            setAddOpen(false);
-          }}
-        />
-      </AggieDialog>
     </div>
   );
 };
@@ -332,6 +304,11 @@ const CreateEditSourceForm = ({ source, onClose, defaultType }: IProps) => {
       (source?.media as CredentialOption) || defaultType || "ioda"
     );
 
+  // The provider is fixed whenever it's known upfront — editing an existing feed
+  // or adding one from a provider-scoped section. Only a bare "new feed" form
+  // (no source, no defaultType) lets the user pick the provider.
+  const providerLocked = !!source || !!defaultType;
+
   const queryClient = useQueryClient();
 
   const { data: credentials } = useQuery(["credentials"], getCredentials, {
@@ -395,7 +372,7 @@ function onSubmit(data: any) {
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
   const JunkipediaSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     // sourceKeywords: Yup.string().required(
     //   "Keywords are required to create a Junkipedia source"
     // ),
@@ -403,7 +380,7 @@ function onSubmit(data: any) {
     //   "Lists are required to create a Junkipedia source"
     // ),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type IJunkipediaSchema = Yup.InferType<typeof JunkipediaSchema>;
@@ -432,8 +409,7 @@ function onSubmit(data: any) {
       <FormikInput name='lists' label='Lists' />
 
       <CredentialPickerField
-        type={credentialType}
-        label='API Credentials'
+        label='Connection'
         credentialsList={credentialsList}
       />
       <SourceAccessPolicyFields teams={teams} />
@@ -441,9 +417,9 @@ function onSubmit(data: any) {
   );
 
   const telegramBotSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type ITelegramBotSchema = Yup.InferType<typeof telegramBotSchema>;
@@ -475,16 +451,16 @@ function onSubmit(data: any) {
             return { _id: i._id, label: i.name };
           }) || [{ _id: "", label: "loading" }]
         }
-        label={"Bot Credentials"}
+        label={"Connection"}
         name={"credentials"}
       />
     </FormikWithSchema>
   );
 
   const telegramUserSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
     lists: Yup.string().required(
       "At least one Telegram chat, channel, or user is required"
@@ -514,8 +490,7 @@ function onSubmit(data: any) {
     >
       <SourceNameField />
       <CredentialPickerField
-        type={credentialType}
-        label='Telegram User Credentials'
+        label='Connection'
         credentialsList={credentialsList}
       />
       <div className='flex flex-col gap-1'>
@@ -536,10 +511,10 @@ function onSubmit(data: any) {
 
 
   const iodaSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source Name is required"),
+    nickname: Yup.string().required("Feed name is required"),
     keywords: Yup.string().required("Country Code is required"),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type IodaSchema = Yup.InferType<typeof iodaSchema>;
@@ -573,8 +548,7 @@ function onSubmit(data: any) {
         name={"keywords"}
       />
       <CredentialPickerField
-        type={credentialType}
-        label='API Credentials'
+        label='Connection'
         credentialsList={credentialsList}
       />
       <SourceAccessPolicyFields teams={teams} />
@@ -582,10 +556,10 @@ function onSubmit(data: any) {
   );
 
   const cloudflareSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source Name is required"),
+    nickname: Yup.string().required("Feed name is required"),
     keywords: Yup.string().required("Country Code is required"),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type CloudflareSchema = Yup.InferType<typeof cloudflareSchema>;
@@ -619,8 +593,7 @@ function onSubmit(data: any) {
         name={"keywords"}
       />
       <CredentialPickerField
-        type={credentialType}
-        label='API Credentials'
+        label='Connection'
         credentialsList={credentialsList}
       />
       <SourceAccessPolicyFields teams={teams} />
@@ -628,9 +601,9 @@ function onSubmit(data: any) {
   );
 
   const mastodonSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
     keywords: Yup.string()
       .oneOf(["public", "home", "hashtag", "keyword"])
@@ -702,8 +675,7 @@ function onSubmit(data: any) {
       />
       <MastodonConditionalFields />
       <CredentialPickerField
-        type={credentialType}
-        label='Mastodon Credentials'
+        label='Connection'
         credentialsList={credentialsList}
       />
       <SourceAccessPolicyFields teams={teams} />
@@ -712,7 +684,7 @@ function onSubmit(data: any) {
 
 
   /*const RssSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     // sourceKeywords: Yup.string().required(
     //   "Keywords are required to create a Junkipedia source"
     // ),
@@ -752,19 +724,19 @@ function onSubmit(data: any) {
             return { _id: i._id, label: i.name };
           }) || [{ _id: "", label: "loading" }]
         }
-        label={"API Credentials"}
+        label={"Connection"}
         name={"credentials"}
       />
     </FormikWithSchema>
   );
 
   const twitterSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     // regex: Yup.string().required(
     //   "Query is required to create a Twitter source"
     // ),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type ITwitterSchema = Yup.InferType<typeof twitterSchema>;
@@ -789,7 +761,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Credential Name' />
+      <FormikInput name='nickname' label='Feed name' />
 
       <FormikInput name='regex' label='regex' />
       { /*<FormikInput name='lists' label='Lists' /> }
@@ -800,7 +772,7 @@ function onSubmit(data: any) {
             return { _id: i._id, label: i.name };
           }) || [{ _id: "", label: "loading" }]
         }
-        label={"API Credentials"}
+        label={"Connection"}
         name={"credentials"}
       />
     </FormikWithSchema>
@@ -808,39 +780,43 @@ function onSubmit(data: any) {
 
   return (
     <>
-      <label className='text-slate-600 dark:text-gray-400'>Credential Type</label>
-      <Listbox
-        value={credentialType}
-        onChange={setCredentialType}
-        as='div'
-        className='relative z-20 font-medium mb-3'
-      >
-        <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200 dark:ui-active:bg-gray-600  rounded'>
-          {credentialType || "Select Credential"}
-          <FontAwesomeIcon
-            icon={faChevronDown}
-            className='ui-active:rotate-180 text-slate-400 dark:text-gray-400'
-          />
-        </Listbox.Button>
-        <Listbox.Options className='absolute left-0 right-0 z-30 mt-1 rounded border border-slate-300 bg-white shadow-md dark:bg-gray-800'>
-          {[...CREDENTIAL_OPTIONS].map((item) => (
-            <Listbox.Option
-              key={item}
-              value={item}
-              className='flex justify-between px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 ui-selected:bg-slate-100 dark:ui-selected:bg-gray-700 cursor-pointer items-center'
-            >
-              {item}
-
+      {!providerLocked && (
+        <>
+          <label className='text-slate-600 dark:text-gray-400'>Provider</label>
+          <Listbox
+            value={credentialType}
+            onChange={setCredentialType}
+            as='div'
+            className='relative z-20 font-medium mb-3'
+          >
+            <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200 dark:ui-active:bg-gray-600  rounded'>
+              {credentialType ? providerLabel(credentialType) : "Select provider"}
               <FontAwesomeIcon
-                icon={faCheck}
-                className={`text-slate-400 dark:text-gray-400${
-                  item === credentialType ? "" : "hidden"
-                }`}
+                icon={faChevronDown}
+                className='ui-active:rotate-180 text-slate-400 dark:text-gray-400'
               />
-            </Listbox.Option>
-          ))}
-        </Listbox.Options>
-      </Listbox>
+            </Listbox.Button>
+            <Listbox.Options className='absolute left-0 right-0 z-30 mt-1 rounded border border-slate-300 bg-white shadow-md dark:bg-gray-800'>
+              {[...CREDENTIAL_OPTIONS].map((item) => (
+                <Listbox.Option
+                  key={item}
+                  value={item}
+                  className='flex justify-between px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 ui-selected:bg-slate-100 dark:ui-selected:bg-gray-700 cursor-pointer items-center'
+                >
+                  {providerLabel(item)}
+
+                  <FontAwesomeIcon
+                    icon={faCheck}
+                    className={`text-slate-400 dark:text-gray-400${
+                      item === credentialType ? "" : "hidden"
+                    }`}
+                  />
+                </Listbox.Option>
+              ))}
+            </Listbox.Options>
+          </Listbox>
+        </>
+      )}
       {credentialType === "junkipedia" && JunkipediaForm}
       {/* {credentialType === "telegramBot" && telegramBotForm} */}
       {credentialType === "telegramUser" && telegramUserForm}

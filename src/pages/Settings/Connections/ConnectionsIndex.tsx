@@ -14,7 +14,7 @@ import ApiTypeSection from "./ApiTypeSection";
 // type's credentials and sources (grouped by `credential.type` / `source.media`).
 const ConnectionsIndex = () => {
   useEffect(() => {
-    document.title = "Connections - Aggie";
+    document.title = "Feeds - Aggie";
   }, []);
 
   const {
@@ -37,7 +37,12 @@ const ConnectionsIndex = () => {
 
   return (
     <div className='mt-3'>
-      <h1 className='font-medium text-3xl mb-3'>API&rsquo;s</h1>
+      <h1 className='font-medium text-3xl mb-1'>Feeds</h1>
+      <p className='text-sm text-slate-500 dark:text-gray-400 mb-4 max-w-3xl'>
+        Feeds collect posts, alerts, and signals into Reports. Each feed runs
+        through a Connection &mdash; the login or API key for its provider.
+        Connect a provider first, then add feeds to it.
+      </p>
       {isManager && (
         <div className='mb-6'>
           <Configuration />
