@@ -1,7 +1,7 @@
 import * as Yup from "yup";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useField } from "formik";
 
 import { getCredentials } from "../../../api/credentials";
@@ -12,8 +12,16 @@ import { Listbox } from "@headlessui/react";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
 import FormikWithSchema from "../../../components/FormikWithSchema";
+import AggieDialog from "../../../components/AggieDialog";
+import CreateCredentialForm from "../Credentials/CreateCredentialForm";
+import type { Credential } from "../../../api/credentials/types";
 
-import { faChevronDown, faCheck } from "@fortawesome/free-solid-svg-icons";
+import {
+  faChevronDown,
+  faCheck,
+  faXmark,
+  faPlusCircle,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { CredentialOption, CREDENTIAL_OPTIONS } from "../../../api/common";
 
@@ -23,20 +31,184 @@ import type { Team } from "../../../api/teams/types";
 interface IProps {
   source?: Source;
   onClose: () => void;
+  // Pre-scope a brand-new source form to an API type (e.g. when opened from a
+  // per-type section). Ignored when editing an existing source.
+  defaultType?: CredentialOption;
 }
+
+// The "Source Name" is just a display label for the source (the `nickname`
+// field) — it does not affect what gets fetched. Spell that out so users don't
+// confuse it with the account/handle, the credential, or the media type.
+const SourceNameField = () => (
+  <div className='flex flex-col gap-1'>
+    <FormikInput
+      name='nickname'
+      label='Source Name'
+      placeholder="A label for this source, e.g. 'Elections — Mastodon #wildfire'"
+    />
+    <p className='text-xs text-slate-500 dark:text-gray-400'>
+      A name to identify this source in your lists. It's only a label — it doesn't
+      change what gets fetched. Pick something recognizable, like the topic plus the
+      account or hashtag.
+    </p>
+  </div>
+);
+
+// Credential picker that keeps credential management in line with the source:
+// pick an existing credential of this type, or create one inline (in a nested
+// dialog so we don't nest <form>s) — the new credential is auto-selected.
+const CredentialPickerField = ({
+  type,
+  label,
+  credentialsList,
+}: {
+  type: CredentialOption;
+  label: string;
+  credentialsList?: Credential[];
+}) => {
+  const [, meta, helpers] = useField<string>("credentials");
+  const [addOpen, setAddOpen] = useState(false);
+
+  const options =
+    credentialsList?.map((cred) => ({ _id: cred._id, label: cred.name })) || [];
+
+  // Convenience: when nothing is selected yet (new source) and credentials of
+  // this type exist, default to the first one. Runs once options are available;
+  // never overrides an explicit choice (including one just created inline).
+  const value = meta.value;
+  useEffect(() => {
+    if (!value && options.length) {
+      helpers.setValue(options[0]._id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, options.length]);
+
+  return (
+    <div className='flex flex-col gap-2'>
+      <FormikDropdown
+        list={
+          options.length
+            ? options
+            : [{ _id: "", label: "No credentials yet — add one below" }]
+        }
+        label={label}
+        name={"credentials"}
+      />
+      <button
+        type='button'
+        onClick={() => setAddOpen(true)}
+        className='self-start text-sm text-blue-600 hover:underline inline-flex items-center gap-1'
+      >
+        <FontAwesomeIcon icon={faPlusCircle} /> Add new credential
+      </button>
+      <AggieDialog
+        isOpen={addOpen}
+        onClose={() => setAddOpen(false)}
+        data={{ title: `New ${type} credential` }}
+        className='p-3 w-full max-w-lg'
+      >
+        <CreateCredentialForm
+          lockedType={type}
+          onClose={() => setAddOpen(false)}
+          onCreated={(cred) => {
+            helpers.setValue(cred._id);
+            setAddOpen(false);
+          }}
+        />
+      </AggieDialog>
+    </div>
+  );
+};
+
+// Chip input for tracking multiple hashtags at once, backed by the Formik
+// `lists` field as a comma-separated string (the Mastodon channel splits it).
+const MastodonHashtagField = () => {
+  const [field, , helpers] = useField<string>("lists");
+  const [draft, setDraft] = useState("");
+
+  const parse = (raw: string) =>
+    (raw || "")
+      .split(/[\s,]+/)
+      .map((tag) => tag.trim().replace(/^#+/, ""))
+      .filter(Boolean);
+
+  const tags = parse(field.value);
+
+  const commit = (raw: string) => {
+    const next = [...tags];
+    parse(raw).forEach((tag) => {
+      if (!next.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+        next.push(tag);
+      }
+    });
+    helpers.setValue(next.join(", "));
+    setDraft("");
+  };
+
+  const removeTag = (tag: string) => {
+    helpers.setValue(tags.filter((existing) => existing !== tag).join(", "));
+  };
+
+  return (
+    <div className='flex flex-col gap-1'>
+      <span className='text-slate-600 dark:text-gray-400'>Hashtags</span>
+      <div className='flex flex-wrap gap-2 items-center px-2 py-2 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900'>
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className='inline-flex items-center gap-1 rounded-full bg-slate-200 dark:bg-gray-600 px-2 py-1 text-sm font-medium'
+          >
+            #{tag}
+            <button
+              type='button'
+              onClick={() => removeTag(tag)}
+              className='text-slate-500 hover:text-slate-800 dark:hover:text-gray-200'
+              aria-label={`Remove ${tag}`}
+            >
+              <FontAwesomeIcon icon={faXmark} size='xs' />
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (/[\s,]$/.test(value)) commit(value);
+            else setDraft(value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              commit(draft);
+            } else if (e.key === "Backspace" && !draft && tags.length) {
+              removeTag(tags[tags.length - 1]);
+            }
+          }}
+          onBlur={() => commit(draft)}
+          placeholder={tags.length ? "Add another…" : "Type a hashtag and press Enter"}
+          className='flex-1 min-w-[8rem] bg-transparent focus:outline-none text-black dark:text-gray-300 px-1 py-1'
+        />
+      </div>
+      <p className='text-xs text-slate-500 dark:text-gray-400'>
+        Track one or more hashtags — press Enter or comma to add each. Posts matching
+        any of the tags are collected, with duplicates removed.
+      </p>
+    </div>
+  );
+};
 
 const MastodonConditionalFields = () => {
   const [, meta] = useField<string>("keywords");
   const mode = meta.value;
-  const keywordLabel = mode === "hashtag" ? "Hashtag" : "Keyword";
 
   return (
     <>
-      {(mode === "hashtag" || mode === "keyword") && (
+      {mode === "hashtag" && <MastodonHashtagField />}
+      {mode === "keyword" && (
         <FormikInput
           name='lists'
-          label={keywordLabel}
-          placeholder={`Required for ${keywordLabel.toLowerCase()} mode`}
+          label='Keyword'
+          placeholder='Required for keyword mode'
         />
       )}
       {mode === "public" && (
@@ -154,9 +326,11 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
   );
 };
 
-const CreateEditSourceForm = ({ source, onClose }: IProps) => {
+const CreateEditSourceForm = ({ source, onClose, defaultType }: IProps) => {
   const [credentialType, setCredentialType] =
-    useState<CredentialOption>((source?.media as CredentialOption) || "ioda");
+    useState<CredentialOption>(
+      (source?.media as CredentialOption) || defaultType || "ioda"
+    );
 
   const queryClient = useQueryClient();
 
@@ -167,9 +341,6 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   const { data: teams } = useQuery(["teams"], getTeams, {
     staleTime: 50000,
   });
-
-  const defaultCredential =
-    credentials && credentials.find((cred) => cred.type === credentialType);
 
   const credentialsList =
     credentials && credentials.filter((cred) => cred.type === credentialType);
@@ -245,7 +416,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "https://www.junkipedia.com/",
         ...sourceAccessInitialValues,
@@ -257,17 +428,13 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikInput name='lists' label='Lists' />
 
-      <FormikDropdown
-        list={
-          credentialsList?.map((i) => {
-            return { _id: i._id, label: i.name };
-          }) || [{ _id: "", label: "loading" }]
-        }
-        label={"API Credentials"}
-        name={"credentials"}
+      <CredentialPickerField
+        type={credentialType}
+        label='API Credentials'
+        credentialsList={credentialsList}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
@@ -289,7 +456,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -301,7 +468,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikDropdown
         list={
           credentialsList?.map((i) => {
@@ -333,7 +500,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -345,15 +512,11 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
-      <FormikDropdown
-        list={
-          credentialsList?.map((i) => {
-            return { _id: i._id, label: i.name };
-          }) || [{ _id: "", label: "loading" }]
-        }
-        label={"Telegram User Credentials"}
-        name={"credentials"}
+      <SourceNameField />
+      <CredentialPickerField
+        type={credentialType}
+        label='Telegram User Credentials'
+        credentialsList={credentialsList}
       />
       <div className='flex flex-col gap-1'>
         <FormikInput
@@ -375,6 +538,9 @@ function onSubmit(data: any) {
   const iodaSchema = Yup.object().shape({
     nickname: Yup.string().required("Source Name is required"),
     keywords: Yup.string().required("Country Code is required"),
+    credentials: Yup.string().required(
+      "A credential is required to create a source"
+    ),
   });
   type IodaSchema = Yup.InferType<typeof iodaSchema>;
   const iodaForm = (
@@ -386,7 +552,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -398,13 +564,18 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikDropdown
         list={
           [{ _id: "IR", label: "IR" }]
         }
         label={"Two-Letter Country Code"}
         name={"keywords"}
+      />
+      <CredentialPickerField
+        type={credentialType}
+        label='API Credentials'
+        credentialsList={credentialsList}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
@@ -413,6 +584,9 @@ function onSubmit(data: any) {
   const cloudflareSchema = Yup.object().shape({
     nickname: Yup.string().required("Source Name is required"),
     keywords: Yup.string().required("Country Code is required"),
+    credentials: Yup.string().required(
+      "A credential is required to create a source"
+    ),
   });
   type CloudflareSchema = Yup.InferType<typeof cloudflareSchema>;
   const cloudflareForm = (
@@ -424,7 +598,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -436,13 +610,18 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikDropdown
         list={
           [{ _id: "IR", label: "IR" }]
         }
         label={"Two-Letter Country Code"}
         name={"keywords"}
+      />
+      <CredentialPickerField
+        type={credentialType}
+        label='API Credentials'
+        credentialsList={credentialsList}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
@@ -488,7 +667,7 @@ function onSubmit(data: any) {
             : "public",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -508,7 +687,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikDropdown
         list={
           [
@@ -522,14 +701,10 @@ function onSubmit(data: any) {
         name={"keywords"}
       />
       <MastodonConditionalFields />
-      <FormikDropdown
-        list={
-          credentialsList?.map((i) => {
-            return { _id: i._id, label: i.name };
-          }) || [{ _id: "", label: "loading" }]
-        }
-        label={"Mastodon Credentials"}
-        name={"credentials"}
+      <CredentialPickerField
+        type={credentialType}
+        label='Mastodon Credentials'
+        credentialsList={credentialsList}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
@@ -568,7 +743,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikInput name='lists' label='Lists' />
       <FormikInput name='regex' label='regex' />
       <FormikDropdown
@@ -603,7 +778,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "https://www.x.com/",
       }}

@@ -26,6 +26,21 @@ function normalizeSingleValue(value) {
   return String(value || '').trim();
 }
 
+// A hashtag source can track multiple tags at once. The value is stored as a
+// comma/whitespace-separated string; split it into a deduped list of bare tags
+// (leading '#' stripped).
+function parseHashtagList(value) {
+  const seen = new Set();
+  return String(value || '')
+    .split(/[\s,]+/)
+    .map((tag) => tag.trim().replace(/^#+/, ''))
+    .filter((tag) => {
+      if (!tag || seen.has(tag.toLowerCase())) return false;
+      seen.add(tag.toLowerCase());
+      return true;
+    });
+}
+
 function htmlToPlainText(html) {
   if (!html) return '';
   return new JSDOM(String(html)).window.document.body.textContent?.trim() || '';
@@ -82,6 +97,10 @@ class MastodonChannel extends Channel {
     this._tickRunning = false;
     this.mode = normalizeMode(this.source.keywords);
     this.modeValue = normalizeSingleValue(this.source.lists);
+    this.hashtags =
+      this.mode === MASTODON_MODE_HASHTAG
+        ? parseHashtagList(this.source.lists)
+        : [];
     this.publicTimelineScope =
       normalizeMode(this.source.regex) || MASTODON_VISIBILITY_LOCAL;
 
@@ -172,6 +191,13 @@ class MastodonChannel extends Channel {
       return;
     }
 
+    if (this.mode === MASTODON_MODE_HASHTAG) {
+      if (!this.hashtags.length) {
+        throw new Error('Missing Mastodon hashtag value for mode=hashtag.');
+      }
+      return;
+    }
+
     if (!this.modeValue) {
       throw new Error(`Missing Mastodon source value for mode=${this.mode}.`);
     }
@@ -240,17 +266,32 @@ class MastodonChannel extends Channel {
     }
 
     if (this.mode === MASTODON_MODE_HASHTAG) {
-      const hashtag = normalizeSingleValue(this.modeValue).replace(/^#/, '');
-      const response = await this.apiRequest({
-        method: 'get',
-        url: `/api/v1/timelines/tag/${encodeURIComponent(hashtag)}`,
-        params: {
-          limit: 40,
-          local: false,
-        },
-      });
+      // One tag-timeline request per hashtag, merged and deduped by status id so
+      // a post carrying several of the tracked tags is only enqueued once.
+      const seen = new Set();
+      const merged = [];
 
-      return Array.isArray(response.data) ? response.data : [];
+      for (const hashtag of this.hashtags) {
+        const response = await this.apiRequest({
+          method: 'get',
+          url: `/api/v1/timelines/tag/${encodeURIComponent(hashtag)}`,
+          params: {
+            limit: 40,
+            local: false,
+          },
+        });
+
+        const statuses = Array.isArray(response.data) ? response.data : [];
+        for (const status of statuses) {
+          if (status?.id != null) {
+            if (seen.has(status.id)) continue;
+            seen.add(status.id);
+          }
+          merged.push(status);
+        }
+      }
+
+      return merged;
     }
 
     if (this.mode === MASTODON_MODE_KEYWORD) {

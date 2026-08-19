@@ -15,7 +15,18 @@ const MEDIA_ROUTE_PREFIX = '/media';
 // "/media/..." resolves to the domain root and returns the SPA instead of the file.
 // Empty at the domain root and in dev.
 const APP_BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/+$/, '');
-const MEDIA_ROOT = process.env.MEDIA_ROOT || path.join(__dirname, '../../../public/media');
+// Fetched media (social images + IODA SVG charts) live under MEDIA_ROOT and are
+// served by the API at /media (see backend/api.js -> express.static(getMediaRoot())).
+// In dev this MUST stay OUT of public/: CRA's dev server watches public/ and does a
+// full browser reload on every write, so the fetch process would reload the app on a
+// loop. Production has no such watcher, so it keeps the in-repo public/media path.
+// Both the writing (fetching) and serving (api) processes read this same value, so
+// the location stays consistent as long as they share ENVIRONMENT (they do — forked).
+const DEFAULT_MEDIA_ROOT =
+  process.env.ENVIRONMENT === 'production'
+    ? path.join(__dirname, '../../../public/media')
+    : path.join(__dirname, '../../../media-store');
+const MEDIA_ROOT = process.env.MEDIA_ROOT || DEFAULT_MEDIA_ROOT;
 const THUMBNAIL_MAX_SIZE = Number(process.env.SOCIAL_IMAGE_THUMB_SIZE || 320);
 
 function normalizeKey(key) {
