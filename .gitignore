@@ -54,3 +54,8 @@ build
 backend/api/uploads
 
 .claude/
+
+# Local runtime media, chart backups, and dev scratch — not source
+media-store
+public/ioda-charts-backup
+scratchpad
