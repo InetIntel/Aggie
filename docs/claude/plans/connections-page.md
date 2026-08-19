@@ -136,3 +136,4 @@ Inter is already the global font — no font work.
 - update explanation text in mastodan hashtags to be less ai
 - make mastadon "hashtag" in feeds page to be "hashtags if there are multiple hashtags
 - in mastadon feeds, the type of feed has the connection on top of the mode, get rid of that cuz it already exists in the key toast, and just keep the mode
+-
