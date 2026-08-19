@@ -123,13 +123,12 @@ sourceSchema.methods.logEvent = function (level, message) {
 
 var Source = mongoose.model('Source', sourceSchema);
 
-// Count the number of *distinct* error messages among the most recent events.
-// The warning badge uses this instead of `unreadErrorCount` (a cumulative
-// per-fetch-cycle tally), so a single recurring error reads as 1, not 1000.
+// Count the recent events shown in the warnings popup (the most recent 50).
+// The warning badge uses this instead of `unreadErrorCount` (an unbounded
+// cumulative tally) so the badge number matches the popup's list exactly.
 Source.distinctErrorCount = function (events) {
   if (!events || !events.length) return 0;
-  var recent = events.slice(-EVENTS_TO_RETURN);
-  return _.uniq(_.map(recent, 'message')).length;
+  return events.slice(-EVENTS_TO_RETURN).length;
 };
 
 // Get latest unread error messages
@@ -138,7 +137,7 @@ Source.findByIdWithLatestEvents = function (_id, callback) {
     if (err) return callback(err);
     if (!source) return callback(null, null);
     if (source.events) {
-      source.events = _.chain(source.events).sortBy('datetime').last(EVENTS_TO_RETURN).value();
+      source.events = _.chain(source.events).sortBy('datetime').takeRight(EVENTS_TO_RETURN).value();
     }
     callback(null, source);
   });

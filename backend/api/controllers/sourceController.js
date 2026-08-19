@@ -33,21 +33,13 @@ exports.source_sources = (req, res) => {
   .populate(sourcePopulate)
     .exec(function (err, sources) {
       if (err) return res.status(err.status).send(err.message);
-      // The list payload strips `events` to stay lean, so compute the distinct
-      // error count per source in the DB and merge it into the response.
+      // The list payload strips `events` to stay lean, so compute the count of
+      // recent events (the last 50, matching the warnings popup) per source in
+      // the DB and merge it into the response.
       var pipeline = [
         { $project: {
             distinctErrorCount: {
-              $size: {
-                $setUnion: [
-                  { $map: {
-                      input: { $slice: [{ $ifNull: ['$events', []] }, -50] },
-                      as: 'e',
-                      in: '$$e.message',
-                  } },
-                  [],
-                ],
-              },
+              $size: { $slice: [{ $ifNull: ['$events', []] }, -50] },
             },
         } },
       ];

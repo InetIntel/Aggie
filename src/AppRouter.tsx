@@ -7,7 +7,6 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Toaster } from "react-hot-toast";
 import { getSession } from "./api/session";
 
 import type { Session } from "./api/session/types";
@@ -157,7 +156,6 @@ const AppRouter = () => {
 
   return (
     <div className='flex flex-col h-[100svh]'>
-      <Toaster position='bottom-right' />
       <Navbar isAuthenticated={isLoggedIn} session={userData} />
       <FetchIndicator className='sticky top-0 z-20' />
       <main

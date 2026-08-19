@@ -31,35 +31,36 @@ interface IProps {
   // Pre-scope a brand-new source form to an API type (e.g. when opened from a
   // per-type section). Ignored when editing an existing source.
   defaultType?: CredentialOption;
+  // When false, the connection dropdown is hidden and the provider's single
+  // connection is auto-selected (see the Feeds-page toggle).
+  allowMultipleConnections?: boolean;
 }
 
 // The "Feed name" is just a display label for the feed (the `nickname`
 // field) — it does not affect what gets fetched. Spell that out so users don't
 // confuse it with the account/handle, the connection, or the provider.
 const SourceNameField = () => (
-  <div className='flex flex-col gap-1'>
-    <FormikInput
-      name='nickname'
-      label='Feed name'
-      placeholder="A label for this feed, e.g. 'Elections — Mastodon #wildfire'"
-    />
-    <p className='text-xs text-slate-500 dark:text-gray-400'>
-      A name to identify this feed in your lists; the items it collects appear as
-      Reports. It's only a label — it doesn't change what gets fetched. Pick
-      something recognizable, like the topic plus the account or hashtag.
-    </p>
-  </div>
+  <FormikInput
+    name='nickname'
+    label='Feed name'
+    placeholder="A label for this feed, e.g. 'Elections — Mastodon #wildfire'"
+    hint="A name to identify this feed in your lists; the items it collects appear as Reports. It's only a label — it doesn't change what gets fetched. Pick something recognizable, like the topic plus the account or hashtag."
+  />
 );
 
 // Credential picker: pick an existing credential of this type. Connections are
 // configured ahead of time on the Connections page, so there's no inline "add
 // connection" here — the feed form only chooses among what already exists.
+// When multiple connections per provider are disabled there's only ever one to
+// use, so the dropdown is hidden and the sole connection is auto-selected.
 const CredentialPickerField = ({
   label,
   credentialsList,
+  allowMultiple = true,
 }: {
   label: string;
   credentialsList?: Credential[];
+  allowMultiple?: boolean;
 }) => {
   const [, meta, helpers] = useField<string>("credentials");
 
@@ -76,6 +77,9 @@ const CredentialPickerField = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, options.length]);
+
+  // One connection per provider: skip the picker entirely (value is set above).
+  if (!allowMultiple) return null;
 
   return (
     <div className='flex flex-col gap-2'>
@@ -124,6 +128,10 @@ const MastodonHashtagField = () => {
   return (
     <div className='flex flex-col gap-1'>
       <span className='text-slate-600 dark:text-gray-400'>Hashtags</span>
+      <p className='text-xs text-slate-500 dark:text-gray-400'>
+        Track one or more hashtags — press Enter or comma to add each. Posts matching
+        any of the tags are collected, with duplicates removed.
+      </p>
       <div className='flex flex-wrap gap-2 items-center px-2 py-2 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900'>
         {tags.map((tag) => (
           <span
@@ -161,10 +169,6 @@ const MastodonHashtagField = () => {
           className='flex-1 min-w-[8rem] bg-transparent focus:outline-none text-black dark:text-gray-300 px-1 py-1'
         />
       </div>
-      <p className='text-xs text-slate-500 dark:text-gray-400'>
-        Track one or more hashtags — press Enter or comma to add each. Posts matching
-        any of the tags are collected, with duplicates removed.
-      </p>
     </div>
   );
 };
@@ -255,14 +259,14 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
           <label className='text-slate-600 dark:text-gray-400'>
             Cutoff Date
           </label>
+          <p className='text-xs text-slate-500 dark:text-gray-400'>
+            Data before this date is treated as public. Data after this date is restricted to the selected teams.
+          </p>
           <input
             {...cutoffField}
             type='date'
             className='px-3 py-2 focus-theme bg-white dark:bg-gray-800 border border-slate-300 rounded'
           />
-          <p className='text-xs text-slate-500 dark:text-gray-400'>
-            Data before this date is treated as public. Data after this date is restricted to the selected teams.
-          </p>
         </div>
       )}
 
@@ -298,7 +302,12 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
   );
 };
 
-const CreateEditSourceForm = ({ source, onClose, defaultType }: IProps) => {
+const CreateEditSourceForm = ({
+  source,
+  onClose,
+  defaultType,
+  allowMultipleConnections = true,
+}: IProps) => {
   const [credentialType, setCredentialType] =
     useState<CredentialOption>(
       (source?.media as CredentialOption) || defaultType || "ioda"
@@ -406,11 +415,26 @@ function onSubmit(data: any) {
       onClose={onClose}
     >
       <SourceNameField />
-      <FormikInput name='lists' label='Lists' />
+      <FormikInput
+        name='lists'
+        label='Lists'
+        hint={
+          <>
+            Enter a Junkipedia <span className='font-medium'>List ID</span> — a
+            number that points to a monitoring list you've set up in Junkipedia (a
+            saved set of accounts, channels, hashtags, or search terms). Aggie
+            collects the posts from that list as Reports. Find the ID in Junkipedia
+            under Monitoring → Manage Lists (it's the number in the list's URL). To
+            pull from more than one list, separate the IDs with commas (e.g.
+            1911,4224).
+          </>
+        }
+      />
 
       <CredentialPickerField
         label='Connection'
         credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
@@ -492,19 +516,14 @@ function onSubmit(data: any) {
       <CredentialPickerField
         label='Connection'
         credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
       />
-      <div className='flex flex-col gap-1'>
-        <FormikInput
-          name='lists'
-          label='Chats / Channels / Users'
-          placeholder='Comma-separated Telegram entities, e.g. @channel_one, -1001234567890'
-        />
-        <p className='text-xs text-slate-500 dark:text-gray-400'>
-          Enter the Telegram entities this account can access, such as public usernames
-          like @channel_one or private chat/channel IDs like -1001234567890. Separate
-          multiple entries with commas.
-        </p>
-      </div>
+      <FormikInput
+        name='lists'
+        label='Chats / Channels / Users'
+        placeholder='Comma-separated Telegram entities, e.g. @channel_one, -1001234567890'
+        hint='Enter the Telegram entities this account can access, such as public usernames like @channel_one or private chat/channel IDs like -1001234567890. Separate multiple entries with commas.'
+      />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
@@ -550,6 +569,7 @@ function onSubmit(data: any) {
       <CredentialPickerField
         label='Connection'
         credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
@@ -595,6 +615,7 @@ function onSubmit(data: any) {
       <CredentialPickerField
         label='Connection'
         credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
@@ -677,6 +698,7 @@ function onSubmit(data: any) {
       <CredentialPickerField
         label='Connection'
         credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>

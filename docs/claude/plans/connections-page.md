@@ -25,11 +25,13 @@ Outcome: one Connections page that mirrors the mockup — grouped by API type, c
 Replace the body of `ConnectionsIndex.tsx` (currently a flat `<SourcesSection />`) with a grouped layout. Add one new presentational component, `ApiTypeSection`, rendered once per entry in `CREDENTIAL_OPTIONS` (`src/api/common.ts:74` — `junkipedia`, `telegramUser`, `mastodon`, `ioda`, `cloudflare`).
 
 **Page shell (`ConnectionsIndex`):**
+
 - Header row: page title ("Connections") on the left; the existing global **Enable Fetching** toggle (`<Configuration />`, `SourcesSection.tsx:95`) on the right.
 - Fetch once at the page level and pass slices down: `useQuery(["sources"], getSources)`, `useQuery(["credentials"], getCredentials)`, `useQuery(["session"], getSession)`.
 - Map `CREDENTIAL_OPTIONS` → `<ApiTypeSection type={type} sources={...} credentials={...} />`, filtering by `credential.type === type` and `source.media === type` (same lowercase identifiers).
 
 **`ApiTypeSection`** (new file, `src/pages/Settings/Connections/ApiTypeSection.tsx`) — a card (reuse `bg-white dark:bg-gray-800 rounded-lg border border-slate-300 divide-y divide-slate-300`, `SourcesSection.tsx:96`) containing:
+
 - **Type header**: human-friendly label via a small display-name map (`telegramUser → "Telegram"`, `ioda → "Ioda"`).
 - **Credentials block**: chips for this type's credentials (reuse the chip + trash pattern, `CredentialsSection.tsx:75-88`) + a green **"Add {type} api"** button (`AggieButton variant='primary'`) opening `AggieDialog` → `CreateCredentialForm lockedType={type}` (the `lockedType` wiring already exists).
 - **Sources block**: rows for this type's sources, reusing the row markup from `SourcesSection.tsx:99-200` verbatim (nickname link → details popup, credential chip, warning badge, per-source `AggieSwitch` enable toggle, edit/delete `DropdownMenu`) + a teal **"Add {type} source"** button opening `CreateEditSourceForm`.
@@ -46,6 +48,7 @@ To avoid duplicating the dialog/mutation state five times, factor the shared sou
 Keep `name` required in the model but stop forcing the user to invent one.
 
 **Frontend** (`src/pages/Settings/Credentials/CreateCredentialForm.tsx`):
+
 - Fetch existing credentials (`getCredentials`) to compute a default per selected type: `` `${credentialType} #${countOfThatType + 1}` ``.
 - Seed each sub-form's Formik `initialValues.name` with that default instead of `""`, recomputing when `credentialType` changes. The existing `<FormikInput name='name' label='Credential Name' />` stays — the user can overwrite it. Keep the Yup `name` required rule so an emptied field still errors.
 - For the OAuth flows (telegramUser, mastodon), pass the generated default where `telegramUserName` / `mastodonCredentialName` are used, seeding those state values with the default.
@@ -56,7 +59,7 @@ Keep `name` required in the model but stop forcing the user to invent one.
 
 "Source Name" is the `nickname` field (`backend/models/source.js:32`, required, free-text, labeled in `CreateEditSourceForm.tsx:260`) — a **display label** for the source row, but the term is ambiguous (users conflate it with the account/handle/URL, the credential name, or the media type).
 
-- **(a) Better terminology + guidance (always, low risk):** rename the label to something self-explanatory (e.g. "Display name" / "Label for this source") and add placeholder + helper text with an example (*"A name to identify this source in your lists, e.g. 'Elections — Mastodon #wildfire'"*). UI-only change in `CreateEditSourceForm.tsx`.
+- **(a) Better terminology + guidance (always, low risk):** rename the label to something self-explanatory (e.g. "Display name" / "Label for this source") and add placeholder + helper text with an example (_"A name to identify this source in your lists, e.g. 'Elections — Mastodon #wildfire'"_). UI-only change in `CreateEditSourceForm.tsx`.
 - **(b) Auto-generate it (default-with-override):** since `nickname` is only a display label, default it from the source's own inputs — e.g. `` `${media} — ${hashtag/keyword/handle}` `` — and keep it editable, mirroring the credential-name approach. **Verify first** that `nickname` is never used for lookup/dedup/matching (`grep nickname` across `backend/` shows only the model index at `source.js:32`; double-check controllers/sockets during implementation).
 
 ### 5. Multiple hashtags/keywords per source (where the API supports it)
@@ -76,6 +79,7 @@ Keep `SourceAccessPolicyFields` as-is. Confirm it's present on each of the five 
 ### 7. Styling — map mockup hexes to existing tokens (no raw hex)
 
 The mockup's `var(--*)` tokens don't exist; map to what's there and extend the palette per `tailwind.config.js:17-28`:
+
 - `#166534` (green "Add api" button) → `AggieButton variant='primary'` (already `bg-green-800`). No change.
 - `#237F9E` (edit pencil / teal accents) → existing `aggie-secondary-500`.
 - `#1A5E75` (teal "Add source" button) → add `aggie.secondary.650: '#1A5E75'` to `tailwind.config.js`, and add a **teal `secondary` variant** to `AggieButton.tsx:9` (`bg-aggie-secondary-500 hover:bg-aggie-secondary-650 text-white`) — use a new variant name like `teal` rather than overriding the neutral-slate `secondary`.
@@ -117,3 +121,18 @@ Inter is already the global font — no font work.
 8. **Access policy:** open Add/Edit Source for each active type → the Access Policy section (Access Mode dropdown + team checkboxes) renders and saves.
 9. **Multiple hashtags (Mastodon):** create a hashtag source with several tags → reports arrive for each tag and a post carrying two tags appears once; check `aggie-fetching` logs.
 10. **No regressions:** created sources fetch end-to-end (channel registers, `populate('credentials')` resolves); `/settings/sources` and `/settings/credentials` still work during transition.
+
+## TODO:
+
+- in add / edit feed --> if only allowing 1 connection is toggled on, default to that connection and do not let theeuser change it
+- in view details, collapse recent activity with a toggle to expland. add the "x warnings" toast inline with the eybrow header
+- connect and explore the mastadon provider
+- figure out why the "more" button isn't the same look/feel as the button used in feed
+- in view details modal, connection allows you to click on it but it does nothing. do not change the cursor on hover
+- figure out what tags are on feed form
+- change copy of feeds --> it references "reports" and that should actually be "alerts"
+- learn what different information is for inputs of telegram form
+- take screenshots of former user flow before deploying
+- update explanation text in mastodan hashtags to be less ai
+- make mastadon "hashtag" in feeds page to be "hashtags if there are multiple hashtags
+- in mastadon feeds, the type of feed has the connection on top of the mode, get rid of that cuz it already exists in the key toast, and just keep the mode

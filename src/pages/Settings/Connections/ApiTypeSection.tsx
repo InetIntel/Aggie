@@ -1,17 +1,13 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import toast from "react-hot-toast";
 
 import { deleteSource, editSource, getSource } from "../../../api/sources";
 import type { Source } from "../../../api/sources/types";
+import type { SourceEvent } from "../../../api/session/types";
 import { deleteCredential } from "../../../api/credentials";
 import type { Credential } from "../../../api/credentials/types";
-import {
-  providerLabel,
-  ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER,
-  type CredentialOption,
-} from "../../../api/common";
+import { providerLabel, type CredentialOption } from "../../../api/common";
 
 import AggieSwitch from "../../../components/AggieSwitch";
 import DropdownMenu from "../../../components/DropdownMenu";
@@ -33,6 +29,7 @@ import {
   faSpinner,
   faTrash,
   faTrashAlt,
+  faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
 interface IProps {
@@ -40,22 +37,30 @@ interface IProps {
   sources: Source[];
   credentials: Credential[];
   isManager: boolean;
+  // Toggle from the Feeds page: allow more than one connection per provider.
+  allowMultipleConnections: boolean;
 }
 
 // One card per provider on the Feeds page. Co-locates that provider's
 // connections ("Connect {provider}") and its feeds ("Add feed"), reusing the
 // same dialogs/mutations the standalone sections use.
-const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
+const ApiTypeSection = ({
+  type,
+  sources,
+  credentials,
+  isManager,
+  allowMultipleConnections,
+}: IProps) => {
   const queryClient = useQueryClient();
   const label = providerLabel(type);
 
   const typeSources = sources.filter((source) => source.media === type);
   const typeCredentials = credentials.filter((cred) => cred.type === type);
 
-  // Capped at one connection per provider for now (see the flag). Once a
-  // connection exists, hide the "Connect" button until the cap is lifted.
+  // When multiple connections per provider are disabled, hide the "Connect"
+  // button once a connection exists (one connection per provider).
   const canAddConnection =
-    ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER || typeCredentials.length === 0;
+    allowMultipleConnections || typeCredentials.length === 0;
 
   const [openCreateCredential, setOpenCreateCredential] = useState(false);
   const [credentialDeletion, setCredentialDeletion] = useState<Credential>();
@@ -63,6 +68,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
   const [sourceDeletion, setSourceDeletion] = useState<Source>();
   const [detailsId, setDetailsId] = useState("");
   const [detailsEditing, setDetailsEditing] = useState(false);
+  const [warningsSource, setWarningsSource] = useState<Source>();
 
   const doDeleteSource = useMutation(deleteSource, {
     onSuccess: () => {
@@ -92,38 +98,17 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
     setDetailsEditing(false);
   };
 
-  // Peek at a feed's warnings without opening the details popup. The list
-  // payload strips `events`, so fetch the source detail for the latest message.
-  const showWarnings = async (source: Source) => {
-    const count = source.distinctErrorCount;
-    const plural = count === 1 ? "warning" : "warnings";
-    const t = toast.loading(`Loading warnings for ${source.nickname}…`);
-    try {
-      const full = await queryClient.fetchQuery(["source", source._id], () =>
-        getSource(source._id)
-      );
-      const events = full?.events ?? [];
-      const latest = events.length
-        ? [...events].sort(
-            (a, b) =>
-              new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
-          )[0]
-        : undefined;
-      const summary = latest
-        ? `${count} ${plural} — latest: ${latest.message} (${new Date(
-            latest.datetime
-          ).toLocaleString()})`
-        : `${count} ${plural} for ${source.nickname}`;
-      toast(summary, { id: t, icon: "⚠️" });
-    } catch {
-      toast.error(`Couldn't load warnings for ${source.nickname}`, { id: t });
-    }
-  };
-
   return (
     <section className='mb-6'>
       <div className='flex flex-wrap justify-between items-center gap-2 mb-2'>
-        <h2 className='text-xl font-semibold'>{label}</h2>
+        <div>
+          <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400'>
+            Provider
+          </p>
+          <h2 className='text-xl font-bold text-green-800 dark:text-green-600'>
+            {label}
+          </h2>
+        </div>
         {isManager && canAddConnection && (
           <AggieButton
             onClick={() => setOpenCreateCredential(true)}
@@ -141,7 +126,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
       {isManager && (
         <>
           <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400 mb-1'>
-            Connections
+            {allowMultipleConnections ? "Connections" : "Connection"}
           </p>
           <div className='flex flex-wrap items-center gap-2 mb-3'>
             {typeCredentials.length > 0 ? (
@@ -189,7 +174,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
               className='flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between py-3 px-3 text-slate-600 dark:text-gray-400 text-xs font-medium'
             >
               <main className='min-w-0 lg:flex-1'>
-                <h3 className='font-bold truncate'>{source.nickname}</h3>
+                <h3 className='font-bold break-words'>{source.nickname}</h3>
                 <p className='text-sm break-words'>{source.keywords}</p>
               </main>
               <div className='flex flex-wrap items-center gap-2'>
@@ -212,7 +197,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
                   <p className='flex items-center gap-2 bg-orange-100 rounded-full px-2 w-fit py-1 shrink-0'>
                     <button
                       type='button'
-                      onClick={() => showWarnings(source)}
+                      onClick={() => setWarningsSource(source)}
                       className='hover:underline text-orange-800 flex items-center gap-2'
                       title='Errors while fetching this feed'
                     >
@@ -277,7 +262,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
                       onClick={() => setSourceDeletion(source)}
                     >
                       <FontAwesomeIcon icon={faTrashAlt} />
-                      Permanently Delete
+                      Delete
                     </AggieButton>
                   </DropdownMenu>
                 </div>
@@ -316,9 +301,23 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
           <AggieDialog
             isOpen={openCreateCredential}
             onClose={() => setOpenCreateCredential(false)}
-            data={{ title: `Connect ${label}` }}
             className='p-3 w-full max-w-lg'
           >
+            <div className='flex justify-between items-center mb-2 gap-4'>
+              <h2 className='text-xl font-medium'>
+                Connect{" "}
+                <span className='font-bold text-green-800 dark:text-green-600'>
+                  {label}
+                </span>
+              </h2>
+              <AggieButton
+                onClick={() => setOpenCreateCredential(false)}
+                className='px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-500 dark:text-gray-400'
+                aria-label='Close'
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </AggieButton>
+            </div>
             <CreateCredentialForm
               lockedType={type}
               onClose={() => setOpenCreateCredential(false)}
@@ -342,9 +341,11 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
           <AggieDialog
             isOpen={!!openSource}
             onClose={() => setOpenSource("")}
-            data={{
-              title:
-                openSource === "new" ? (
+            className='p-3 w-full max-w-lg'
+          >
+            <div className='flex justify-between items-center mb-2 gap-4'>
+              <h2 className='text-xl font-medium'>
+                {openSource === "new" ? (
                   <>
                     Add{" "}
                     <span className='font-bold text-green-800 dark:text-green-600'>
@@ -354,13 +355,20 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
                   </>
                 ) : (
                   "Edit feed"
-                ),
-            }}
-            className='p-3 w-full max-w-lg'
-          >
+                )}
+              </h2>
+              <AggieButton
+                onClick={() => setOpenSource("")}
+                className='px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-500 dark:text-gray-400'
+                aria-label='Close'
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </AggieButton>
+            </div>
             <CreateEditSourceForm
               source={getSourceFromId(openSource)}
               defaultType={type}
+              allowMultipleConnections={allowMultipleConnections}
               onClose={() => setOpenSource("")}
             />
           </AggieDialog>
@@ -383,7 +391,7 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
       <AggieDialog
         isOpen={!!detailsId}
         onClose={closeDetails}
-        className='p-3 w-full max-w-2xl'
+        className='p-3 w-full max-w-lg'
       >
         <SourceDetailsView
           id={detailsId}
@@ -391,7 +399,102 @@ const ApiTypeSection = ({ type, sources, credentials, isManager }: IProps) => {
           initialEditing={detailsEditing}
         />
       </AggieDialog>
+
+      <AggieDialog
+        isOpen={!!warningsSource}
+        onClose={() => setWarningsSource(undefined)}
+        className='p-3 w-full max-w-lg'
+      >
+        {warningsSource && (
+          <WarningsDialogBody
+            source={warningsSource}
+            onClose={() => setWarningsSource(undefined)}
+          />
+        )}
+      </AggieDialog>
     </section>
+  );
+};
+
+// Warnings popup body: the feed list payload strips `events`, so fetch the full
+// source detail on demand and list every warning (newest first).
+const WarningsDialogBody = ({
+  source,
+  onClose,
+}: {
+  source: Source;
+  onClose: () => void;
+}) => {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery(
+    ["source", source._id],
+    () => getSource(source._id),
+    {
+      enabled: !!source._id,
+      // The feed-list badge (["sources"]) and this popup (["source", id]) come
+      // from separate endpoints fetched at different times, so the list badge
+      // can be stale as fetching appends events. Push this fresh count back into
+      // the list cache so the badge matches exactly what the popup lists.
+      onSuccess: (fresh) => {
+        if (!fresh) return;
+        queryClient.setQueryData<Source[] | undefined>(["sources"], (old) =>
+          old?.map((s) =>
+            s._id === source._id
+              ? { ...s, distinctErrorCount: fresh.distinctErrorCount }
+              : s
+          )
+        );
+      },
+    }
+  );
+  const events = [...(data?.events ?? [])].sort(
+    (a: SourceEvent, b: SourceEvent) =>
+      new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+  );
+
+  return (
+    <div>
+      <div className='flex justify-between items-center mb-2 gap-4'>
+        <h2 className='text-xl font-medium'>Warnings — {source.nickname}</h2>
+        <AggieButton
+          onClick={onClose}
+          className='px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-500 dark:text-gray-400'
+          aria-label='Close'
+        >
+          <FontAwesomeIcon icon={faXmark} />
+        </AggieButton>
+      </div>
+
+      {isLoading ? (
+        <p className='px-1 py-4 text-sm text-slate-500 dark:text-gray-400 flex items-center gap-2'>
+          <FontAwesomeIcon icon={faSpinner} className='animate-spin' />
+          Loading warnings…
+        </p>
+      ) : events.length > 0 ? (
+        <section className='bg-white dark:bg-gray-800 rounded-lg px-1 py-1 flex flex-col gap-2 max-h-96 overflow-y-auto'>
+          <header className='grid grid-cols-4 border-slate-300 border-b text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400 pb-1'>
+            <p>Time</p>
+            <p>Level</p>
+            <p className='col-span-2'>Message</p>
+          </header>
+          {events.map((event: SourceEvent, index: number) => (
+            <div className='grid grid-cols-4 text-sm' key={index}>
+              <p className='text-slate-600 dark:text-gray-400'>
+                {new Date(event.datetime).toLocaleString()}
+              </p>
+              {/* Backend logs every fetch error as type "error"; the UI presents
+                  these consistently as "Warning" to match the badge wording. */}
+              <p>{event.type === "error" ? "Warning" : event.type}</p>
+              <p className='col-span-2 break-words'>{event.message}</p>
+            </div>
+          ))}
+        </section>
+      ) : (
+        <p className='px-1 py-4 text-sm text-slate-500 dark:text-gray-400'>
+          No warnings found.
+        </p>
+      )}
+    </div>
   );
 };
 

@@ -234,7 +234,7 @@ const SourcesSection = () => {
       <AggieDialog
         isOpen={!!detailsId}
         onClose={closeDetails}
-        className='p-3 w-full max-w-2xl'
+        className='p-3 w-full max-w-lg'
       >
         <SourceDetailsView
           id={detailsId}
