@@ -138,3 +138,5 @@ Inter is already the global font — no font work.
 - in mastadon feeds, the type of feed has the connection on top of the mode, get rid of that cuz it already exists in the key toast, and just keep the mode + do this for cloudlfare and ioda as well
 - make "enable fetching text" smaller"
 - capatalize provider like how feeds, alerts and connections are capitalized
+- remove style page from dropdown menu
+- change the page title from "feeds" to "Providers and Feeds", and base the explanation text off of what a provider is to start, then what a connection is, and then what a feed is.
