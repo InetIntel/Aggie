@@ -43,8 +43,8 @@ const SourceNameField = () => (
   <FormikInput
     name='nickname'
     label='Feed name'
-    placeholder="A label for this feed, e.g. 'Elections — Mastodon #wildfire'"
-    hint="A name to identify this feed in your lists; the items it collects appear as Reports. It's only a label — it doesn't change what gets fetched. Pick something recognizable, like the topic plus the account or hashtag."
+    placeholder="A label for this feed, e.g. 'Elections, Mastodon #wildfire'"
+    hint="A name to identify this feed in your lists; the items it collects appear as Alerts. It's only a label and doesn't change what gets fetched. Pick something recognizable, like the topic plus the account or hashtag."
   />
 );
 
@@ -87,7 +87,7 @@ const CredentialPickerField = ({
         list={
           options.length
             ? options
-            : [{ _id: "", label: "No connections yet — add one in Connections" }]
+            : [{ _id: "", label: "No connections yet. Add one in Connections" }]
         }
         label={label}
         name={"credentials"}
@@ -127,10 +127,13 @@ const MastodonHashtagField = () => {
 
   return (
     <div className='flex flex-col gap-1'>
-      <span className='text-slate-600 dark:text-gray-400'>Hashtags</span>
+      <span className='text-slate-600 dark:text-gray-400'>
+        {tags.length === 1 ? "Hashtag" : "Hashtags"}
+      </span>
       <p className='text-xs text-slate-500 dark:text-gray-400'>
-        Track one or more hashtags — press Enter or comma to add each. Posts matching
-        any of the tags are collected, with duplicates removed.
+        Type a hashtag and press Enter to add it. Add as many as you want. We'll
+        pull in posts that use any of them, and a post with more than one tag only
+        shows up once.
       </p>
       <div className='flex flex-wrap gap-2 items-center px-2 py-2 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900'>
         {tags.map((tag) => (
@@ -420,10 +423,10 @@ function onSubmit(data: any) {
         label='Lists'
         hint={
           <>
-            Enter a Junkipedia <span className='font-medium'>List ID</span> — a
+            Enter a Junkipedia <span className='font-medium'>List ID</span>, a
             number that points to a monitoring list you've set up in Junkipedia (a
             saved set of accounts, channels, hashtags, or search terms). Aggie
-            collects the posts from that list as Reports. Find the ID in Junkipedia
+            collects the posts from that list as Alerts. Find the ID in Junkipedia
             under Monitoring → Manage Lists (it's the number in the list's URL). To
             pull from more than one list, separate the IDs with commas (e.g.
             1911,4224).
@@ -812,7 +815,7 @@ function onSubmit(data: any) {
             className='relative z-20 font-medium mb-3'
           >
             <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200 dark:ui-active:bg-gray-600  rounded'>
-              {credentialType ? providerLabel(credentialType) : "Select provider"}
+              {credentialType ? providerLabel(credentialType) : "Select Provider"}
               <FontAwesomeIcon
                 icon={faChevronDown}
                 className='ui-active:rotate-180 text-slate-400 dark:text-gray-400'

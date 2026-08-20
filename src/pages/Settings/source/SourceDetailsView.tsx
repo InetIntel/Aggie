@@ -9,7 +9,7 @@ import { getTeams } from "../../../api/teams";
 import type { SourceEvent } from "../../../api/session/types";
 import type { Source } from "../../../api/sources/types";
 import type { Team } from "../../../api/teams/types";
-import { providerLabel } from "../../../api/common";
+import { getAllowMultipleConnections, providerLabel } from "../../../api/common";
 
 import AggieSwitch from "../../../components/AggieSwitch";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
@@ -19,8 +19,10 @@ import ConfirmationDialog from "../../../components/ConfirmationDialog";
 import CreateEditSourceForm from "./CreateEditSourceForm";
 
 import {
+  faChevronDown,
   faEdit,
   faEllipsisH,
+  faExclamationTriangle,
   faKey,
   faSpinner,
   faTrashAlt,
@@ -82,7 +84,7 @@ const getSourceConfigRows = (
         const tags = parseHashtags(source.lists);
         if (tags.length)
           rows.push({
-            label: "Hashtags",
+            label: tags.length === 1 ? "Hashtag" : "Hashtags",
             value: (
               <div className='flex flex-wrap gap-2'>
                 {tags.map((tag) => (
@@ -95,7 +97,10 @@ const getSourceConfigRows = (
                 ))}
               </div>
             ),
-            hint: "Posts matching any of these hashtags are collected, with duplicates removed.",
+            hint:
+              tags.length === 1
+                ? "We pull in posts that use this hashtag."
+                : "We pull in posts that use any of these hashtags, without repeating a post that has more than one.",
           });
       } else if (mode === "keyword") {
         if (source.lists) rows.push({ label: "Keyword", value: source.lists });
@@ -113,7 +118,7 @@ const getSourceConfigRows = (
         rows.push({
           label: "Lists",
           value: source.lists,
-          hint: "Junkipedia List IDs — each points to a monitoring list (a saved set of accounts, channels, hashtags, or search terms). Aggie collects the posts from these lists as Reports.",
+          hint: "Junkipedia List IDs. Each one points to a monitoring list (a saved set of accounts, channels, hashtags, or search terms). Aggie collects the posts from these lists as Alerts.",
         });
       break;
     case "telegramUser":
@@ -121,7 +126,7 @@ const getSourceConfigRows = (
         rows.push({
           label: "Chats / Channels / Users",
           value: source.lists,
-          hint: "The Telegram entities this feed pulls from — public usernames like @channel_one or private chat/channel IDs like -1001234567890.",
+          hint: "The Telegram entities this feed pulls from, such as public usernames like @channel_one or private chat/channel IDs like -1001234567890.",
         });
       break;
     case "ioda":
@@ -212,6 +217,7 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
   });
   const [deletionModal, setDeletionModal] = useState(false);
   const [editing, setEditing] = useState(initialEditing);
+  const [activityOpen, setActivityOpen] = useState(false);
   const doDeleteSource = useMutation(deleteSource, {
     onSuccess: () => {
       setDeletionModal(false);
@@ -238,11 +244,12 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
       {editing ? (
         <div className='flex flex-col'>
           <div className='flex justify-between items-center mb-3 gap-4'>
-            <h2 className='text-3xl font-medium'>Edit feed</h2>
+            <h2 className='text-xl font-medium'>Edit feed</h2>
             {onClose && <CloseButton onClose={onClose} />}
           </div>
           <CreateEditSourceForm
             source={data}
+            allowMultipleConnections={getAllowMultipleConnections()}
             onClose={() => {
               // The edit mutation only invalidates ["sources"]; refresh this
               // panel's ["source", id] query so the read view shows the saved
@@ -264,7 +271,13 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
       ) : (
         <>
           <div className='flex justify-between items-center mb-3 gap-4'>
-            <h2 className='text-3xl font-medium'>{data?.nickname}</h2>
+            <h2 className='text-xl font-medium'>
+              View{" "}
+              <span className='font-bold text-green-800 dark:text-green-600'>
+                {data?.nickname}
+              </span>{" "}
+              details
+            </h2>
             <div className='flex items-center gap-4'>
               {isManager && (
                 <>
@@ -296,9 +309,8 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
                     </div>
                   </PlaceholderDiv>
                   <DropdownMenu
-                    variant='secondary'
-                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
-                    panelClassName='overflow-hidden right-0 text-sm'
+                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-600 dark:text-gray-400'
+                    panelClassName='bg-white dark:bg-gray-800 border border-slate-300 rounded-lg overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
                     <AggieButton
@@ -328,9 +340,8 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
 
             {isManager && (
               <DetailField label='Connection'>
-                <Link
-                  to={`/settings/connections`}
-                  className='hover:underline flex items-center gap-2 w-fit'
+                <span
+                  className='flex items-center gap-2 w-fit'
                   title='Connection'
                 >
                   <FontAwesomeIcon
@@ -339,7 +350,7 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
                     className='text-slate-500 dark:text-gray-400'
                   />
                   {data?.credentials.name}
-                </Link>
+                </span>
               </DetailField>
             )}
 
@@ -398,42 +409,70 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
             </DetailField>
 
             <div className='flex flex-col gap-1'>
-              <span className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400'>
+              <button
+                type='button'
+                onClick={() => setActivityOpen((open) => !open)}
+                className='flex items-center gap-2 w-fit text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200'
+                aria-expanded={activityOpen}
+              >
+                <FontAwesomeIcon
+                  icon={faChevronDown}
+                  className={`transition-transform ${
+                    activityOpen ? "rotate-180" : ""
+                  }`}
+                />
                 Recent activity
-              </span>
-              <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 overflow-hidden'>
-                <div className='grid grid-cols-4 px-3 py-2 border-b border-slate-300 text-xs font-semibold uppercase tracking-wide'>
-                  <p>Time</p>
-                  <p>Level</p>
-                  <p className='col-span-2'>Message</p>
-                </div>
-                {data?.events && data.events.length > 0 ? (
-                  // Backend returns events oldest-first; show newest-first here.
-                  [...data.events]
-                    .sort(
-                      (a: SourceEvent, b: SourceEvent) =>
-                        new Date(b.datetime).getTime() -
-                        new Date(a.datetime).getTime()
-                    )
-                    .map((event: SourceEvent, index: number) => (
-                    <div
-                      className='grid grid-cols-4 px-3 py-2 text-sm text-black dark:text-gray-300 border-t border-slate-200 dark:border-gray-700 first:border-t-0'
-                      key={index}
-                    >
-                      <p>{new Date(event.datetime).toLocaleString()}</p>
-                      {/* Backend logs every fetch failure as type "error"; show
-                          these as "Warning" (matching the badge/warnings popup),
-                          but pass through any other explicit level verbatim. */}
-                      <p>{event.type === "error" ? "Warning" : event.type}</p>
-                      <p className='col-span-2 break-words'>{event.message}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className='px-3 py-2 text-sm text-slate-500 dark:text-gray-400'>
-                    No events found.
-                  </p>
+                {(data?.distinctErrorCount ?? 0) > 0 && (
+                  <span className='flex items-center gap-1 bg-orange-100 rounded-full px-2 py-0.5 text-orange-800 normal-case tracking-normal'>
+                    <FontAwesomeIcon
+                      icon={faExclamationTriangle}
+                      size='xs'
+                      className='text-orange-600'
+                    />
+                    {data?.distinctErrorCount}{" "}
+                    {data?.distinctErrorCount === 1 ? "Warning" : "Warnings"}
+                  </span>
                 )}
-              </div>
+              </button>
+              {activityOpen && (
+                <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 overflow-hidden'>
+                  <div className='grid grid-cols-4 px-3 py-2 border-b border-slate-300 text-xs font-semibold uppercase tracking-wide'>
+                    <p>Time</p>
+                    <p>Level</p>
+                    <p className='col-span-2'>Message</p>
+                  </div>
+                  {data?.events && data.events.length > 0 ? (
+                    // Backend returns events oldest-first; show newest-first here.
+                    [...data.events]
+                      .sort(
+                        (a: SourceEvent, b: SourceEvent) =>
+                          new Date(b.datetime).getTime() -
+                          new Date(a.datetime).getTime()
+                      )
+                      .map((event: SourceEvent, index: number) => (
+                        <div
+                          className='grid grid-cols-4 px-3 py-2 text-sm text-black dark:text-gray-300 border-t border-slate-200 dark:border-gray-700 first:border-t-0'
+                          key={index}
+                        >
+                          <p>{new Date(event.datetime).toLocaleString()}</p>
+                          {/* Backend logs every fetch failure as type "error"; show
+                              these as "Warning" (matching the badge/warnings popup),
+                              but pass through any other explicit level verbatim. */}
+                          <p>
+                            {event.type === "error" ? "Warning" : event.type}
+                          </p>
+                          <p className='col-span-2 break-words'>
+                            {event.message}
+                          </p>
+                        </div>
+                      ))
+                  ) : (
+                    <p className='px-3 py-2 text-sm text-slate-500 dark:text-gray-400'>
+                      No events found.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </>

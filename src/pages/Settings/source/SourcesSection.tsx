@@ -80,7 +80,7 @@ const SourcesSection = () => {
   return (
     <div>
       <div className='flex justify-between items-center'>
-        <h1 className='font-medium my-3 text-3xl'>Feeds</h1>
+        <h1 className='font-medium my-3 text-3xl'>Providers and Feeds</h1>
         {isManager && (
           <AggieButton
             onClick={() => setOpenCreate("new")}
@@ -177,9 +177,8 @@ const SourcesSection = () => {
                   </div>
 
                   <DropdownMenu
-                    variant='secondary'
-                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
-                    panelClassName='overflow-hidden right-0 text-sm'
+                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-600 dark:text-gray-400'
+                    panelClassName='bg-white dark:bg-gray-800 border border-slate-300 rounded-lg overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
                     <AggieButton

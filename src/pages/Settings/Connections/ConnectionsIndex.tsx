@@ -6,7 +6,8 @@ import { getCredentials } from "../../../api/credentials";
 import { getSession } from "../../../api/session";
 import {
   CREDENTIAL_OPTIONS,
-  ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER,
+  MULTI_CONNECTION_STORAGE_KEY,
+  getAllowMultipleConnections,
 } from "../../../api/common";
 
 import AxiosErrorCard from "../../../components/AxiosErrorCard";
@@ -14,13 +15,11 @@ import AggieSwitch from "../../../components/AggieSwitch";
 import Configuration from "../Configuration";
 import ApiTypeSection from "./ApiTypeSection";
 
-const MULTI_CONNECTION_STORAGE_KEY = "feeds:allowMultipleConnections";
-
 // Consolidated connections page: one section per API type, each co-locating that
 // type's credentials and sources (grouped by `credential.type` / `source.media`).
 const ConnectionsIndex = () => {
   useEffect(() => {
-    document.title = "Feeds - Aggie";
+    document.title = "Providers and Feeds - Aggie";
   }, []);
 
   const {
@@ -37,12 +36,7 @@ const ConnectionsIndex = () => {
   // Allow more than one connection per provider. Seeded from the code default,
   // then persisted per-browser so the choice survives reloads.
   const [allowMultipleConnections, setAllowMultipleConnections] =
-    useState<boolean>(() => {
-      const stored = localStorage.getItem(MULTI_CONNECTION_STORAGE_KEY);
-      return stored === null
-        ? ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER
-        : stored === "true";
-    });
+    useState<boolean>(getAllowMultipleConnections);
   useEffect(() => {
     localStorage.setItem(
       MULTI_CONNECTION_STORAGE_KEY,
@@ -59,11 +53,15 @@ const ConnectionsIndex = () => {
 
   return (
     <div className='mt-3 pb-16'>
-      <h1 className='font-medium text-3xl mb-1'>Feeds</h1>
+      <h1 className='font-medium text-3xl mb-1'>Providers and Feeds</h1>
       <p className='text-sm text-slate-500 dark:text-gray-400 mb-4 max-w-3xl'>
-        Feeds collect posts, alerts, and signals into the Alerts page. Each feed
-        runs through a Connection (the login or API key for its provider).
-        Connect a provider first, then add feeds to it.
+        A <span className='font-medium'>Provider</span> is a platform Aggie pulls
+        from, like Mastodon or IODA. A{" "}
+        <span className='font-medium'>Connection</span> is the login or API key
+        that lets Aggie reach a Provider. A{" "}
+        <span className='font-medium'>Feed</span> then runs on top of a Connection
+        to collect the posts and signals you care about, which show up as Alerts.
+        Connect a Provider first, then add Feeds to it.
       </p>
       {isManager && (
         <div className='mb-6'>
@@ -87,12 +85,12 @@ const ConnectionsIndex = () => {
           <AggieSwitch
             checked={allowMultipleConnections}
             onChange={() => setAllowMultipleConnections((prev) => !prev)}
-            label='Allow multiple connections per provider'
+            label='Allow multiple connections per Provider'
           />
           <span>
-            Allow multiple connections per provider
+            Allow multiple connections per Provider
             <span className='block text-xs text-slate-500 dark:text-gray-400'>
-              When off, each provider is limited to a single connection.
+              When off, each Provider is limited to a single connection.
             </span>
           </span>
         </label>

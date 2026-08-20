@@ -174,8 +174,8 @@ const ApiTypeSection = ({
               className='flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between py-3 px-3 text-slate-600 dark:text-gray-400 text-xs font-medium'
             >
               <main className='min-w-0 lg:flex-1'>
-                <h3 className='font-bold break-words'>{source.nickname}</h3>
-                <p className='text-sm break-words'>{source.keywords}</p>
+                <h3 className='font-bold break-words'>{source.keywords}</h3>
+                <p className='text-sm break-words'>{source.nickname}</p>
               </main>
               <div className='flex flex-wrap items-center gap-2'>
                 {isManager && (
@@ -238,9 +238,8 @@ const ApiTypeSection = ({
                   </div>
 
                   <DropdownMenu
-                    variant='secondary'
-                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
-                    panelClassName='overflow-hidden right-0 text-sm'
+                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-600 dark:text-gray-400'
+                    panelClassName='bg-white dark:bg-gray-800 border border-slate-300 rounded-lg overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
                     <AggieButton
@@ -455,7 +454,7 @@ const WarningsDialogBody = ({
   return (
     <div>
       <div className='flex justify-between items-center mb-2 gap-4'>
-        <h2 className='text-xl font-medium'>Warnings — {source.nickname}</h2>
+        <h2 className='text-xl font-medium'>Warnings for {source.nickname}</h2>
         <AggieButton
           onClick={onClose}
           className='px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-500 dark:text-gray-400'

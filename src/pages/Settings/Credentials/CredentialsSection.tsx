@@ -57,7 +57,7 @@ const CredentialsSection = () => {
       </div>
       <p className='text-sm text-slate-500 dark:text-gray-400 mb-3'>
         The logins and API keys your feeds authenticate with. You can add more than
-        one for the same provider — the name is just a label to tell them apart, and
+        one for the same provider. The name is just a label to tell them apart, and
         is filled in for you.
       </p>
       <div className='flex flex-col overflow-hidden bg-white dark:bg-gray-800 border border-slate-300 rounded-lg divide-y divide-slate-300'>
