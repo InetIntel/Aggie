@@ -33,6 +33,7 @@ function ReportQuery(options) {
   this.isRelevantReports = options.isRelevantReports;
   this.irrelevant = options.irrelevant;
   this.isOutageEvent = options.isOutageEvent;
+  this.isOutageOngoing = options.isOutageOngoing;
 
 }
 
@@ -47,7 +48,7 @@ ReportQuery.prototype.run = function (callback) {
 
 // Normalize query for comparison
 ReportQuery.prototype.normalize = function () {
-  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports']);
+  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports', 'isOutageOngoing']);
 };
 
 ReportQuery.prototype.toMongooseFilter = function () {
@@ -67,6 +68,10 @@ ReportQuery.prototype.toMongooseFilter = function () {
   if (this.escalated === 'escalated') filter.escalated = true;
 
   filter = _.omitBy(filter, _.isNil);
+  // Reports predating the isOutageOngoing field have no value at all, so "ended" has to
+  // match a missing field too
+  if (this.isOutageOngoing === true) filter.isOutageOngoing = true;
+  if (this.isOutageOngoing === false) filter.isOutageOngoing = { $ne: true };
   // Cast bounds to Date so both the Report.find (Mongoose casts) and the
   // Report.aggregate $match (Mongoose does NOT cast) agree; otherwise the
   // aggregate total ignores the date bound and pagination shows phantom pages.

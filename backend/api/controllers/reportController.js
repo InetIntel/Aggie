@@ -19,8 +19,15 @@ const parseQueryData = (queryString) => {
   if (!queryString) return {};
   // Data passed through URL parameters
   var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before', 'media','dataSources', 'entityLevel',
-    'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
-  
+    'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant", 'ongoing']);
+
+  if (query.ongoing === 'true') {
+    query.isOutageOngoing = true;
+  } else if (query.ongoing === 'false') {
+    query.isOutageOngoing = false;
+  }
+  delete query.ongoing;
+
   if (!query.media && query.alerts === 'true') {
     query.isOutageEvent = true;
   } else if (!query.media && query.alerts === 'false') {
@@ -41,7 +48,9 @@ const shouldDedupByEventIdentifier = (entityLevel, groupId) => {
   return entityLevel.includes('AS') && entityLevel.includes('AS - Country');
 };
 
-const serializeReport = (report) => {
+// `stripChart` drops the (potentially few-KB) IODA signal series from list rows; the
+// detail endpoint keeps it and the frontend lazy-loads it per report.
+const serializeReport = (report, { stripChart = false } = {}) => {
   if (!report) return report;
 
   const plainReport = typeof report.toObject === 'function'
@@ -76,8 +85,13 @@ const serializeReport = (report) => {
       imageUrl = buildMediaUrl(chartImage);
     }
   }
-  const rawAPIResponseWithUrl =
+  let rawAPIResponseWithUrl =
     imageUrl != null ? { ...rawAPIResponse, imageUrl } : rawAPIResponse;
+
+  if (stripChart && rawAPIResponseWithUrl && rawAPIResponseWithUrl.chart) {
+    const { chart, ...rest } = rawAPIResponseWithUrl;
+    rawAPIResponseWithUrl = rest;
+  }
 
   return {
     ...plainReport,
@@ -91,19 +105,22 @@ const serializeReport = (report) => {
   };
 };
 
+// Wraps list/feed responses; strips the IODA chart series from each row (detail keeps it).
 const serializeReportResponse = (payload) => {
+  const serializeRow = (row) => serializeReport(row, { stripChart: true });
+
   if (Array.isArray(payload)) {
-    return payload.map(serializeReport);
+    return payload.map(serializeRow);
   }
 
   if (payload && Array.isArray(payload.results)) {
     return {
       ...payload,
-      results: payload.results.map(serializeReport),
+      results: payload.results.map(serializeRow),
     };
   }
 
-  return serializeReport(payload);
+  return serializeRow(payload);
 };
 
 // Get a list of queried Reports

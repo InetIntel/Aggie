@@ -24,7 +24,12 @@ const TrafficEvent = ({ report, compact }: IProps) => {
         {formatDateTime(report?.authoredAt)} -{" "}
         {endDate === "now" ? "now" : formatDateTime(endDate)}
       </p>
-      <ExpandableChart image={image} alt='traffic trend' compact={compact} />
+      <ExpandableChart
+        key={image}
+        image={image}
+        alt='traffic trend'
+        compact={compact}
+      />
     </>
   );
 };

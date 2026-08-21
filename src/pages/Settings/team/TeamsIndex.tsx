@@ -2,14 +2,25 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { createTeam, deleteTeam, getTeams } from "../../../api/teams";
+
 import { Link } from "react-router-dom";
 import AggieButton from "../../../components/AggieButton";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 
-const TeamsIndex = () => {
+
+interface IProps {
+  session?: {
+    role?: string;
+  };
+}
+
+const TeamsIndex = ({ session }: IProps) => {
+
+  const isAdmin = session?.role === "admin";
+  const isTeamLead = session?.role === "team_lead";
   const queryClient = useQueryClient();
 
-  const { data: teams, isLoading } = useQuery(["teams"], getTeams);
+const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -44,7 +55,7 @@ const TeamsIndex = () => {
   }
 
   return (
-    <section className='mt-4'>
+    <section className='mt-3'>
       <div className='flex justify-between items-center mb-3'>
         <h2 className='text-3xl font-medium'>Teams</h2>
       </div>

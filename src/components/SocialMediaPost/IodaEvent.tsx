@@ -4,7 +4,10 @@ import {
   SIGNAL_BADGE_BASE,
 } from "../SocialMediaPost/reportParser";
 import { useReportChartImage } from "./useReportChartImage";
+import { useReportChartSeries } from "./useReportChartSeries";
+import IodaChart from "./IodaChart";
 import ExpandableChart from "./ExpandableChart";
+import ChartExpander from "./ChartExpander";
 import AggieToken from "../AggieToken";
 import { useFormatters } from "../../utils/useFormatters";
 
@@ -17,17 +20,26 @@ interface IProps {
 const IodaEvent = ({ report, compact }: IProps) => {
   const { formatDateTime } = useFormatters();
   const rawData = report?.metadata?.rawAPIResponse;
+  // An ongoing outage has no end time yet — IODA only reports elapsed time so far.
+  const isOngoing = rawData?.isOngoing === true;
   const start = formatDateTime(report?.authoredAt, "");
-  const end = formatDateTime(rawData?.ended, "");
+  const end = isOngoing ? "Present" : formatDateTime(rawData?.ended, "");
 
   const rawSignal = rawData?.rawEvent?.datasource;
   let [signal, bgColor] = signalToNameColor(rawSignal);
 
-  // Chart now lives in media storage; the report carries a key resolved to /media/...
-  // (older reports may still carry an inline SVG string). Fetched lazily when the
-  // list query stripped it. ExpandableChart handles inline-SVG vs <img>, the compact
-  // height cap, and click-to-enlarge.
+  // New IODA reports carry signal series (rendered client-side with recharts); older
+  // reports carry a scraped chart image (media key resolved to /media/..., or a legacy
+  // inline SVG string). Both are lazily fetched when the list query stripped them.
+  const chart = useReportChartSeries(report);
   const image = useReportChartImage(report);
+
+  // Shade the outage window on the recharts chart.
+  const outageStart: number | undefined = rawData?.rawEvent?.start;
+  const outageEnd: number | undefined =
+    isOngoing || outageStart === undefined || rawData?.rawEvent?.duration === undefined
+      ? undefined
+      : outageStart + rawData.rawEvent.duration;
 
   return (
     <>
@@ -45,7 +57,27 @@ const IodaEvent = ({ report, compact }: IProps) => {
       <p className='mb-1'>
         {start}{end && ` - ${end}`}
       </p>
-      <ExpandableChart image={image} alt='IODA event chart' compact={compact} />
+      {chart?.series?.length ? (
+        // Interactive recharts chart. surfaceClick off so the corner button (not a
+        // click on the chart body) toggles enlarge — the body drives the zoom Brush.
+        <ChartExpander compact={compact} surfaceClick={false}>
+          {(enlarged) => (
+            <IodaChart
+              chart={chart}
+              compact={compact && !enlarged}
+              outageStart={outageStart}
+              outageEnd={outageEnd}
+            />
+          )}
+        </ChartExpander>
+      ) : (
+        <ExpandableChart
+          key={image}
+          image={image}
+          alt='IODA event chart'
+          compact={compact}
+        />
+      )}
     </>
   );
 };

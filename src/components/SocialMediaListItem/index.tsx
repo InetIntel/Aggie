@@ -246,10 +246,23 @@ function renderText(
     //       </p>
     //     </div>
     //   );
-    case "ioda":
-      const rawStart = report?.metadata?.rawAPIResponse?.rawEvent?.start;
+    case "ioda": {
+      const iodaRaw = report?.metadata?.rawAPIResponse;
+      const rawStart = iodaRaw?.rawEvent?.start;
       const start = new Date(rawStart * 1000); // Convert to milliseconds
-      const rawDuration = report?.metadata?.rawAPIResponse?.rawEvent?.duration;
+
+      // While the outage is ongoing, `rawEvent.duration` only runs up to the last
+      // fetch, so deriving an end from it would show a fake, creeping end time.
+      if (iodaRaw?.isOngoing) {
+        return (
+          <p className="dark:text-gray-300">
+            {report?.author}<br />
+            {formatDateTime(start, prefs)} to Present
+          </p>
+        );
+      }
+
+      const rawDuration = iodaRaw?.rawEvent?.duration;
       const end = new Date((rawStart + rawDuration) * 1000);
       const sameDay = start.toDateString() === end.toDateString();
       return (
@@ -259,6 +272,7 @@ function renderText(
           {sameDay ? formatTime(end, prefs) : formatDateTime(end, prefs)}
         </p>
       );
+    }
     case "cloudflare":
       const endDate =
         report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";

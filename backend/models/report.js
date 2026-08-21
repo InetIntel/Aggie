@@ -13,12 +13,13 @@ let schema = new Schema({
   authoredAt: { type: Date, index: true },
   fetchedAt: { type: Date, index: true },
   storedAt: { type: Date, index: true },
-  isOutageEvent: { type: Boolean, index: true },
-  isAsnScoped: { type: Boolean, index: true },
-  asn: { type: String },
-  outageStartedAt: { type: Date },
-  outageEndedAt: { type: Date },
-  geoScope: { type: String },
+  isOutageEvent: {type: Boolean, index: true},
+  isAsnScoped: {type:Boolean, index: true},
+  asn: {type: String},
+  outageStartedAt: { type: Date,},
+  outageEndedAt: { type: Date}, // null while the outage is still running
+  isOutageOngoing: { type: Boolean, default: false, index: true },
+  geoScope: {type: String},
   eventIdentifier: { type: String }, // an identifier derived from asn, geoScope, and outageStartedAt
   eventAggKeyBase: { type: String }, // an aggregation key base, derived from asn and geoScope, combined with dynamic time interval bucket in aggregation layer
   content: { type: String },
@@ -311,8 +312,10 @@ Report.queryReportsDeduped = async function (query, page, callback) {
 
     const [rawReports, countRows] = await Promise.all([
       // fetch raw candidates
-      // IODA chart SVGs now live in media storage (metadata.rawAPIResponse.image holds
-      // a small key, not the inline SVG), so list rows are cheap to ship in full.
+      // Rows are fetched in full here; the IODA signal series
+      // (metadata.rawAPIResponse.chart) is stripped from list rows downstream in
+      // reportController.serializeReportResponse (stripChart: true) and lazy-loaded
+      // per report on the frontend. Legacy IODA image keys are small and left in place.
       Report.find(filter)
         .sort({ authoredAt: -1 })
         .limit(rawFetchLimit)

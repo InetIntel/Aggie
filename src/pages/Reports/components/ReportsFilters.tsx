@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 
 import { getSources } from "../../../api/sources";
-import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS } from "../../../api/common";
+import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS, OUTAGE_STATUS_OPTIONS } from "../../../api/common";
 import type { ReportQueryState } from "../../../api/reports/types";
 
 import FilterComboBox from "../../../components/filters/FilterComboBox";
@@ -35,6 +35,7 @@ interface IReportFilters {
   platformOptions?: string[];
   showEntityLevelFilter?: boolean;
   showSignalSourcesFilter?: boolean;
+  showOngoingFilter?: boolean;
   showDedupToggle?: boolean;
   autoEnableDedup?: boolean;
   defaultEntityLevelSelection?: string[];
@@ -51,6 +52,7 @@ const ReportFilters = ({
   platformOptions = [...MEDIA_OPTIONS],
   showEntityLevelFilter = true,
   showSignalSourcesFilter = true,
+  showOngoingFilter = true,
   showDedupToggle = true,
   autoEnableDedup = true,
   defaultEntityLevelSelection,
@@ -110,6 +112,17 @@ const ReportFilters = ({
     return shouldDefaultOn;
   })();
 
+  // 'ongoing' is a tri-state: absent = All, 'true' = still running, 'false' = ended.
+  const currentOutageStatus =
+    getParam("ongoing") === "true"
+      ? "Ongoing"
+      : getParam("ongoing") === "false"
+        ? "Ended"
+        : "All";
+
+  const outageStatusToParam = (status: string) =>
+    status === "Ongoing" ? "true" : status === "Ended" ? "false" : undefined;
+
   function setParams(values: ReportQueryState) {
     if (!("page" in values)) {
       values = { ...values, page: undefined };
@@ -145,6 +158,10 @@ const ReportFilters = ({
 
     if (!showSignalSourcesFilter) {
       formattedValues.dataSources = undefined;
+    }
+
+    if (!showOngoingFilter) {
+      formattedValues.ongoing = undefined;
     }
 
     setParamsQuery(formattedValues);
@@ -253,6 +270,16 @@ const ReportFilters = ({
             value={getParam("media") as string}
             onChange={(e) => setParams({ media: e as string})}
           />
+          {showOngoingFilter && (
+            <FilterListbox
+              label='Status'
+              options={[...OUTAGE_STATUS_OPTIONS]}
+              value={currentOutageStatus === "All" ? "" : currentOutageStatus}
+              onChange={(e) =>
+                setParams({ ongoing: outageStatusToParam(e as string) })
+              }
+            />
+          )}
           {showEntityLevelFilter && (
             <FilterListbox
               label='Entity Level'

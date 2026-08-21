@@ -29,3 +29,30 @@ export const deleteTeam = async (teamId: string) => {
   const { data } = await axios.delete("/api/team/" + teamId);
   return data;
 };
+
+export const addTeamMember = async (params: {
+  teamId: string;
+  userId: string;
+  role: string;
+}) => {
+  const { data } = await axios.put<TeamDetailResponse>(
+    "/api/team/" + params.teamId + "/member",
+    {
+      userId: params.userId,
+      role: params.role,
+    }
+  );
+
+  return data;
+};
+
+export const removeTeamMember = async (params: {
+  teamId: string;
+  userId: string;
+}) => {
+  const { data } = await axios.delete<TeamDetailResponse>(
+    "/api/team/" + params.teamId + "/member/" + params.userId
+  );
+
+  return data;
+};

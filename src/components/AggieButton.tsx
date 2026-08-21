@@ -11,6 +11,8 @@ export const VariantCSS = {
     "bg-green-800 text-slate-100 dark:text-gray-300  hover:bg-green-700 border border-green-600 rounded-lg dark:bg-green-800 dark:hover:bg-green-700 dark:border-green-700 dark:saturate-[0.7]",
   secondary:
     "bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 border border-slate-300 rounded-lg",
+  teal:
+    "bg-aggie-secondary-500 text-white hover:bg-aggie-secondary-650 border border-aggie-secondary-650 rounded-lg dark:saturate-[0.9]",
   transparent: "hover:bg-slate-200 dark:hover:bg-gray-600 hover:underline  rounded-lg",
   danger: "bg-red-700 text-white dark:text-gray-300 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-600 dark:saturate-[0.7] rounded-lg ",
   warning: "bg-red-200 text-red-700 hover:bg-red-300 rounded-lg dark:bg-red-200 dark:hover:bg-red-300 dark:saturate-[0.7]",

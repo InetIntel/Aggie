@@ -13,6 +13,7 @@ module.exports = async function postToReport(post, next) {
         asn  = null,
         outageStartedAt = null,
         outageEndedAt = null,
+        isOutageOngoing = false,
         geoScope = null,
     } = post;
 
@@ -41,6 +42,7 @@ module.exports = async function postToReport(post, next) {
     if (asn !== null) {post.asn = asn};
     if (outageStartedAt !== null) {post.outageStartedAt = outageStartedAt};
     if (outageEndedAt !== null) {post.outageEndedAt = outageEndedAt};
+    post.isOutageOngoing = isOutageOngoing;
     if (geoScope !== null) {post.geoScope = geoScope};
 
 
