@@ -57,4 +57,7 @@ backend/api/uploads
 .claude/
 
 # dev-only throwaway scripts + generated fixtures (IODA signal migration)
+# Local runtime media, chart backups, and dev scratch — not source
+media-store
+public/ioda-charts-backup
 scratchpad/
