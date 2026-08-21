@@ -14,7 +14,9 @@ const MEDIA_ROUTE_PREFIX = '/media';
 const APP_BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/+$/, '');
 // Bytes now live in the `mediaassets` Mongo collection, not on disk. MEDIA_ROOT is retained only
 // so the one-time backfill (backfillMediaToMongo.js) can walk the legacy disk tree; nothing in the
-// live read/write path touches the filesystem anymore.
+// live read/write path touches the filesystem anymore. (This also supersedes the dev "media-store"
+// reload-loop workaround from api-redesign: with fetch writing to Mongo, nothing writes under
+// public/ during dev, so CRA's watcher never full-reloads on a fetch.)
 const MEDIA_ROOT = process.env.MEDIA_ROOT || path.join(__dirname, '../../../public/media');
 const THUMBNAIL_MAX_SIZE = Number(process.env.SOCIAL_IMAGE_THUMB_SIZE || 320);
 

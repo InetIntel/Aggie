@@ -14,14 +14,20 @@ interface IProps {
   placeholder?: string;
   icon?: IconProp;
   disabled?:boolean;
+  // Explanation text rendered directly under the label and above the input,
+  // matching the label→hint→value order the details view uses.
+  hint?: React.ReactNode;
 }
-const FormikInput = ({ name, label, type, placeholder, icon, disabled }: IProps) => {
+const FormikInput = ({ name, label, type, placeholder, icon, disabled, hint }: IProps) => {
   const [field, meta, helpers] = useField(name);
   const { value } = meta;
   const { setValue } = helpers;
   return (
     <label className='flex flex-col gap-1 text-slate-600 dark:text-gray-400'>
       <span>{icon && <FontAwesomeIcon icon={icon} />} {label ? label : name}</span>
+      {hint && (
+        <p className='text-xs text-slate-500 dark:text-gray-400'>{hint}</p>
+      )}
 
       <input
         name={name}

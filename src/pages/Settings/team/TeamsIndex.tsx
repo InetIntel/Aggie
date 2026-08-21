@@ -55,7 +55,7 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
   }
 
   return (
-    <section className='mt-4'>
+    <section className='mt-3'>
       <div className='flex justify-between items-center mb-3'>
         <h2 className='text-3xl font-medium'>Teams</h2>
       </div>

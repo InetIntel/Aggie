@@ -19,6 +19,10 @@ export interface SourceAccessPolicy {
 export interface Source extends hasId {
   enabled: boolean;
   unreadErrorCount: number;
+  // Number of recent events shown in the warnings popup (the last 50). Computed
+  // server-side; use this for the warning badge instead of unreadErrorCount,
+  // which is an unbounded cumulative tally. Matches the popup's list count.
+  distinctErrorCount: number;
   tags?: string[];
   url: string;
   media: string;
