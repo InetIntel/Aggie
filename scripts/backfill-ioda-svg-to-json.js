@@ -1,3 +1,9 @@
+// ⚠️ FALLBACK ONLY — NOT the canonical IODA backfill. Do not run this by default.
+// The canonical path is `scripts/backfill/backfill-ioda-charts.js`, which re-fetches signal
+// series directly from the IODA API (higher fidelity). Use this SVG->JSON converter only for
+// legacy reports where that re-fetch can't reconstruct the data (e.g. outages too old for the
+// signals API). See docs/claude/plans/branch-test-merge-order.md.
+//
 // One-time backfill: convert legacy IODA chart SVGs into compact signal JSON.
 //
 // New IODA reports already store `metadata.rawAPIResponse.chart` (compact signal series) and
