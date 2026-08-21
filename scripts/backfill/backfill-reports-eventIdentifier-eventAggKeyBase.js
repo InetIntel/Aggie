@@ -1,17 +1,27 @@
 require("dotenv").config();
 
-const database = require("../database");
+const database = require("../../backend/database");
 const mongoose = database.mongoose;
-const Report = require("../models/report");
+const Report = require("../../backend/models/report");
 const {
   buildEventAggKeyBase,
   buildEventIdentifier,
-} = require("../fetching/utils/iodaUtils");
+} = require("../../backend/fetching/utils/iodaUtils");
 
 const BATCH_SIZE = 500;
 
+// Pass --dry-run to compute the keys and report counts without writing.
+const DRY_RUN = process.argv.slice(2).includes("--dry-run");
+
+// In dry-run, skip the write and report the prepared ops as the "would-modify" count.
+async function execBulk(ops) {
+  if (DRY_RUN) return { matchedCount: ops.length, modifiedCount: 0 };
+  return Report.bulkWrite(ops);
+}
+
 async function run() {
   try {
+    if (DRY_RUN) console.log("[DRY-RUN] No writes will be made.");
     const filter = {
       "_media.0": { $in: ["ioda", "cloudflare"] },
     };
@@ -69,7 +79,7 @@ async function run() {
       prepared += 1;
 
       if (ops.length >= BATCH_SIZE) {
-        const result = await Report.bulkWrite(ops);
+        const result = await execBulk(ops);
 
         const matched =
           result.matchedCount ??
@@ -97,7 +107,7 @@ async function run() {
     }
 
     if (ops.length > 0) {
-      const result = await Report.bulkWrite(ops);
+      const result = await execBulk(ops);
 
       const matched =
         result.matchedCount ??
