@@ -46,7 +46,7 @@ const FilterListBox = <T extends string>({
       label={label}
       value={isMultiSelect ? undefined : displayValue()}
       onReset={() => onChange(isMultiSelect ? [] : ("" as T))}
-      panelClassName="w-56"
+      panelClassName="w-max min-w-[150px]"
     >
       {({ close }) => (
         <Listbox
@@ -62,7 +62,7 @@ const FilterListBox = <T extends string>({
               <Listbox.Option
                 value={item}
                 key={item}
-                className='px-2 py-1 flex items-center gap-2 w-full bg-white dark:bg-gray-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-gray-700 ui-active:bg-slate-100 dark:ui-active:bg-gray-700'
+                className='px-2 py-1 flex items-center gap-2 w-full whitespace-nowrap bg-white dark:bg-gray-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-gray-700 ui-active:bg-slate-100 dark:ui-active:bg-gray-700'
               >
                 {isMultiSelect && (
                   <div className='flex items-center justify-center w-4 h-4 border border-slate-400 dark:border-gray-500 rounded bg-white dark:bg-gray-700'>
@@ -85,7 +85,7 @@ const FilterListBox = <T extends string>({
                   <label className='text-sm text-slate-500 dark:text-gray-400 cursor-pointer flex-1'>{toggleLabel}</label>
                 </div>
                 {toggleDescription && (
-                  <p className='mt-1 text-[10px] italic leading-tight text-slate-500 dark:text-gray-400'>
+                  <p className='mt-1 max-w-[16rem] whitespace-normal text-[10px] italic leading-tight text-slate-500 dark:text-gray-400'>
                     {toggleDescription}
                   </p>
                 )}

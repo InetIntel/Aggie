@@ -6,12 +6,16 @@
 //  updated: AS - Country
 
 require("dotenv").config();
-const database = require("../database");
+const database = require("../../backend/database");
 const mongoose = database.mongoose;
-const Report = require("../models/report");
+const Report = require("../../backend/models/report");
+
+// Pass --dry-run to report the count without writing.
+const DRY_RUN = process.argv.slice(2).includes("--dry-run");
 
 async function run() {
   try {
+    if (DRY_RUN) console.log("[DRY-RUN] No writes will be made.");
     const filter = {
       "_media.0": "ioda",
       guid: { $regex: /^geoasn-country/ },
@@ -29,6 +33,11 @@ async function run() {
 
     if (count === 0) {
       console.log("No documents need updating.");
+      return;
+    }
+
+    if (DRY_RUN) {
+      console.log(`[DRY-RUN] Would update ${count} document(s). Skipping write.`);
       return;
     }
 

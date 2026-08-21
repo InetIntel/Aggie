@@ -12,11 +12,14 @@
 
 require("dotenv").config();
 
-const database = require("../database");
+const database = require("../../backend/database");
 const mongoose = database.mongoose;
-const Report = require("../models/report");
+const Report = require("../../backend/models/report");
 
 const BATCH_SIZE = 200;
+
+// Pass --dry-run to compute updates and report counts without writing.
+const DRY_RUN = process.argv.slice(2).includes("--dry-run");
 
 // Helper: normalize ASN string to "as<number>".
 // Returns "as39501" or null if cannot parse.
@@ -124,6 +127,7 @@ async function backfillReports() {
     "[REPORT-BACKFILL] Starting backfill with filter:",
     JSON.stringify(filter),
   );
+  if (DRY_RUN) console.log("[REPORT-BACKFILL][DRY-RUN] No writes will be made.");
 
   for await (const report of cursor) {
     batchInCount += 1;
@@ -318,7 +322,9 @@ async function backfillReports() {
   }
 
   console.log(
-    `[REPORT-BACKFILL] Done. Total processed=${totalProcessed}, total updated=${totalUpdated}`,
+    DRY_RUN
+      ? `[REPORT-BACKFILL][DRY-RUN] Done. Total processed=${totalProcessed}, would update=${totalUpdated} (no writes made)`
+      : `[REPORT-BACKFILL] Done. Total processed=${totalProcessed}, total updated=${totalUpdated}`,
   );
 }
 
@@ -339,6 +345,13 @@ async function flushBatch(batchOps, inCount, outCount, failures) {
   }
 
   if (batchOps.length === 0) return;
+
+  if (DRY_RUN) {
+    console.log(
+      `[REPORT-BACKFILL][DRY-RUN] Would bulkWrite ${batchOps.length} update(s). Skipping.`,
+    );
+    return;
+  }
 
   try {
     const res = await Report.bulkWrite(batchOps, { ordered: false });

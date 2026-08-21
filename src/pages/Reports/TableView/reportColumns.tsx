@@ -12,6 +12,7 @@ import type { Report } from "../../../api/reports/types";
 import { getGroup } from "../../../api/groups";
 import {
   signalToNameColor,
+  reportNetwork,
   SIGNAL_BADGE_CLASS,
 } from "../../../components/SocialMediaPost/reportParser";
 
@@ -21,15 +22,6 @@ import AggieToken from "../../../components/AggieToken";
 import DateTime from "../../../components/DateTime";
 
 const dash = <span className='text-slate-500 dark:text-gray-400'>—</span>;
-
-// Mirrors renderAuthor() in SocialMediaListItem: who/what produced the alert.
-export const reportSource = (report: Report): string => {
-  const media = report._media?.[0];
-  if (media === "ioda") return "IODA";
-  if (media === "cloudflare")
-    return report?.metadata?.rawAPIResponse?.dataSource || "Cloudflare";
-  return report._sourceNicknames?.[0] || report.author || "";
-};
 
 // Raw datasource → human label + color, e.g. "bgp" → "BGP".
 export const reportSignal = (report: Report): [string, string] => {
@@ -43,6 +35,29 @@ const PlatformCell = ({ report }: { report: Report }) => (
     <SocialMediaIcon mediaKey={report._media?.[0]} />
   </span>
 );
+
+// ASN emphasized on top, network name below, geo scope (country/region) last.
+const NetworkCell = ({ report }: { report: Report }) => {
+  const { asn, network, scope } = reportNetwork(report);
+  if (!asn && !network && !scope) return dash;
+  return (
+    <div className='flex flex-col items-start leading-tight'>
+      {asn && (
+        <span className='font-medium text-slate-700 dark:text-gray-300'>{asn}</span>
+      )}
+      {network && (
+        <span className='block truncate text-slate-500 dark:text-gray-400'>
+          {network}
+        </span>
+      )}
+      {scope && (
+        <span className='block truncate text-xs text-slate-400 dark:text-gray-500'>
+          {scope}
+        </span>
+      )}
+    </div>
+  );
+};
 
 const StatusCell = ({ report }: { report: Report }) => (
   <div className='flex flex-col gap-1 items-start'>
@@ -135,16 +150,11 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
   },
   {
     id: "source",
-    header: "Source",
+    header: "ASN / Network / Geo Scope",
     bucket: "lg",
-    thClassName: "w-28",
-    tdClassName: "max-w-[7rem]",
-    cell: (report) =>
-      reportSource(report) ? (
-        <span className='block truncate'>{reportSource(report)}</span>
-      ) : (
-        dash
-      ),
+    thClassName: "w-36",
+    tdClassName: "max-w-[9rem]",
+    cell: (report) => <NetworkCell report={report} />,
   },
   {
     id: "incident",

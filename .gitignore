@@ -35,6 +35,9 @@ public/uploads
 public/media
 public/ioda-charts-backup
 
+# Dev media root when MEDIA_ROOT is pointed outside public/ (see .env.example)
+media-store
+
 buildAssets
 docs/_build
 

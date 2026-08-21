@@ -6,6 +6,12 @@ import type {
   AuthenticationResponseJSON,
 } from "@simplewebauthn/browser";
 
+export interface UserPreferences {
+  timeFormat: "12h" | "24h";
+  dateFormat: "MDY" | "DMY";
+  timeZone: "local" | "utc";
+}
+
 export interface Session extends hasId {
   email: string;
   hasDefaultPassword: boolean;
@@ -15,6 +21,7 @@ export interface Session extends hasId {
   mfa?: boolean;              // session is MFA-verified
   mfa_enrolled?: boolean;     // account has at least one WebAuthn / TOTP credential
   mfa_enforced?: boolean;     // MFA policy enforced for this user/org
+  preferences?: UserPreferences; // date/time display preferences
   __v?: number;
 }
 

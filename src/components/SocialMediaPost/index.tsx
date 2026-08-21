@@ -6,7 +6,12 @@ import MediaPreview from "./MediaPreview";
 
 import DateTime from "../DateTime";
 
-import { parseContentType, isTwitterReply, sanitize } from "./reportParser";
+import {
+  parseContentType,
+  isTwitterReply,
+  sanitize,
+  reportNetwork,
+} from "./reportParser";
 
 import { faExternalLink } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -32,7 +37,12 @@ interface IProps {
 }
 const SocialMediaPost = ({ report, showMedia, compact }: IProps) => {
   const contentType = parseContentType(report);
+  // For outage alerts the author header already reads "network - scope"; prefix the
+  // ASN so the header carries all three (ASN / network / geo scope), like the source column.
+  const { asn } = reportNetwork(report);
   function renderAuthor(type: typeof contentType) {
+    const baseUsername = report.metadata.accountHandle || report.author;
+    const username = asn ? `${asn} · ${baseUsername}` : baseUsername;
     switch (type) {
       // case "RSS":
       //   const website = new URL(report.url);
@@ -47,7 +57,7 @@ const SocialMediaPost = ({ report, showMedia, compact }: IProps) => {
         return (
           <>
             <SocialMediaAuthor
-              username={report.metadata.accountHandle || report.author}
+              username={username}
               createdAt={report.authoredAt}
               url={report.metadata.accountUrl}
             />

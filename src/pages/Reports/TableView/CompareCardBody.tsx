@@ -17,7 +17,8 @@ import {
 import { useReportChartImage } from "../../../components/SocialMediaPost/useReportChartImage";
 import { useReportChartSeries } from "../../../components/SocialMediaPost/useReportChartSeries";
 import IodaChart from "../../../components/SocialMediaPost/IodaChart";
-import { formatStamp, formatDuration } from "./compareCardFormat";
+import { formatDuration } from "./compareCardFormat";
+import { useFormatters } from "../../../utils/useFormatters";
 
 interface IProps {
   report: Report;
@@ -39,6 +40,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   // When enlarged, the chart overlays the whole card (full width) so it's
   // readable even in a cramped 4-6 card grid; the ✕ collapses it back.
   const [zoomed, setZoomed] = useState(false);
+  const { formatDateTime } = useFormatters();
   const media = report._media?.[0];
   const raw = report?.metadata?.rawAPIResponse;
   const platformLabel = media === "cloudflare" ? "Cloudflare" : "IODA";
@@ -49,7 +51,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   const image = useReportChartImage(report);
   const chartSeries = useReportChartSeries(report);
 
-  const start = formatStamp(report?.authoredAt);
+  const start = formatDateTime(report?.authoredAt);
 
   let end: string;
   let duration: string;
@@ -58,7 +60,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
 
   if (media === "cloudflare") {
     const endRaw: string | undefined = raw?.rawEvent?.endDate;
-    end = endRaw ? formatStamp(endRaw) : "—";
+    end = endRaw ? formatDateTime(endRaw) : "—";
     duration = endRaw ? formatDuration(report?.authoredAt, endRaw) || "—" : "—";
     // Cloudflare carries no signal datasource; show a neutral pill so the band
     // structure (and thus the dividers) matches IODA cards in a mixed set.
@@ -66,7 +68,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
     bgColor = "bg-slate-500";
   } else {
     // IODA
-    end = formatStamp(raw?.ended);
+    end = formatDateTime(raw?.ended);
     duration = formatDuration(report?.authoredAt, raw?.ended) || "—";
     const [name, color] = signalToNameColor(raw?.rawEvent?.datasource);
     signal = name;

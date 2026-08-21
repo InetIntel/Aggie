@@ -1,4 +1,5 @@
 import { hasId } from "../common";
+import { UserPreferences } from "../session/types";
 
 export const USER_ROLES = ["viewer", "monitor", "admin", "team_lead"] as const;
 export type UserRoles = (typeof USER_ROLES)[number];
@@ -20,6 +21,7 @@ export interface User extends hasId {
   teams?: UserTeam[];
   __v: number;
   createdBy?: string;
+  preferences?: UserPreferences;
   mfa?: {
     totp?: {
       enabled?: boolean;
@@ -36,6 +38,7 @@ export interface UserEditableData {
   displayName?: string;
   email: string;
   role: UserRoles;
+  preferences?: UserPreferences;
   _id?: string;
 }
 
