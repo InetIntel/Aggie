@@ -78,8 +78,14 @@ See [media-image-storage.md](./media-image-storage.md) for the storage/serving m
 - **`public/media` is inside the code checkout** (`MEDIA_ROOT` unset). Any deploy strategy that
   replaces the checkout directory would orphan/wipe existing media. Consider setting `MEDIA_ROOT`
   to a persistent path outside the checkout.
-- **The IODA SVG backfill is destructive & not re-runnable** — `scripts/migrate-ioda-svg-to-storage.js`
-  overwrites the inline SVG in Mongo with a storage key, so the source SVG is gone from the DB.
-  Back up `public/media/ioda/charts` before any deploy that could replace the checkout.
+- **Legacy IODA chart SVGs need an on-disk backfill in production** —
+  `scripts/migrate-ioda-svg-to-storage.js` moves each pre-migration report's inline SVG out of
+  Mongo and onto disk under `public/media/ioda/charts` (keyed by `sha1(guid)`), replacing the
+  inline string with the media key so old reports render via the `image` fallback. It ran on
+  dev but **not yet in production**. It's idempotent (only touches reports whose `image` is
+  still an inline `<svg…>` string) and safe alongside the new schema (new reports carry
+  `metadata.rawAPIResponse.chart` and no `image`, so they're skipped). Run with
+  `node scripts/migrate-ioda-svg-to-storage.js`. Note: this rewrites the DB (inline SVG → key),
+  so back up `public/media/ioda/charts` before any deploy that could replace the checkout.
 - **`debugging-getMediaRoot:` log line** — `getMediaRoot()` logs the effective media root on every
   call; grep the app log to confirm where the running process actually serves media from.

@@ -6,6 +6,8 @@ import {
   SIGNAL_BADGE_BASE,
 } from "../SocialMediaPost/reportParser";
 import { useReportChartImage } from "./useReportChartImage";
+import { useReportChartSeries } from "./useReportChartSeries";
+import IodaChart from "./IodaChart";
 import AggieToken from "../AggieToken";
 
 interface IProps {
@@ -26,12 +28,19 @@ const IodaEvent = ({ report, compact }: IProps) => {
   const rawSignal = rawData?.rawEvent?.datasource;
   let [signal, bgColor] = signalToNameColor(rawSignal);
 
-  // Chart now lives in media storage; the report carries a key resolved to /media/...
-  // (older reports may still carry an inline SVG string). Fetched lazily when the
-  // list query stripped it. The SVG carries its own viewBox, so sizing/centering is
-  // handled purely in CSS below — no width/height string rewriting needed.
+  // New IODA reports carry signal series (rendered client-side with recharts); older
+  // reports carry a scraped chart image (media key resolved to /media/..., or a legacy
+  // inline SVG string). Both are lazily fetched when the list query stripped them.
+  const chart = useReportChartSeries(report);
   const image = useReportChartImage(report);
   const svg = isInlineSvg(image) ? image! : "";
+
+  // Shade the outage window on the recharts chart.
+  const outageStart: number | undefined = rawData?.rawEvent?.start;
+  const outageEnd: number | undefined =
+    isOngoing || outageStart === undefined || rawData?.rawEvent?.duration === undefined
+      ? undefined
+      : outageStart + rawData.rawEvent.duration;
 
   return (
     <>
@@ -49,7 +58,14 @@ const IodaEvent = ({ report, compact }: IProps) => {
       <p className='mb-1'>
         {isOngoing ? `${start} UTC - Present` : `${start} - ${end} UTC`}
       </p>
-      {!image ? null : svg ? (
+      {chart?.series?.length ? (
+        <IodaChart
+          chart={chart}
+          compact={compact}
+          outageStart={outageStart}
+          outageEnd={outageEnd}
+        />
+      ) : !image ? null : svg ? (
         <div
           className={
             compact

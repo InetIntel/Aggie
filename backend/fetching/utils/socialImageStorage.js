@@ -1,13 +1,10 @@
 'use strict';
 
 const crypto = require('crypto');
-const os = require('os');
 const path = require('path');
-const fs = require('fs').promises;
-const { execFile } = require('child_process');
-const { promisify } = require('util');
+const sharp = require('sharp');
 
-const execFileAsync = promisify(execFile);
+const MediaAsset = require('../../models/mediaAsset');
 
 const MEDIA_ROUTE_PREFIX = '/media';
 // When deployed under a subpath (APP_BASE_PATH, e.g. "/aggie"), browser-facing media
@@ -15,18 +12,12 @@ const MEDIA_ROUTE_PREFIX = '/media';
 // "/media/..." resolves to the domain root and returns the SPA instead of the file.
 // Empty at the domain root and in dev.
 const APP_BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/+$/, '');
-// Fetched media (social images + IODA SVG charts) live under MEDIA_ROOT and are
-// served by the API at /media (see backend/api.js -> express.static(getMediaRoot())).
-// In dev this MUST stay OUT of public/: CRA's dev server watches public/ and does a
-// full browser reload on every write, so the fetch process would reload the app on a
-// loop. Production has no such watcher, so it keeps the in-repo public/media path.
-// Both the writing (fetching) and serving (api) processes read this same value, so
-// the location stays consistent as long as they share ENVIRONMENT (they do — forked).
-const DEFAULT_MEDIA_ROOT =
-  process.env.ENVIRONMENT === 'production'
-    ? path.join(__dirname, '../../../public/media')
-    : path.join(__dirname, '../../../media-store');
-const MEDIA_ROOT = process.env.MEDIA_ROOT || DEFAULT_MEDIA_ROOT;
+// Bytes now live in the `mediaassets` Mongo collection, not on disk. MEDIA_ROOT is retained only
+// so the one-time backfill (backfillMediaToMongo.js) can walk the legacy disk tree; nothing in the
+// live read/write path touches the filesystem anymore. (This also supersedes the dev "media-store"
+// reload-loop workaround from api-redesign: with fetch writing to Mongo, nothing writes under
+// public/ during dev, so CRA's watcher never full-reloads on a fetch.)
+const MEDIA_ROOT = process.env.MEDIA_ROOT || path.join(__dirname, '../../../public/media');
 const THUMBNAIL_MAX_SIZE = Number(process.env.SOCIAL_IMAGE_THUMB_SIZE || 320);
 
 function normalizeKey(key) {
@@ -42,7 +33,6 @@ function normalizeKey(key) {
 }
 
 function getMediaRoot() {
-  console.log('debugging-getMediaRoot: ',MEDIA_ROOT);
   return MEDIA_ROOT;
 }
 
@@ -50,10 +40,6 @@ function buildMediaUrl(key) {
   const normalizedKey = normalizeKey(key);
   if (!normalizedKey) return null;
   return `${APP_BASE_PATH}${MEDIA_ROUTE_PREFIX}/${normalizedKey}`;
-}
-
-function resolveMediaPath(key) {
-  return path.join(MEDIA_ROOT, normalizeKey(key));
 }
 
 function detectImageMimeType(buffer) {
@@ -103,25 +89,6 @@ function extensionForMimeType(mimeType) {
   }
 }
 
-async function ensureParentDir(filePath) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-}
-
-async function createThumbnail(sourcePath, destinationPath) {
-  await ensureParentDir(destinationPath);
-  try {
-    await execFileAsync('/usr/bin/sips', [
-      '-Z',
-      String(THUMBNAIL_MAX_SIZE),
-      sourcePath,
-      '--out',
-      destinationPath,
-    ]);
-  } catch (_) {
-    await fs.copyFile(sourcePath, destinationPath);
-  }
-}
-
 async function persistSocialImage({ buffer, sourcePlatform, mimeType }) {
   const detectedMimeType = mimeType || detectImageMimeType(buffer);
 
@@ -133,48 +100,70 @@ async function persistSocialImage({ buffer, sourcePlatform, mimeType }) {
   const token = crypto.randomBytes(16).toString('hex');
   const fullKey = `social/full/${token}.${extension}`;
   const thumbnailKey = `social/thumb/${token}.${extension}`;
-  const fullPath = resolveMediaPath(fullKey);
-  const thumbnailPath = resolveMediaPath(thumbnailKey);
-  const tempSourcePath = path.join(os.tmpdir(), `aggie-social-${token}.${extension}`);
 
-  await ensureParentDir(fullPath);
+  // Real ~320px thumbnail generated in-memory. `toBuffer` preserves the input format, so the
+  // thumbnail keeps the same extension/content-type as the full image. Replaces the macOS-only
+  // `sips` shell-out, which silently produced a full-size copy on the Ubuntu prod VM.
+  const thumbnailBuffer = await sharp(buffer)
+    .resize(THUMBNAIL_MAX_SIZE, THUMBNAIL_MAX_SIZE, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .toBuffer();
 
-  try {
-    await fs.writeFile(fullPath, buffer);
-    await fs.writeFile(tempSourcePath, buffer);
-    await createThumbnail(tempSourcePath, thumbnailPath);
-
-    return {
-      type: 'image',
-      imageKey: fullKey,
-      thumbnailKey,
-      mimeType: detectedMimeType,
+  await MediaAsset.create([
+    {
+      key: fullKey,
+      data: buffer,
+      contentType: detectedMimeType,
+      byteSize: buffer.length,
+      kind: 'social-full',
       sourcePlatform: sourcePlatform || null,
-    };
-  } catch (error) {
-    await Promise.allSettled([
-      fs.unlink(fullPath),
-      fs.unlink(thumbnailPath),
-      fs.unlink(tempSourcePath),
-    ]);
-    throw error;
-  } finally {
-    await fs.unlink(tempSourcePath).catch(() => {});
-  }
+    },
+    {
+      key: thumbnailKey,
+      data: thumbnailBuffer,
+      contentType: detectedMimeType,
+      byteSize: thumbnailBuffer.length,
+      kind: 'social-thumb',
+      sourcePlatform: sourcePlatform || null,
+    },
+  ]);
+
+  return {
+    type: 'image',
+    imageKey: fullKey,
+    thumbnailKey,
+    mimeType: detectedMimeType,
+    sourcePlatform: sourcePlatform || null,
+  };
 }
 
+// Retained for the one-off IODA SVG backfill (`scripts/backfill-ioda-svg-to-json.js`), which
+// promotes leftover inline chart SVGs into stored assets so they render via the `image` fallback.
+// The live IODA channel no longer calls this — new reports store signal JSON
+// (`metadata.rawAPIResponse.chart`) and render with recharts (IodaChart.tsx).
 async function persistSvgChart({ svg, guid }) {
   if (!svg || typeof svg !== 'string' || !guid) return null;
 
-  // Deterministic, filesystem-safe key per event. IODA re-scrapes and overwrites
-  // the chart on every poll while an outage is ongoing; keying by guid means the
-  // re-fetch overwrites the same file in place instead of orphaning a new one.
+  // Deterministic key per event (keyed by guid) so a re-fetch overwrites the same doc in place
+  // instead of orphaning a new one.
   const hash = crypto.createHash('sha1').update(String(guid)).digest('hex');
   const key = `ioda/charts/${hash}.svg`;
-  const fullPath = resolveMediaPath(key);
+  const data = Buffer.from(svg, 'utf-8');
 
-  await ensureParentDir(fullPath);
-  await fs.writeFile(fullPath, svg, 'utf-8');
+  await MediaAsset.updateOne(
+    { key },
+    {
+      $set: {
+        data,
+        contentType: 'image/svg+xml',
+        kind: 'ioda-chart',
+        byteSize: data.length,
+      },
+    },
+    { upsert: true }
+  );
 
   return key; // stored in place of the inline SVG string
 }
@@ -183,11 +172,7 @@ async function deleteMediaByKey(key) {
   const normalizedKey = normalizeKey(key);
   if (!normalizedKey) return;
 
-  await fs.unlink(resolveMediaPath(normalizedKey)).catch((error) => {
-    if (error.code !== 'ENOENT') {
-      throw error;
-    }
-  });
+  await MediaAsset.deleteOne({ key: normalizedKey });
 }
 
 async function deleteSocialAttachments(attachments) {
@@ -208,6 +193,7 @@ module.exports = {
   deleteSocialAttachments,
   detectImageMimeType,
   getMediaRoot,
+  normalizeKey,
   persistSocialImage,
   persistSvgChart,
 };

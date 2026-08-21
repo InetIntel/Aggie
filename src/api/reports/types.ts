@@ -88,13 +88,39 @@ export interface SocialAttachment {
   thumbnailUrl?: string;
 }
 
+// IODA signal series stored inline on the report (replaces the scraped chart SVG).
+// Points are compact [unixSeconds, value|null] pairs; timestamps are reconstructed from
+// each series' own step, so series with different steps coexist.
+export type IodaChartPoint = [number, number | null];
+
+export interface IodaChartSeries {
+  datasource: string; // "bgp" | "ping-slash24" | "merit-nt"
+  step: number; // seconds between points
+  points: IodaChartPoint[];
+}
+
+export interface IodaChartData {
+  from: number; // window fetched (unix seconds)
+  until: number;
+  entity: string; // "region/4442"
+  series: IodaChartSeries[];
+  // gtr-based predicted-normal band; null when the entity has no gtr data.
+  predicted: {
+    step: number;
+    norm: IodaChartPoint[];
+    sarima: IodaChartPoint[];
+  } | null;
+}
+
 interface RawApiResponse {
   id: string;
   type: string;
   attributes: unknown;
   // IODA/Cloudflare chart: `image` is the media-storage key, `imageUrl` the served URL.
+  // Legacy IODA reports carry `image`; new IODA reports carry `chart` (signal series).
   image?: string;
   imageUrl?: string;
+  chart?: IodaChartData;
   [key: string]: any;
 }
 // i need to redo this...
