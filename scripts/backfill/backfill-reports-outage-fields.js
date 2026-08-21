@@ -322,7 +322,9 @@ async function backfillReports() {
   }
 
   console.log(
-    `[REPORT-BACKFILL] Done. Total processed=${totalProcessed}, total updated=${totalUpdated}`,
+    DRY_RUN
+      ? `[REPORT-BACKFILL][DRY-RUN] Done. Total processed=${totalProcessed}, would update=${totalUpdated} (no writes made)`
+      : `[REPORT-BACKFILL] Done. Total processed=${totalProcessed}, total updated=${totalUpdated}`,
   );
 }
 

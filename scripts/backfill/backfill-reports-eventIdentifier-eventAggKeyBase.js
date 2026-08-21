@@ -99,7 +99,9 @@ async function run() {
         modifiedTotal += modified;
 
         console.log(
-          `Progress: scanned=${scanned}, prepared=${prepared}, matched=${matchedTotal}, modified=${modifiedTotal}`,
+          DRY_RUN
+            ? `Progress: scanned=${scanned}, prepared=${prepared} (dry-run, no writes)`
+            : `Progress: scanned=${scanned}, prepared=${prepared}, matched=${matchedTotal}, modified=${modifiedTotal}`,
         );
 
         ops = [];
@@ -127,11 +129,17 @@ async function run() {
       modifiedTotal += modified;
     }
 
-    console.log("Backfill finished.");
-    console.log(`Scanned: ${scanned}`);
-    console.log(`Prepared updates: ${prepared}`);
-    console.log(`Matched: ${matchedTotal}`);
-    console.log(`Modified: ${modifiedTotal}`);
+    if (DRY_RUN) {
+      console.log("Dry run finished — no writes made.");
+      console.log(`Scanned: ${scanned}`);
+      console.log(`Would write (prepared updates): ${prepared}`);
+    } else {
+      console.log("Backfill finished.");
+      console.log(`Scanned: ${scanned}`);
+      console.log(`Prepared updates: ${prepared}`);
+      console.log(`Matched: ${matchedTotal}`);
+      console.log(`Modified: ${modifiedTotal}`);
+    }
   } catch (err) {
     console.error("Backfill failed:", err);
   } finally {
