@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCircleMinus,
   faUsers,
@@ -8,15 +7,24 @@ import {
   faBullhorn,
   faBackwardStep,
   faForwardStep,
+  faLock,
 } from "@fortawesome/free-solid-svg-icons";
 import { faCompass } from "@fortawesome/free-regular-svg-icons";
 
-import { Field } from "formik";
+import { Field, useField } from "formik";
 import * as Yup from "yup";
-import { PUBLISHED_OPTIONS, Group, GroupEditableData } from "../../api/groups/types";
+import {
+  PUBLISHED_OPTIONS,
+  Group,
+  GroupEditableData,
+  IncidentAccessMode,
+} from "../../api/groups/types";
 import { getUsers } from "../../api/users";
 import { getAllAsns } from "../../api/asn";
 import type { AsnInfo } from "../../api/asn/types";
+import { getSession } from "../../api/session";
+import { getIncidentAccessTeams } from "../../api/teams";
+import type { Team } from "../../api/teams/types";
 
 import FormikDateTime from "../../components/FormikDateTime";
 import FormikDropdown from "../../components/FormikDropdown";
@@ -50,7 +58,86 @@ const incidentSchema = Yup.object().shape({
   incidentEndedAt: Yup.date(),
   impactedAsns: Yup.array().of(Yup.string()).optional().default([]),
   impactedGeoScopes: Yup.array().of(Yup.string()).optional().default([]),
+  accessPolicyMode: Yup.string().oneOf(["public", "restricted"]),
+  accessPolicyTeams: Yup.array()
+    .of(Yup.string())
+    .when("accessPolicyMode", {
+      is: "restricted",
+      then: Yup.array()
+        .of(Yup.string())
+        .min(1, "Select at least one team for a restricted incident"),
+    }),
 });
+
+interface IncidentFormValues extends GroupEditableData {
+  accessPolicyMode: IncidentAccessMode;
+  accessPolicyTeams: string[];
+}
+
+const getIncidentAccessTeamIds = (group?: Group) => {
+  return (group?.accessPolicy?.teams || []).map((team) =>
+    typeof team === "string" ? team : team._id
+  );
+};
+
+const IncidentAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
+  const [modeField] = useField<IncidentAccessMode>("accessPolicyMode");
+  const [teamsField, teamsMeta, teamsHelpers] = useField<string[]>(
+    "accessPolicyTeams"
+  );
+  const selectedTeamIds = teamsField.value || [];
+
+  const toggleTeam = (teamId: string) => {
+    if (selectedTeamIds.includes(teamId)) {
+      teamsHelpers.setValue(selectedTeamIds.filter((id) => id !== teamId));
+      return;
+    }
+    teamsHelpers.setValue([...selectedTeamIds, teamId]);
+  };
+
+  return (
+    <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'>
+      <h3 className='font-medium mb-1'>Incident Access</h3>
+      <p className='text-xs text-slate-500 dark:text-gray-400 mb-3'>
+        Public incidents are available normally. Restricted incidents are visible
+        only to the selected teams and administrators.
+      </p>
+
+      <FormikDropdown
+        name='accessPolicyMode'
+        label='Access Mode'
+        icon={faLock}
+        list={[
+          { _id: "public", label: "Public" },
+          { _id: "restricted", label: "Restricted to teams" },
+        ]}
+      />
+
+      {modeField.value === "restricted" && (
+        <div className='flex flex-col gap-2 mt-3'>
+          <span className='text-slate-600 dark:text-gray-400'>Allowed Teams</span>
+          {teams && teams.length > 0 ? (
+            teams.map((team) => (
+              <label key={team._id} className='flex items-center gap-2 text-sm'>
+                <input
+                  type='checkbox'
+                  checked={selectedTeamIds.includes(team._id)}
+                  onChange={() => toggleTeam(team._id)}
+                />
+                <span>{team.name}</span>
+              </label>
+            ))
+          ) : (
+            <p className='text-sm text-slate-500'>No teams are available.</p>
+          )}
+          {teamsMeta.touched && teamsMeta.error && (
+            <p className='text-sm text-orange-600'>{teamsMeta.error}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface IProps {
   group?: Group;
@@ -68,6 +155,20 @@ const CreateEditIncidentForm = ({
   const { data: users } = useQuery(["users"], getUsers);
   const { data: asns } = useQuery<AsnInfo[]>(["asns"], getAllAsns);
   const { data: geoOptions } = useQuery(["geoScopes"], getGeoScopes);
+  const { data: session } = useQuery(["session"], getSession, {
+    staleTime: 50000,
+  });
+  const canManageIncidentAccess =
+    session?.permissions?.includes("manage incident access") === true ||
+    session?.isTeamLead === true;
+  const { data: incidentAccessTeams } = useQuery(
+    ["teams", "incident-access"],
+    getIncidentAccessTeams,
+    {
+      enabled: canManageIncidentAccess,
+      staleTime: 50000,
+    }
+  );
 
   return (
     <>
@@ -85,10 +186,29 @@ const CreateEditIncidentForm = ({
           incidentEndedAt: group?.incidentEndedAt || "",
           impactedAsns: group?.impactedAsns || [],
           impactedGeoScopes: group?.impactedGeoScopes || [],
+          accessPolicyMode: group?.accessPolicy?.mode || "public",
+          accessPolicyTeams: getIncidentAccessTeamIds(group),
         }}
         schema={incidentSchema}
-        onSubmit={(values: GroupEditableData) => {
-          onSubmit({ ...values, _id: group?._id });
+        onSubmit={(values: IncidentFormValues) => {
+          const {
+            accessPolicyMode,
+            accessPolicyTeams,
+            ...incidentValues
+          } = values;
+          const payload: Partial<GroupEditableData> = {
+            ...incidentValues,
+            _id: group?._id,
+          };
+
+          if (canManageIncidentAccess) {
+            payload.accessPolicy = {
+              mode: accessPolicyMode,
+              teams: accessPolicyMode === "restricted" ? accessPolicyTeams : [],
+            };
+          }
+
+          onSubmit(payload);
         }}
         loading={isLoading}
         onSubmitText={!!group ? "Update Incident" : "Create Incident"}
@@ -102,6 +222,9 @@ const CreateEditIncidentForm = ({
           />
         </div>
         <FormikInput name='title' label='Title' />
+        {canManageIncidentAccess && (
+          <IncidentAccessPolicyFields teams={incidentAccessTeams} />
+        )}
         <FormikMultiCombobox
           name='assignedTo'
           unitLabel='User'

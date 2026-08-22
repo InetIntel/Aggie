@@ -56,3 +56,8 @@ export const removeTeamMember = async (params: {
 
   return data;
 };
+
+export const getIncidentAccessTeams = async () => {
+  const { data } = await axios.get<Team[]>('/api/team/incident-access');
+  return data;
+};

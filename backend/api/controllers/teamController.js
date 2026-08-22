@@ -8,6 +8,7 @@ const {
   isLegacyTeamLead,
   normalizeIds,
 } = require('../../access/teamAccess');
+const { hasPermission } = require('../../access/permissions');
 
 const assignableRoles = ['viewer', 'monitor', 'team_lead_scoped', 'team_lead'];
 
@@ -299,5 +300,26 @@ if (!canCreateOrDeleteTeams(req.user)) {
     return res
       .status(err.status || 500)
       .send(err.message || 'Team deletion failed');
+  }
+};
+
+// Get only the team names the current user may use in an incident policy.
+exports.team_incident_access_list = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  try {
+    const filter = hasPermission(req.user, 'manage incident access')
+      ? { active: true }
+      : { active: true, leads: req.user._id };
+    const teams = await Team.find(filter)
+      .select('_id name description active')
+      .sort({ name: 1 })
+      .lean();
+
+    return res.status(200).send(teams);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Incident access team query failed');
   }
 };

@@ -6,6 +6,9 @@ const teamController = require('../controllers/teamController');
 // Get teams manageable by current user
 router.get('/manageable', teamController.team_manageable_list);
 
+// Get teams available when assigning incident access
+router.get('/incident-access', teamController.team_incident_access_list);
+
 // Get all teams
 router.get('', teamController.team_list);
 

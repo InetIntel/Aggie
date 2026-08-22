@@ -15,6 +15,13 @@ interface Creator extends hasId {
   username: string;
 }
 
+export type IncidentAccessMode = 'public' | 'restricted';
+
+export interface IncidentAccessPolicy {
+  mode: IncidentAccessMode;
+  teams: Array<string | { _id: string; name?: string }>;
+}
+
 export interface Group extends hasId {
   tags: string[];
   id?: number;
@@ -26,6 +33,7 @@ export interface Group extends hasId {
   escalated: boolean;
   closed: boolean;
   public: boolean;
+  accessPolicy?: IncidentAccessPolicy;
   _reports: string[];
   title: string;
   assignedTo?: AssignedToUser[] | User[]; // AssignedToUser | AssignedToUser[] <- i dont think its ever not an array
@@ -62,6 +70,7 @@ export interface GroupEditableData extends Partial<hasId> {
   locationName: string;
   public: boolean;
   escalated: boolean;
+  accessPolicy?: IncidentAccessPolicy;
   incidentStartedAt: Date;
   incidentEndedAt: Date;
   impactedAsns?: string[]; 
