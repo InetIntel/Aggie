@@ -11,6 +11,7 @@ if (String(process.env.ACCESS_CONTROL_SMOKE_FIXTURES).toLowerCase() !== 'true') 
 
 const database = require('../database');
 const Credentials = require('../models/credentials');
+const Group = require('../models/group');
 const Report = require('../models/report');
 const Source = require('../models/source');
 const Team = require('../models/team');
@@ -20,6 +21,8 @@ const FIXTURE_KEY = 'access-control-smoke-v1';
 const TEAM_NAME = 'Access Control Smoke';
 const CREDENTIAL_NAME = 'Access Smoke';
 const SOURCE_NICKNAME = 'Access Control Smoke Source';
+const PUBLIC_INCIDENT_TITLE = 'Access Control Smoke Public Incident';
+const RESTRICTED_INCIDENT_TITLE = 'Access Control Smoke Restricted Incident';
 const PASSWORD = 'AggieSmokeTest!2026';
 const CUTOFF_DATE = new Date('2026-01-15T00:00:00.000Z');
 
@@ -69,6 +72,7 @@ const registerUser = (userData) => new Promise((resolve, reject) => {
 });
 
 const cleanup = async () => {
+  await Group.deleteMany({ tags: FIXTURE_KEY }).exec();
   await Report.deleteMany({ 'metadata.fixture': FIXTURE_KEY }).exec();
   await Source.deleteMany({ nickname: SOURCE_NICKNAME }).exec();
   await Credentials.deleteMany({ name: CREDENTIAL_NAME, type: 'ioda' }).exec();
@@ -89,6 +93,9 @@ const seed = async () => {
   const admin = await registerUser(USERS.admin);
   const alpha = await registerUser({ ...USERS.alpha, teams: [team._id] });
   const outsider = await registerUser(USERS.outsider);
+
+  team.leads.addToSet(alpha._id);
+  await team.save();
 
   const credentials = await Credentials.create({
     name: CREDENTIAL_NAME,
@@ -150,6 +157,30 @@ const seed = async () => {
     metadata: { fixture: FIXTURE_KEY, period: 'after-comment' },
   });
 
+  const publicIncident = await Group.create({
+    title: PUBLIC_INCIDENT_TITLE,
+    creator: admin._id,
+    tags: [FIXTURE_KEY],
+    notes: 'Disposable public incident for access-control smoke testing.',
+    accessPolicy: { mode: 'public', teams: [] },
+  });
+
+  const restrictedIncident = await Group.create({
+    title: RESTRICTED_INCIDENT_TITLE,
+    creator: admin._id,
+    tags: [FIXTURE_KEY],
+    notes: 'Disposable Team Alpha incident for access-control smoke testing.',
+    _reports: [afterReport._id],
+    comments: [{
+      data: 'ACCESS CONTROL SMOKE: restricted incident comment',
+      author: alpha._id,
+    }],
+    accessPolicy: { mode: 'restricted', teams: [team._id] },
+  });
+
+  afterReport._group = restrictedIncident._id;
+  await afterReport.save();
+
   console.log('Access-control smoke fixtures created.');
   console.log(`Team: ${TEAM_NAME}`);
   console.log(`Source: ${SOURCE_NICKNAME} (${source._id})`);
@@ -157,6 +188,8 @@ const seed = async () => {
   console.log(`Before report: ${beforeReport._id}`);
   console.log(`After report: ${afterReport._id}`);
   console.log(`Comment: ${comment._id}`);
+  console.log(`Public incident: ${publicIncident._id}`);
+  console.log(`Restricted incident: ${restrictedIncident._id}`);
   console.log('Users:');
   console.log(`  ${USERS.admin.username} / ${PASSWORD}`);
   console.log(`  ${USERS.alpha.username} / ${PASSWORD}`);

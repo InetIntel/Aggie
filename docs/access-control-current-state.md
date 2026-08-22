@@ -1,80 +1,55 @@
 # Access Control Current State
 
-## Quick summary
+## What is implemented
 
-The access control work has moved past just defining user roles. The current work is mostly around teams, team membership, and starting to think through how source-level access should work.
+Aggie now has an access-control path that connects users, teams, sources, reports, and incidents.
 
-This is still in progress, but the basic pieces are now in place for users to belong to teams and for teams to be used later when restricting sources, reports, or incident data.
+- Users can belong to teams.
+- Teams can have scoped leads, while the legacy global `team_lead` role remains supported during migration.
+- Scoped leads can manage their own team membership and create viewer or monitor accounts for teams they lead.
+- Roles act as permission templates, and administrators can add or deny individual permissions per user.
+- Source policies support `public`, `restricted`, and `public_until` modes.
+- Source policies are enforced across report lists, searches, details, comments, batches, and bulk actions.
+- Incident policies support `public` and `restricted` modes.
+- Restricted incidents can be assigned to one or more teams.
+- Incident lists, direct URLs, edits, deletion, bulk actions, tags, comments, and report linking enforce the incident policy.
+- Incident comment attachments check access to their parent incident before download.
+- Incident socket events contain no incident data; clients refetch through the protected API.
 
-## What is in place now
+## Defaults and compatibility
 
-So far, the access control work includes:
+Existing sources and incidents without an access policy are treated as public. No migration is required to preserve existing visibility.
 
-- teams exist as backend records
-- users can belong to teams
-- user API responses now include team data
-- teams can be listed, created, viewed, and deleted through the API
-- team membership can be updated
-- the Users settings page shows team membership
-- users can be assigned to teams from the UI
-- there is now a Teams settings page
-- teams are clickable and have a detail page
-- the team detail page shows members grouped by role
-- early work has started on managing team members from the team detail page
+The older incident `public` field still represents the existing publication/deletion behavior. The new `accessPolicy` field is separate and controls team visibility.
 
-This makes the team setup easier to see and test, instead of only having the data exist in the backend.
+Administrators can access every restricted item. Members can access incidents assigned to their teams. Scoped team leads can also access and manage policies for teams they lead.
 
-## Source access work
+## Incident access controls
 
-I also started the first source access pieces.
+Authorized users can select one of two modes in the incident create/edit form:
 
-Current source access work includes:
+- `public`: normal authenticated access
+- `restricted`: access for administrators and selected team members or leads
 
-- added source access policy metadata
-- added frontend fields for source access policy settings
-- added support for:
-    - public sources
-    - restricted sources
-    - sources that are public until a cutoff date
-- added support for tying source access policies to teams
-- added a backend helper for checking source access rules
+The `manage incident access` permission is included in the administrator and legacy team-lead templates. It can also be granted as an individual override. Scoped leads receive team-limited policy management through their team assignment.
 
-This is not fully enforced across reports/incidents yet. Right now it is more of the setup needed before source-derived data can be filtered correctly.
+## Verification
 
-## Design issue found during testing
+The access-control unit suite covers legacy public behavior, administrators, team members, outsiders, scoped leads, permission overrides, and query filters. The production frontend build and TypeScript checks pass.
 
-One issue that came up is the way `team_lead` is currently being used.
+The disposable smoke fixture script creates:
 
-`team_lead` is a global user role. That works for some things, but it gets awkward once teams are involved. A user might be the lead of one team, but that does not necessarily mean they should have broad visibility or management ability over every team.
+- an administrator
+- a scoped Team Alpha lead
+- an outsider
+- a source and sample reports
+- a public incident
+- a Team Alpha restricted incident with a report and comment
 
-The cleaner model may be:
+## Remaining follow-up
 
-- admin = global / super admin
-- team lead = lead of a specific team
-- viewers/monitors = users assigned inside teams
-
-This would make team leads more like mini-admins inside a team, instead of giving them broad team access everywhere.
-
-This still needs to be worked through before the permission model is fully enforced.
-
-## Source access design note
-
-Sources seem like one of the bigger reasons access control is needed.
-
-For example, a source like a Telegram account or channel may have data that was public before a certain date, but should be treated as private after that date. That is why the source access policy work includes a cutoff date option.
-
-The rough idea is:
-
-- teams define who has access
-- sources define what is restricted
-- reports/incidents that come from those sources should eventually follow those rules
-
-## Next work
-
-The next useful pieces are probably:
-
-- clean up the team lead model
-- keep improving the team detail page so membership management is clearer
-- apply source access rules to reports/source-derived data
-- later extend the same checks to incidents, exports, visualizations, and attachments
-- add some basic permission test cases for admin, team lead, monitor, and viewer accounts
+- Run the full browser smoke test with the three fixture accounts.
+- Add an uploaded attachment during the smoke test and verify a copied URL is denied to the outsider.
+- Audit exports and visualization endpoints before claiming those surfaces are team-scoped.
+- Review whether report responses should hide references to restricted incident IDs when the report itself remains public.
+- Replace the legacy global team-lead fallback after real team assignments have been verified.
