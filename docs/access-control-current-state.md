@@ -17,6 +17,7 @@ Aggie now has an access-control path that connects users, teams, sources, report
 - Incident socket events contain no incident data; clients refetch through the protected API.
 - CSV exports apply the same source visibility filter as report lists.
 - Global precomputed visualizations require the dedicated Manage Trends permission because their stored totals cannot yet be separated by team.
+- Visible reports omit their incident reference when the linked incident is restricted from the current user.
 
 ## Defaults and compatibility
 
@@ -54,5 +55,4 @@ The disposable smoke fixture script creates:
 
 - Run the full browser smoke test with the three fixture accounts.
 - Add an uploaded attachment during the smoke test and verify a copied URL is denied to the outsider.
-- Review whether report responses should hide references to restricted incident IDs when the report itself remains public.
 - Replace the legacy global team-lead fallback after real team assignments have been verified.

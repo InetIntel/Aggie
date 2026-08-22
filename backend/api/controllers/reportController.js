@@ -18,6 +18,9 @@ const Source = require('../../models/source');
 const User = require('../../models/user');
 const { buildReportSourceAccessFilter } = require('../../access/sourceAccess');
 const { normalizeIds } = require('../../access/teamAccess');
+const {
+  hideRestrictedIncidentReferences,
+} = require('../../access/reportIncidentReferences');
 
 // Determine the search keywords
 const parseQueryData = (queryString) => {
@@ -245,6 +248,23 @@ const serializeReportResponse = (payload) => {
   return serializeReport(payload);
 };
 
+const sendReportResponse = async (req, res, payload, status = 200) => {
+  try {
+    const serialized = serializeReportResponse(payload);
+    const safePayload = await hideRestrictedIncidentReferences(
+      req.accessUser || req.user,
+      serialized
+    );
+    if (res.headersSent) return;
+    return res.status(status).send(safePayload);
+  } catch (err) {
+    if (res.headersSent) return;
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to protect incident references.');
+  }
+};
+
 // Get a list of queried Reports
 exports.report_reports = async (req, res) => {
   try {
@@ -277,7 +297,7 @@ exports.report_reports = async (req, res) => {
           return;
         }
         if (err) return res.status(err.status || 500).send(err.message);
-        return res.send(serializeReportResponse(reports));
+        return sendReportResponse(req, res, reports);
       };
 
       if (useDedup) {
@@ -293,7 +313,7 @@ exports.report_reports = async (req, res) => {
     Report.findSortedPage(sourceAccessFilter, req.query.page, (err, reports) => {
       if (res.headersSent) return;
       if (err) return res.status(err.status || 500).send(err.message);
-      return res.status(200).send(serializeReportResponse(reports));
+      return sendReportResponse(req, res, reports);
     });
   } catch (err) {
     if (res.headersSent) return;
@@ -311,8 +331,10 @@ exports.report_batch = async (req, res) => {
     batch.load(req.user._id, sourceAccessFilter, (err, reports) => {
       if (res.headersSent) return;
       if (err) return res.status(err.status || 500).send(err.message);
-      const results = reports.map(serializeReport);
-      return res.status(200).send({ results, total: results.length });
+      return sendReportResponse(req, res, {
+        results: reports,
+        total: reports.length,
+      });
     });
   } catch (err) {
     if (res.headersSent) return;
@@ -328,8 +350,10 @@ exports.report_batch_new = async (req, res) => {
     batch.checkout(req.user._id, query, sourceAccessFilter, (err, reports) => {
       if (res.headersSent) return;
       if (err) return res.status(err.status || 500).send(err.message);
-      const results = reports.map(serializeReport);
-      return res.status(200).send({ results, total: results.length });
+      return sendReportResponse(req, res, {
+        results: reports,
+        total: reports.length,
+      });
     });
   } catch (err) {
     if (res.headersSent) return;
@@ -355,7 +379,7 @@ exports.report_details = (req, res) => {
     else if (!report) res.sendStatus(404);
     else {
       
-      res.status(200).send(serializeReport(report));
+      return sendReportResponse(req, res, report);
     }
   });
 }
@@ -370,7 +394,7 @@ exports.report_comments = (req, res) => {
     if (err) res.status(err.status).send(err.message);
     else {
       
-      res.status(200).send(serializeReportResponse(reports));
+      return sendReportResponse(req, res, reports);
     }
   }, req.reportSourceAccessFilter);
 }

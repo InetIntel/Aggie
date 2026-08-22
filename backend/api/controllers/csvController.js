@@ -4,6 +4,9 @@
 const Report = require("../../models/report");
 const Source = require("../../models/source");
 const { buildReportSourceAccessFilter } = require("../../access/sourceAccess");
+const {
+  hideRestrictedIncidentReferences,
+} = require("../../access/reportIncidentReferences");
 
 exports.csv_csv = async (req, res) => {
   try {
@@ -26,8 +29,12 @@ exports.csv_csv = async (req, res) => {
       ? { $and: [dateFilter, sourceAccessFilter] }
       : dateFilter;
     const reports = await Report.find(filter);
+    const safeReports = await hideRestrictedIncidentReferences(
+      accessUser,
+      reports
+    );
 
-    return res.status(200).send({ reports });
+    return res.status(200).send({ reports: safeReports });
   } catch (err) {
     return res
       .status(err.status || 500)
