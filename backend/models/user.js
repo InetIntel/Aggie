@@ -63,6 +63,18 @@ var userSchema = new Schema({
       default: [],
       index: true,
   },
+  teamMemberships: {
+    type: [{
+      _id: false,
+      team: { type: Schema.Types.ObjectId, ref: 'Team', required: true },
+      role: {
+        type: String,
+        enum: ['viewer', 'monitor', 'team_lead'],
+        default: 'viewer',
+      },
+    }],
+    default: [],
+  },
   active: { type: Boolean, default: true },
   attempts: { type: Number, default: 0 },
   last: { type: Date },
@@ -92,6 +104,7 @@ userSchema.index(
   { unique: true, sparse: true }
 );
 userSchema.index({ 'webauthnCredentials.credentialID': 1 });
+userSchema.index({ 'teamMemberships.team': 1 });
 
 userSchema.set('toJSON', {
   transform: function (doc, ret) {

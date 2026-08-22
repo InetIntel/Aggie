@@ -1,6 +1,7 @@
 'use strict';
 
 const { hasPermission } = require('./permissions');
+const { getMembershipTeamIds } = require('./teamMemberships');
 
 const normalizeIds = (values) => {
   if (!Array.isArray(values)) return [];
@@ -14,8 +15,7 @@ const normalizeIds = (values) => {
 };
 
 const getUserTeamIds = (user) => {
-  if (!user || !Array.isArray(user.teams)) return [];
-  return normalizeIds(user.teams);
+  return getMembershipTeamIds(user);
 };
 
 const getSourcePolicy = (source) => {

@@ -13,6 +13,7 @@
     "smoke:access:seed": "node backend/scripts/access-control-smoke.js seed",
     "smoke:access:cleanup": "node backend/scripts/access-control-smoke.js cleanup",
     "migrate:team-leads": "node backend/scripts/backfill-team-leads.js",
+    "migrate:team-memberships": "node backend/scripts/backfill-team-memberships.js",
     "build": "cross-env CI=false react-scripts build",
     "start": "ENVIRONMENT=production node app.js",
     "postinstall": "node install.js"
