@@ -39,6 +39,12 @@ const USERS = {
     email: 'smoke-access-alpha@example.invalid',
     role: 'monitor',
   },
+  scopedMonitor: {
+    username: 'smoke_access_scoped_monitor',
+    displayName: 'Smoke Test Team Monitor',
+    email: 'smoke-access-scoped-monitor@example.invalid',
+    role: 'viewer',
+  },
   outsider: {
     username: 'smoke_access_outsider',
     displayName: 'Smoke Test Outside Monitor',
@@ -106,7 +112,16 @@ const seed = async () => {
   });
 
   const admin = await registerUser(USERS.admin);
-  const alpha = await registerUser({ ...USERS.alpha, teams: [team._id] });
+  const alpha = await registerUser({
+    ...USERS.alpha,
+    teams: [team._id],
+    teamMemberships: [{ team: team._id, role: 'team_lead' }],
+  });
+  await registerUser({
+    ...USERS.scopedMonitor,
+    teams: [team._id],
+    teamMemberships: [{ team: team._id, role: 'monitor' }],
+  });
   const outsider = await registerUser(USERS.outsider);
 
   team.leads.addToSet(alpha._id);
@@ -211,6 +226,7 @@ const seed = async () => {
   console.log('Users:');
   console.log(`  ${USERS.admin.username} / ${PASSWORD}`);
   console.log(`  ${USERS.alpha.username} / ${PASSWORD}`);
+  console.log(`  ${USERS.scopedMonitor.username} / ${PASSWORD}`);
   console.log(`  ${USERS.outsider.username} / ${PASSWORD}`);
 };
 

@@ -1,6 +1,11 @@
 const User = require("../../models/user");
 const Team = require('../../models/team');
 const { getEffectivePermissions } = require('../../access/permissions');
+const {
+  TEAM_ROLE_PERMISSIONS,
+  getMembershipRole,
+  getMembershipTeamIds,
+} = require('../../access/teamMemberships');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const crypto = require('crypto');
@@ -207,15 +212,36 @@ exports.session = async (req, res, next) => {
 
     const enforced = user.mfaEnforced === true;
     const mfa = !!(req.userToken && req.userToken.mfa === true);
-    const hasExplicitLeadTeam = await Team.exists({ leads: user._id });
+    const ledTeams = await Team.find({ leads: user._id }).select('_id').lean();
+    const ledTeamIds = ledTeams.map((team) => String(team._id));
+    const membershipTeamIds = [...new Set([
+      ...getMembershipTeamIds(user),
+      ...ledTeamIds,
+    ])];
+    const teamRoles = Object.fromEntries(
+      membershipTeamIds.map((teamId) => [
+        teamId,
+        getMembershipRole(user, teamId, ledTeamIds),
+      ])
+    );
+    const scopedPermissions = [...new Set(
+      Object.values(teamRoles).flatMap(
+        (role) => TEAM_ROLE_PERMISSIONS[role] || []
+      )
+    )];
+    const permissions = [...new Set([
+      ...getEffectivePermissions(user),
+      ...scopedPermissions,
+    ])];
 
     const userStripped = {
       _id: user._id,
       username: user.username,
       email: user.email,
       role: user.role,
-      permissions: getEffectivePermissions(user),
-      isTeamLead: user.role === 'team_lead' || Boolean(hasExplicitLeadTeam),
+      permissions,
+      teamRoles,
+      isTeamLead: user.role === 'team_lead' || ledTeamIds.length > 0,
       hasDefaultPassword: user.hasDefaultPassword,
       provider: user.provider,
       mfa,

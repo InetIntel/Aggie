@@ -19,6 +19,20 @@ const getRequestedIds = (value) => {
   return [...new Set(normalizeIds(Array.isArray(value) ? value : [value]))];
 };
 
+const hasScopedIncidentPermission = (req, incident) => {
+  if (!req.permissionScope) return true;
+
+  const scopedTeamIds = new Set(normalizeIds(req.permissionScope.teamIds));
+  const policyTeams = normalizeIds(
+    incident && incident.accessPolicy && incident.accessPolicy.teams
+  );
+
+  return incident &&
+    incident.accessPolicy &&
+    incident.accessPolicy.mode === 'restricted' &&
+    policyTeams.some((teamId) => scopedTeamIds.has(teamId));
+};
+
 const loadIncidentAccessContext = async (req, res, next) => {
   if (req.incidentAccess) return next();
 
@@ -64,6 +78,10 @@ const requireIncidentParamAccess = async (req, res, next) => {
       return res.sendStatus(404);
     }
 
+    if (!hasScopedIncidentPermission(req, incident)) {
+      return res.status(403).send('Your team role cannot modify this incident.');
+    }
+
     req.incident = incident;
     return next();
   } catch (err) {
@@ -93,6 +111,10 @@ const requireIncidentBodyAccess = async (req, res, next) => {
 
     if (!allAccessible) {
       return res.status(403).send('Unauthorized to access one or more incidents.');
+    }
+
+    if (incidents.some((incident) => !hasScopedIncidentPermission(req, incident))) {
+      return res.status(403).send('Your team role cannot modify one or more incidents.');
     }
 
     req.body.ids = ids;
@@ -153,6 +175,11 @@ const normalizeRequestedPolicy = (policy) => {
 
 const requireIncidentPolicyAccess = async (req, res, next) => {
   if (!req.body || !Object.prototype.hasOwnProperty.call(req.body, 'accessPolicy')) {
+    if (req.permissionScope && !req.incident) {
+      return res.status(403).send(
+        'A team-scoped incident must be restricted to a team you can monitor.'
+      );
+    }
     return next();
   }
 
@@ -166,6 +193,18 @@ const requireIncidentPolicyAccess = async (req, res, next) => {
   const { user, ledTeamIds } = req.incidentAccess;
   if (!canSetIncidentPolicy(user, policy, ledTeamIds, req.incident || null)) {
     return res.status(403).send('Unauthorized to set this incident access policy.');
+  }
+
+  if (req.permissionScope) {
+    const scopedTeamIds = new Set(normalizeIds(req.permissionScope.teamIds));
+    if (
+      policy.mode !== 'restricted' ||
+      !policy.teams.every((teamId) => scopedTeamIds.has(teamId))
+    ) {
+      return res.status(403).send(
+        'A team-scoped incident must remain within teams you can monitor.'
+      );
+    }
   }
 
   try {
@@ -224,6 +263,12 @@ const requireReportIncidentAccess = async (req, res, next) => {
 
     if (!allAccessible) {
       return res.status(403).send('Unauthorized to modify one or more incidents.');
+    }
+
+    if (incidents.some((incident) => !hasScopedIncidentPermission(req, incident))) {
+      return res.status(403).send(
+        'Your team role cannot modify one or more incidents.'
+      );
     }
 
     req.reportIncidents = incidents;

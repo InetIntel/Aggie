@@ -12,6 +12,7 @@ export interface Session extends hasId {
   provider: string;
   role: "admin" | "monitor" |"viewer" |"team_lead" | undefined;
   permissions?: Permission[];
+  teamRoles?: Record<string, "viewer" | "monitor" | "team_lead">;
   isTeamLead?: boolean;
   username: string;
   mfa?: boolean;              // session is MFA-verified

@@ -23,6 +23,7 @@ The accounts are:
 
 - `smoke_access_admin`
 - `smoke_access_alpha` — monitor and scoped lead of the smoke-test team
+- `smoke_access_scoped_monitor` — global viewer and monitor on the smoke-test team
 - `smoke_access_outsider` — monitor with no team
 
 ## Demonstrate the behavior

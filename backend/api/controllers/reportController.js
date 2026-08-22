@@ -17,6 +17,7 @@ const { buildMediaUrl } = require('../../fetching/utils/socialImageStorage');
 const Source = require('../../models/source');
 const User = require('../../models/user');
 const { buildReportSourceAccessFilter } = require('../../access/sourceAccess');
+const { normalizeIds } = require('../../access/teamAccess');
 
 // Determine the search keywords
 const parseQueryData = (queryString) => {
@@ -62,7 +63,7 @@ const getReportAccessUser = async (req) => {
   const userId = req.user._id || req.user.id;
 
   return User.findById(userId)
-    .select('_id role teams')
+    .select('_id role teams teamMemberships')
     .lean();
 };
 
@@ -88,6 +89,48 @@ const combineReportFilters = (filter, sourceAccessFilter) => {
   return { $and: [filter, sourceAccessFilter] };
 };
 
+const canModifyReportsWithinScope = async (reportIds, scopedTeamIds) => {
+  const reports = await Report.find({ _id: { $in: reportIds } })
+    .select('_sources _group')
+    .lean();
+  const sourceIds = [...new Set(reports.flatMap((report) => report._sources || []))];
+  const groupIds = [...new Set(
+    reports.map((report) => report._group).filter(Boolean).map(String)
+  )];
+  const [sources, groups] = await Promise.all([
+    Source.find({ _id: { $in: sourceIds } })
+      .select('_id accessPolicy')
+      .lean(),
+    Group.find({ _id: { $in: groupIds } })
+      .select('_id accessPolicy')
+      .lean(),
+  ]);
+  const sourceTeams = new Map(sources.map((source) => [
+    String(source._id),
+    source.accessPolicy && source.accessPolicy.mode !== 'public'
+      ? normalizeIds(source.accessPolicy.teams)
+      : [],
+  ]));
+  const groupTeams = new Map(groups.map((group) => [
+    String(group._id),
+    group.accessPolicy && group.accessPolicy.mode === 'restricted'
+      ? normalizeIds(group.accessPolicy.teams)
+      : [],
+  ]));
+  const allowedTeams = new Set(normalizeIds(scopedTeamIds));
+
+  return reports.length === reportIds.length && reports.every((report) => {
+    const reportTeamIds = [
+      ...(report._sources || []).flatMap(
+        (sourceId) => sourceTeams.get(String(sourceId)) || []
+      ),
+      ...(report._group ? groupTeams.get(String(report._group)) || [] : []),
+    ];
+
+    return reportTeamIds.some((teamId) => allowedTeams.has(teamId));
+  });
+};
+
 exports.requireReportAccess = async (req, res, next) => {
   const requestedIds = [
     ...(req.params && req.params._id ? [req.params._id] : []),
@@ -109,6 +152,15 @@ exports.requireReportAccess = async (req, res, next) => {
 
     if (accessibleCount !== existingCount) {
       return res.status(403).send('Unauthorized to access one or more reports.');
+    }
+
+    if (
+      req.permissionScope &&
+      !(await canModifyReportsWithinScope(ids, req.permissionScope.teamIds))
+    ) {
+      return res.status(403).send(
+        'Your team role cannot modify one or more reports.'
+      );
     }
 
     req.reportSourceAccessFilter = sourceAccessFilter;

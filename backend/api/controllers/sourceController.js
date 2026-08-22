@@ -33,7 +33,7 @@ const getSourceAccessUser = async (req) => {
   const userId = req.user._id || req.user.id;
 
   return User.findById(userId)
-    .select('_id role teams')
+    .select('_id role teams teamMemberships')
     .lean();
 };
 

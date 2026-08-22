@@ -4,7 +4,7 @@
 
 Aggie now has an access-control path that connects users, teams, sources, reports, and incidents.
 
-- Users can belong to teams.
+- Users can have a separate viewer, monitor, or team-lead role on each team.
 - Teams can have scoped leads, while the legacy global `team_lead` role remains supported during migration.
 - Scoped leads can manage their own team membership and create viewer or monitor accounts for teams they lead.
 - Roles act as permission templates, and administrators can add or deny individual permissions per user.
@@ -19,6 +19,8 @@ Aggie now has an access-control path that connects users, teams, sources, report
 ## Defaults and compatibility
 
 Existing sources and incidents without an access policy are treated as public. No migration is required to preserve existing visibility.
+
+Existing team assignments without a scoped role continue to use the user's account role until the optional membership backfill is applied.
 
 The older incident `public` field still represents the existing publication/deletion behavior. The new `accessPolicy` field is separate and controls team visibility.
 
