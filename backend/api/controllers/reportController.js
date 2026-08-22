@@ -330,7 +330,9 @@ exports.report_update = (req, res) => {
     if (err) return res.status(err.status).send(err.message);
     if (!report) return res.sendStatus(404);
     // Update the actual value
-    _.forEach(_.pick(req.body, ['_group', 'read', 'smtcTags', 'notes', 'escalated', 'veracity', "aitags_feedback"]), (val, key) => {
+    // Incident links are changed only through the dedicated endpoints, which
+    // authorize access to both the report and every affected incident.
+    _.forEach(_.pick(req.body, ['read', 'smtcTags', 'notes', 'escalated', 'veracity', "aitags_feedback"]), (val, key) => {
       report[key] = val;
     });
     if (!report.read) {
@@ -559,7 +561,8 @@ exports.reports_group_update = async (req, res) => {
 
     await eventRouter.publish('reports:update', {
       ids: req.body.ids,
-      update: { _group: group._id, read: true },
+      // Incident details are delivered only by the access-controlled group API.
+      update: { read: true },
     });
 
     return res.sendStatus(200);
@@ -636,7 +639,7 @@ exports.reports_group_remove = async (req, res) => {
 
     await eventRouter.publish('reports:update', {
       ids,
-      update: { _group: null },
+      update: {},
     });
 
     return res.sendStatus(200);

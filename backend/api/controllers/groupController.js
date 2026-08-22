@@ -7,9 +7,56 @@ const _ = require('lodash');
 var tags = require('../../shared/tags');
 const Report = require('../../models/report');
 const eventRouter = require('../sockets/event-router');
-const { saveFile, deleteFile } = require('../utils/fileStorage');
+const { saveFile, deleteFile, getUploadDir } = require('../utils/fileStorage');
 const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../../config/models/groupConfigs');
 const path = require('path');
+const { canViewIncident } = require('../../access/incidentAccess');
+
+exports.group_attachment_download = async (req, res) => {
+  const filename = req.params.filename;
+  if (!filename || path.basename(filename) !== filename) {
+    return res.status(400).send('Invalid attachment path.');
+  }
+
+  const publicPath = `/incidents/uploads/${filename}`;
+
+  try {
+    const groups = await Group.find({
+      'comments.attachments.path': publicPath,
+    });
+
+    const accessibleGroup = groups.find((group) =>
+      canViewIncident(
+        req.incidentAccess.user,
+        group,
+        req.incidentAccess.ledTeamIds
+      )
+    );
+
+    if (!accessibleGroup) return res.sendStatus(404);
+
+    const attachment = accessibleGroup.comments
+      .flatMap((comment) => comment.attachments || [])
+      .find((item) => item.path === publicPath);
+
+    if (!attachment) return res.sendStatus(404);
+
+    const uploadRoot = path.resolve(getUploadDir());
+    const serverPath = path.resolve(uploadRoot, filename);
+    if (!serverPath.startsWith(`${uploadRoot}${path.sep}`)) {
+      return res.status(400).send('Invalid attachment storage path.');
+    }
+
+    return res.sendFile(serverPath, (err) => {
+      if (!err || res.headersSent) return;
+      return res.sendStatus(err.statusCode || 404);
+    });
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to download attachment.');
+  }
+};
 
 exports.group_create = (req, res) => {
   req.body.creator = req.user;
@@ -29,7 +76,12 @@ exports.group_create = (req, res) => {
 // lean option means only return name and id
 exports.group_all_groups = (req, res) => {
   const projection = req.query.lean === "true" ? 'title closed escalated idnum' : '';
-  Group.find({ public: true }, projection, {}, (err, groups) => {
+  const accessFilter = req.incidentAccess && req.incidentAccess.filter;
+  const filter = accessFilter && Object.keys(accessFilter).length > 0
+    ? { $and: [{ public: true }, accessFilter] }
+    : { public: true };
+
+  Group.find(filter, projection, {}, (err, groups) => {
     if (err) res.status(err.status).send(err.message);
     else res.status(200).send(groups);
   });
@@ -63,6 +115,7 @@ exports.group_groups = (req, res) => {
         { path: 'creator', select: 'username' },
         { path: 'assignedTo', select: 'username' },
       ],
+      accessFilter: req.incidentAccess && req.incidentAccess.filter,
     },
     async (err, groups) => {
       if (err) {
@@ -709,7 +762,8 @@ exports.group_delete = async (req, res, next) => {
 
 // Delete all Groups
 exports.group_all_delete = (req, res) => {
-  Group.find(function (err, groups) {
+  const accessFilter = req.incidentAccess && req.incidentAccess.filter;
+  Group.find(accessFilter || {}, function (err, groups) {
     if (err) return res.status(err.status).send(err.message);
     if (groups.length === 0) return res.sendStatus(200);
     var remaining = groups.length;

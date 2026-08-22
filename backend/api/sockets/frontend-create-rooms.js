@@ -39,12 +39,12 @@ module.exports = (httpServer) => {
   ns['groups'].on('connection', onConnection('groups'));
   ns['reports'].on('connection', onConnection('reports'));
 
-  const handleEvent = (nsName) => async (eventName, data) => {
+  const handleEvent = (nsName, serialize = (data) => data) => async (eventName, data) => {
     //console.log('Received event', eventName, 'with data', data);
 
     ns[nsName].emit(eventName, {
       event: eventName,
-      data,
+      data: serialize(data),
     });
   };
 
@@ -56,9 +56,12 @@ module.exports = (httpServer) => {
   EventRouter.on('sources:delete', handleEvent('sources'));
   EventRouter.on('sources:update', handleEvent('sources'));
 
-  EventRouter.on('groups:create', handleEvent('reports'));
-  EventRouter.on('groups:delete', handleEvent('reports'));
-  EventRouter.on('groups:update', handleEvent('reports'));
+  // Incident payloads may contain restricted titles, notes, comments, and team
+  // assignments. Clients receive only an invalidation signal and refetch data
+  // through the access-controlled API.
+  EventRouter.on('groups:create', handleEvent('reports', () => null));
+  EventRouter.on('groups:delete', handleEvent('reports', () => null));
+  EventRouter.on('groups:update', handleEvent('reports', () => null));
 
   EventRouter.on('reports:update', handleEvent('reports'));
   EventRouter.on('reports:create', handleEvent('reports'));

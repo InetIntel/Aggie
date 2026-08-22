@@ -2,6 +2,8 @@ const path = require('path');
 const fs = require('fs').promises;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname,'../../../public/uploads');
 
+const getUploadDir = () => UPLOAD_DIR;
+
 async function saveFile(fileBuffer, originalname) {
     try {
         const normalizedName = originalname.trim().replace(/\s+/g, '_'); // remove extra spaces
@@ -35,4 +37,5 @@ async function deleteFile(filePath) {
 module.exports = {
     saveFile,
     deleteFile,
+    getUploadDir,
 }

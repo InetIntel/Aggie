@@ -4,9 +4,14 @@ const router = express.Router();
 const reportController = require('../controllers/reportController');
 const auth = require('../authentication')();
 const User = require('../../models/user');
+const {
+  loadIncidentAccessContext,
+  requireIncidentQueryAccess,
+  requireReportIncidentAccess,
+} = require('../middlewares/incidentAccessMiddlewares');
 
 // Get list of reports
-router.get('', User.can("view data"), reportController.report_reports);
+router.get('', User.can("view data"), requireIncidentQueryAccess, reportController.report_reports);
 
 // Get batch of reports
 router.get('/batch', User.can('view data'), reportController.report_batch);
@@ -39,9 +44,9 @@ router.patch('/_escalated', User.can('edit data'), reportController.requireRepor
 router.patch('/_irrelevance', User.can('edit data'), reportController.requireReportAccess, reportController.reports_irrelevant_update);
 
 // Add reports to group
-router.patch('/_group', User.can('edit data'), reportController.requireReportAccess, reportController.reports_group_update);
+router.patch('/_group', User.can('edit data'), reportController.requireReportAccess, loadIncidentAccessContext, requireReportIncidentAccess, reportController.reports_group_update);
 // remove reports from group
-router.patch('/_group-rm', User.can('edit data'), reportController.requireReportAccess, reportController.reports_group_remove);
+router.patch('/_group-rm', User.can('edit data'), reportController.requireReportAccess, loadIncidentAccessContext, requireReportIncidentAccess, reportController.reports_group_remove);
 
 // Update reports notes
 router.patch('/_notes', User.can('edit data'), reportController.requireReportAccess, reportController.reports_notes_update);

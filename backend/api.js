@@ -19,6 +19,10 @@ var readLineSync = require('readline-sync');
 var { version: packageVersion } = require('../package.json');
 const cors = require('cors');
 const { getMediaRoot } = require('./fetching/utils/socialImageStorage');
+const groupController = require('./api/controllers/groupController');
+const {
+  loadIncidentAccessContext,
+} = require('./api/middlewares/incidentAccessMiddlewares');
 // Extend global error class
 require('./error');
 require('dotenv').config();
@@ -90,11 +94,6 @@ if (process.env.ENVIRONMENT === 'development') {
     })
   );
   app.use(
-    '/incidents/uploads',
-    auth.authenticate(),
-    express.static(path.join(__dirname,'..', 'public', 'uploads'))
-  );
-  app.use(
     '/media',
     express.static(getMediaRoot())
   );
@@ -159,6 +158,16 @@ passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 app.use(authRoutes);
 
+// Incident comment attachments retain their existing URLs, but downloads are
+// authorized against the incident that owns the attachment.
+app.get(
+  '/incidents/uploads/:filename',
+  auth.authenticate(),
+  User.can('view data'),
+  loadIncidentAccessContext,
+  groupController.group_attachment_download
+);
+
 // setup api logging
 app.all('/api/*', morgan('combined'));
 
@@ -180,11 +189,6 @@ if (process.env.ENVIRONMENT === 'production') {
   app.use(
     '/images',
     express.static(path.join(__dirname, '..', 'build', 'images'))
-  );
-  app.use(
-    '/incidents/uploads',
-    auth.authenticate(),
-    express.static(path.join(__dirname,'..', 'public', 'uploads'))
   );
   app.use(
     '/media',
