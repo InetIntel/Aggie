@@ -1,35 +1,36 @@
-# Access Control Permissions Matrix
+# Access Control Permissions
 
-Roles provide defaults. Per-user allow or deny overrides can change individual permissions without changing a user's role.
+There are two role levels:
 
-| Area | Admin | Legacy Team Lead | Scoped Team Lead | Monitor | Viewer |
+- The account role is the default for public or unscoped work.
+- The team role applies when editing data restricted to that team.
+
+Admins bypass team restrictions. Individual allow/deny overrides apply to account permissions; they are not per-team overrides.
+
+By default, viewers can read, monitors can read and edit, legacy team leads keep their compatibility permissions, and admins have every permission.
+
+| Action | Admin | Global team lead | Team lead | Team monitor | Team viewer |
 |---|---|---|---|---|---|
 | View public data | Yes | Yes | Yes | Yes | Yes |
-| Edit accessible data | Yes | Yes | Based on global role | Yes | No |
-| View restricted incident | Yes | Assigned/led team | Assigned/led team | Assigned team | Assigned team |
-| Configure incident access | Any team | Any team during migration | Teams they lead | With override | No |
-| Download restricted incident attachments | Yes | Assigned/led team | Assigned/led team | Assigned team | Assigned team |
-| Configure source access | Yes | With override | With override | With override | No |
-| Create users | Yes | Viewer/monitor | Viewer/monitor for led teams | No | No |
-| Manage team membership | Yes | Compatibility access | Teams they lead | No | No |
+| View data restricted to the team | Yes | If assigned or leading | Yes | Yes | Yes |
+| Edit data restricted to the team | Yes | If accessible | Yes | Yes | No |
+| Set incident access | Any team | Any team | Teams led | No, unless separately granted | No |
+| Download a restricted incident attachment | Yes | If incident is accessible | Yes | Yes | Yes |
+| Add or update team members | Yes | Compatibility access | Team led | No | No |
+| Create viewer or monitor accounts | Yes | Yes | For teams led | No | No |
 | Create or delete teams | Yes | Compatibility access | No | No | No |
-| Edit individual permission overrides | Yes | No | No | No | No |
+| Configure sources | Yes | Only with an override | Only with an override | Only with an override | No |
+| View global visualization totals | Yes | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` |
+| Edit permission overrides | Yes | No | No | No | No |
 
 ## Access modes
 
-Sources support:
+| Item | Mode | Behavior |
+|---|---|---|
+| Source | `public` | Normal authenticated access |
+| Source | `restricted` | Assigned teams only |
+| Source | `public_until` | Reports before the cutoff stay public; reports on or after it require an assigned team |
+| Incident | `public` | Normal authenticated access |
+| Incident | `restricted` | Incident, comments, and attachments require an assigned team |
 
-| Mode | Meaning |
-|---|---|
-| `public` | Source and its records follow normal authenticated access. |
-| `restricted` | Source and its records require an assigned team. |
-| `public_until` | Older records remain public; records at or after the cutoff require an assigned team. |
-
-Incidents support:
-
-| Mode | Meaning |
-|---|---|
-| `public` | Incident follows normal authenticated access. |
-| `restricted` | Incident, comments, and attachments require an assigned team. |
-
-Missing policies default to `public`, preserving all existing records and incidents.
+Missing policies are treated as `public`.
