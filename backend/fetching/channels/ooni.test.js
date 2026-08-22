@@ -2,21 +2,18 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const OONIChannel = require('./ooni');
 
-test('creates one deterministic report from zero-measurement data', async () => {
+test('creates one deduplicated report from a zero-measurement rolling window', async () => {
   const requests = [];
   const queued = [];
-  const now = new Date('2026-08-12T06:00:00.000Z');
+  const now = new Date('2026-08-12T14:30:00.000Z');
   const channel = new OONIChannel({
     asns: '44244, 58224',
     domainConfig: { useAllDomains: true, domains: [] },
     now: () => now,
     reportExists: async () => false,
-    fetchDailyMeasurements: async (request) => {
+    hasMeasurements: async (request) => {
       requests.push(request);
-      return [{
-        measurement_start_day: '2026-08-11',
-        measurement_count: request.asn === 44244 ? 0 : 15,
-      }];
+      return request.asn !== 44244;
     },
   });
   channel.enqueue = (post) => queued.push(post);
@@ -24,8 +21,8 @@ test('creates one deterministic report from zero-measurement data', async () => 
   const posts = await channel.fetch();
 
   assert.deepEqual(requests, [
-    { asn: 44244, since: '2026-08-11', until: '2026-08-12', axisX: 'measurement_start_day' },
-    { asn: 58224, since: '2026-08-11', until: '2026-08-12', axisX: 'measurement_start_day' },
+    { asn: 44244, since: '2026-08-11T14:30:00.000Z', until: '2026-08-12T14:30:00.000Z' },
+    { asn: 58224, since: '2026-08-11T14:30:00.000Z', until: '2026-08-12T14:30:00.000Z' },
   ]);
   assert.equal(posts.length, 1);
   assert.equal(queued.length, 1);
@@ -36,29 +33,26 @@ test('creates one deterministic report from zero-measurement data', async () => 
   assert.equal(posts[0].asn, 'as44244');
   assert.equal(posts[0].raw.networkName, 'IranCell');
   assert.equal(posts[0].raw.entityLevel, 'AS');
-  assert.equal(posts[0].raw.triggers[0].measurementDay, '2026-08-11');
+  assert.equal(posts[0].raw.windowStart, '2026-08-11T14:30:00.000Z');
+  assert.equal(posts[0].raw.windowEnd, '2026-08-12T14:30:00.000Z');
 });
 
-test('uses the prior alert date before the 06:00 UTC publication delay', async () => {
-  let request;
+test('skips later rolling checks when the UTC end-date already has a report', async () => {
+  let requested = false;
   const channel = new OONIChannel({
     asns: '44244',
     domainConfig: { useAllDomains: true, domains: [] },
-    now: () => new Date('2026-08-12T05:59:59.000Z'),
+    now: () => new Date('2026-08-12T18:00:00.000Z'),
     reportExists: async () => true,
-    fetchDailyMeasurements: async (value) => {
-      request = value;
-      return [];
+    hasMeasurements: async () => {
+      requested = true;
+      return false;
     },
   });
 
-  await channel.fetch();
-  assert.deepEqual(request, {
-    asn: 44244,
-    since: '2026-08-10',
-    until: '2026-08-11',
-    axisX: 'measurement_start_day',
-  });
+  const posts = await channel.fetch();
+  assert.equal(requested, false);
+  assert.deepEqual(posts, []);
 });
 
 test('creates one report containing all watched domains with zero measurements', async () => {
@@ -69,11 +63,12 @@ test('creates one report containing all watched domains with zero measurements',
       useAllDomains: false,
       domains: ['measured.example', 'missing.example'],
     },
-    now: () => new Date('2026-08-12T06:00:00.000Z'),
+    now: () => new Date('2026-08-12T14:30:00.000Z'),
     reportExists: async () => false,
-    fetchDailyMeasurements: async (request) => {
-      assert.equal(request.axisX, 'domain');
-      return [{ domain: 'measured.example', measurement_count: 4 }];
+    hasMeasurements: async ({ domain, since, until }) => {
+      assert.equal(since, '2026-08-11T14:30:00.000Z');
+      assert.equal(until, '2026-08-12T14:30:00.000Z');
+      return domain === 'measured.example';
     },
   });
   channel.enqueue = (post) => queued.push(post);
@@ -86,6 +81,7 @@ test('creates one report containing all watched domains with zero measurements',
   assert.equal(posts[0].platformID, 'ooni:44244:domains:2026-08-12');
   assert.deepEqual(posts[0].raw.zeroDomains, ['missing.example']);
   assert.equal(posts[0].raw.triggers[0].type, 'zero_domain_measurements');
+  assert.equal(posts[0].raw.triggers[0].windowEnd, '2026-08-12T14:30:00.000Z');
 });
 
 test('rejects an invalid ASN list', () => {

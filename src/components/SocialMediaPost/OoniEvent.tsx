@@ -19,8 +19,12 @@ const OoniEvent = ({ report }: { report: Report }) => {
           <dd className='font-medium'>{asn}</dd>
         </div>
         <div>
-          <dt className='text-slate-500 dark:text-gray-400'>Measurement day</dt>
-          <dd className='font-medium'>{trigger?.measurementDay || "Unknown"}</dd>
+          <dt className='text-slate-500 dark:text-gray-400'>Window start</dt>
+          <dd className='font-medium'>{raw?.windowStart || trigger?.windowStart || "Unknown"}</dd>
+        </div>
+        <div>
+          <dt className='text-slate-500 dark:text-gray-400'>Window end</dt>
+          <dd className='font-medium'>{raw?.windowEnd || trigger?.windowEnd || "Unknown"}</dd>
         </div>
         <div>
           <dt className='text-slate-500 dark:text-gray-400'>Measurements</dt>

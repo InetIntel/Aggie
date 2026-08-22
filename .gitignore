@@ -43,6 +43,7 @@ data
 
 backend/config/cert.pem
 backend/config/key.pem
+backend/config/secrets.json
 
 docs/_build
 

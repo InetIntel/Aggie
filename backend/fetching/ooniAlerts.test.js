@@ -2,9 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   normalizeDailyCounts,
-  evaluateAlert,
   normalizeDomainConfig,
-  evaluateDomainAlerts,
+  evaluateRollingAlert,
+  evaluateRollingDomainAlerts,
 } = require('./ooniAlerts');
 const defaultDomainConfig = require('./config/ooni.json');
 
@@ -23,51 +23,6 @@ test('fills omitted aggregation days with zero measurements', () => {
   ]);
 });
 
-test('alerts when the completed day has zero measurements', () => {
-  const alerts = evaluateAlert([
-    { day: '2025-12-15', measurementCount: 50 },
-    { day: '2025-12-16', measurementCount: 0 },
-  ], '2025-12-17');
-
-  assert.deepEqual(alerts, [{
-    type: 'zero_measurements',
-    alertDate: '2025-12-17',
-    measurementDay: '2025-12-16',
-    measurementCount: 0,
-  }]);
-});
-
-test('does not alert when the completed day has measurements', () => {
-  const alerts = evaluateAlert([
-    { day: '2025-12-16', measurementCount: 60 },
-  ], '2025-12-17');
-
-  assert.deepEqual(alerts, []);
-});
-
-test('groups zero-measurement watched domains into domain triggers', () => {
-  const alerts = evaluateDomainAlerts([
-    { domain: 'example.com', measurement_count: 3 },
-  ], ['example.com', 'missing.example'], '2025-12-17');
-
-  assert.deepEqual(alerts, [{
-    type: 'zero_domain_measurements',
-    domain: 'missing.example',
-    alertDate: '2025-12-17',
-    measurementDay: '2025-12-16',
-    measurementCount: 0,
-  }]);
-});
-
-test('does not alert when every watched domain has measurements', () => {
-  const alerts = evaluateDomainAlerts([
-    { domain: 'one.example', measurement_count: 2 },
-    { domain: 'two.example', measurement_count: 1 },
-  ], ['one.example', 'two.example'], '2025-12-17');
-
-  assert.deepEqual(alerts, []);
-});
-
 test('normalizes and validates the repository domain configuration', () => {
   assert.equal(defaultDomainConfig.useAllDomains, false);
   assert.equal(defaultDomainConfig.domains.length, 50);
@@ -82,4 +37,42 @@ test('normalizes and validates the repository domain configuration', () => {
     () => normalizeDomainConfig({ useAllDomains: false, domains: ['invalid domain'] }),
     /invalid domain/,
   );
+});
+
+test('alerts when an exact rolling window has no measurements', () => {
+  const alerts = evaluateRollingAlert(
+    false,
+    '2026-08-13T12:30:00.000Z',
+    '2026-08-14T12:30:00.000Z',
+  );
+
+  assert.deepEqual(alerts, [{
+    type: 'zero_measurements',
+    alertDate: '2026-08-14',
+    windowStart: '2026-08-13T12:30:00.000Z',
+    windowEnd: '2026-08-14T12:30:00.000Z',
+    measurementCount: 0,
+  }]);
+  assert.deepEqual(evaluateRollingAlert(
+    true,
+    '2026-08-13T12:30:00.000Z',
+    '2026-08-14T12:30:00.000Z',
+  ), []);
+});
+
+test('groups domains absent from an exact rolling window', () => {
+  const alerts = evaluateRollingDomainAlerts([
+    { domain: 'measured.example', hasMeasurements: true },
+    { domain: 'missing.example', hasMeasurements: false },
+  ], ['measured.example', 'missing.example'],
+  '2026-08-13T12:30:00.000Z', '2026-08-14T12:30:00.000Z');
+
+  assert.deepEqual(alerts, [{
+    type: 'zero_domain_measurements',
+    domain: 'missing.example',
+    alertDate: '2026-08-14',
+    windowStart: '2026-08-13T12:30:00.000Z',
+    windowEnd: '2026-08-14T12:30:00.000Z',
+    measurementCount: 0,
+  }]);
 });

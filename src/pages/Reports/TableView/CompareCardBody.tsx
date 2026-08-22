@@ -55,8 +55,8 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   let bgColor: string;
 
   if (isOoni) {
-    end = "—";
-    duration = "Daily measurement";
+    end = formatStamp(raw?.windowEnd);
+    duration = "Rolling 24 hours";
     signal = "Zero Measurements";
     bgColor = "bg-red-600";
   } else if (media === "cloudflare") {
@@ -92,8 +92,8 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
           <dd className='font-semibold'>{raw?.probeASN ? `AS${raw.probeASN}` : "—"}</dd>
         </div>
         <div>
-          <dt className='text-slate-500 dark:text-gray-400'>Measurement day</dt>
-          <dd className='font-semibold'>{trigger?.measurementDay || "—"}</dd>
+          <dt className='text-slate-500 dark:text-gray-400'>Window start</dt>
+          <dd className='font-semibold'>{formatStamp(raw?.windowStart || trigger?.windowStart)}</dd>
         </div>
         <div>
           <dt className='text-slate-500 dark:text-gray-400'>Zero domains</dt>

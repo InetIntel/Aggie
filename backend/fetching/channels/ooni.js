@@ -1,34 +1,21 @@
 const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
-const { fetchDailyMeasurements } = require('../ooniApi');
+const { hasMeasurements } = require('../ooniApi');
 const {
-  normalizeDailyCounts,
-  evaluateAlert,
   normalizeDomainConfig,
-  evaluateDomainAlerts,
+  evaluateRollingAlert,
+  evaluateRollingDomainAlerts,
 } = require('../ooniAlerts');
 const defaultDomainConfig = require('../config/ooni.json');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const ALERT_DELAY_HOURS = 6;
 const NETWORK_NAMES = {
   44244: 'IranCell',
   58224: 'MCCI',
 };
 
-function shiftDay(day, offset) {
-  return new Date(day.getTime() + offset * DAY_MS);
-}
-
 function dayString(day) {
   return day.toISOString().slice(0, 10);
-}
-
-function alertDateFor(now) {
-  const date = new Date(now);
-  date.setUTCHours(0, 0, 0, 0);
-  if (now.getUTCHours() < ALERT_DELAY_HOURS) return shiftDay(date, -1);
-  return date;
 }
 
 function alertGuid(asn, alertDate, domainMode) {
@@ -37,13 +24,14 @@ function alertGuid(asn, alertDate, domainMode) {
 
 function alertContent(asn, alerts) {
   const network = NETWORK_NAMES[asn] || `AS${asn}`;
+  const windowEnd = alerts[0].windowEnd;
   if (alerts[0].type === 'zero_domain_measurements') {
     const domains = alerts.map((alert) => alert.domain);
     const preview = domains.slice(0, 5).join(', ');
     const remainder = domains.length > 5 ? ` and ${domains.length - 5} more` : '';
-    return `OONI domain alert for ${network} (AS${asn}): no measurements were recorded for ${domains.length} watched domain(s) on ${alerts[0].measurementDay}: ${preview}${remainder}.`;
+    return `OONI domain alert for ${network} (AS${asn}): no measurements were recorded for ${domains.length} watched domain(s) in the 24 hours ending ${windowEnd}: ${preview}${remainder}.`;
   }
-  return `OONI volume alert for ${network} (AS${asn}): no web connectivity measurements were recorded on ${alerts[0].measurementDay}.`;
+  return `OONI volume alert for ${network} (AS${asn}): no web connectivity measurements were recorded in the 24 hours ending ${windowEnd}.`;
 }
 
 class OONIChannel extends PollChannel {
@@ -64,7 +52,7 @@ class OONIChannel extends PollChannel {
     });
     this.asns = asns;
     this.interval = options.interval || OONIChannel.INTERVAL;
-    this.fetchDailyMeasurements = options.fetchDailyMeasurements || fetchDailyMeasurements;
+    this.hasMeasurements = options.hasMeasurements || hasMeasurements;
     this.domainConfig = normalizeDomainConfig(options.domainConfig || defaultDomainConfig);
     this.reportExists = options.reportExists
       || ((query) => require('../../models/report').exists(query));
@@ -72,22 +60,41 @@ class OONIChannel extends PollChannel {
   }
 
   async fetch() {
-    const alertDate = alertDateFor(this.now());
-    const since = dayString(shiftDay(alertDate, -1));
-    const until = dayString(alertDate);
+    const windowEndDate = this.now();
+    const windowStartDate = new Date(windowEndDate.getTime() - DAY_MS);
+    const windowStart = windowStartDate.toISOString();
+    const windowEnd = windowEndDate.toISOString();
+    const alertDate = dayString(windowEndDate);
     const posts = [];
 
     for (const asn of this.asns) {
-      const axisX = this.domainConfig.useAllDomains ? 'measurement_start_day' : 'domain';
-      const rows = await this.fetchDailyMeasurements({ asn, since, until, axisX });
-      const alerts = this.domainConfig.useAllDomains
-        ? evaluateAlert(normalizeDailyCounts(rows, since, until), dayString(alertDate))
-        : evaluateDomainAlerts(rows, this.domainConfig.domains, dayString(alertDate));
-      if (alerts.length === 0) continue;
-
       const domainMode = this.domainConfig.useAllDomains ? 'all' : 'selected';
-      const guid = alertGuid(asn, dayString(alertDate), domainMode);
+      const guid = alertGuid(asn, alertDate, domainMode);
       if (await this.reportExists({ guid })) continue;
+
+      let alerts;
+      if (this.domainConfig.useAllDomains) {
+        const found = await this.hasMeasurements({ asn, since: windowStart, until: windowEnd });
+        alerts = evaluateRollingAlert(found, windowStart, windowEnd);
+      } else {
+        const rows = [];
+        for (const domain of this.domainConfig.domains) {
+          const found = await this.hasMeasurements({
+            asn,
+            domain,
+            since: windowStart,
+            until: windowEnd,
+          });
+          rows.push({ domain, hasMeasurements: found });
+        }
+        alerts = evaluateRollingDomainAlerts(
+          rows,
+          this.domainConfig.domains,
+          windowStart,
+          windowEnd,
+        );
+      }
+      if (alerts.length === 0) continue;
 
       const post = this.parse({ asn, alerts, guid, fetchedAt: this.now() });
       posts.push(post);
@@ -104,12 +111,12 @@ class OONIChannel extends PollChannel {
       probe_cc: 'IR',
       probe_asn: `AS${asn}`,
       test_name: 'web_connectivity',
-      since: alerts[0].measurementDay,
-      until: alertDate,
+      since: alerts[0].windowStart,
+      until: alerts[0].windowEnd,
     });
 
     const post = new SocialMediaPost({
-      authoredAt: new Date(`${alertDate}T00:00:00.000Z`),
+      authoredAt: new Date(alerts[0].windowEnd),
       fetchedAt,
       author: `OONI AS${asn}`,
       content: alertContent(asn, alerts),
@@ -123,6 +130,8 @@ class OONIChannel extends PollChannel {
         testName: 'web_connectivity',
         entityLevel: 'AS',
         alertDate,
+        windowStart: alerts[0].windowStart,
+        windowEnd: alerts[0].windowEnd,
         domainMode: this.domainConfig.useAllDomains ? 'all' : 'selected',
         domainConfigCapturedAt: fetchedAt,
         configuredDomains: this.domainConfig.useAllDomains ? [] : this.domainConfig.domains,

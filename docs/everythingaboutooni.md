@@ -17,29 +17,31 @@ reports collection. It does not introduce another service or database.
 
 ```mermaid
 flowchart LR
-    A[OONI aggregation API] --> B[OONI poll channel]
+    A[OONI measurements API] --> B[OONI poll channel]
   B --> C[Normalize configured domains]
-  C --> D[Find zero-measurement domains on D-1]
+  C --> D[Find zero-measurement domains in rolling 24h]
     D --> E[Aggie post-to-report hook]
     E --> F[MongoDB reports]
 ```
 
-The channel polls hourly. Before 06:00 UTC, it evaluates the day before the
-previous UTC day. At and after 06:00 UTC, it evaluates the previous UTC day.
+The channel polls hourly and evaluates the exact 24-hour interval ending at
+each poll time.
 
 For each configured ASN in the default selected-domain mode it requests:
 
 - `probe_cc=IR`
-- `probe_asn=<asn>`
+- `probe_asn=AS<asn>`
 - `test_name=web_connectivity`
-- `axis_x=domain`
+- `since=<window-end minus 24 hours>`
+- `until=<window-end>`
+- `domain=<configured domain>`
+- `limit=1`
 
 The configured 50-domain watchlist lives in
-`backend/fetching/config/ooni.json`. The API omits domains with no
-measurements, so every configured domain absent from the response becomes a
-`zero_domain_measurements` trigger. One report groups all such triggers for an
-ASN and day. When `useAllDomains` is `true`, the channel instead uses
-`axis_x=measurement_start_day` and retains the original ASN-wide zero rule.
+`backend/fetching/config/ooni.json`. A configured domain with no returned
+measurement becomes a `zero_domain_measurements` trigger. One report groups
+all such triggers for an ASN and UTC window end-date. When `useAllDomains` is
+`true`, the channel omits the domain filter and applies the ASN-wide zero rule.
 
 ## Report format
 
@@ -66,6 +68,8 @@ like this:
   "testName": "web_connectivity",
   "entityLevel": "AS",
   "alertDate": "2026-01-10",
+  "windowStart": "2026-01-09T14:00:00.000Z",
+  "windowEnd": "2026-01-10T14:00:00.000Z",
   "domainMode": "selected",
   "configuredDomains": ["www.wechat.com"],
   "zeroDomains": ["www.wechat.com"],
@@ -74,7 +78,8 @@ like this:
       "type": "zero_domain_measurements",
       "domain": "www.wechat.com",
       "alertDate": "2026-01-10",
-      "measurementDay": "2026-01-09",
+      "windowStart": "2026-01-09T14:00:00.000Z",
+      "windowEnd": "2026-01-10T14:00:00.000Z",
       "measurementCount": 0
     }
   ]
@@ -88,8 +93,8 @@ through the normal report pipeline.
 
 ## Implementation files
 
-- `backend/fetching/ooniApi.js`: OONI aggregation API client.
-- `backend/fetching/ooniAlerts.js`: date normalization and zero-only evaluator.
+- `backend/fetching/ooniApi.js`: exact measurement-existence and aggregation clients.
+- `backend/fetching/ooniAlerts.js`: rolling and historical zero-only evaluators.
 - `backend/fetching/config/ooni.json`: selected/all mode and the default 50-domain watchlist.
 - `backend/fetching/channels/ooni.js`: hourly polling and report creation.
 - `backend/fetching/sourceToChannel.js`: creates an OONI channel from a source.
@@ -110,15 +115,14 @@ Run focused tests with:
 npm run test:ooni
 ```
 
-The tests cover missing-day and missing-domain normalization, selected/all
-mode, zero and nonzero decisions, API query construction and failures, ASN
-validation, deterministic 06:00 UTC date selection, report content, and
-duplicate suppression.
+The tests cover exact rolling timestamps, selected/all mode, zero and nonzero
+decisions, API query construction and failures, ASN validation, report
+content, and daily end-date duplicate suppression.
 
 ## Limitations
 
 - Country code and known network names are intentionally Iran-specific.
-- Consecutive zero days create separate daily reports.
+- Consecutive UTC window end-dates can create separate reports.
 - API retries and an incident-level cooldown are not included.
 - Measurement-decline alerts, offline domain-leading-indicator research, and
   full application containerization are not included. Docker is used only by

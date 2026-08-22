@@ -30,26 +30,6 @@ function normalizeDailyCounts(rows, since, until) {
   return normalized;
 }
 
-function evaluateAlert(dailyCounts, alertDate) {
-  const date = toDay(alertDate);
-  const countsByDay = new Map(
-    dailyCounts.map(({ day, measurementCount }) => [day, measurementCount]),
-  );
-  const latestDay = dayString(shiftDay(date, -1));
-  const latestCount = countsByDay.get(latestDay) || 0;
-
-  if (latestCount !== 0) return [];
-
-  return [
-    {
-      type: 'zero_measurements',
-      alertDate: dayString(date),
-      measurementDay: latestDay,
-      measurementCount: 0,
-    },
-  ];
-}
-
 function normalizeDomainConfig(config) {
   const useAllDomains = config?.useAllDomains === true;
   const domains = [...new Set(
@@ -67,29 +47,41 @@ function normalizeDomainConfig(config) {
   return { useAllDomains, domains };
 }
 
-function evaluateDomainAlerts(rows, domains, alertDate) {
-  const normalizedConfig = normalizeDomainConfig({ domains });
-  const counts = new Map();
-  rows.forEach((row) => {
-    const domain = String(row.domain || '').trim().toLowerCase();
-    if (domain) counts.set(domain, Number(row.measurement_count) || 0);
-  });
+function evaluateRollingAlert(hasMeasurement, windowStart, windowEnd) {
+  if (hasMeasurement) return [];
 
-  const measurementDay = dayString(shiftDay(toDay(alertDate), -1));
+  return [{
+    type: 'zero_measurements',
+    alertDate: windowEnd.slice(0, 10),
+    windowStart,
+    windowEnd,
+    measurementCount: 0,
+  }];
+}
+
+function evaluateRollingDomainAlerts(rows, domains, windowStart, windowEnd) {
+  const normalizedConfig = normalizeDomainConfig({ domains });
+  const measuredDomains = new Set(
+    rows
+      .filter((row) => row.hasMeasurements)
+      .map((row) => String(row.domain).trim().toLowerCase()),
+  );
+
   return normalizedConfig.domains
-    .filter((domain) => (counts.get(domain) || 0) === 0)
+    .filter((domain) => !measuredDomains.has(domain))
     .map((domain) => ({
       type: 'zero_domain_measurements',
       domain,
-      alertDate: dayString(toDay(alertDate)),
-      measurementDay,
+      alertDate: windowEnd.slice(0, 10),
+      windowStart,
+      windowEnd,
       measurementCount: 0,
     }));
 }
 
 module.exports = {
   normalizeDailyCounts,
-  evaluateAlert,
   normalizeDomainConfig,
-  evaluateDomainAlerts,
+  evaluateRollingAlert,
+  evaluateRollingDomainAlerts,
 };

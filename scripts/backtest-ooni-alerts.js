@@ -3,9 +3,9 @@ const path = require('path');
 const { fetchDailyMeasurements } = require('../backend/fetching/ooniApi');
 const {
   normalizeDailyCounts,
-  evaluateAlert,
   normalizeDomainConfig,
-  evaluateDomainAlerts,
+  evaluateRollingAlert,
+  evaluateRollingDomainAlerts,
 } = require('../backend/fetching/ooniAlerts');
 const configuredDomainMode = require('../backend/fetching/config/ooni.json');
 
@@ -47,24 +47,41 @@ async function main() {
     }
 
     for (let alertDate = ALERT_SINCE; alertDate <= alertUntil; alertDate = shiftDay(alertDate, 1)) {
+      const windowStartDay = shiftDay(alertDate, -1);
+      const windowStart = `${windowStartDay}T00:00:00.000Z`;
+      const windowEnd = `${alertDate}T00:00:00.000Z`;
       let triggers;
       if (domainConfig.useAllDomains) {
-        triggers = evaluateAlert(dailyCounts, alertDate);
+        const dailyCount = dailyCounts.find(({ day }) => day === windowStartDay);
+        triggers = evaluateRollingAlert(
+          (dailyCount?.measurementCount || 0) > 0,
+          windowStart,
+          windowEnd,
+        );
       } else {
-        const measurementDay = shiftDay(alertDate, -1);
         const rows = await fetchDailyMeasurements({
           asn,
-          since: measurementDay,
+          since: windowStartDay,
           until: alertDate,
           axisX: 'domain',
         });
-        triggers = evaluateDomainAlerts(rows, domainConfig.domains, alertDate);
+        triggers = evaluateRollingDomainAlerts(
+          rows.map((row) => ({
+            domain: row.domain,
+            hasMeasurements: Number(row.measurement_count) > 0,
+          })),
+          domainConfig.domains,
+          windowStart,
+          windowEnd,
+        );
       }
       if (triggers.length > 0) {
         output.push({
           asn,
           networkName: NETWORK_NAMES[asn] || `AS${asn}`,
           alertDate,
+          windowStart,
+          windowEnd,
           domainMode: domainConfig.useAllDomains ? 'all' : 'selected',
           zeroDomains: triggers.map((trigger) => trigger.domain).filter(Boolean),
           triggers,
@@ -78,7 +95,7 @@ async function main() {
   const outputPath = path.join(outputDirectory, 'ooni-alert-backtest.json');
   fs.writeFileSync(outputPath, `${JSON.stringify(output, null, 2)}\n`);
   const csvFields = [
-    'asn', 'networkName', 'alertDate', 'triggerType', 'measurementDay',
+    'asn', 'networkName', 'alertDate', 'windowStart', 'windowEnd', 'triggerType',
     'measurementCount', 'domainMode', 'zeroDomains',
   ];
   const csvRows = output.map((alert) => {
