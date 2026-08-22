@@ -18,6 +18,7 @@ test('existing viewer and monitor role permissions remain unchanged', () => {
   assert.equal(hasPermission(monitor, 'view data'), true);
   assert.equal(hasPermission(monitor, 'edit data'), true);
   assert.equal(hasPermission(monitor, 'manage sources'), false);
+  assert.equal(hasPermission(monitor, 'manage incident access'), false);
 });
 
 test('legacy team lead permissions remain unchanged', () => {
@@ -27,6 +28,7 @@ test('legacy team lead permissions remain unchanged', () => {
   assert.equal(hasPermission(lead, 'edit data'), true);
   assert.equal(hasPermission(lead, 'change settings'), true);
   assert.equal(hasPermission(lead, 'manage sources'), false);
+  assert.equal(hasPermission(lead, 'manage incident access'), true);
 });
 
 test('an allow override grants a permission outside the role template', () => {

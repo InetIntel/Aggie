@@ -92,6 +92,19 @@ let schema = new mongoose.Schema({
   escalated: { type: Boolean, default: false, required: true, index: 1 },
   closed: { type: Boolean, default: false, required: true, index: 1 },
   public: { type: Boolean, default: true, required: true, index: 1 },
+  accessPolicy: {
+    mode: {
+      type: String,
+      enum: ['public', 'restricted'],
+      default: 'public',
+      index: true,
+    },
+    teams: [{
+      type: SchemaTypes.ObjectId,
+      ref: 'Team',
+      index: true,
+    }],
+  },
   reportsLength: { type: Number, default: 0, required: true, index: 1 },
   commentsLength: { type: Number, default: 0, required: true, index: 1 },
 
@@ -329,6 +342,11 @@ Group.queryGroups = function (query, page, options, callback) {
   // Re-set search timestamp
   query.since = new Date();
   console.log(JSON.stringify(filter))
+  const accessFilter = options.accessFilter;
+  delete options.accessFilter;
+  if (accessFilter && Object.keys(accessFilter).length > 0) {
+    filter = { $and: [filter, accessFilter] };
+  }
   // Just use filters when no keywords are provided
   Group.findPage(filter, page, options, callback);
 };

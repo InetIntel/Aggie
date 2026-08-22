@@ -93,6 +93,7 @@ export type Permission =
   | "edit data"
   | "change settings"
   | "manage sources"
+  | "manage incident access"
   | "view users"
   | "view other users"
   | "update users"

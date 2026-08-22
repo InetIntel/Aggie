@@ -9,6 +9,7 @@ const PERMISSION_ROLES = Object.freeze({
   'edit data': ['monitor', 'admin', 'team_lead'],
   'change settings': ['admin', 'team_lead'],
   'manage sources': ['admin'],
+  'manage incident access': ['admin', 'team_lead'],
   'view users': ['viewer', 'monitor', 'admin', 'team_lead'],
   'view other users': ['manager', 'admin', 'team_lead'],
   'update users': ['viewer', 'monitor', 'admin'],

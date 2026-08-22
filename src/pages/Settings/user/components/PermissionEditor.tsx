@@ -15,6 +15,7 @@ const permissionLabels: Record<Permission, string> = {
   "edit data": "Edit reports and incidents",
   "change settings": "Change system settings",
   "manage sources": "Manage sources",
+  "manage incident access": "Manage incident access",
   "view users": "View users",
   "view other users": "View other user profiles",
   "update users": "Update user profiles",
