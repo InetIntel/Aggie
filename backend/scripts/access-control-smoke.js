@@ -82,6 +82,21 @@ const cleanup = async () => {
   await Team.deleteMany({ name: TEAM_NAME }).exec();
 };
 
+const buildIodaMetadata = (period, start, durationSeconds = 3600) => ({
+  fixture: FIXTURE_KEY,
+  period,
+  rawAPIResponse: {
+    rawEvent: {
+      start: Math.floor(start.getTime() / 1000),
+      duration: durationSeconds,
+      datasource: 'ping-slash24',
+    },
+    started: start.toISOString(),
+    ended: new Date(start.getTime() + durationSeconds * 1000).toISOString(),
+    isOngoing: false,
+  },
+});
+
 const seed = async () => {
   await cleanup();
 
@@ -117,8 +132,9 @@ const seed = async () => {
     },
   });
 
+  const beforeReportStart = new Date('2026-01-01T12:00:00.000Z');
   const beforeReport = await Report.create({
-    authoredAt: new Date('2026-01-01T12:00:00.000Z'),
+    authoredAt: beforeReportStart,
     fetchedAt: new Date('2026-01-01T12:05:00.000Z'),
     storedAt: new Date('2026-01-01T12:10:00.000Z'),
     content: 'ACCESS CONTROL SMOKE: report before the cutoff',
@@ -127,11 +143,12 @@ const seed = async () => {
     _sources: [String(source._id)],
     _sourceNicknames: [SOURCE_NICKNAME],
     _media: ['ioda'],
-    metadata: { fixture: FIXTURE_KEY, period: 'before' },
+    metadata: buildIodaMetadata('before', beforeReportStart),
   });
 
+  const afterReportStart = new Date('2026-02-01T12:00:00.000Z');
   const afterReport = await Report.create({
-    authoredAt: new Date('2026-02-01T12:00:00.000Z'),
+    authoredAt: afterReportStart,
     fetchedAt: new Date('2026-02-01T12:05:00.000Z'),
     storedAt: new Date('2026-02-01T12:10:00.000Z'),
     content: 'ACCESS CONTROL SMOKE: report after the cutoff',
@@ -140,11 +157,12 @@ const seed = async () => {
     _sources: [String(source._id)],
     _sourceNicknames: [SOURCE_NICKNAME],
     _media: ['ioda'],
-    metadata: { fixture: FIXTURE_KEY, period: 'after' },
+    metadata: buildIodaMetadata('after', afterReportStart),
   });
 
+  const commentStart = new Date('2026-02-01T12:01:00.000Z');
   const comment = await Report.create({
-    authoredAt: new Date('2026-02-01T12:01:00.000Z'),
+    authoredAt: commentStart,
     fetchedAt: new Date('2026-02-01T12:06:00.000Z'),
     storedAt: new Date('2026-02-01T12:11:00.000Z'),
     content: 'ACCESS CONTROL SMOKE: comment on the post-cutoff report',
@@ -154,7 +172,7 @@ const seed = async () => {
     _sources: [String(source._id)],
     _sourceNicknames: [SOURCE_NICKNAME],
     _media: ['ioda'],
-    metadata: { fixture: FIXTURE_KEY, period: 'after-comment' },
+    metadata: buildIodaMetadata('after-comment', commentStart),
   });
 
   const publicIncident = await Group.create({
