@@ -44,11 +44,13 @@ const MemberList = ({
               {member.email}
             </p>
             <p className='text-sm'>
-              {member.isTeamLead
-                ? member.role === "team_lead"
-                  ? "Team Lead"
-                  : `Team Lead · ${member.role}`
-                : member.role}
+              {member.isTeamLead ? "Team Lead" : member.teamRole || member.role}
+              {member.accountRole &&
+                member.accountRole !== (member.teamRole || member.role) && (
+                  <span className='text-slate-500 dark:text-gray-400'>
+                    {` · account ${member.accountRole}`}
+                  </span>
+                )}
             </p>
             {onRemove && (
             <button
@@ -116,9 +118,6 @@ const members = data?.members || [];
 
 const existingMemberIds = new Set(members.map((member) => member._id));
 
-const availableUsers =
-  users?.filter((user) => !existingMemberIds.has(user._id)) || [];
-
   const explicitLeadIds = new Set(
     (data?.team.leads || []).map((lead) =>
       typeof lead === "string" ? lead : lead._id
@@ -127,25 +126,42 @@ const availableUsers =
   const isLeadMember = (member: TeamMember) =>
     member.isTeamLead === true ||
     explicitLeadIds.has(member._id) ||
-    member.role === "team_lead";
+    member.teamRole === "team_lead";
   const teamLeads = members.filter(isLeadMember);
   const isTeamLead = session?.role === "team_lead";
   const isScopedTeamLead = session?.isTeamLead === true &&
     session.role !== "admin" &&
     session.role !== "team_lead";
+  const selectableUsers = users?.filter((user) => {
+    if (user._id === session?._id) return false;
+    if (!isScopedTeamLead) return true;
+
+    const member = members.find((item) => item._id === user._id);
+    return !member?.isTeamLead;
+  }) || [];
+  const selectedMember = members.find(
+    (member) => member._id === selectedUserId
+  );
   const monitors = members.filter(
-    (member) => !isLeadMember(member) && member.role === "monitor"
+    (member) =>
+      !isLeadMember(member) &&
+      member.accountRole !== "admin" &&
+      member.teamRole === "monitor"
   );
   const viewers = members.filter(
-    (member) => !isLeadMember(member) && member.role === "viewer"
+    (member) =>
+      !isLeadMember(member) &&
+      member.accountRole !== "admin" &&
+      member.teamRole === "viewer"
   );
   const admins = members.filter(
-    (member) => !isLeadMember(member) && member.role === "admin"
+    (member) => !isLeadMember(member) && member.accountRole === "admin"
   );
   const otherMembers = members.filter(
     (member) =>
       !isLeadMember(member) &&
-      !["admin", "team_lead", "monitor", "viewer"].includes(member.role)
+      member.accountRole !== "admin" &&
+      !["monitor", "viewer"].includes(member.teamRole || member.role)
   );
 
   return (
@@ -203,35 +219,41 @@ const availableUsers =
         onChange={(event) => {
           const userId = event.target.value;
           setSelectedUserId(userId);
-          if (isScopedTeamLead) {
-            const selectedUser = availableUsers.find((user) => user._id === userId);
-            if (selectedUser && ["viewer", "monitor"].includes(selectedUser.role)) {
-              setSelectedRole(selectedUser.role);
-            }
-          }
+          const member = members.find((item) => item._id === userId);
+          setSelectedRole(
+            member?.teamRole === "team_lead"
+              ? member.accountRole === "team_lead"
+                ? "team_lead"
+                : "team_lead_scoped"
+              : member?.teamRole || "viewer"
+          );
         }}
       >
         <option value=''>Select user</option>
-        {availableUsers.map((user) => (
+        {selectableUsers.map((user) => (
           <option key={user._id} value={user._id}>
             {user.displayName || user.username} ({user.email})
+            {existingMemberIds.has(user._id) ? " — already on team" : ""}
           </option>
         ))}
       </select>
     </label>
 
     <label className='flex flex-col gap-1 text-sm'>
-      <span className='font-medium'>Role</span>
+      <span className='font-medium'>Role on this team</span>
       <select
         className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
         value={selectedRole}
         onChange={(event) => setSelectedRole(event.target.value)}
-        disabled={isScopedTeamLead}
       >
         <option value='viewer'>Viewer</option>
         <option value='monitor'>Monitor</option>
-        <option value='team_lead_scoped'>Team Lead (this team only)</option>
-        <option value='team_lead'>Team Lead (legacy global)</option>
+        {!isScopedTeamLead && (
+          <option value='team_lead_scoped'>Team Lead (this team only)</option>
+        )}
+        {!isScopedTeamLead && (
+          <option value='team_lead'>Team Lead (legacy global)</option>
+        )}
       </select>
     </label>
 
@@ -249,14 +271,14 @@ const availableUsers =
         });
       }}
     >
-      Add
+      {selectedMember ? "Update role" : "Add"}
     </button>
   </div>
 
   <p className='text-xs text-slate-500 dark:text-gray-400 mt-2'>
     {isScopedTeamLead
-      ? "Scoped team leads can add members without changing their global role."
-      : "Use the team-only option for new leads. The legacy global option remains available during the compatibility period."}
+      ? "This role applies only to this team and does not change the member's account role."
+      : "Viewer and Monitor apply only to this team. Use the team-only option for new leads."}
   </p>
 </div>
 

@@ -10,11 +10,17 @@ const {
   canCreateUserRole,
   canCreateUsers,
 } = require('../../access/teamAccess');
+const { normalizeTeamRole } = require('../../access/teamMemberships');
 
 
 // helpers for team items
 const teamPopulate = {
   path: 'teams',
+  select: 'name description active',
+};
+
+const teamMembershipPopulate = {
+  path: 'teamMemberships.team',
   select: 'name description active',
 };
 
@@ -36,7 +42,7 @@ exports.user_users = (req, res) => {
 
   User.find({})
     .select("-password")
-    .populate(teamPopulate)
+    .populate([teamPopulate, teamMembershipPopulate])
     .lean()
     .exec((err, users) => {
       if (err) {
@@ -84,7 +90,7 @@ exports.user_manageableUsers = async (req, res) => {
 
     const users = await User.find(filter)
       .select("-password")
-      .populate(teamPopulate)
+      .populate([teamPopulate, teamMembershipPopulate])
       .lean();
 
     const normalizedUsers = users.map(normalizeUserTeams).map((user) => {
@@ -108,7 +114,7 @@ exports.user_detail = (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
   User.findById(req.params._id, '-password')
-    .populate(teamPopulate)
+    .populate([teamPopulate, teamMembershipPopulate])
     .lean()
     .exec(function (err, user) {
       if (err) { return res.status(err.status).send(err.message); }
@@ -216,6 +222,10 @@ exports.user_create = async (req, res) => {
       email: req.body.email,
       role: desiredRole,
       teams: requestedTeamIds,
+      teamMemberships: requestedTeamIds.map((teamId) => ({
+        team: teamId,
+        role: normalizeTeamRole(desiredRole),
+      })),
       createdBy: actor._id,
     };
 
@@ -313,14 +323,38 @@ exports.user_update_teams = async (req, res) => {
       updatedTeamIds = normalizeIds([...preservedTeamIds, ...requestedTeamIds]);
     }
 
+    const existingMembershipRoles = new Map(
+      (targetUser.teamMemberships || []).map((membership) => [
+        String(membership.team && (membership.team._id || membership.team)),
+        normalizeTeamRole(membership.role),
+      ])
+    );
+    const updatedMemberships = updatedTeamIds.map((teamId) => ({
+      team: teamId,
+      role: existingMembershipRoles.get(String(teamId)) ||
+        normalizeTeamRole(targetUser.role),
+    }));
+    const removedTeamIds = normalizeIds(targetUser.teams)
+      .filter((teamId) => !updatedTeamIds.includes(teamId));
+
     const updatedUser = await User.findByIdAndUpdate(
       req.params._id,
-      { teams: updatedTeamIds },
+      {
+        teams: updatedTeamIds,
+        teamMemberships: updatedMemberships,
+      },
       { new: true }
     )
       .select('-password')
-      .populate(teamPopulate)
+      .populate([teamPopulate, teamMembershipPopulate])
       .lean();
+
+    if (removedTeamIds.length > 0) {
+      await Team.updateMany(
+        { _id: { $in: removedTeamIds } },
+        { $pull: { leads: targetUser._id } }
+      );
+    }
 
     return res.status(200).send(normalizeUserTeams(updatedUser));
   } catch (err) {

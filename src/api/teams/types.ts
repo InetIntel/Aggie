@@ -13,6 +13,8 @@ export interface TeamMember {
   displayName?: string;
   email: string;
   role: string;
+  accountRole?: string;
+  teamRole?: "viewer" | "monitor" | "team_lead";
   createdBy?: string;
   isTeamLead?: boolean;
 }

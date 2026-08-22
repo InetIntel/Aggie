@@ -9,6 +9,10 @@ const {
   normalizeIds,
 } = require('../../access/teamAccess');
 const { hasPermission } = require('../../access/permissions');
+const {
+  getMembershipRole,
+  normalizeTeamRole,
+} = require('../../access/teamMemberships');
 
 const assignableRoles = ['viewer', 'monitor', 'team_lead_scoped', 'team_lead'];
 
@@ -18,10 +22,22 @@ const serializeTeamDetail = (team, members) => {
 
   return {
     team: plainTeam,
-    members: members.map((member) => ({
-      ...member,
-      isTeamLead: leadIds.has(String(member._id)),
-    })),
+    members: members.map((member) => {
+      const isTeamLead = leadIds.has(String(member._id));
+      const teamRole = getMembershipRole(
+        member,
+        plainTeam._id,
+        isTeamLead ? [plainTeam._id] : []
+      );
+
+      return {
+        ...member,
+        accountRole: member.role,
+        role: teamRole || normalizeTeamRole(member.role),
+        teamRole: teamRole || normalizeTeamRole(member.role),
+        isTeamLead,
+      };
+    }),
   };
 };
 
@@ -100,7 +116,7 @@ exports.team_detail = async (req, res) => {
     }
 
     const members = await User.find({ teams: req.params._id })
-      .select('_id username displayName email role createdBy')
+      .select('_id username displayName email role teamMemberships createdBy')
       .sort({ role: 1, username: 1 })
       .lean();
 
@@ -185,15 +201,8 @@ exports.team_add_member = async (req, res) => {
       return res.status(403).send('Admin users cannot be assigned from the team page.');
     }
 
-    if (
-      !isAdmin(req.user) &&
-      !isLegacyTeamLead(req.user) &&
-      role !== user.role
-    ) {
-      return res.status(403).send('Scoped team leads cannot change global user roles.');
-    }
-
     user.teams = user.teams || [];
+    user.teamMemberships = user.teamMemberships || [];
 
     const alreadyInTeam = user.teams.some(
       (teamId) => String(teamId) === String(req.params._id)
@@ -203,13 +212,26 @@ exports.team_add_member = async (req, res) => {
       user.teams.push(req.params._id);
     }
 
+    const membershipRole = normalizeTeamRole(role);
+    const existingMembership = user.teamMemberships.find(
+      (membership) => String(membership.team) === String(req.params._id)
+    );
+
+    if (existingMembership) {
+      existingMembership.role = membershipRole;
+    } else {
+      user.teamMemberships.push({
+        team: req.params._id,
+        role: membershipRole,
+      });
+    }
+
     if (role === 'team_lead_scoped') {
       team.leads.addToSet(user._id);
     } else if (role === 'team_lead') {
       user.role = role;
       team.leads.addToSet(user._id);
     } else {
-      user.role = role;
       team.leads.pull(user._id);
     }
 
@@ -217,7 +239,7 @@ exports.team_add_member = async (req, res) => {
     await team.save();
 
     const members = await User.find({ teams: req.params._id })
-      .select('_id username displayName email role createdBy')
+      .select('_id username displayName email role teamMemberships createdBy')
       .sort({ role: 1, username: 1 })
       .lean();
 
@@ -255,13 +277,16 @@ exports.team_remove_member = async (req, res) => {
     }
 
     await User.findByIdAndUpdate(req.params.userId, {
-      $pull: { teams: req.params._id },
+      $pull: {
+        teams: req.params._id,
+        teamMemberships: { team: req.params._id },
+      },
     });
     team.leads.pull(req.params.userId);
     await team.save();
 
     const members = await User.find({ teams: req.params._id })
-      .select('_id username displayName email role createdBy')
+      .select('_id username displayName email role teamMemberships createdBy')
       .sort({ role: 1, username: 1 })
       .lean();
 
