@@ -15,6 +15,8 @@ Aggie now has an access-control path that connects users, teams, sources, report
 - Incident lists, direct URLs, edits, deletion, bulk actions, tags, comments, and report linking enforce the incident policy.
 - Incident comment attachments check access to their parent incident before download.
 - Incident socket events contain no incident data; clients refetch through the protected API.
+- CSV exports apply the same source visibility filter as report lists.
+- Global precomputed visualizations require the dedicated Manage Trends permission because their stored totals cannot yet be separated by team.
 
 ## Defaults and compatibility
 
@@ -52,6 +54,5 @@ The disposable smoke fixture script creates:
 
 - Run the full browser smoke test with the three fixture accounts.
 - Add an uploaded attachment during the smoke test and verify a copied URL is denied to the outsider.
-- Audit exports and visualization endpoints before claiming those surfaces are team-scoped.
 - Review whether report responses should hide references to restricted incident IDs when the report itself remains public.
 - Replace the legacy global team-lead fallback after real team assignments have been verified.
