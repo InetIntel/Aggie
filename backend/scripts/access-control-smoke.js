@@ -150,6 +150,7 @@ const seed = async () => {
   const beforeReportStart = new Date('2026-01-01T12:00:00.000Z');
   const beforeReport = await Report.create({
     authoredAt: beforeReportStart,
+    isOutageEvent: true,
     fetchedAt: new Date('2026-01-01T12:05:00.000Z'),
     storedAt: new Date('2026-01-01T12:10:00.000Z'),
     content: 'ACCESS CONTROL SMOKE: report before the cutoff',
@@ -164,6 +165,7 @@ const seed = async () => {
   const afterReportStart = new Date('2026-02-01T12:00:00.000Z');
   const afterReport = await Report.create({
     authoredAt: afterReportStart,
+    isOutageEvent: true,
     fetchedAt: new Date('2026-02-01T12:05:00.000Z'),
     storedAt: new Date('2026-02-01T12:10:00.000Z'),
     content: 'ACCESS CONTROL SMOKE: report after the cutoff',
@@ -178,6 +180,7 @@ const seed = async () => {
   const commentStart = new Date('2026-02-01T12:01:00.000Z');
   const comment = await Report.create({
     authoredAt: commentStart,
+    isOutageEvent: true,
     fetchedAt: new Date('2026-02-01T12:06:00.000Z'),
     storedAt: new Date('2026-02-01T12:11:00.000Z'),
     content: 'ACCESS CONTROL SMOKE: comment on the post-cutoff report',
