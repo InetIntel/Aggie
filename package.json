@@ -69,7 +69,6 @@
     "chalk": "^4.1.2",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
-    "cross-env": "^7.0.3",
     "dompurify": "^3.2.6",
     "dotenv": "^16.0.0",
     "downstream": "0.1.5",
