@@ -6,10 +6,10 @@ enough context to act on without the original doc.
 
 > **Branch record.** Work that **shipped** on `feat/incident-alert-filtering` is documented in
 > [incidents-alerts-filtering.md](incidents-alerts-filtering.md) (filtering Workstreams A–D +
-> the "Other work shipped on this branch" section). Only two plan docs remain standalone because
-> they did **not** ship: [cloudflare-chart-caching.md](cloudflare-chart-caching.md) (design-only)
-> and [fix-assign-user-in-operator-crash.md](fix-assign-user-in-operator-crash.md) (live bug —
-> see *General notes / fixes* below).
+> the "Other work shipped on this branch" section). One plan doc remains standalone because it did
+> **not** ship: [cloudflare-chart-caching.md](cloudflare-chart-caching.md) (design-only). The
+> unshipped assign-user crash and IODA recovery tracking (Workstream D) are tracked inline in this
+> file (see *General notes / fixes* and *IODA recovery tracking* below).
 
 ---
 
@@ -88,6 +88,28 @@ The re-render *drivers* below are real but were never the reload cause — pursu
 
 File: [src/pages/incidents/TableView/IncidentsTable.tsx](../../../src/pages/incidents/TableView/IncidentsTable.tsx).
 
+### Connections / Feeds ("Providers and Feeds") polish
+
+**Status:** Not done (migrated from the shipped `connections-page.md` design doc). Follow-ups on the
+consolidated Connections page ([src/pages/Settings/Connections/](../../../src/pages/Settings/Connections/)):
+
+- In add/edit feed — if "only allow 1 connection" is toggled on, default to that connection and don't let the user change it.
+- In view details, collapse recent activity behind an expand toggle; put the "X warnings" toast inline with the eyebrow header.
+- Connect and explore the Mastodon provider.
+- The "More" button doesn't match the look/feel of the button used in Feed — reconcile.
+- In the view-details modal, the connection is clickable but does nothing; don't change the cursor on hover.
+- Figure out what tags are on the feed form.
+- Change feed copy — it references "reports"; should be "alerts".
+- Document what the different Telegram-form inputs mean.
+- Take screenshots of the former user flow before deploying.
+- Make the Mastodon hashtag explanation text less AI-sounding.
+- Rename Mastodon "hashtag" to "hashtags" in the feeds page when multiple are allowed.
+- In Mastodon feeds, the feed type shows the connection on top of the mode — remove it (already in the key toast); keep just the mode. Do the same for Cloudflare and IODA.
+- Make the "Enable fetching" text smaller.
+- Capitalize "Provider" like Feeds/Alerts/Connections are capitalized.
+- Remove the Style page from the dropdown menu.
+- Change the page title from "Feeds" to "Providers and Feeds"; base the explanation text on what a provider is, then a connection, then a feed.
+
 ### Incidents / alerts filtering
 
 - **Incident:**
@@ -103,6 +125,33 @@ File: [src/pages/incidents/TableView/IncidentsTable.tsx](../../../src/pages/inci
   - date filter filter does not work: need to fix
   - IODA API has alerts, event API and they’re all related (need to investigate)
     - We are not storing recovery, we are just storing an end time
+
+---
+
+## IODA recovery tracking (Workstream D — not started)
+
+**Status:** Not started (migrated from `incidents-alerts-filtering.md`, which is now the shipped-only
+record for Workstreams A–C). Distinguish an *ongoing* outage from a *recovered* one — not just a
+computed end time — at both the report/alert level and the incident that aggregates reports (an
+incident with any still-ongoing member must show "ongoing", not a misleading end time).
+
+**API basis (verified against live `https://api.ioda.inetintel.cc.gatech.edu/v2/`).** Aggie already
+fetches the **events** endpoint; each event carries **`overlaps_window`** — the ongoing signal:
+`false` = the event closed inside the queried window (recovered); `true` = it reaches/exceeds `until`
+and IODA is still observing it. `duration` grows across fetches until IODA closes it. Derive recovery
+from `overlaps_window` alone — no second (alerts) endpoint call needed.
+
+1. **Recovery signal (in `parseEvent`)** — compute alongside `eventEndedAtSeconds`
+   ([ioda.js:288-296](../../../backend/fetching/channels/ioda.js#L288-L296)): `isOngoing = overlaps_window === true || eventEndSeconds >= fetchToTimestamp - RECOVERY_GRACE_SECONDS` (grace ~15 min > IODA's ~5-min cadence); `outageStatus = isOngoing ? 'ongoing' : 'recovered'`; `recoveredAt = isOngoing ? null : new Date(eventEndSeconds*1000)`.
+2. **Schema** ([report.js:19-21](../../../backend/models/report.js#L19-L21), Mongoose 5) — keep `outageEndedAt`; add `outageStatus: { type: String, enum: ['ongoing','recovered'], default: 'ongoing', index: true }` and `recoveredAt: { type: Date, default: null }`. Add index `schema.index({ isOutageEvent: 1, outageStatus: 1, authoredAt: -1 })`. Semantics: `outageEndedAt` = `start+duration`, advances each fetch while ongoing ("last seen bad"); `recoveredAt` non-null only once IODA confirms closure.
+3. **Parse + dedup-update** ([ioda.js](../../../backend/fetching/channels/ioda.js)) — set `post.outageStatus`/`post.recoveredAt` in `parseEvent`. In the existing-report update block ([ioda.js:179-206](../../../backend/fetching/channels/ioda.js#L179-L206)): **latch** to recovered (never revert), set `recoveredAt` once on transition; while `overlaps_window` stays true leave status `ongoing` and let `outageEndedAt` advance. Trigger `recomputeIncidentDurationForGroups` on status-flip too, not just `endChanged`.
+4. **Migration** — `default:'ongoing'` is wrong for historical closed events, so backfill: for `isOutageEvent:true` docs with past `outageEndedAt`, set `outageStatus:'recovered'`, `recoveredAt = $outageEndedAt`. Group `incidentOngoing` default `false` is already correct for historical incidents. Run as a one-off migration script.
+5. **Downstream** — `serializeReport` spreads the whole report so `outageStatus`/`recoveredAt` auto-expose (no serializer change). Optional: `outageStatus` query filter + an "Ongoing/Recovered" badge in the alerts UI (defer the badge to the alerts design-polish pass).
+6. **Propagate to the incident (required)** — group schema ([group.js:67-69](../../../backend/models/group.js#L67-L69)): add `incidentOngoing: { type: Boolean, default: false, index: true }`. In `incidentDuration.js` extend the report `.select(...)` to include `outageStatus`, derive `anyOngoing = reports.some(r => r.isOutageEvent && r.outageStatus === 'ongoing')`, set `group.incidentOngoing = anyOngoing`; when ongoing force `incidentEndedAt = null` and `incidentDurationSeconds = null`, keep `incidentStartedAt`. Frontend ([src/api/groups/types.ts](../../../src/api/groups/types.ts): add `incidentOngoing?: boolean`): in card view ([IncidentListItem.tsx](../../../src/pages/incidents/IncidentListItem.tsx)) and table Date column ([IncidentsTable.tsx](../../../src/pages/incidents/TableView/IncidentsTable.tsx)) render an "Ongoing" pill in place of the end timestamp when `incidentOngoing`.
+
+**Verify.** Report level: an ongoing IODA outage stores `outageStatus:'ongoing'`, `recoveredAt:null`, `outageEndedAt` advancing on re-fetch; after IODA closes it, a later fetch flips to `'recovered'` with `recoveredAt` set and does not revert. Incident level: adding an ongoing report shows "Ongoing" (no end) in both views; once it recovers the next recompute sets `incidentOngoing:false` and the real end/duration appear.
+
+**Files:** [backend/models/report.js](../../../backend/models/report.js), [backend/fetching/channels/ioda.js](../../../backend/fetching/channels/ioda.js), [backend/api/utils/incidentDuration.js](../../../backend/api/utils/incidentDuration.js), [backend/models/group.js](../../../backend/models/group.js), [src/api/groups/types.ts](../../../src/api/groups/types.ts), [src/pages/incidents/IncidentListItem.tsx](../../../src/pages/incidents/IncidentListItem.tsx), [src/pages/incidents/TableView/IncidentsTable.tsx](../../../src/pages/incidents/TableView/IncidentsTable.tsx), [backend/api/controllers/reportController.js](../../../backend/api/controllers/reportController.js) (optional filter/serialize).
 
 ---
 
@@ -135,7 +184,15 @@ reproducing IODA's Highcharts config and maintaining it as their dashboard evolv
 
 ## General notes / fixes
 
-- **Live bug — assigning a user to an incident crashes** with `Cannot use 'in' operator to search for 'username'`. `formatAssignedTo` in [src/pages/incidents/TableView/IncidentsTable.tsx:37](../../../src/pages/incidents/TableView/IncidentsTable.tsx#L37) applies `in` to a raw ObjectId string after the optimistic cache update spreads `assignedTo: string[]` over the cached group. Full write-up and fix in [fix-assign-user-in-operator-crash.md](fix-assign-user-in-operator-crash.md) (not yet shipped).
+- **Live bug — assigning a user to an incident crashes** with `Cannot use 'in' operator to search for 'username'` (**not yet shipped**; migrated here from `fix-assign-user-in-operator-crash.md`).
+
+  **Root cause.** `Group.assignedTo` is normally a populated `{ _id, username }[]`, but the edit-incident form stores it as `string[]` of user ids ([CreateEditIncidentForm.tsx:82](../../../src/pages/incidents/CreateEditIncidentForm.tsx#L82); `GroupEditableData.assignedTo: string[]`). On save, `doUpdate.onSuccess` does an optimistic cache update that spreads the raw form variables over the cached group ([useIncidentMutations.ts:31-39](../../../src/pages/incidents/useIncidentMutations.ts#L31)), overwriting the populated user objects with bare id strings. The table then re-renders and `formatAssignedTo` ([IncidentsTable.tsx:37](../../../src/pages/incidents/TableView/IncidentsTable.tsx#L37), `"username" in u`) applies `in` to a string → throws (`onSettled` refetch fixes the cache, but the synchronous re-render crashes first).
+
+  **Fix (two parts).**
+  1. **Resolve ids → user objects in `doUpdate`** (root cause). In [useIncidentMutations.ts](../../../src/pages/incidents/useIncidentMutations.ts), make `doUpdate.onSuccess` resolve `variables.assignedTo` (string ids) into populated user objects before writing to cache, mirroring the existing `doSetAssign.onSuccess` pattern ([useIncidentMutations.ts:88-109](../../../src/pages/incidents/useIncidentMutations.ts#L88)) that uses the `users` query already loaded in the hook — override `assignedTo` in the `{ ...variables }` spread with `variables.assignedTo?.map(id => users?.find(u => u._id === id) ?? { _id: "", username: "User not found" })`.
+  2. **Harden `formatAssignedTo`** (defense in depth) in [IncidentsTable.tsx](../../../src/pages/incidents/TableView/IncidentsTable.tsx): tolerate string entries via lodash `isString` (map strings to `""` and filter out), reusing the same approach as `IncidentListItem.getUserId` ([IncidentListItem.tsx:104-108](../../../src/pages/incidents/IncidentListItem.tsx#L104)).
+
+  No type or API changes needed. **Verify:** `/incidents?view=table` → edit an incident, assign users, Update → no crash, usernames show immediately (optimistic) and after refetch; clearing all assignees shows `—`; `npx tsc --noEmit` clean.
 - need to figure out which items in alerts and incidents are most important to users to prioritize as table resizes
 - need to handle adding alerts to incidents better. ex: when an alert is already added to an incident, it can't be added to a second incident. would one alert ever be added to multiple incidents? if adding to different incident, the user must be informed that it will override the first incident the alert is associated with.
 - create new incident needs a back button or an x. can this just get turned into a modal?

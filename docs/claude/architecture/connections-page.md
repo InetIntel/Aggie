@@ -122,21 +122,7 @@ Inter is already the global font — no font work.
 9. **Multiple hashtags (Mastodon):** create a hashtag source with several tags → reports arrive for each tag and a post carrying two tags appears once; check `aggie-fetching` logs.
 10. **No regressions:** created sources fetch end-to-end (channel registers, `populate('credentials')` resolves); `/settings/sources` and `/settings/credentials` still work during transition.
 
-## TODO:
+---
 
-- in add / edit feed --> if only allowing 1 connection is toggled on, default to that connection and do not let theeuser change it
-- in view details, collapse recent activity with a toggle to expland. add the "x warnings" toast inline with the eybrow header
-- connect and explore the mastadon provider
-- figure out why the "more" button isn't the same look/feel as the button used in feed
-- in view details modal, connection allows you to click on it but it does nothing. do not change the cursor on hover
-- figure out what tags are on feed form
-- change copy of feeds --> it references "reports" and that should actually be "alerts"
-- learn what different information is for inputs of telegram form
-- take screenshots of former user flow before deploying
-- update explanation text in mastodan hashtags to be less ai
-- make mastadon "hashtag" in feeds page to be "hashtags if there are multiple hashtags
-- in mastadon feeds, the type of feed has the connection on top of the mode, get rid of that cuz it already exists in the key toast, and just keep the mode + do this for cloudlfare and ioda as well
-- make "enable fetching text" smaller"
-- capatalize provider like how feeds, alerts and connections are capitalized
-- remove style page from dropdown menu
-- change the page title from "feeds" to "Providers and Feeds", and base the explanation text off of what a provider is to start, then what a connection is, and then what a feed is.
+> **Open follow-ups** for the Connections/Feeds page (formerly this doc's TODO list) now live in
+> [`../plans/todo.md`](../plans/todo.md) under "Connections / Feeds ('Providers and Feeds') polish".

@@ -5,8 +5,7 @@ _Last updated: 2026-08-10_
 How Aggie stores images from reports — social media attachments and Cloudflare charts —
 and what that means for sharing media across environments (e.g. QA vs. production).
 
-> **IODA note:** as of the signal-JSON migration (see
-> `docs/claude/plans/ioda-signals-json-to-recharts.md`), new IODA reports no longer store a
+> **IODA note:** as of the signal-JSON migration (design history in git), new IODA reports no longer store a
 > chart image. They carry compact signal JSON inline (`metadata.rawAPIResponse.chart`) and
 > render client-side with recharts — no `/media` bytes; the live channel no longer calls
 > `persistSvgChart`. Only **legacy** pre-migration IODA reports still reference
