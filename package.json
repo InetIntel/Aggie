@@ -12,7 +12,6 @@
     "dev:all": "npm run dev",
     "build": "cross-env CI=false react-scripts build",
     "start": "ENVIRONMENT=production node app.js",
-    "trim-reports": "node backend/scripts/trim-reports-to-size.js",
     "postinstall": "node install.js"
   },
   "subdomain": "aggie",
