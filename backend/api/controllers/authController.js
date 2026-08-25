@@ -226,7 +226,8 @@ exports.session = async (req, res, next) => {
 };
 
 exports.logout = (req, res) => {
-  req.logout();
+  const { maxAge, ...clearOpts } = cookieOpts();
+  res.clearCookie('jwt', clearOpts);
   res.status(200).send("Logged Out")
 };
 
