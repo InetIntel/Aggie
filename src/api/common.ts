@@ -81,6 +81,40 @@ export const CREDENTIAL_OPTIONS = [
 ] as const;
 export type CredentialOption = (typeof CREDENTIAL_OPTIONS)[number];
 
+// Temporary product cap: one Connection per provider. The multi-connection UI
+// (the "Connect {provider}" button when a connection already exists) is kept in
+// place and simply gated on this flag — flip to `true` to re-enable it later.
+export const ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER = false;
+
+// The Feeds page lets managers override the cap above per-browser (persisted in
+// localStorage). Read that override anywhere the connection picker needs to know
+// whether multiple connections are allowed — the Feeds page and the edit form
+// reached from a feed's details both rely on this single source of truth.
+export const MULTI_CONNECTION_STORAGE_KEY = "feeds:allowMultipleConnections";
+
+export const getAllowMultipleConnections = (): boolean => {
+  const stored = localStorage.getItem(MULTI_CONNECTION_STORAGE_KEY);
+  return stored === null
+    ? ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER
+    : stored === "true";
+};
+
+// Friendly, user-facing name for each provider type. Use this anywhere a
+// provider/credential type would otherwise be shown as its raw identifier
+// (e.g. "telegramUser", "ioda") in the UI.
+export const PROVIDER_LABELS: Record<string, string> = {
+  junkipedia: "Junkipedia",
+  telegramBot: "Telegram Bot",
+  telegramUser: "Telegram",
+  mastodon: "Mastodon",
+  ioda: "IODA",
+  cloudflare: "Cloudflare",
+};
+
+// Fall back to the raw value if we don't have a friendly label for it.
+export const providerLabel = (type?: string) =>
+  (type && PROVIDER_LABELS[type]) || type || "";
+
 export const GROUP_SORTBY = [
   "descStartDate",
   "ascStartDate",
@@ -92,3 +126,15 @@ export const GROUP_SORTBY = [
   "leastReports",
 ] as const;
 export type GroupSortBy = (typeof GROUP_SORTBY)[number];
+
+// Human-readable labels for the Sort By dropdown, keyed by the query value.
+export const GROUP_SORTBY_LABELS: Record<GroupSortBy, string> = {
+  descStartDate: "Start date (newest)",
+  ascStartDate: "Start date (oldest)",
+  descEndDate: "End date (newest)",
+  ascEndDate: "End date (oldest)",
+  mostComments: "Most comments",
+  leastComments: "Fewest comments",
+  mostReports: "Most reports",
+  leastReports: "Fewest reports",
+};

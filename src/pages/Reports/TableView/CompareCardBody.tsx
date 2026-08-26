@@ -15,7 +15,10 @@ import {
   isInlineSvg,
 } from "../../../components/SocialMediaPost/reportParser";
 import { useReportChartImage } from "../../../components/SocialMediaPost/useReportChartImage";
-import { formatStamp, formatDuration } from "./compareCardFormat";
+import { useReportChartSeries } from "../../../components/SocialMediaPost/useReportChartSeries";
+import IodaChart from "../../../components/SocialMediaPost/IodaChart";
+import { formatDuration } from "./compareCardFormat";
+import { useFormatters } from "../../../utils/useFormatters";
 
 interface IProps {
   report: Report;
@@ -37,16 +40,18 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   // When enlarged, the chart overlays the whole card (full width) so it's
   // readable even in a cramped 4-6 card grid; the ✕ collapses it back.
   const [zoomed, setZoomed] = useState(false);
+  const { formatDateTime } = useFormatters();
   const media = report._media?.[0];
   const raw = report?.metadata?.rawAPIResponse;
   const platformLabel = media === "cloudflare" ? "Cloudflare" : "IODA";
 
-  // The reports LIST endpoint strips metadata.rawAPIResponse.image (the chart, now a
-  // media-storage key) to keep payloads small, so it's absent on the report objects
-  // fed into the compare modal. The hook lazily fetches the full report per card.
+  // The reports LIST endpoint strips the chart (image key for legacy/Cloudflare, or the
+  // IODA signal series) to keep payloads small, so both are absent on the report objects
+  // fed into the compare modal. The hooks lazily fetch the full report per card.
   const image = useReportChartImage(report);
+  const chartSeries = useReportChartSeries(report);
 
-  const start = formatStamp(report?.authoredAt);
+  const start = formatDateTime(report?.authoredAt);
 
   let end: string;
   let duration: string;
@@ -55,7 +60,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
 
   if (media === "cloudflare") {
     const endRaw: string | undefined = raw?.rawEvent?.endDate;
-    end = endRaw ? formatStamp(endRaw) : "—";
+    end = endRaw ? formatDateTime(endRaw) : "—";
     duration = endRaw ? formatDuration(report?.authoredAt, endRaw) || "—" : "—";
     // Cloudflare carries no signal datasource; show a neutral pill so the band
     // structure (and thus the dividers) matches IODA cards in a mixed set.
@@ -63,17 +68,36 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
     bgColor = "bg-slate-500";
   } else {
     // IODA
-    end = formatStamp(raw?.ended);
+    end = formatDateTime(raw?.ended);
     duration = formatDuration(report?.authoredAt, raw?.ended) || "—";
     const [name, color] = signalToNameColor(raw?.rawEvent?.datasource);
     signal = name;
     bgColor = color || "bg-slate-500";
   }
 
-  // The chart value is usually a media-storage key (served at /media/<key>) but may
-  // be a legacy inline SVG string or an absolute URL. Branch on the shape.
+  // New IODA reports carry signal series → recharts. Otherwise the chart value is a
+  // media-storage key (served at /media/<key>), a legacy inline SVG string, or an
+  // absolute URL (Cloudflare). Branch on what's present.
+  const isIoda = media !== "cloudflare";
+  const outageStart: number | undefined = raw?.rawEvent?.start;
+  const outageEnd: number | undefined =
+    raw?.isOngoing || outageStart === undefined || raw?.rawEvent?.duration === undefined
+      ? undefined
+      : outageStart + raw.rawEvent.duration;
+  const hasChart = !!image || (isIoda && !!chartSeries?.series?.length);
+
   let chart: JSX.Element;
-  if (!image) {
+  if (isIoda && chartSeries?.series?.length) {
+    chart = (
+      <IodaChart
+        chart={chartSeries}
+        fill={!fillWidth}
+        compact
+        outageStart={outageStart}
+        outageEnd={outageEnd}
+      />
+    );
+  } else if (!image) {
     chart = <span className='text-slate-400 dark:text-gray-500'>Loading chart…</span>;
   } else if (isInlineSvg(image)) {
     chart = (
@@ -165,7 +189,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
         }`}
       >
         {chart}
-        {!fillWidth && !!image && (
+        {!fillWidth && hasChart && (
           <button
             type='button'
             title='Enlarge chart'
@@ -189,7 +213,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
 
       {/* Enlarged view: the chart fills the whole card (full width) over the
           metadata bands so it's readable in a cramped grid; ✕ collapses it. */}
-      {zoomed && !!image && (
+      {zoomed && hasChart && (
         <div
           className='absolute inset-0 z-20 bg-white dark:bg-gray-800 flex items-center justify-center p-2'
           onClick={(e) => e.stopPropagation()}

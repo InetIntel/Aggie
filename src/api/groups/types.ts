@@ -44,6 +44,7 @@ export interface Group extends hasId {
   impactedGeoScopes?: string[];
   directPopulationCoverageScore?: number | null;
   indirectPopulationCoverageScore?: number | null;
+  reportSources?: string[];
 }
 
 export interface Groups {
@@ -75,6 +76,7 @@ export interface GroupCreateData extends GroupEditableData {
 export interface GroupQueryState {
   escalated?: string | boolean;
   closed?: string | boolean;
+  stages?: string; // comma-separated lifecycle stage keys: verification,confirmation,published
   title?: string;
   totalReports?: string | number;
   assignedTo?: string;

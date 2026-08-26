@@ -287,6 +287,23 @@ Group.queryGroups = function (query, page, options, callback) {
   if (query.closed === 'true') filter.closed = true;
   delete filter.status;
 
+  // Lifecycle-stage filter (multi-select, OR semantics). Strict pipeline buckets
+  // matching the IncidentStatuses badge precedence: publication > confirmation > verification.
+  const NOT_PUBLISHED = { publication_status: { $nin: ['Published', 'Shared with Networks'] } };
+  const stagePredicates = {
+    verification: { verification_status: { $in: ['maybe'] }, ...NOT_PUBLISHED },
+    confirmation: { verification_status: { $in: ['true', true] }, confirmation_status: { $in: ['maybe'] }, ...NOT_PUBLISHED },
+    published: { publication_status: { $in: ['Published', 'Shared with Networks'] } },
+  };
+  if (typeof query.stages === 'string' && query.stages.length) {
+    const selected = query.stages.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return stagePredicates[s]; });
+    if (selected.length) {
+      // push as an $and clause so we don't clobber the assignedTo `$or` above
+      filter.$and = (filter.$and || []).concat([{ $or: selected.map(function (s) { return stagePredicates[s]; }) }]);
+    }
+  }
+  delete filter.stages;
+
 
   if (query.escalated === 'escalated') filter.escalated = true;
   if (query.escalated === 'unescalated') filter.escalated = false;

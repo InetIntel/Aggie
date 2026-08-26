@@ -36,6 +36,15 @@ const {
 exports.credential_create = async (req, res) => {
   try {
       const data = { ...req.body };
+
+      // The credential `name` is only a human-readable label (the Source→Credential
+      // link is by _id, and names are not unique). If a client omits it, generate a
+      // sensible default like `mastodon #2` so the field is effectively optional.
+      if (!data.name || !String(data.name).trim()) {
+        const count = await Credentials.countDocuments({ type: data.type });
+        data.name = `${data.type} #${count + 1}`;
+      }
+
       if (data.type === 'telegramUser') {
         const { authRequestId } = data;
 

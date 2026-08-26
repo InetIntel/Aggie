@@ -4,11 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useIncidentMutations } from "./useIncidentMutations";
 
 import { getSession } from "../../api/session";
+import { useFormatters } from "../../utils/useFormatters";
 import type { Group } from "../../api/groups/types";
 
 import TagsList from "../../components/Tags/TagsList";
+import SocialMediaIcon from "../../components/SocialMediaPost/SocialMediaIcon";
 //import VeracityToken from "../../components/VeracityToken";
 import AggieButton from "../../components/AggieButton";
+import MultiSelectListItem from "../../components/MultiSelectListItem";
 import ConfirmationDialog from "../../components/ConfirmationDialog";
 import CreateEditIncidentForm from "./CreateEditIncidentForm";
 import AggieDialog from "../../components/AggieDialog";
@@ -41,10 +44,19 @@ import { hasId } from "../../api/common";
 
 interface IProps {
   item: Group;
+  isChecked?: boolean;
+  isSelectMode?: boolean;
+  onCheckChange?: () => void;
 }
 
-const IncidentListItem = ({ item }: IProps) => {
+const IncidentListItem = ({
+  item,
+  isChecked = false,
+  isSelectMode = false,
+  onCheckChange = () => {},
+}: IProps) => {
 
+  const { formatDateTime } = useFormatters();
   const navigate = useNavigate();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -81,10 +93,20 @@ const IncidentListItem = ({ item }: IProps) => {
     } else return user._id;
   }
   return (
-    <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-500 dark:text-gray-400 border-b border-slate-300  '>
+    <MultiSelectListItem
+      isChecked={isChecked}
+      isSelectMode={isSelectMode}
+      onCheckChange={onCheckChange}
+      className={`group relative border-b border-slate-300 pl-8 text-sm text-slate-500 dark:text-gray-400 ${
+        isChecked && isSelectMode
+          ? "bg-blue-100 dark:bg-gray-600 dark:saturate-[0.7]"
+          : ""
+      }`}
+    >
+      <div className='grid grid-cols-4 lg:grid-cols-6'>
       <div
         className='col-span-5 grid grid-cols-subgrid hover:bg-slate-300/15 dark:hover:bg-gray-500/15 pl-3 py-3 pr-1'
-        onClick={onOpenIncidentPage}
+        onClick={isSelectMode ? onCheckChange : onOpenIncidentPage}
         title={`open incident ${item.title}`}
         role='button'
       >
@@ -109,12 +131,22 @@ const IncidentListItem = ({ item }: IProps) => {
                 </span>
               )}
               <TagsList values={item.smtcTags} />
+              {item.reportSources?.map((source) => (
+                <span
+                  key={source}
+                  className='px-1 bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300 rounded inline-flex gap-1 items-center capitalize'
+                  title={`report source: ${source}`}
+                >
+                  <SocialMediaIcon mediaKey={source} />
+                  {source}
+                </span>
+              ))}
             </div>
             <div className='text-xs dark:text-gray-300'>
               {(item.incidentStartedAt || item.incidentEndedAt) && <p>
-                  <span>{item.incidentStartedAt?.toString().slice(0, 16).replace("T", " ") || "Unknown Date"}</span>
+                  <span>{formatDateTime(item.incidentStartedAt, "Unknown Date")}</span>
                   <span>{" "}<FontAwesomeIcon icon={faArrowRight} size="xs" />{" "}</span>
-                  <span>{item.incidentEndedAt?.toString().slice(0, 16).replace("T", " ") || "Unknown Date"}</span>
+                  <span>{formatDateTime(item.incidentEndedAt, "Unknown Date")}</span>
               </p>}
             </div>
           </div>
@@ -292,7 +324,8 @@ const IncidentListItem = ({ item }: IProps) => {
           isLoading={doUpdate.isLoading}
         />
       </AggieDialog>
-    </article>
+      </div>
+    </MultiSelectListItem>
   );
 };
 

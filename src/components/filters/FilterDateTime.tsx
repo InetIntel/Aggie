@@ -3,21 +3,29 @@ import { useEffect, useState } from "react";
 import AggieButton from "../AggieButton";
 import DateSelector from "./DateSelector";
 import FilterDropdown from "./FilterDropdown";
+import { useFormatters } from "../../utils/useFormatters";
 
 interface IProps {
   before: string;
   onSetBefore: (item: string) => void;
   after: string;
   onSetAfter: (item: string) => void;
+  label?: string;
 }
-const FilterDateTime = ({ before, onSetBefore, after, onSetAfter }: IProps) => {
+const FilterDateTime = ({
+  before,
+  onSetBefore,
+  after,
+  onSetAfter,
+  label = "Date Range",
+}: IProps) => {
   const [beforeDate, setBefore] = useState("");
   const [afterDate, setAfter] = useState("");
+  const { formatDate } = useFormatters();
 
   function update() {
     onSetBefore(beforeDate);
     onSetAfter(afterDate);
-    console.log(beforeDate);
   }
   useEffect(() => {
     if (beforeDate !== before) setBefore(before);
@@ -25,8 +33,8 @@ const FilterDateTime = ({ before, onSetBefore, after, onSetAfter }: IProps) => {
   }, [before, after]);
 
   function renderRange() {
-    const aDate = after && new Date(after).toLocaleDateString();
-    const bDate = before && new Date(before).toLocaleDateString();
+    const aDate = after && formatDate(after);
+    const bDate = before && formatDate(before);
 
     if (before && after) return `${aDate} - ${bDate}`;
     else if (before) return `Before ${bDate}`;
@@ -36,7 +44,9 @@ const FilterDateTime = ({ before, onSetBefore, after, onSetAfter }: IProps) => {
   return (
     <FloatingTree>
       <FilterDropdown
-        label={"Date Range"}
+        label={label}
+        persistLabel
+        panelClassName='w-max min-w-[150px]'
         value={renderRange()}
         onReset={() => {
           setBefore("");
@@ -57,6 +67,8 @@ const FilterDateTime = ({ before, onSetBefore, after, onSetAfter }: IProps) => {
                   unsetLabel={"set date"}
                   value={afterDate}
                   onChange={(d) => setAfter(d)}
+                  maxDate={beforeDate ? new Date(beforeDate) : undefined}
+                  referenceDate={beforeDate ? new Date(beforeDate) : undefined}
                 />
               </div>
               <div>
@@ -65,6 +77,8 @@ const FilterDateTime = ({ before, onSetBefore, after, onSetAfter }: IProps) => {
                   unsetLabel={"set date"}
                   value={beforeDate}
                   onChange={(d) => setBefore(d)}
+                  minDate={afterDate ? new Date(afterDate) : undefined}
+                  referenceDate={afterDate ? new Date(afterDate) : undefined}
                 />
               </div>
             </div>

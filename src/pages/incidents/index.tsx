@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../hooks/useQueryParams";
+import { useMeasuredHeight } from "../../hooks/useMeasuredHeight";
 import { useMultiSelect } from "../../hooks/useMultiSelect";
 import _ from "lodash";
 
@@ -22,8 +23,7 @@ import {
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import AggieButton from "../../components/AggieButton";
-import CompareIcon from "../../components/icons/CompareIcon";
-import CompareActionBar from "../../components/CompareModal/CompareActionBar";
+import CompareToolbar from "../../components/CompareModal/CompareToolbar";
 import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
 import { updateByIds } from "../../utils/immutable";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
@@ -48,6 +48,13 @@ const Incidents = () => {
   // wrongly surface the "Clear All" button).
   const hasActiveFilter =
     Object.keys(_.omit(getAllParams(searchParams), "view")).length > 0;
+
+  // The real query identity, ignoring the UI-only `view` toggle. The reset
+  // effect keys off this so switching list↔table keeps the selection — the
+  // underlying results are identical across both views.
+  const apiSearchParams = new URLSearchParams(searchParams);
+  apiSearchParams.delete("view");
+  const queryParamsString = apiSearchParams.toString();
 
   const urlView = getParam("view");
   const view: IncidentsViewMode =
@@ -82,15 +89,28 @@ const Incidents = () => {
     if (!next) setCompareOpen(false);
   }
 
-  // Reset compare mode + selection whenever the view (list/table) changes so
-  // checkboxes and the compare set never leak from the table into the list.
-  useEffect(() => {
-    setCompareMode(false);
-    setCompareOpen(false);
-    multiSelect.set([]);
-    multiSelect.setActive(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
+  // Compare-mode selection toggle shared by the table rows and the list rows:
+  // enforce the MAX_COMPARE cap (allow deselect).
+  function toggleIncidentForCompare(group: Group) {
+    if (
+      !multiSelect.exists(group) &&
+      multiSelect.selection.length >= MAX_COMPARE
+    )
+      return;
+    multiSelect.addRemove(group);
+  }
+
+  // A row checkbox (list or table) can start a comparison directly: the first
+  // check flips compare mode on (so the Compare bar + cap kick in and checkboxes
+  // appear on every row), then selects that incident. Incidents have no separate
+  // relevance select mode, so !compareMode always means "idle".
+  function selectIncidentFromList(group: Group) {
+    if (!compareMode) {
+      setCompareMode(true);
+      multiSelect.setActive(true);
+    }
+    toggleIncidentForCompare(group);
+  }
 
   useEffect(() => {
     document.title = "Incidents - Aggie";
@@ -105,7 +125,8 @@ const Incidents = () => {
         behavior: "smooth",
       });
     }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryParamsString]);
 
   useEffect(() => {
     const main = document.getElementById("main_view");
@@ -152,17 +173,8 @@ const Incidents = () => {
   // the bar. The bar's height is dynamic (wraps when narrow, grows in compare
   // mode), so measure it and publish it as the `--dt-sticky-top` CSS var that
   // DataTable's header reads.
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const [stickyHeight, setStickyHeight] = useState(0);
-  useEffect(() => {
-    const el = stickyRef.current;
-    if (!el) return;
-    const measure = () => setStickyHeight(el.offsetHeight);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const { ref: stickyRef, height: stickyHeight } =
+    useMeasuredHeight<HTMLDivElement>();
 
   return (
     <section
@@ -249,24 +261,17 @@ const Incidents = () => {
             Table
           </AggieButton>
         </div>
-        {view === "table" && (
-          <AggieButton
-            className={`px-3 py-1 text-sm rounded-lg border ${
-              compareMode
-                ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
-                : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-            }`}
-            aria-pressed={compareMode}
-            onClick={toggleCompareMode}
-          >
-            <CompareIcon className='w-4 h-4' />
-            Compare
-          </AggieButton>
-        )}
-        {compareMode && (
+        <CompareToolbar
+          active={compareMode}
+          count={multiSelect.selection.length}
+          noun='incident'
+          onToggle={toggleCompareMode}
+          onCompare={() => setCompareOpen(true)}
+          onClear={() => multiSelect.set([])}
+        />
+        {compareMode && multiSelect.selection.length === 0 && (
           <p className='text-slate-600 dark:text-gray-400'>
-            Select up to {MAX_COMPARE} incidents, then compare them from the bar
-            below.
+            Select up to {MAX_COMPARE} incidents to compare.
           </p>
         )}
         </div>
@@ -278,24 +283,22 @@ const Incidents = () => {
           isLoading={isLoading}
           selection={{
             isActive: multiSelect.isActive,
+            alwaysShow: true,
             isChecked: (group) => multiSelect.exists(group),
-            onToggle: (group) => {
-              // In compare mode, block selecting past the cap (allow deselect).
-              if (
-                compareMode &&
-                !multiSelect.exists(group) &&
-                multiSelect.selection.length >= MAX_COMPARE
-              )
-                return;
-              multiSelect.addRemove(group);
-            },
+            onToggle: (group) => selectIncidentFromList(group),
           }}
         />
       ) : (
         <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 z-0 '>
           {!!data && !!data.total ? (
             data.results.map((incident) => (
-              <IncidentListItem key={incident._id} item={incident} />
+              <IncidentListItem
+                key={incident._id}
+                item={incident}
+                isChecked={multiSelect.exists(incident)}
+                isSelectMode={multiSelect.isActive}
+                onCheckChange={() => selectIncidentFromList(incident)}
+              />
             ))
           ) : (
             <div className='w-full bg-white dark:bg-gray-800 py-12 grid place-items-center font-medium'>
@@ -317,15 +320,6 @@ const Incidents = () => {
           {formatPageCount(Number(getParam("page")), 50, data?.total)}
         </small>
       </div>
-
-      {compareMode && multiSelect.selection.length >= 1 && (
-        <CompareActionBar
-          count={multiSelect.selection.length}
-          noun='incident'
-          onCompare={() => setCompareOpen(true)}
-          onClear={() => multiSelect.set([])}
-        />
-      )}
 
       {compareMode && (
         <IncidentsCompareModal
