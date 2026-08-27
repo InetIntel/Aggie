@@ -8,10 +8,11 @@ const {
   isLegacyTeamLead,
   normalizeIds,
 } = require('../../access/teamAccess');
-const { hasPermission } = require('../../access/permissions');
 const {
   TEAM_PERMISSION_KEYS,
+  getMembershipTeamIds,
   getMembershipRole,
+  getTeamIdsWithPermission,
   getTeamPermissions,
   normalizeTeamPermissionList,
   normalizeTeamRole,
@@ -463,10 +464,43 @@ exports.team_incident_access_list = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
   try {
-    const filter = hasPermission(req.user, 'manage incident access')
-      ? { active: true }
-      : { active: true, leads: req.user._id };
-    const teams = await Team.find(filter)
+    if (isAdmin(req.user) || isLegacyTeamLead(req.user)) {
+      const teams = await Team.find({ active: true })
+        .select('_id name description active')
+        .sort({ name: 1 })
+        .lean();
+      return res.status(200).send(teams);
+    }
+
+    const actor = await User.findById(req.user._id)
+      .select('_id role teams teamMemberships')
+      .lean();
+    if (!actor) return res.status(401).send('Unauthenticated.');
+
+    const ledTeams = await Team.find({ leads: actor._id })
+      .select('_id permissionLimits')
+      .lean();
+    const ledTeamIds = ledTeams.map((team) => String(team._id));
+    const candidateTeamIds = [...new Set([
+      ...getMembershipTeamIds(actor),
+      ...ledTeamIds,
+    ])];
+    const candidateTeams = await Team.find({ _id: { $in: candidateTeamIds } })
+      .select('_id permissionLimits')
+      .lean();
+    const teamSettings = new Map(
+      candidateTeams.map((team) => [String(team._id), team])
+    );
+    const allowedTeamIds = getTeamIdsWithPermission(
+      actor,
+      'manage incident access',
+      ledTeamIds,
+      teamSettings
+    );
+    const teams = await Team.find({
+      _id: { $in: allowedTeamIds },
+      active: true,
+    })
       .select('_id name description active')
       .sort({ name: 1 })
       .lean();

@@ -2,9 +2,9 @@ const User = require("../../models/user");
 const Team = require('../../models/team');
 const { getEffectivePermissions } = require('../../access/permissions');
 const {
-  TEAM_ROLE_PERMISSIONS,
   getMembershipRole,
   getMembershipTeamIds,
+  getTeamPermissions,
 } = require('../../access/teamMemberships');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
@@ -212,7 +212,9 @@ exports.session = async (req, res, next) => {
 
     const enforced = user.mfaEnforced === true;
     const mfa = !!(req.userToken && req.userToken.mfa === true);
-    const ledTeams = await Team.find({ leads: user._id }).select('_id').lean();
+    const ledTeams = await Team.find({ leads: user._id })
+      .select('_id permissionLimits')
+      .lean();
     const ledTeamIds = ledTeams.map((team) => String(team._id));
     const membershipTeamIds = [...new Set([
       ...getMembershipTeamIds(user),
@@ -224,9 +226,20 @@ exports.session = async (req, res, next) => {
         getMembershipRole(user, teamId, ledTeamIds),
       ])
     );
+    const teams = await Team.find({ _id: { $in: membershipTeamIds } })
+      .select('_id permissionLimits')
+      .lean();
+    const teamSettings = new Map(
+      teams.map((team) => [String(team._id), team])
+    );
     const scopedPermissions = [...new Set(
-      Object.values(teamRoles).flatMap(
-        (role) => TEAM_ROLE_PERMISSIONS[role] || []
+      membershipTeamIds.flatMap(
+        (teamId) => getTeamPermissions(
+          user,
+          teamId,
+          ledTeamIds,
+          teamSettings
+        )
       )
     )];
     const permissions = [...new Set([

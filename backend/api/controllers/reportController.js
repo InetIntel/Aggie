@@ -92,7 +92,11 @@ const combineReportFilters = (filter, sourceAccessFilter) => {
   return { $and: [filter, sourceAccessFilter] };
 };
 
-const canModifyReportsWithinScope = async (reportIds, scopedTeamIds) => {
+const canModifyReportsWithinScope = async (
+  reportIds,
+  scopedTeamIds,
+  allowUnscoped = false
+) => {
   const reports = await Report.find({ _id: { $in: reportIds } })
     .select('_sources _group')
     .lean();
@@ -130,6 +134,7 @@ const canModifyReportsWithinScope = async (reportIds, scopedTeamIds) => {
       ...(report._group ? groupTeams.get(String(report._group)) || [] : []),
     ];
 
+    if (reportTeamIds.length === 0) return allowUnscoped;
     return reportTeamIds.some((teamId) => allowedTeams.has(teamId));
   });
 };
@@ -159,7 +164,11 @@ exports.requireReportAccess = async (req, res, next) => {
 
     if (
       req.permissionScope &&
-      !(await canModifyReportsWithinScope(ids, req.permissionScope.teamIds))
+      !(await canModifyReportsWithinScope(
+        ids,
+        req.permissionScope.teamIds,
+        req.permissionScope.allowUnscoped
+      ))
     ) {
       return res.status(403).send(
         'Your team role cannot modify one or more reports.'

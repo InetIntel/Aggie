@@ -11,6 +11,10 @@ const {
   getAccessibleTeamIds,
   normalizeIds,
 } = require('../../access/incidentAccess');
+const {
+  getMembershipTeamIds,
+  getTeamIdsWithPermission,
+} = require('../../access/teamMemberships');
 
 const mongoose = database.mongoose;
 
@@ -27,6 +31,10 @@ const hasScopedIncidentPermission = (req, incident) => {
     incident && incident.accessPolicy && incident.accessPolicy.teams
   );
 
+  if (!incident || !incident.accessPolicy || incident.accessPolicy.mode === 'public') {
+    return req.permissionScope.allowUnscoped === true;
+  }
+
   return incident &&
     incident.accessPolicy &&
     incident.accessPolicy.mode === 'restricted' &&
@@ -41,17 +49,35 @@ const loadIncidentAccessContext = async (req, res, next) => {
 
   try {
     let ledTeamIds = [];
+    let policyTeamIds = [];
     if (user.role !== 'admin' && (user._id || user.id)) {
       const ledTeams = await Team.find({ leads: user._id || user.id })
-        .select('_id')
+        .select('_id permissionLimits')
         .lean()
         .exec();
       ledTeamIds = ledTeams.map((team) => String(team._id));
+      const candidateTeamIds = [...new Set([
+        ...getMembershipTeamIds(user),
+        ...ledTeamIds,
+      ])];
+      const teams = await Team.find({ _id: { $in: candidateTeamIds } })
+        .select('_id permissionLimits')
+        .lean();
+      const teamSettings = new Map(
+        teams.map((team) => [String(team._id), team])
+      );
+      policyTeamIds = getTeamIdsWithPermission(
+        user,
+        'manage incident access',
+        ledTeamIds,
+        teamSettings
+      );
     }
 
     req.incidentAccess = {
       user,
       ledTeamIds,
+      policyTeamIds,
       accessibleTeamIds: getAccessibleTeamIds(user, ledTeamIds),
       filter: buildIncidentAccessFilter(user, ledTeamIds),
     };
@@ -175,7 +201,11 @@ const normalizeRequestedPolicy = (policy) => {
 
 const requireIncidentPolicyAccess = async (req, res, next) => {
   if (!req.body || !Object.prototype.hasOwnProperty.call(req.body, 'accessPolicy')) {
-    if (req.permissionScope && !req.incident) {
+    if (
+      req.permissionScope &&
+      !req.permissionScope.allowUnscoped &&
+      !req.incident
+    ) {
       return res.status(403).send(
         'A team-scoped incident must be restricted to a team you can monitor.'
       );
@@ -190,16 +220,19 @@ const requireIncidentPolicyAccess = async (req, res, next) => {
     );
   }
 
-  const { user, ledTeamIds } = req.incidentAccess;
-  if (!canSetIncidentPolicy(user, policy, ledTeamIds, req.incident || null)) {
+  const { user, policyTeamIds } = req.incidentAccess;
+  if (!canSetIncidentPolicy(user, policy, policyTeamIds, req.incident || null)) {
     return res.status(403).send('Unauthorized to set this incident access policy.');
   }
 
   if (req.permissionScope) {
     const scopedTeamIds = new Set(normalizeIds(req.permissionScope.teamIds));
     if (
-      policy.mode !== 'restricted' ||
-      !policy.teams.every((teamId) => scopedTeamIds.has(teamId))
+      (policy.mode === 'public' && !req.permissionScope.allowUnscoped) ||
+      (
+        policy.mode === 'restricted' &&
+        !policy.teams.every((teamId) => scopedTeamIds.has(teamId))
+      )
     ) {
       return res.status(403).send(
         'A team-scoped incident must remain within teams you can monitor.'
