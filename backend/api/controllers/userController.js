@@ -208,11 +208,14 @@ exports.user_create = async (req, res) => {
     }
 
     if (requestedTeamIds.length > 0) {
-      const existingTeamCount = await Team.countDocuments({
+      const requestedTeams = await Team.find({
         _id: { $in: requestedTeamIds },
-      });
-      if (existingTeamCount !== requestedTeamIds.length) {
+      }).select('_id active').lean();
+      if (requestedTeams.length !== requestedTeamIds.length) {
         return res.status(400).send('One or more teams were not found.');
+      }
+      if (requestedTeams.some((team) => team.active === false)) {
+        return res.status(400).send('New users cannot be assigned to inactive teams.');
       }
     }
 
@@ -284,11 +287,19 @@ exports.user_update_teams = async (req, res) => {
     if (!targetUser) return res.sendStatus(404);
 
     const teams = await Team.find({ _id: { $in: requestedTeamIds } })
-      .select('_id')
+      .select('_id active')
       .lean();
 
     if (teams.length !== requestedTeamIds.length) {
       return res.status(400).send('One or more teams were not found.');
+    }
+
+    const currentTeamIds = new Set(normalizeIds(targetUser.teams));
+    const newlyAddedInactiveTeam = teams.some(
+      (team) => team.active === false && !currentTeamIds.has(String(team._id))
+    );
+    if (newlyAddedInactiveTeam) {
+      return res.status(400).send('Users cannot be added to inactive teams.');
     }
 
     const isAdmin = actor.role === 'admin';

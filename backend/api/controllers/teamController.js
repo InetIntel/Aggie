@@ -260,6 +260,35 @@ exports.team_detail = async (req, res) => {
   }
 };
 
+exports.team_update_status = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+  if (!isAdmin(req.user)) {
+    return res.status(403).send('Only administrators can change team status.');
+  }
+  if (typeof req.body.active !== 'boolean') {
+    return res.status(400).send('Active must be true or false.');
+  }
+
+  try {
+    const team = await Team.findById(req.params._id);
+    if (!team) return res.sendStatus(404);
+
+    team.active = req.body.active;
+    await team.save();
+
+    const members = await User.find({ teams: team._id })
+      .select('_id username displayName email role teamMemberships createdBy')
+      .sort({ role: 1, username: 1 })
+      .lean();
+
+    return res.status(200).send(serializeTeamDetail(team, members));
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team status update failed');
+  }
+};
+
 // Create a team
 exports.team_create = (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
@@ -336,6 +365,10 @@ exports.team_add_member = async (req, res) => {
     const alreadyInTeam = user.teams.some(
       (teamId) => String(teamId) === String(req.params._id)
     );
+
+    if (team.active === false && !alreadyInTeam) {
+      return res.status(400).send('Inactive teams cannot receive new members.');
+    }
 
     if (!alreadyInTeam) {
       user.teams.push(req.params._id);

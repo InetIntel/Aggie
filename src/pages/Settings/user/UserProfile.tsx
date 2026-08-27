@@ -111,7 +111,9 @@ const UserProfile = ({ session }: IProps) => {
     manageableTeamIds.has(team._id)
   );
   const currentTeamIds = new Set(currentMemberships.map((team) => team._id));
-  const availableTeams = (teams || []).filter((team) => !currentTeamIds.has(team._id));
+  const availableTeams = (teams || []).filter(
+    (team) => team.active !== false && !currentTeamIds.has(team._id)
+  );
   const teamRoleById = new Map(
     (data?.teamMemberships || []).map((membership) => [
       typeof membership.team === "string" ? membership.team : membership.team._id,

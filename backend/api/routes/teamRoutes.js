@@ -26,6 +26,8 @@ router.delete('/:_id/member/:userId', teamController.team_remove_member);
 // Get a team with its assigned users
 router.get('/:_id', teamController.team_detail);
 
+router.put('/:_id/status', teamController.team_update_status);
+
 router.put('/:_id/permissions', teamController.team_update_permission_limits);
 
 // Create a team

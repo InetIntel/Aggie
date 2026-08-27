@@ -8,6 +8,7 @@ import {
   removeTeamMember,
   updateTeamMemberPermissions,
   updateTeamPermissionLimits,
+  updateTeamStatus,
 } from "../../../api/teams";
 import type {
   TeamDetailResponse,
@@ -18,6 +19,7 @@ import type { Session } from "../../../api/session/types";
 import { getManageableUsers } from "../../../api/users";
 import AggieButton from "../../../components/AggieButton";
 import AggieDialog from "../../../components/AggieDialog";
+import AggieSwitch from "../../../components/AggieSwitch";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 import CreateEditUserForm from "../user/CreateEditUserForm";
 
@@ -170,6 +172,15 @@ const TeamDetails = ({ session }: IProps) => {
     onSuccess: saveTeam,
   });
 
+  const doUpdateStatus = useMutation(updateTeamStatus, {
+    onSuccess: (updatedTeam) => {
+      saveTeam(updatedTeam);
+      queryClient.invalidateQueries(["teams"]);
+      queryClient.invalidateQueries(["teams", "manageable"]);
+      queryClient.invalidateQueries(["teams", "incident-access"]);
+    },
+  });
+
   const members = data?.members || [];
   const teamLeads = members.filter((member) => getTeamRole(member) === "team_lead");
   const monitors = members.filter((member) => getTeamRole(member) === "monitor");
@@ -211,9 +222,27 @@ const TeamDetails = ({ session }: IProps) => {
                 {data?.team.description || "No description"}
               </p>
             </div>
-            <span className='text-sm px-2 py-1 bg-slate-100 dark:bg-gray-700 rounded border border-slate-300'>
-              {data?.team.active === false ? "Inactive" : "Active"}
-            </span>
+            {isAdmin ? (
+              <div className='flex items-center gap-2 text-sm px-2 py-1 bg-slate-100 dark:bg-gray-700 rounded border border-slate-300'>
+                <span>{data?.team.active === false ? "Inactive" : "Active"}</span>
+                <AggieSwitch
+                  checked={data?.team.active !== false}
+                  disabled={!data || doUpdateStatus.isLoading}
+                  label='Change team status'
+                  onChange={() => {
+                    if (!params.id || !data) return;
+                    doUpdateStatus.mutate({
+                      teamId: params.id,
+                      active: data.team.active === false,
+                    });
+                  }}
+                />
+              </div>
+            ) : (
+              <span className='text-sm px-2 py-1 bg-slate-100 dark:bg-gray-700 rounded border border-slate-300'>
+                {data?.team.active === false ? "Inactive" : "Active"}
+              </span>
+            )}
           </div>
 
           <div className='flex gap-2 mt-5 border-b border-slate-300'>
@@ -308,6 +337,7 @@ const TeamDetails = ({ session }: IProps) => {
                   type='button'
                   variant='secondary'
                   className='px-3 py-2 text-sm'
+                  disabled={data?.team.active === false}
                   onClick={() => setCreateUserOpen(true)}
                 >
                   Create new member
@@ -320,6 +350,7 @@ const TeamDetails = ({ session }: IProps) => {
                   <select
                     className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
                     value={selectedUserId}
+                    disabled={data?.team.active === false}
                     onChange={(event) => setSelectedUserId(event.target.value)}
                   >
                     <option value=''>Select user</option>
@@ -347,7 +378,12 @@ const TeamDetails = ({ session }: IProps) => {
                 <button
                   type='button'
                   className='px-3 py-2 rounded bg-lime-700 text-white disabled:opacity-50'
-                  disabled={!params.id || !selectedUserId || doAddMember.isLoading}
+                  disabled={
+                    !params.id ||
+                    !selectedUserId ||
+                    doAddMember.isLoading ||
+                    data?.team.active === false
+                  }
                   onClick={() => {
                     if (!params.id || !selectedUserId) return;
                     doAddMember.mutate({
@@ -360,6 +396,11 @@ const TeamDetails = ({ session }: IProps) => {
                   Add
                 </button>
               </div>
+              {data?.team.active === false && (
+                <p className='text-sm text-slate-600 dark:text-gray-300 mt-3'>
+                  Reactivate this team before adding new members.
+                </p>
+              )}
             </div>
 
             <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-x-auto'>

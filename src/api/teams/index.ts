@@ -86,6 +86,18 @@ export const updateTeamPermissionLimits = async (params: {
   return data;
 };
 
+export const updateTeamStatus = async (params: {
+  teamId: string;
+  active: boolean;
+}) => {
+  const { data } = await axios.put<TeamDetailResponse>(
+    "/api/team/" + params.teamId + "/status",
+    { active: params.active }
+  );
+
+  return data;
+};
+
 export const getIncidentAccessTeams = async () => {
   const { data } = await axios.get<Team[]>('/api/team/incident-access');
   return data;
