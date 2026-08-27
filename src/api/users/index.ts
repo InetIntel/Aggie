@@ -43,6 +43,13 @@ export const setPassword = async (params: { _id: string; pass: string }) => {
   return data;
 };
 
+// Admin-only: clear another user's MFA (TOTP + WebAuthn) so a locked-out user can recover.
+// Hits the root-level auth route (mounted outside /api), same as the other MFA calls.
+export const adminResetUserMfa = async (userId: string) => {
+  const { data } = await axios.post("/admin/reset-mfa/" + userId);
+  return data;
+};
+
 export const updateUserTeams = async (params: { _id: string; teams: string[] }) => {
   const { data } = await axios.put<User>("/api/user/" + params._id + "/teams", {
     teams: params.teams,

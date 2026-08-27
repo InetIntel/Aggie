@@ -1,6 +1,7 @@
 import * as Yup from "yup";
 
 import { useMutation } from "@tanstack/react-query";
+import { AxiosError } from "axios";
 import { setPassword as setPasswordApi } from "../../../api/users";
 import type { User } from "../../../api/users/types";
 
@@ -26,6 +27,14 @@ interface IProps {
   onClose: () => void;
 }
 
+// Pull the backend's plain-text error message out of an axios error.
+function errorMessage(err: unknown): string {
+  const axiosErr = err as AxiosError;
+  const data = axiosErr?.response?.data;
+  if (typeof data === "string" && data.trim()) return data;
+  return axiosErr?.message || "Could not update the password. Please try again.";
+}
+
 const SetPassword = ({ user, onClose }: IProps) => {
   const doSetPassword = useMutation(setPasswordApi);
 
@@ -40,6 +49,8 @@ const SetPassword = ({ user, onClose }: IProps) => {
           resetForm();
           onClose();
         },
+        // Keep the dialog open on failure so the error is visible instead of
+        // silently swallowed (see doSetPassword.isError render below).
       }
     );
   }
@@ -57,6 +68,11 @@ const SetPassword = ({ user, onClose }: IProps) => {
           label='Re-type Password'
           type='password'
         />
+        {doSetPassword.isError && (
+          <p className='text-sm text-red-600' role='alert'>
+            {errorMessage(doSetPassword.error)}
+          </p>
+        )}
         <div className='flex justify-between'>
           <AggieButton
             disabled={doSetPassword.isLoading}

@@ -26,6 +26,6 @@ router.put('/:_id', User.can('update users'), userController.user_update);
 // Delete User
 router.delete('/:_id', User.can('delete users'), userController.user_delete);
 
-// Update User password
-router.put('/password_set/:_id', User.can('update users'), userController.user_update_password);
+// Update User password (authorization enforced in controller: admin -> any user, any user -> self)
+router.put('/password_set/:_id', userController.user_update_password);
 module.exports = router;
