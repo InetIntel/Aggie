@@ -10,6 +10,11 @@ export interface UserTeam {
   active?: boolean;
 }
 
+export interface UserTeamMembership {
+  team: UserTeam | string;
+  role: "viewer" | "monitor" | "team_lead";
+}
+
 export interface User extends hasId {
   provider: string;
   hasDefaultPassword: boolean;
@@ -18,6 +23,7 @@ export interface User extends hasId {
   username: string;
   displayName?: string;
   teams?: UserTeam[];
+  teamMemberships?: UserTeamMembership[];
   __v: number;
   createdBy?: string;
   mfa?: {
