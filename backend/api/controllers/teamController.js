@@ -10,15 +10,22 @@ const {
 } = require('../../access/teamAccess');
 const { hasPermission } = require('../../access/permissions');
 const {
+  TEAM_PERMISSION_KEYS,
   getMembershipRole,
+  getTeamPermissions,
+  normalizeTeamPermissionList,
   normalizeTeamRole,
 } = require('../../access/teamMemberships');
 
 const assignableRoles = ['viewer', 'monitor', 'team_lead_scoped', 'team_lead'];
+const teamLimitPermissions = TEAM_PERMISSION_KEYS.filter(
+  (permission) => permission !== 'view data'
+);
 
 const serializeTeamDetail = (team, members) => {
   const plainTeam = typeof team.toObject === 'function' ? team.toObject() : team;
   const leadIds = new Set(normalizeIds(plainTeam.leads));
+  const teamSettings = new Map([[String(plainTeam._id), plainTeam]]);
 
   return {
     team: plainTeam,
@@ -29,16 +36,136 @@ const serializeTeamDetail = (team, members) => {
         plainTeam._id,
         isTeamLead ? [plainTeam._id] : []
       );
+      const membership = (member.teamMemberships || []).find(
+        (item) => String(item.team && (item.team._id || item.team)) === String(plainTeam._id)
+      );
+      const permissionOverrides = {
+        allow: normalizeTeamPermissionList(
+          membership && membership.permissionOverrides && membership.permissionOverrides.allow
+        ),
+        deny: normalizeTeamPermissionList(
+          membership && membership.permissionOverrides && membership.permissionOverrides.deny
+        ),
+      };
 
       return {
         ...member,
         accountRole: member.role,
         role: teamRole || normalizeTeamRole(member.role),
         teamRole: teamRole || normalizeTeamRole(member.role),
+        teamPermissionOverrides: permissionOverrides,
+        teamPermissions: getTeamPermissions(
+          member,
+          plainTeam._id,
+          isTeamLead ? [plainTeam._id] : [],
+          teamSettings
+        ),
         isTeamLead,
       };
     }),
   };
+};
+
+exports.team_update_member_permissions = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+  if (!Array.isArray(req.body.allow) || !Array.isArray(req.body.deny)) {
+    return res.status(400).send('Allow and deny must both be arrays.');
+  }
+
+  const submitted = [...req.body.allow, ...req.body.deny];
+  if (submitted.some((permission) => !TEAM_PERMISSION_KEYS.includes(permission))) {
+    return res.status(400).send('One or more team permissions are invalid.');
+  }
+
+  const allow = normalizeTeamPermissionList(req.body.allow);
+  const deny = normalizeTeamPermissionList(req.body.deny);
+  if (allow.some((permission) => deny.includes(permission))) {
+    return res.status(400).send('A permission cannot be both allowed and denied.');
+  }
+
+  try {
+    const team = await Team.findById(req.params._id);
+    if (!team) return res.sendStatus(404);
+    if (!canManageTeam(req.user, team)) {
+      return res.status(403).send('Unauthorized to manage team members.');
+    }
+
+    const user = await User.findById(req.params.userId).select('-password');
+    if (!user) return res.status(404).send('User not found.');
+    if (user.role === 'admin') {
+      return res.status(403).send('Admin users do not use team permission exceptions.');
+    }
+
+    const userIsTeamLead = normalizeIds(team.leads).includes(String(user._id));
+    if (userIsTeamLead && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can update team leads.');
+    }
+
+    const belongsToTeam = (user.teams || []).some(
+      (teamId) => String(teamId) === String(team._id)
+    );
+    if (!belongsToTeam) {
+      return res.status(400).send('This user is not a member of the team.');
+    }
+
+    user.teamMemberships = user.teamMemberships || [];
+    let membership = user.teamMemberships.find(
+      (item) => String(item.team) === String(team._id)
+    );
+    if (!membership) {
+      user.teamMemberships.push({
+        team: team._id,
+        role: getMembershipRole(user, team._id, userIsTeamLead ? [team._id] : []),
+      });
+      membership = user.teamMemberships[user.teamMemberships.length - 1];
+    }
+
+    membership.permissionOverrides = { allow, deny };
+    await user.save();
+
+    const members = await User.find({ teams: team._id })
+      .select('_id username displayName email role teamMemberships createdBy')
+      .sort({ role: 1, username: 1 })
+      .lean();
+    return res.status(200).send(serializeTeamDetail(team, members));
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team permission update failed');
+  }
+};
+
+exports.team_update_permission_limits = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+  if (!isAdmin(req.user)) {
+    return res.status(403).send('Only administrators can change team limits.');
+  }
+  if (!Array.isArray(req.body.deny)) {
+    return res.status(400).send('Deny must be an array.');
+  }
+  if (req.body.deny.some((permission) => !teamLimitPermissions.includes(permission))) {
+    return res.status(400).send('One or more team limits are invalid.');
+  }
+
+  try {
+    const team = await Team.findById(req.params._id);
+    if (!team) return res.sendStatus(404);
+
+    team.permissionLimits = {
+      deny: normalizeTeamPermissionList(req.body.deny),
+    };
+    await team.save();
+
+    const members = await User.find({ teams: team._id })
+      .select('_id username displayName email role teamMemberships createdBy')
+      .sort({ role: 1, username: 1 })
+      .lean();
+    return res.status(200).send(serializeTeamDetail(team, members));
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team limit update failed');
+  }
 };
 
 // Get all teams

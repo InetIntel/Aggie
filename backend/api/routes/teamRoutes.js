@@ -15,11 +15,18 @@ router.get('', teamController.team_list);
 // Add or update a team member
 router.put('/:_id/member', teamController.team_add_member);
 
+router.put(
+  '/:_id/member/:userId/permissions',
+  teamController.team_update_member_permissions
+);
+
 // Remove a team member
 router.delete('/:_id/member/:userId', teamController.team_remove_member);
 
 // Get a team with its assigned users
 router.get('/:_id', teamController.team_detail);
+
+router.put('/:_id/permissions', teamController.team_update_permission_limits);
 
 // Create a team
 router.post('', teamController.team_create);
