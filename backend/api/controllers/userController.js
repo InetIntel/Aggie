@@ -2,6 +2,27 @@
 var User = require('../../models/user');
 const passport = require('passport');
 const validator = require('validator');
+const Team = require('../../models/team');
+const database = require('../../database');
+const mongoose = database.mongoose;
+
+
+// helpers for team items
+const teamPopulate = {
+  path: 'teams',
+  select: 'name description active',
+};
+
+const normalizeUserTeams = (user) => ({
+  ...user,
+  teams: user.teams || [],
+});
+
+const normalizeIds = (ids) => [
+  ...new Set((ids || []).map((id) => String(id._id || id)).filter(Boolean)),
+];
+
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 
 // get user list
@@ -10,6 +31,7 @@ exports.user_users = (req, res) => {
 
   User.find({})
     .select("-password")
+    .populate(teamPopulate)
     .lean()
     .exec((err, users) => {
       if (err) {
@@ -17,7 +39,7 @@ exports.user_users = (req, res) => {
           .status(err.status || 500)
           .send(err.message || "User query failed");
       }
-      return res.status(200).send(users);
+      return res.status(200).send(users.map(normalizeUserTeams));
     });
 };
 
@@ -32,17 +54,18 @@ exports.user_manageableUsers = (req, res) => {
     filter = {};
   } else if (role === "team_lead") {
     filter = {
-      $or: [
-        { _id: self },
-        { createdBy: self },
-      ],
-    };
-  } else {
+     $or: [
+      { _id: self },
+      { role: { $in: ["viewer", "monitor"] } },
+     ],
+   };
+} else {
     filter = { _id: self };
   }
 
   User.find(filter)
     .select("-password")
+    .populate(teamPopulate)
     .lean()
     .exec((err, users) => {
       if (err) {
@@ -50,7 +73,7 @@ exports.user_manageableUsers = (req, res) => {
           .status(err.status || 500)
           .send(err.message || "User query failed");
       }
-      return res.status(200).send(users);
+      return res.status(200).send(users.map(normalizeUserTeams));
     });
 };
 
@@ -58,27 +81,30 @@ exports.user_manageableUsers = (req, res) => {
 exports.user_detail = (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  User.findById(req.params._id, '-password', function (err, user) {
-    if (err) { return res.status(err.status).send(err.message); }
-    else if (!user) { return res.sendStatus(404); }
-    else {
-      const role = req.user.role;
-      const isSelf = String(user._id) === String(req.user._id);
-      let allowed = false;
+  User.findById(req.params._id, '-password')
+    .populate(teamPopulate)
+    .lean()
+    .exec(function (err, user) {
+      if (err) { return res.status(err.status).send(err.message); }
+      else if (!user) { return res.sendStatus(404); }
+      else {
+        const role = req.user.role;
+        const isSelf = String(user._id) === String(req.user._id);
+        let allowed = false;
 
       if (role === 'admin') {
-        allowed = true; 
-      } else if (role === 'team_lead') {
-        const createdByMe = String(user.createdBy) === String(req.user._id);
-        allowed = isSelf || createdByMe; 
-      } else {
-        allowed = isSelf; 
-      }
-
-      if (!allowed) return res.status(403).send('Unauthorized to view the user.');
-      return res.status(200).send(user);
+        allowed = true;
+    } else if (role === 'team_lead') {
+      const isViewerOrMonitor = ['viewer', 'monitor'].includes(user.role);
+      allowed = isSelf || isViewerOrMonitor;
+    } else {
+      allowed = isSelf;
     }
-  });
+
+        if (!allowed) return res.status(403).send('Unauthorized to view the user.');
+        return res.status(200).send(normalizeUserTeams(user));
+      }
+    });
 };
 
 // Create a new User
@@ -142,6 +168,90 @@ exports.user_create = (req, res) => {
   });*/
 };
 
+// Update a user's team memberships
+exports.user_update_teams = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  if (!Array.isArray(req.body.teams)) {
+    return res.status(400).send('Please provide teams as an array.');
+  }
+
+  const requestedTeamIds = normalizeIds(req.body.teams);
+
+  if (requestedTeamIds.some((id) => !isValidObjectId(id))) {
+    return res.status(400).send('One or more team ids are invalid.');
+  }
+
+  try {
+    const actor = await User.findById(req.user._id)
+      .select('role teams')
+      .lean();
+
+    const targetUser = await User.findById(req.params._id)
+      .select('-password')
+      .lean();
+
+    if (!actor) return res.status(401).send('Unauthenticated.');
+    if (!targetUser) return res.sendStatus(404);
+
+    const teams = await Team.find({ _id: { $in: requestedTeamIds } })
+      .select('_id')
+      .lean();
+
+    if (teams.length !== requestedTeamIds.length) {
+      return res.status(400).send('One or more teams were not found.');
+    }
+
+    const isAdmin = actor.role === 'admin';
+    const isTeamLead = actor.role === 'team_lead';
+    const isSelf = String(actor._id) === String(targetUser._id);
+
+    if (!isAdmin && !isTeamLead) {
+      return res.status(403).send('Unauthorized to update user teams.');
+    }
+
+    if (!isAdmin && isSelf) {
+      return res.status(403).send('Users cannot update their own team memberships.');
+    }
+
+    let updatedTeamIds = requestedTeamIds;
+
+    if (isTeamLead) {
+      if (!['viewer', 'monitor'].includes(targetUser.role)) {
+        return res.status(403).send('Team leads can only manage viewer or monitor team memberships.');
+      }
+
+      const actorTeamIds = new Set(normalizeIds(actor.teams));
+      const requestedOutsideScope = requestedTeamIds.some((id) => !actorTeamIds.has(id));
+
+      if (requestedOutsideScope) {
+        return res.status(403).send('Team leads can only assign users to teams they belong to.');
+      }
+
+      const currentTeamIds = normalizeIds(targetUser.teams);
+      const preservedTeamIds = currentTeamIds.filter((id) => !actorTeamIds.has(id));
+
+      updatedTeamIds = normalizeIds([...preservedTeamIds, ...requestedTeamIds]);
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params._id,
+      { teams: updatedTeamIds },
+      { new: true }
+    )
+      .select('-password')
+      .populate(teamPopulate)
+      .lean();
+
+    return res.status(200).send(normalizeUserTeams(updatedUser));
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'User team update failed');
+  }
+};
+
+
 // Update a User
 exports.user_update = (req, res) => {
   const isAdmin = req.user.role === "admin";
@@ -163,6 +273,16 @@ exports.user_update = (req, res) => {
       if (req.body[attr] !== undefined) {
         user[attr] = req.body[attr];
       }
+    }
+
+    // Display preferences are self-service (both self and admin) and nested,
+    // so they're whitelisted explicitly rather than via the flat allowedFields.
+    if (req.body.preferences && typeof req.body.preferences === 'object') {
+      if (!user.preferences) user.preferences = {};
+      const { timeFormat, dateFormat, timeZone } = req.body.preferences;
+      if (timeFormat) user.preferences.timeFormat = timeFormat;
+      if (dateFormat) user.preferences.dateFormat = dateFormat;
+      if (timeZone) user.preferences.timeZone = timeZone;
     }
 
     user.save((err) => {

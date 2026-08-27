@@ -8,12 +8,15 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
+import { formatDateTime, formatTime, UserPreferences } from "../../utils/dateFormat";
+import { useFormatters } from "../../utils/useFormatters";
 import AggieToken from "../AggieToken";
 import DateTime from "../DateTime";
 import {
   parseContentType,
   sanitize,
-  signalToNameColor
+  signalToNameColor,
+  SIGNAL_BADGE_CLASS,
 } from "../SocialMediaPost/reportParser";
 import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
@@ -28,6 +31,7 @@ interface IProps {
 }
 
 const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
+  const { prefs } = useFormatters();
   const contentType = parseContentType(report);
   const { imagePreview, imagesCount } = renderImage(contentType, report);
   const [signal, bgColor] = signalToNameColor(report?.metadata?.rawAPIResponse?.rawEvent?.datasource);
@@ -44,7 +48,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
             {renderAuthor(contentType, report)}
           </h1>
           {signal && (
-            <AggieToken className={`${bgColor} font-medium px-1 rounded-lg text-sm text-white dark:text-gray-300 `}>
+            <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
               {signal}
             </AggieToken>
           )}
@@ -71,7 +75,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
       </header>
       <div className='flex gap-1 justify-between '>
         <div className='flex gap-2 flex-1 max-w-prose'>
-          {renderText(contentType, report)}
+          {renderText(contentType, report, prefs)}
         </div>
         {imagePreview && (
           <div className='w-24 h-24 flex-0 justify-self-end relative'>
@@ -143,7 +147,11 @@ function renderImage(
   const imagesCount = images.length;
   return { imagePreview, imagesCount };
 }
-function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
+function renderText(
+  type: ReturnType<typeof parseContentType>,
+  report: Report,
+  prefs: UserPreferences
+) {
   switch (type) {
     case "twitter:quoteRetweet": {
       const data = twitterParsing(report);
@@ -238,33 +246,41 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
     //       </p>
     //     </div>
     //   );
-    case "ioda":
-      const rawStart = report?.metadata?.rawAPIResponse?.rawEvent?.start;
+    case "ioda": {
+      const iodaRaw = report?.metadata?.rawAPIResponse;
+      const rawStart = iodaRaw?.rawEvent?.start;
       const start = new Date(rawStart * 1000); // Convert to milliseconds
-      const startUtc =
-        start.toISOString().replace('T', ' ').substring(0, 16);
-      const rawDuration = report?.metadata?.rawAPIResponse?.rawEvent?.duration;
+
+      // While the outage is ongoing, `rawEvent.duration` only runs up to the last
+      // fetch, so deriving an end from it would show a fake, creeping end time.
+      if (iodaRaw?.isOngoing) {
+        return (
+          <p className="dark:text-gray-300">
+            {report?.author}<br />
+            {formatDateTime(start, prefs)} to Present
+          </p>
+        );
+      }
+
+      const rawDuration = iodaRaw?.rawEvent?.duration;
       const end = new Date((rawStart + rawDuration) * 1000);
-      const endUtc =
-        end.toISOString().replace('T', ' ').substring(0, 16);
+      const sameDay = start.toDateString() === end.toDateString();
       return (
         <p className="dark:text-gray-300">
           {report?.author}<br />
-          {startUtc} to {
-            (startUtc.substring(0, 10) === endUtc.substring(0, 10)) ?
-            endUtc.substring(11) : endUtc
-          }
+          {formatDateTime(start, prefs)} to{" "}
+          {sameDay ? formatTime(end, prefs) : formatDateTime(end, prefs)}
         </p>
       );
+    }
     case "cloudflare":
-      const endDate = 
+      const endDate =
         report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";
       return (
         <p className="dark:text-gray-300">
           {report?.author}<br />
-          {
-            report?.authoredAt.replace('T', ' ').substring(0, 16)
-          } to {endDate.replace('T', ' ').substring(0, 16)}
+          {formatDateTime(report?.authoredAt, prefs)} to{" "}
+          {endDate === "now" ? "now" : formatDateTime(endDate, prefs)}
         </p>
       );
     default:

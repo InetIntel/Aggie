@@ -8,6 +8,7 @@ import { getGroup } from "../../../api/groups";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faChevronDown,
   faDotCircle,
   faEnvelope,
   faEnvelopeOpen,
@@ -21,6 +22,7 @@ import DateTime from "../../../components/DateTime";
 import AggieButton from "../../../components/AggieButton";
 import { useReportMutations } from "../useReportMutations";
 import AddReportsToIncidents from "./AddReportsToIncident";
+import ReportDetail from "../Report/ReportDetail";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 import SocialMediaListItem from "../../../components/SocialMediaListItem";
 import MultiSelectListItem from "../../../components/MultiSelectListItem";
@@ -33,6 +35,9 @@ interface IProps {
   onCheckChange: () => void;
   onOpenReportAttachModal?: () => void;
   setSelection?: (i: Report) => void;
+  /** When provided, renders a "View details" toggle + inline ReportDetail. */
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 const ReportListItem = ({
@@ -41,6 +46,8 @@ const ReportListItem = ({
   isChecked,
   isSelectMode,
   onCheckChange,
+  isExpanded,
+  onToggleExpand,
 }: IProps) => {
   const { id: currentPageId } = useParams();
 
@@ -206,6 +213,37 @@ const ReportListItem = ({
           addRemove={() => setOpenAttachModal(false)}
         />
       </div>
+
+      {onToggleExpand && (
+        <div className='mt-2'>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand();
+            }}
+            aria-expanded={isExpanded}
+            className='text-blue-700 hover:underline text-sm inline-flex items-center gap-1 dark:text-blue-300'
+          >
+            {isExpanded ? "Hide details" : "View details"}
+            <FontAwesomeIcon
+              icon={faChevronDown}
+              size='sm'
+              className={`transition-transform duration-150 ${
+                isExpanded ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {isExpanded && (
+            <div
+              className='mt-2 rounded-lg border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ReportDetail report={report} listQueryKey={reportsQueryKey} />
+            </div>
+          )}
+        </div>
+      )}
     </MultiSelectListItem>
   );
 };

@@ -43,6 +43,23 @@ var sourceSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   tags: { type: [String], default: [] },
   credentials: { type: mongoose.Schema.Types.ObjectId, ref: 'Credentials', required: true },
+  accessPolicy: {
+    mode: {
+      type: String,
+      enum: ['public', 'restricted', 'public_until'],
+      default: 'public',
+      index: true,
+    },
+    teams: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team',
+      index: true,
+    }],
+    cutoffDate: {
+      type: Date,
+      default: null,
+    },
+  },
 });
 
 sourceSchema.pre('save', function (next) {
@@ -106,13 +123,21 @@ sourceSchema.methods.logEvent = function (level, message) {
 
 var Source = mongoose.model('Source', sourceSchema);
 
+// Count the recent events shown in the warnings popup (the most recent 50).
+// The warning badge uses this instead of `unreadErrorCount` (an unbounded
+// cumulative tally) so the badge number matches the popup's list exactly.
+Source.distinctErrorCount = function (events) {
+  if (!events || !events.length) return 0;
+  return events.slice(-EVENTS_TO_RETURN).length;
+};
+
 // Get latest unread error messages
 Source.findByIdWithLatestEvents = function (_id, callback) {
   Source.findById(_id, function (err, source) {
     if (err) return callback(err);
     if (!source) return callback(null, null);
     if (source.events) {
-      source.events = _.chain(source.events).sortBy('datetime').last(EVENTS_TO_RETURN).value();
+      source.events = _.chain(source.events).sortBy('datetime').takeRight(EVENTS_TO_RETURN).value();
     }
     callback(null, source);
   });

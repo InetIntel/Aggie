@@ -33,6 +33,10 @@ backend/migrations/.migrate
 public/css/styles.css
 public/uploads
 public/media
+public/ioda-charts-backup
+
+# Dev media root when MEDIA_ROOT is pointed outside public/ (see .env.example)
+media-store
 
 buildAssets
 docs/_build
@@ -52,3 +56,11 @@ build
 .env
 
 backend/api/uploads
+
+.claude/
+
+# dev-only throwaway scripts + generated fixtures (IODA signal migration)
+# Local runtime media, chart backups, and dev scratch — not source
+media-store
+public/ioda-charts-backup
+scratchpad/

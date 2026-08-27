@@ -59,7 +59,7 @@ router.patch('/_locationName', User.can('edit data'), groupController.group_loca
 router.patch('/_untag', User.can('edit data'), groupController.group_tags_remove);
 
 //User.can('edit data')
-router.patch('/_clearTags', groupController.group_tags_clear);
+router.patch('/_clearTags', User.can('edit data'), groupController.group_tags_clear);
 
 // Route to add comment
 router.patch('/_comment_add', User.can('edit data'), upload.array('comment[attachments]', MAX_ATTACHMENT_COUNT), groupController.group_comment_add);
@@ -72,8 +72,8 @@ router.patch('/_comment_remove', User.can('edit data'), groupController.group_co
 
 
 // User.can('edit data')
-router.delete('/:_id', groupController.group_delete);
+router.delete('/:_id', User.can('edit data'), groupController.group_delete);
 
 // User.can('edit data'),
-router.delete('/_all', groupController.group_all_delete);
+router.delete('/_all', User.can('edit data'), groupController.group_all_delete);
 module.exports = router;

@@ -11,10 +11,19 @@ interface IProps {
 const MediaPreview = ({ mediaUrl, media, report }: IProps) => {
   const [loaded, setLoaded] = useState(false);
   const images = getReportImages(report);
+  const displayImages =
+    images.length > 0
+      ? images
+      : mediaUrl
+        ? [{ fullUrl: mediaUrl, previewUrl: mediaUrl }]
+        : [];
 
   switch (media) {
     default:
-      if (!mediaUrl && images.length === 0) return <></>;
+      if (displayImages.length === 0) return <></>;
+
+      const visibleImages = displayImages.slice(0, 4);
+      const hiddenImagesCount = displayImages.length - visibleImages.length;
 
       const formatImage = (index: number, total: number) => {
         if (total === 1) return "h-auto col-span-2 max-h-[60vh]";
@@ -29,18 +38,33 @@ const MediaPreview = ({ mediaUrl, media, report }: IProps) => {
               Loading Image...
             </div>
           )}
-          {images.map((image, index) => (
-            <img
-              key={image.fullUrl}
-              className={`w-full rounded object-cover ${formatImage(
-                index,
-                images.length
-              )}`}
-              src={image.fullUrl}
-              loading='lazy'
-              onLoad={() => setLoaded(true)}
-            />
-          ))}
+          {visibleImages.map((image, index) => {
+            const isOverflowTile =
+              hiddenImagesCount > 0 && index === visibleImages.length - 1;
+
+            return (
+              <div
+                key={`${image.fullUrl}-${index}`}
+                className={`relative overflow-hidden rounded ${formatImage(
+                  index,
+                  visibleImages.length
+                )}`}
+              >
+                <img
+                  className='h-full w-full object-cover'
+                  src={image.previewUrl}
+                  loading='lazy'
+                  alt={`Post attachment ${index + 1}`}
+                  onLoad={() => setLoaded(true)}
+                />
+                {isOverflowTile && (
+                  <div className='absolute inset-0 grid place-items-center bg-black/55 text-lg font-medium text-white'>
+                    +{hiddenImagesCount}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       );
   }

@@ -22,9 +22,18 @@ const {
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
   // Data passed through URL parameters
-  var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before', 'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media','dataSources', 'entityLevel',
-    'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
-  
+  var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before',
+    'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media', 'dataSources', 'entityLevel',
+    'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity',
+    'isRelevantReports', "irrelevant", 'ongoing']);
+
+  if (query.ongoing === 'true') {
+    query.isOutageOngoing = true;
+  } else if (query.ongoing === 'false') {
+    query.isOutageOngoing = false;
+  }
+  delete query.ongoing;
+
   if (!query.media && query.alerts === 'true') {
     query.isOutageEvent = true;
   } else if (!query.media && query.alerts === 'false') {
@@ -46,7 +55,9 @@ const shouldDedupByEventIdentifier = (entityLevel, groupId) => {
   return entityLevel.includes('AS') && entityLevel.includes('AS - Country');
 };
 
-const serializeReport = (report) => {
+// `stripChart` drops the (potentially few-KB) IODA signal series from list rows; the
+// detail endpoint keeps it and the frontend lazy-loads it per report.
+const serializeReport = (report, { stripChart = false } = {}) => {
   if (!report) return report;
 
   const plainReport = typeof report.toObject === 'function'
@@ -63,30 +74,60 @@ const serializeReport = (report) => {
       }))
     : plainReport?.metadata?.attachments;
 
+  // Chart images at metadata.rawAPIResponse.image come in three shapes; expose a URL
+  // the frontend can <img src> against without mangling remote URLs. The shapes are:
+  //   - legacy inline SVG (pre-migration IODA, starts with '<') — no URL, leave as-is
+  //   - absolute remote URL (Cloudflare Radar chart) — pass through unchanged
+  //   - relative media key (post-migration IODA) — resolve to /media/... via buildMediaUrl
+  const rawAPIResponse = plainReport?.metadata?.rawAPIResponse;
+  const chartImage = rawAPIResponse?.image;
+  let imageUrl;
+  if (typeof chartImage === 'string') {
+    const trimmed = chartImage.trimStart();
+    if (trimmed.startsWith('<')) {
+      imageUrl = undefined;
+    } else if (/^https?:\/\//i.test(trimmed)) {
+      imageUrl = chartImage;
+    } else {
+      imageUrl = buildMediaUrl(chartImage);
+    }
+  }
+  let rawAPIResponseWithUrl =
+    imageUrl != null ? { ...rawAPIResponse, imageUrl } : rawAPIResponse;
+
+  if (stripChart && rawAPIResponseWithUrl && rawAPIResponseWithUrl.chart) {
+    const { chart, ...rest } = rawAPIResponseWithUrl;
+    rawAPIResponseWithUrl = rest;
+  }
+
   return {
     ...plainReport,
     metadata: plainReport?.metadata
       ? {
           ...plainReport.metadata,
           attachments,
+          ...(rawAPIResponse ? { rawAPIResponse: rawAPIResponseWithUrl } : {}),
         }
       : plainReport?.metadata,
   };
 };
 
+// Wraps list/feed responses; strips the IODA chart series from each row (detail keeps it).
 const serializeReportResponse = (payload) => {
+  const serializeRow = (row) => serializeReport(row, { stripChart: true });
+
   if (Array.isArray(payload)) {
-    return payload.map(serializeReport);
+    return payload.map(serializeRow);
   }
 
   if (payload && Array.isArray(payload.results)) {
     return {
       ...payload,
-      results: payload.results.map(serializeReport),
+      results: payload.results.map(serializeRow),
     };
   }
 
-  return serializeReport(payload);
+  return serializeRow(payload);
 };
 
 // Get a list of queried Reports
@@ -111,6 +152,11 @@ exports.report_reports = (req, res) => {
     }
 
     const handler = (err, reports) => {
+      // The timeout middleware may have already responded; never write twice.
+      if (res.headersSent) {
+        if (err) console.error('report_reports: response already sent, dropping late error:', err.message);
+        return;
+      }
       if (err) return res.status(err.status || 500).send(err.message);
       return res.send(serializeReportResponse(reports));
     };

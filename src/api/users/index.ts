@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { User, UserEditableData } from "./types";
+import type { UserPreferences } from "../session/types";
 
 export const getUsers = async () => {
   const { data } = await axios.get<User[] | undefined>("/api/user");
@@ -38,6 +39,25 @@ export const deleteUser = async (user: User) => {
 export const setPassword = async (params: { _id: string; pass: string }) => {
   const { data } = await axios.put("/api/user/password_set/" + params._id, {
     password: params.pass,
+  });
+  return data;
+};
+
+export const updateUserTeams = async (params: { _id: string; teams: string[] }) => {
+  const { data } = await axios.put<User>("/api/user/" + params._id + "/teams", {
+    teams: params.teams,
+  });
+  return data;
+};
+
+// Date/time display preferences are self-service; the backend user_update handler
+// whitelists the nested `preferences` object separately from the other fields.
+export const updateUserPreferences = async (params: {
+  _id: string;
+  preferences: UserPreferences;
+}) => {
+  const { data } = await axios.put<User>("/api/user/" + params._id, {
+    preferences: params.preferences,
   });
   return data;
 };

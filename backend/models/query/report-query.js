@@ -37,6 +37,7 @@ function ReportQuery(options) {
   this.isRelevantReports = options.isRelevantReports;
   this.irrelevant = options.irrelevant;
   this.isOutageEvent = options.isOutageEvent;
+  this.isOutageOngoing = options.isOutageOngoing;
 
 }
 
@@ -51,7 +52,7 @@ ReportQuery.prototype.run = function (callback) {
 
 // Normalize query for comparison
 ReportQuery.prototype.normalize = function () {
-  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports']);
+  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports', 'isOutageOngoing']);
 };
 
 ReportQuery.prototype.toMongooseFilter = function () {
@@ -75,10 +76,29 @@ ReportQuery.prototype.toMongooseFilter = function () {
   if (this.escalated === 'escalated') filter.escalated = true;
 
   filter = _.omitBy(filter, _.isNil);
-  if (this.before) filter.authoredAt = { $lte: this.before }
-  if (this.after) filter.authoredAt = Object.assign({}, filter.authoredAt, { $gte: this.after });
-  if (this.outageBefore) filter.outageStartedAt = { $lt: this.outageBefore }
-  if (this.outageAfter) filter.outageStartedAt = Object.assign({}, filter.outageStartedAt, { $gte: this.outageAfter });
+  // Reports predating the isOutageOngoing field have no value at all, so "ended" has to
+  // match a missing field too
+  if (this.isOutageOngoing === true) filter.isOutageOngoing = true;
+  if (this.isOutageOngoing === false) filter.isOutageOngoing = { $ne: true };
+  // Cast bounds to Date so both the Report.find (Mongoose casts) and the
+  // Report.aggregate $match (Mongoose does NOT cast) agree; otherwise the
+  // aggregate total ignores the date bound and pagination shows phantom pages.
+  if (this.before) {
+    const d = new Date(this.before);
+    if (!isNaN(d.getTime())) filter.authoredAt = { $lte: d };
+  }
+  if (this.after) {
+    const d = new Date(this.after);
+    if (!isNaN(d.getTime())) filter.authoredAt = Object.assign({}, filter.authoredAt, { $gte: d });
+  }
+  if (this.outageBefore) {
+    const d = new Date(this.outageBefore);
+    if (!isNaN(d.getTime())) filter.outageStartedAt = { $lt: d };
+  }
+  if (this.outageAfter) {
+    const d = new Date(this.outageAfter);
+    if (!isNaN(d.getTime())) filter.outageStartedAt = Object.assign({}, filter.outageStartedAt, { $gte: d });
+  }
   //Two step search for content/author. First search for any terms in content or author using the indexed $text search.
   //Second step is to match exact phrase using regex in the returned superset of the documents from first step.
   // if (this.author || this.keywords) filter.author = [{$text: { $search: `${this.author || ""}` }}];

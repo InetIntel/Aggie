@@ -1,45 +1,148 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../hooks/useQueryParams";
+import { useMeasuredHeight } from "../../hooks/useMeasuredHeight";
+import { useMultiSelect } from "../../hooks/useMultiSelect";
 import _ from "lodash";
 
 import { getGroups } from "../../api/groups";
 import type { Group, GroupQueryState, Groups } from "../../api/groups/types";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigationType } from "react-router-dom";
 import IncidentsFilters from "./IncidentsFilters";
 import IncidentListItem from "./IncidentListItem";
+import IncidentsTable from "./TableView/IncidentsTable";
+import IncidentsCompareModal from "./TableView/IncidentsCompareModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus, faRefresh } from "@fortawesome/free-solid-svg-icons";
+import {
+  faList,
+  faPlus,
+  faRefresh,
+  faTable,
+} from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import AggieButton from "../../components/AggieButton";
+import CompareToolbar from "../../components/CompareModal/CompareToolbar";
 import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
 import { updateByIds } from "../../utils/immutable";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
 
+let savedScrollTop: number | null = null;
+
+type IncidentsViewMode = "list" | "table";
+type IncidentsQueryState = GroupQueryState & { view?: IncidentsViewMode };
+
+const VIEW_STORAGE_KEY = "incidents:view";
+// Max incidents that can be compared side-by-side at once.
+const MAX_COMPARE = 6;
+
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
-    useQueryParams<GroupQueryState>();
+    useQueryParams<IncidentsQueryState>();
   const queryData = useUpdateQueryData();
+  const navigationType = useNavigationType();
+
+  // "view" is a UI toggle, not a filter — exclude it so switching to the table
+  // view doesn't make the filters bar think a query is active (which would
+  // wrongly surface the "Clear All" button).
+  const hasActiveFilter =
+    Object.keys(_.omit(getAllParams(searchParams), "view")).length > 0;
+
+  // The real query identity, ignoring the UI-only `view` toggle. The reset
+  // effect keys off this so switching list↔table keeps the selection — the
+  // underlying results are identical across both views.
+  const apiSearchParams = new URLSearchParams(searchParams);
+  apiSearchParams.delete("view");
+  const queryParamsString = apiSearchParams.toString();
+
+  const urlView = getParam("view");
+  const view: IncidentsViewMode =
+    urlView === "table" || urlView === "list"
+      ? urlView
+      : localStorage.getItem(VIEW_STORAGE_KEY) === "table"
+      ? "table"
+      : "list";
 
   const { data, refetch, isLoading, isFetching } = useQuery(
     ["groups"],
-    () => getGroups(getAllParams(searchParams)),
+    () => getGroups(_.omit(getAllParams(searchParams), "view") as GroupQueryState),
     {
       refetchInterval: 120000,
     }
   );
 
+  // Compare mode reuses a multi-select to pick up to MAX_COMPARE incidents, then
+  // opens a read-only side-by-side comparison modal.
+  const multiSelect = useMultiSelect<Group>({
+    allItems: data?.results,
+    mapFn: (i) => i._id,
+  });
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  function toggleCompareMode() {
+    const next = !compareMode;
+    setCompareMode(next);
+    multiSelect.set([]);
+    multiSelect.setActive(next);
+    if (!next) setCompareOpen(false);
+  }
+
+  // Compare-mode selection toggle shared by the table rows and the list rows:
+  // enforce the MAX_COMPARE cap (allow deselect).
+  function toggleIncidentForCompare(group: Group) {
+    if (
+      !multiSelect.exists(group) &&
+      multiSelect.selection.length >= MAX_COMPARE
+    )
+      return;
+    multiSelect.addRemove(group);
+  }
+
+  // A row checkbox (list or table) can start a comparison directly: the first
+  // check flips compare mode on (so the Compare bar + cap kick in and checkboxes
+  // appear on every row), then selects that incident. Incidents have no separate
+  // relevance select mode, so !compareMode always means "idle".
+  function selectIncidentFromList(group: Group) {
+    if (!compareMode) {
+      setCompareMode(true);
+      multiSelect.setActive(true);
+    }
+    toggleIncidentForCompare(group);
+  }
+
   useEffect(() => {
     document.title = "Incidents - Aggie";
     // refetch on filter change
     refetch();
-    document.getElementById("main_view")?.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  }, [searchParams]);
+    multiSelect.set([]);
+    setCompareMode(false);
+    setCompareOpen(false);
+    if (navigationType !== "POP") {
+      document.getElementById("main_view")?.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryParamsString]);
+
+  useEffect(() => {
+    const main = document.getElementById("main_view");
+    if (!main) return;
+    const onScroll = () => {
+      savedScrollTop = main.scrollTop;
+    };
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => main.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (navigationType === "POP" && savedScrollTop != null && data?.total) {
+      document.getElementById("main_view")?.scrollTo({ top: savedScrollTop });
+    }
+  }, [data, navigationType]);
 
   interface GroupUpdateEvent extends SocketEvent {
     data: {
@@ -65,9 +168,22 @@ const Incidents = () => {
   };
   useSocketSubscribe("groups:update", handleSocketUpdate);
 
+  // The filters + view-toggle bar is sticky at the top of the page scroller; the
+  // table below flows with the page, so its sticky header must park just beneath
+  // the bar. The bar's height is dynamic (wraps when narrow, grows in compare
+  // mode), so measure it and publish it as the `--dt-sticky-top` CSS var that
+  // DataTable's header reads.
+  const { ref: stickyRef, height: stickyHeight } =
+    useMeasuredHeight<HTMLDivElement>();
+
   return (
-    <section className='max-w-screen-xl mx-auto px-4 pb-10'>
-      <header className='my-4 flex justify-between items-center'>
+    <section
+      style={{ ["--dt-sticky-top" as any]: `${stickyHeight}px` }}
+      className={`${
+        view === "table" ? "max-w-screen-2xl" : "max-w-screen-xl"
+      } mx-auto px-4 pb-10`}
+    >
+      <header className='my-4 flex flex-wrap justify-between items-center gap-2'>
         <div className='flex gap-2 items-baseline'>
           <h1 className='text-3xl font-medium'>Incidents</h1>
           <AggieButton
@@ -88,24 +204,109 @@ const Incidents = () => {
         </Link>
       </header>
 
-      <IncidentsFilters
-        totalCount={data && data.total}
-        get={getParam}
-        set={setParams}
-        isQuery={!!searchParams.size}
-        clearAll={clearAllParams}
-      />
-      <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 z-0 '>
-        {!!data && !!data.total ? (
-          data.results.map((incident) => (
-            <IncidentListItem key={incident._id} item={incident} />
-          ))
-        ) : (
-          <div className='w-full bg-white dark:bg-gray-800 py-12 grid place-items-center font-medium'>
-            <p>{isLoading ? "Loading data..." : "No Results Found"}</p>
-          </div>
+      {/* Sticky filters + view-toggle bar: pins to the top of the page scroller
+          (only the title above scrolls away). z-20 lifts its filter dropdown
+          panels above the table's sticky header (z-10) so they open over the
+          table, not behind it. */}
+      <div
+        ref={stickyRef}
+        className='sticky top-0 z-20 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm py-2'
+      >
+        <div className='relative z-20'>
+          <IncidentsFilters
+            totalCount={data && data.total}
+            get={getParam}
+            set={setParams}
+            isQuery={hasActiveFilter}
+            clearAll={clearAllParams}
+          />
+        </div>
+
+        <div className='flex flex-wrap items-center gap-2 mt-2 text-xs font-medium'>
+        <div
+          role='group'
+          aria-label='View mode'
+          className='inline-flex border border-slate-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800'
+        >
+          <AggieButton
+            icon={faList}
+            override
+            className={`px-3 py-1 text-sm font-medium flex gap-2 items-center ${
+              view === "list"
+                ? "bg-aggie-secondary-500 text-white"
+                : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+            }`}
+            aria-pressed={view === "list"}
+            onClick={() => {
+              localStorage.setItem(VIEW_STORAGE_KEY, "list");
+              setParams({ view: undefined });
+            }}
+          >
+            List
+          </AggieButton>
+          <AggieButton
+            icon={faTable}
+            override
+            className={`px-3 py-1 text-sm font-medium flex gap-2 items-center border-l border-slate-300 dark:border-gray-600 ${
+              view === "table"
+                ? "bg-aggie-secondary-500 text-white"
+                : "text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+            }`}
+            aria-pressed={view === "table"}
+            onClick={() => {
+              localStorage.setItem(VIEW_STORAGE_KEY, "table");
+              setParams({ view: "table" });
+            }}
+          >
+            Table
+          </AggieButton>
+        </div>
+        <CompareToolbar
+          active={compareMode}
+          count={multiSelect.selection.length}
+          noun='incident'
+          onToggle={toggleCompareMode}
+          onCompare={() => setCompareOpen(true)}
+          onClear={() => multiSelect.set([])}
+        />
+        {compareMode && multiSelect.selection.length === 0 && (
+          <p className='text-slate-600 dark:text-gray-400'>
+            Select up to {MAX_COMPARE} incidents to compare.
+          </p>
         )}
+        </div>
       </div>
+
+      {view === "table" ? (
+        <IncidentsTable
+          data={data?.results ?? []}
+          isLoading={isLoading}
+          selection={{
+            isActive: multiSelect.isActive,
+            alwaysShow: true,
+            isChecked: (group) => multiSelect.exists(group),
+            onToggle: (group) => selectIncidentFromList(group),
+          }}
+        />
+      ) : (
+        <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 z-0 '>
+          {!!data && !!data.total ? (
+            data.results.map((incident) => (
+              <IncidentListItem
+                key={incident._id}
+                item={incident}
+                isChecked={multiSelect.exists(incident)}
+                isSelectMode={multiSelect.isActive}
+                onCheckChange={() => selectIncidentFromList(incident)}
+              />
+            ))
+          ) : (
+            <div className='w-full bg-white dark:bg-gray-800 py-12 grid place-items-center font-medium'>
+              <p>{isLoading ? "Loading data..." : "No Results Found"}</p>
+            </div>
+          )}
+        </div>
+      )}
       <div className='w-full flex items-center flex-col mb-10 mt-3'>
         <div className='w-fit text-sm'>
           <Pagination
@@ -119,6 +320,15 @@ const Incidents = () => {
           {formatPageCount(Number(getParam("page")), 50, data?.total)}
         </small>
       </div>
+
+      {compareMode && (
+        <IncidentsCompareModal
+          isOpen={compareOpen}
+          onClose={() => setCompareOpen(false)}
+          incidents={multiSelect.selection}
+          onRemoveIncident={(group) => multiSelect.addRemove(group)}
+        />
+      )}
     </section>
   );
 };

@@ -13,6 +13,7 @@ const tagRouter = require('./tagRoutes');
 const userRouter = require('./userRoutes');
 const searchRouter = require('./searchRoutes');
 const visualizationRouter = require('./visualizationRoutes');
+const teamRouter = require('./teamRoutes');
 
 // Add all API routes
 router.use('/analytics', analyticsRouter);
@@ -28,5 +29,6 @@ router.use('/search', searchRouter);
 router.use('/tag', tagRouter);
 router.use('/user', userRouter);
 router.use('/visualization', visualizationRouter);
+router.use('/team', teamRouter);
 module.exports = router;
 
