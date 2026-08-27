@@ -13,6 +13,7 @@ import type { Group } from "../../../api/groups/types";
 import { statusFromGroup, IncidentTableStatus } from "./statusFromGroup";
 import { CoverageBadge } from "../IncidentCoverage";
 import DropdownMenu from "../../../components/DropdownMenu";
+import { useFormatters } from "../../../utils/useFormatters";
 
 interface IProps {
   group: Group;
@@ -25,11 +26,6 @@ const statusClass: Record<IncidentTableStatus, string> = {
   Open: "bg-slate-100 text-slate-700 dark:bg-gray-700 dark:text-gray-300",
   Closed: "bg-purple-100 text-purple-700 dark:bg-purple-100 dark:saturate-[0.7]",
   "In Progress": "bg-blue-100 text-blue-700 dark:bg-blue-100 dark:saturate-[0.7]",
-};
-
-const formatDateTime = (raw?: Date | string | null) => {
-  if (!raw) return "—";
-  return raw.toString().slice(0, 16).replace("T", " ");
 };
 
 const formatDuration = (seconds?: number | null) => {
@@ -63,6 +59,7 @@ const Row = ({ label, children }: { label: string; children: React.ReactNode }) 
 // Read-only incident summary for the compare grid. Mirrors the columns the
 // incidents table shows, in a card layout for side-by-side scanning.
 const CompareIncidentCard = ({ group, onRemove, onOpenAsns }: IProps) => {
+  const { formatDateTime } = useFormatters();
   const status = statusFromGroup(group);
   const duration = formatDuration(group.incidentDurationSeconds);
   const reportCount = group._reports?.length ?? 0;

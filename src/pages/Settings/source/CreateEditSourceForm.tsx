@@ -1,7 +1,7 @@
 import * as Yup from "yup";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useField } from "formik";
 
 import { getCredentials } from "../../../api/credentials";
@@ -12,10 +12,15 @@ import { Listbox } from "@headlessui/react";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
 import FormikWithSchema from "../../../components/FormikWithSchema";
+import type { Credential } from "../../../api/credentials/types";
 
-import { faChevronDown, faCheck } from "@fortawesome/free-solid-svg-icons";
+import {
+  faChevronDown,
+  faCheck,
+  faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { CredentialOption, CREDENTIAL_OPTIONS } from "../../../api/common";
+import { CredentialOption, CREDENTIAL_OPTIONS, providerLabel } from "../../../api/common";
 
 import { getTeams } from "../../../api/teams";
 import type { Team } from "../../../api/teams/types";
@@ -23,20 +28,166 @@ import type { Team } from "../../../api/teams/types";
 interface IProps {
   source?: Source;
   onClose: () => void;
+  // Pre-scope a brand-new source form to an API type (e.g. when opened from a
+  // per-type section). Ignored when editing an existing source.
+  defaultType?: CredentialOption;
+  // When false, the connection dropdown is hidden and the provider's single
+  // connection is auto-selected (see the Feeds-page toggle).
+  allowMultipleConnections?: boolean;
 }
+
+// The "Feed name" is just a display label for the feed (the `nickname`
+// field) — it does not affect what gets fetched. Spell that out so users don't
+// confuse it with the account/handle, the connection, or the provider.
+const SourceNameField = () => (
+  <FormikInput
+    name='nickname'
+    label='Feed name'
+    placeholder="A label for this feed, e.g. 'Elections, Mastodon #wildfire'"
+    hint="A name to identify this feed in your lists; the items it collects appear as Alerts. It's only a label and doesn't change what gets fetched. Pick something recognizable, like the topic plus the account or hashtag."
+  />
+);
+
+// Credential picker: pick an existing credential of this type. Connections are
+// configured ahead of time on the Connections page, so there's no inline "add
+// connection" here — the feed form only chooses among what already exists.
+// When multiple connections per provider are disabled there's only ever one to
+// use, so the dropdown is hidden and the sole connection is auto-selected.
+const CredentialPickerField = ({
+  label,
+  credentialsList,
+  allowMultiple = true,
+}: {
+  label: string;
+  credentialsList?: Credential[];
+  allowMultiple?: boolean;
+}) => {
+  const [, meta, helpers] = useField<string>("credentials");
+
+  const options =
+    credentialsList?.map((cred) => ({ _id: cred._id, label: cred.name })) || [];
+
+  // Convenience: when nothing is selected yet (new source) and credentials of
+  // this type exist, default to the first one. Runs once options are available;
+  // never overrides an explicit choice.
+  const value = meta.value;
+  useEffect(() => {
+    if (!value && options.length) {
+      helpers.setValue(options[0]._id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, options.length]);
+
+  // One connection per provider: skip the picker entirely (value is set above).
+  if (!allowMultiple) return null;
+
+  return (
+    <div className='flex flex-col gap-2'>
+      <FormikDropdown
+        list={
+          options.length
+            ? options
+            : [{ _id: "", label: "No connections yet. Add one in Connections" }]
+        }
+        label={label}
+        name={"credentials"}
+      />
+    </div>
+  );
+};
+
+// Chip input for tracking multiple hashtags at once, backed by the Formik
+// `lists` field as a comma-separated string (the Mastodon channel splits it).
+const MastodonHashtagField = () => {
+  const [field, , helpers] = useField<string>("lists");
+  const [draft, setDraft] = useState("");
+
+  const parse = (raw: string) =>
+    (raw || "")
+      .split(/[\s,]+/)
+      .map((tag) => tag.trim().replace(/^#+/, ""))
+      .filter(Boolean);
+
+  const tags = parse(field.value);
+
+  const commit = (raw: string) => {
+    const next = [...tags];
+    parse(raw).forEach((tag) => {
+      if (!next.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+        next.push(tag);
+      }
+    });
+    helpers.setValue(next.join(", "));
+    setDraft("");
+  };
+
+  const removeTag = (tag: string) => {
+    helpers.setValue(tags.filter((existing) => existing !== tag).join(", "));
+  };
+
+  return (
+    <div className='flex flex-col gap-1'>
+      <span className='text-slate-600 dark:text-gray-400'>
+        {tags.length === 1 ? "Hashtag" : "Hashtags"}
+      </span>
+      <p className='text-xs text-slate-500 dark:text-gray-400'>
+        Type a hashtag and press Enter to add it. Add as many as you want. We'll
+        pull in posts that use any of them, and a post with more than one tag only
+        shows up once.
+      </p>
+      <div className='flex flex-wrap gap-2 items-center px-2 py-2 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900'>
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className='inline-flex items-center gap-1 rounded-full bg-slate-200 dark:bg-gray-600 px-2 py-1 text-sm font-medium'
+          >
+            #{tag}
+            <button
+              type='button'
+              onClick={() => removeTag(tag)}
+              className='text-slate-500 hover:text-slate-800 dark:hover:text-gray-200'
+              aria-label={`Remove ${tag}`}
+            >
+              <FontAwesomeIcon icon={faXmark} size='xs' />
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (/[\s,]$/.test(value)) commit(value);
+            else setDraft(value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              commit(draft);
+            } else if (e.key === "Backspace" && !draft && tags.length) {
+              removeTag(tags[tags.length - 1]);
+            }
+          }}
+          onBlur={() => commit(draft)}
+          placeholder={tags.length ? "Add another…" : "Type a hashtag and press Enter"}
+          className='flex-1 min-w-[8rem] bg-transparent focus:outline-none text-black dark:text-gray-300 px-1 py-1'
+        />
+      </div>
+    </div>
+  );
+};
 
 const MastodonConditionalFields = () => {
   const [, meta] = useField<string>("keywords");
   const mode = meta.value;
-  const keywordLabel = mode === "hashtag" ? "Hashtag" : "Keyword";
 
   return (
     <>
-      {(mode === "hashtag" || mode === "keyword") && (
+      {mode === "hashtag" && <MastodonHashtagField />}
+      {mode === "keyword" && (
         <FormikInput
           name='lists'
-          label={keywordLabel}
-          placeholder={`Required for ${keywordLabel.toLowerCase()} mode`}
+          label='Keyword'
+          placeholder='Required for keyword mode'
         />
       )}
       {mode === "public" && (
@@ -111,14 +262,14 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
           <label className='text-slate-600 dark:text-gray-400'>
             Cutoff Date
           </label>
+          <p className='text-xs text-slate-500 dark:text-gray-400'>
+            Data before this date is treated as public. Data after this date is restricted to the selected teams.
+          </p>
           <input
             {...cutoffField}
             type='date'
             className='px-3 py-2 focus-theme bg-white dark:bg-gray-800 border border-slate-300 rounded'
           />
-          <p className='text-xs text-slate-500 dark:text-gray-400'>
-            Data before this date is treated as public. Data after this date is restricted to the selected teams.
-          </p>
         </div>
       )}
 
@@ -154,9 +305,21 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
   );
 };
 
-const CreateEditSourceForm = ({ source, onClose }: IProps) => {
+const CreateEditSourceForm = ({
+  source,
+  onClose,
+  defaultType,
+  allowMultipleConnections = true,
+}: IProps) => {
   const [credentialType, setCredentialType] =
-    useState<CredentialOption>((source?.media as CredentialOption) || "ioda");
+    useState<CredentialOption>(
+      (source?.media as CredentialOption) || defaultType || "ioda"
+    );
+
+  // The provider is fixed whenever it's known upfront — editing an existing feed
+  // or adding one from a provider-scoped section. Only a bare "new feed" form
+  // (no source, no defaultType) lets the user pick the provider.
+  const providerLocked = !!source || !!defaultType;
 
   const queryClient = useQueryClient();
 
@@ -167,9 +330,6 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
   const { data: teams } = useQuery(["teams"], getTeams, {
     staleTime: 50000,
   });
-
-  const defaultCredential =
-    credentials && credentials.find((cred) => cred.type === credentialType);
 
   const credentialsList =
     credentials && credentials.filter((cred) => cred.type === credentialType);
@@ -224,7 +384,7 @@ function onSubmit(data: any) {
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
   const JunkipediaSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     // sourceKeywords: Yup.string().required(
     //   "Keywords are required to create a Junkipedia source"
     // ),
@@ -232,7 +392,7 @@ function onSubmit(data: any) {
     //   "Lists are required to create a Junkipedia source"
     // ),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type IJunkipediaSchema = Yup.InferType<typeof JunkipediaSchema>;
@@ -245,7 +405,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "https://www.junkipedia.com/",
         ...sourceAccessInitialValues,
@@ -257,26 +417,36 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
-      <FormikInput name='lists' label='Lists' />
-
-      <FormikDropdown
-        list={
-          credentialsList?.map((i) => {
-            return { _id: i._id, label: i.name };
-          }) || [{ _id: "", label: "loading" }]
+      <SourceNameField />
+      <FormikInput
+        name='lists'
+        label='Lists'
+        hint={
+          <>
+            Enter a Junkipedia <span className='font-medium'>List ID</span>, a
+            number that points to a monitoring list you've set up in Junkipedia (a
+            saved set of accounts, channels, hashtags, or search terms). Aggie
+            collects the posts from that list as Alerts. Find the ID in Junkipedia
+            under Monitoring → Manage Lists (it's the number in the list's URL). To
+            pull from more than one list, separate the IDs with commas (e.g.
+            1911,4224).
+          </>
         }
-        label={"API Credentials"}
-        name={"credentials"}
+      />
+
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 
   const telegramBotSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type ITelegramBotSchema = Yup.InferType<typeof telegramBotSchema>;
@@ -289,7 +459,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -301,23 +471,23 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikDropdown
         list={
           credentialsList?.map((i) => {
             return { _id: i._id, label: i.name };
           }) || [{ _id: "", label: "loading" }]
         }
-        label={"Bot Credentials"}
+        label={"Connection"}
         name={"credentials"}
       />
     </FormikWithSchema>
   );
 
   const telegramUserSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
     lists: Yup.string().required(
       "At least one Telegram chat, channel, or user is required"
@@ -333,7 +503,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -345,36 +515,29 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
-      <FormikDropdown
-        list={
-          credentialsList?.map((i) => {
-            return { _id: i._id, label: i.name };
-          }) || [{ _id: "", label: "loading" }]
-        }
-        label={"Telegram User Credentials"}
-        name={"credentials"}
+      <SourceNameField />
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
       />
-      <div className='flex flex-col gap-1'>
-        <FormikInput
-          name='lists'
-          label='Chats / Channels / Users'
-          placeholder='Comma-separated Telegram entities, e.g. @channel_one, -1001234567890'
-        />
-        <p className='text-xs text-slate-500 dark:text-gray-400'>
-          Enter the Telegram entities this account can access, such as public usernames
-          like @channel_one or private chat/channel IDs like -1001234567890. Separate
-          multiple entries with commas.
-        </p>
-      </div>
+      <FormikInput
+        name='lists'
+        label='Chats / Channels / Users'
+        placeholder='Comma-separated Telegram entities, e.g. @channel_one, -1001234567890'
+        hint='Enter the Telegram entities this account can access, such as public usernames like @channel_one or private chat/channel IDs like -1001234567890. Separate multiple entries with commas.'
+      />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 
 
   const iodaSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source Name is required"),
+    nickname: Yup.string().required("Feed name is required"),
     keywords: Yup.string().required("Country Code is required"),
+    credentials: Yup.string().required(
+      "A connection is required to create a feed"
+    ),
   });
   type IodaSchema = Yup.InferType<typeof iodaSchema>;
   const iodaForm = (
@@ -386,7 +549,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -398,7 +561,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikDropdown
         list={
           [{ _id: "IR", label: "IR" }]
@@ -406,13 +569,21 @@ function onSubmit(data: any) {
         label={"Two-Letter Country Code"}
         name={"keywords"}
       />
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 
   const cloudflareSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source Name is required"),
+    nickname: Yup.string().required("Feed name is required"),
     keywords: Yup.string().required("Country Code is required"),
+    credentials: Yup.string().required(
+      "A connection is required to create a feed"
+    ),
   });
   type CloudflareSchema = Yup.InferType<typeof cloudflareSchema>;
   const cloudflareForm = (
@@ -424,7 +595,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -436,7 +607,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikDropdown
         list={
           [{ _id: "IR", label: "IR" }]
@@ -444,14 +615,19 @@ function onSubmit(data: any) {
         label={"Two-Letter Country Code"}
         name={"keywords"}
       />
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 
   const mastodonSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
     keywords: Yup.string()
       .oneOf(["public", "home", "hashtag", "keyword"])
@@ -488,7 +664,7 @@ function onSubmit(data: any) {
             : "public",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -508,7 +684,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikDropdown
         list={
           [
@@ -522,14 +698,10 @@ function onSubmit(data: any) {
         name={"keywords"}
       />
       <MastodonConditionalFields />
-      <FormikDropdown
-        list={
-          credentialsList?.map((i) => {
-            return { _id: i._id, label: i.name };
-          }) || [{ _id: "", label: "loading" }]
-        }
-        label={"Mastodon Credentials"}
-        name={"credentials"}
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
@@ -537,7 +709,7 @@ function onSubmit(data: any) {
 
 
   /*const RssSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     // sourceKeywords: Yup.string().required(
     //   "Keywords are required to create a Junkipedia source"
     // ),
@@ -568,7 +740,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikInput name='lists' label='Lists' />
       <FormikInput name='regex' label='regex' />
       <FormikDropdown
@@ -577,19 +749,19 @@ function onSubmit(data: any) {
             return { _id: i._id, label: i.name };
           }) || [{ _id: "", label: "loading" }]
         }
-        label={"API Credentials"}
+        label={"Connection"}
         name={"credentials"}
       />
     </FormikWithSchema>
   );
 
   const twitterSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     // regex: Yup.string().required(
     //   "Query is required to create a Twitter source"
     // ),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type ITwitterSchema = Yup.InferType<typeof twitterSchema>;
@@ -603,7 +775,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "https://www.x.com/",
       }}
@@ -614,7 +786,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Credential Name' />
+      <FormikInput name='nickname' label='Feed name' />
 
       <FormikInput name='regex' label='regex' />
       { /*<FormikInput name='lists' label='Lists' /> }
@@ -625,7 +797,7 @@ function onSubmit(data: any) {
             return { _id: i._id, label: i.name };
           }) || [{ _id: "", label: "loading" }]
         }
-        label={"API Credentials"}
+        label={"Connection"}
         name={"credentials"}
       />
     </FormikWithSchema>
@@ -633,39 +805,43 @@ function onSubmit(data: any) {
 
   return (
     <>
-      <label className='text-slate-600 dark:text-gray-400'>Credential Type</label>
-      <Listbox
-        value={credentialType}
-        onChange={setCredentialType}
-        as='div'
-        className='relative z-20 font-medium mb-3'
-      >
-        <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200 dark:ui-active:bg-gray-600  rounded'>
-          {credentialType || "Select Credential"}
-          <FontAwesomeIcon
-            icon={faChevronDown}
-            className='ui-active:rotate-180 text-slate-400 dark:text-gray-400'
-          />
-        </Listbox.Button>
-        <Listbox.Options className='absolute left-0 right-0 z-30 mt-1 rounded border border-slate-300 bg-white shadow-md dark:bg-gray-800'>
-          {[...CREDENTIAL_OPTIONS].map((item) => (
-            <Listbox.Option
-              key={item}
-              value={item}
-              className='flex justify-between px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 ui-selected:bg-slate-100 dark:ui-selected:bg-gray-700 cursor-pointer items-center'
-            >
-              {item}
-
+      {!providerLocked && (
+        <>
+          <label className='text-slate-600 dark:text-gray-400'>Provider</label>
+          <Listbox
+            value={credentialType}
+            onChange={setCredentialType}
+            as='div'
+            className='relative z-20 font-medium mb-3'
+          >
+            <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200 dark:ui-active:bg-gray-600  rounded'>
+              {credentialType ? providerLabel(credentialType) : "Select Provider"}
               <FontAwesomeIcon
-                icon={faCheck}
-                className={`text-slate-400 dark:text-gray-400${
-                  item === credentialType ? "" : "hidden"
-                }`}
+                icon={faChevronDown}
+                className='ui-active:rotate-180 text-slate-400 dark:text-gray-400'
               />
-            </Listbox.Option>
-          ))}
-        </Listbox.Options>
-      </Listbox>
+            </Listbox.Button>
+            <Listbox.Options className='absolute left-0 right-0 z-30 mt-1 rounded border border-slate-300 bg-white shadow-md dark:bg-gray-800'>
+              {[...CREDENTIAL_OPTIONS].map((item) => (
+                <Listbox.Option
+                  key={item}
+                  value={item}
+                  className='flex justify-between px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 ui-selected:bg-slate-100 dark:ui-selected:bg-gray-700 cursor-pointer items-center'
+                >
+                  {providerLabel(item)}
+
+                  <FontAwesomeIcon
+                    icon={faCheck}
+                    className={`text-slate-400 dark:text-gray-400${
+                      item === credentialType ? "" : "hidden"
+                    }`}
+                  />
+                </Listbox.Option>
+              ))}
+            </Listbox.Options>
+          </Listbox>
+        </>
+      )}
       {credentialType === "junkipedia" && JunkipediaForm}
       {/* {credentialType === "telegramBot" && telegramBotForm} */}
       {credentialType === "telegramUser" && telegramUserForm}

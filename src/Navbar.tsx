@@ -5,7 +5,6 @@ import {
   faRightFromBracket,
   faBars,
   faExternalLinkSquareAlt,
-  faPalette,
   faSun,
   faMoon,
   faShieldHalved,
@@ -218,21 +217,6 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
                 )}
               </Menu.Item>
             ))}
-            { session?.role === "admin"
-              && (process.env.ENVIRONMENT === "development" || process.env.NODE_ENV === "development")
-              && (
-                <Link
-                  className='px-3 py-2  hover:bg-slate-200 dark:hover:bg-gray-600 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left'
-                  to='/style'
-                >
-                  <FontAwesomeIcon
-                    icon={faPalette}
-                    className='place-self-center'
-                  />
-                  Style
-                </Link>
-              )
-            }
             <Menu.Item>
               <span>
                 <AggieButton

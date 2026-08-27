@@ -97,6 +97,11 @@ var userSchema = new Schema({
   mfaEnforced: { type: Boolean, default: false },  
   mfaEnrolledAt: { type: Date },
   createdBy: {type: Schema.Types.ObjectId, ref: 'User', index: true},
+  preferences: {
+    timeFormat: { type: String, enum: ['12h', '24h'], default: '24h' },
+    dateFormat: { type: String, enum: ['MDY', 'DMY'], default: 'DMY' },
+    timeZone:   { type: String, enum: ['local', 'utc'], default: 'local' },
+  },
   mfa: {
     totp: {
       enabled: { type: Boolean, default: false },

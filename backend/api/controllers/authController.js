@@ -260,6 +260,7 @@ exports.session = async (req, res, next) => {
       mfa,
       mfa_enrolled: enrolled,
       mfa_enforced: enforced,
+      preferences: user.preferences || { timeFormat: '24h', dateFormat: 'DMY', timeZone: 'local' },
     }
     return res.status(200).json(userStripped); 
   } catch (err) {
@@ -269,7 +270,8 @@ exports.session = async (req, res, next) => {
 };
 
 exports.logout = (req, res) => {
-  req.logout();
+  const { maxAge, ...clearOpts } = cookieOpts();
+  res.clearCookie('jwt', clearOpts);
   res.status(200).send("Logged Out")
 };
 

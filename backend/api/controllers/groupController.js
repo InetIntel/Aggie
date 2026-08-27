@@ -125,9 +125,10 @@ exports.group_groups = (req, res) => {
 
       try {
         const enrichedResults = await addPopulationCoverageToGroups(groups.results || []);
+        const withSources = await addReportSourcesToGroups(enrichedResults);
         res.status(200).send({
           ...groups,
-          results: enrichedResults,
+          results: withSources,
         });
       } catch (coverageErr) {
         console.error('Error enriching groups with population coverage:', coverageErr);
@@ -783,10 +784,13 @@ exports.group_all_delete = (req, res) => {
 
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
-  if (queryString.before) queryString.storedAt = { $lte: queryString.before };
+  // Filter incidents by when the outage started (incidentStartedAt), not by
+  // ingest time (storedAt). Cast to Date so the Mongo comparison is correct.
+  if (queryString.before)
+    queryString.incidentStartedAt = { $lte: new Date(queryString.before) };
   if (queryString.after)
-    queryString.storedAt = Object.assign({}, queryString.storedAt, {
-      $gte: queryString.after,
+    queryString.incidentStartedAt = Object.assign({}, queryString.incidentStartedAt, {
+      $gte: new Date(queryString.after),
     });
   let query = _.pick(queryString, Group.filterAttributes);
   if (query.tags) query.tags = tags.toArray(query.tags);
@@ -870,6 +874,44 @@ async function addPopulationCoverageToGroups(groups) {
       indirectPopulationCoverageScore: indirectCount > 0 ?
         (indirectMax > 1 ? 1 : indirectMax) :
         null,
+    };
+  });
+}
+
+// Attaches the distinct set of report source medias (e.g. ['ioda','cloudflare'])
+// to each group as `reportSources`, computed in a single aggregation over the
+// page's group ids. Reports back-reference their incident via `_group` and
+// carry their source(s) in `_media`.
+async function addReportSourcesToGroups(groups) {
+  if (!Array.isArray(groups) || groups.length === 0) return groups;
+
+  const normalize = (group) =>
+    typeof group.toObject === 'function' ? group.toObject() : group;
+
+  const groupObjectIds = groups
+    .map((group) => group._id)
+    .filter((id) => id != null);
+
+  if (groupObjectIds.length === 0) {
+    return groups.map((group) => ({ ...normalize(group), reportSources: [] }));
+  }
+
+  const rows = await Report.aggregate([
+    { $match: { _group: { $in: groupObjectIds } } },
+    { $unwind: '$_media' },
+    { $group: { _id: '$_group', sources: { $addToSet: '$_media' } } },
+  ]);
+
+  const sourcesByGroup = new Map();
+  for (const row of rows) {
+    sourcesByGroup.set(String(row._id), row.sources || []);
+  }
+
+  return groups.map((group) => {
+    const normalizedGroup = normalize(group);
+    return {
+      ...normalizedGroup,
+      reportSources: sourcesByGroup.get(String(normalizedGroup._id)) || [],
     };
   });
 }

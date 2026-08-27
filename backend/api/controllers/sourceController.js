@@ -60,17 +60,33 @@ exports.source_create = (req, res) => {
 // Get a list of all sources
 exports.source_sources = async (req, res) => {
   try {
-    // Find all, exclude `events` field, populate user/team access data
     const sources = await Source.find({}, '-events')
       .sort('nickname')
       .populate(sourcePopulate)
-      .lean()
       .exec();
 
+    const counts = await Source.aggregate([
+      {
+        $project: {
+          distinctErrorCount: {
+            $size: { $slice: [{ $ifNull: ['$events', []] }, -50] },
+          },
+        },
+      },
+    ]);
+    const countById = {};
+    counts.forEach((count) => {
+      countById[count._id.toString()] = count.distinctErrorCount;
+    });
+
     const accessUser = await getSourceAccessUser(req);
-    const visibleSources = sources.filter((source) =>
-      canViewSource(accessUser, source)
-    );
+    const visibleSources = sources
+      .filter((source) => canViewSource(accessUser, source))
+      .map((source) => {
+        const obj = source.toObject();
+        obj.distinctErrorCount = countById[source._id.toString()] || 0;
+        return obj;
+      });
 
     if (res.headersSent) return;
 
@@ -104,7 +120,9 @@ exports.source_details = (req, res) => {
             return res.status(403).send('Unauthorized to view this source.');
           }
 
-          return res.status(200).send(source);
+          const obj = source.toObject();
+          obj.distinctErrorCount = Source.distinctErrorCount(source.events);
+          return res.status(200).send(obj);
         } catch (err) {
           if (res.headersSent) return;
 

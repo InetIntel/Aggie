@@ -330,8 +330,10 @@ Report.queryReportsDeduped = async function (query, page, callback, extraFilter)
 
     const [rawReports, countRows] = await Promise.all([
       // fetch raw candidates
-      // IODA chart SVGs now live in media storage (metadata.rawAPIResponse.image holds
-      // a small key, not the inline SVG), so list rows are cheap to ship in full.
+      // Rows are fetched in full here; the IODA signal series
+      // (metadata.rawAPIResponse.chart) is stripped from list rows downstream in
+      // reportController.serializeReportResponse (stripChart: true) and lazy-loaded
+      // per report on the frontend. Legacy IODA image keys are small and left in place.
       Report.find(filter)
         .sort({ authoredAt: -1 })
         .limit(rawFetchLimit)

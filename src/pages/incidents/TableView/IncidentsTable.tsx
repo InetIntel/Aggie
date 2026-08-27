@@ -15,6 +15,7 @@ import { IncidentOverallStatus } from "../IncidentStatuses";
 import { CoverageBadge } from "../IncidentCoverage";
 import ImpactedAsnTable from "../Incident/ImpactedAsnTable";
 import { formatDurationFromSeconds } from "../../../utils/format";
+import { useFormatters } from "../../../utils/useFormatters";
 
 import DataTable from "../../../components/DataTable/DataTable";
 import type {
@@ -30,10 +31,6 @@ interface IProps {
   isLoading?: boolean;
   selection?: DataTableSelection<Group>;
 }
-
-// "YYYY-MM-DD HH:MM" (matches the incident list item), or an em dash when unset.
-const formatStamp = (raw?: Date | string | null): string =>
-  raw ? raw.toString().slice(0, 16).replace("T", " ") : "—";
 
 const formatAssignedTo = (group: Group) => {
   if (!group.assignedTo || group.assignedTo.length === 0) return null;
@@ -55,7 +52,7 @@ const AlertsCount = ({ count }: { count: number }) => (
       {count}
     </span>
     {count > 0 && (
-      <span className="ml-1 text-[16px] text-slate-500 dark:text-gray-400">
+      <span className="ml-1 text-xs text-slate-500 dark:text-gray-400">
         alerts
       </span>
     )}
@@ -67,6 +64,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
   const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
 
   const { doUpdate, doRemove } = useIncidentMutations();
+  const { formatDateTime } = useFormatters();
 
   const columns: DataTableColumn<Group>[] = [
     {
@@ -93,7 +91,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
             >
               {inc.title}
             </Link>
-            <div className="text-[18px] text-slate-500 dark:text-gray-400 mt-0.5">
+            <div className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
               {reportCount} {reportCount === 1 ? "report" : "reports"}
             </div>
             {inc.accessPolicy?.mode === "restricted" && (
@@ -114,11 +112,11 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       tdClassName: "whitespace-nowrap text-xs",
       cell: (inc) => (
         <>
-          <div>{formatStamp(inc.incidentStartedAt)}</div>
+          <div>{formatDateTime(inc.incidentStartedAt)}</div>
           <div className="text-slate-400 dark:text-gray-500 my-0.5">
             <FontAwesomeIcon icon={faArrowDown} size="xs" />
           </div>
-          <div>{formatStamp(inc.incidentEndedAt)}</div>
+          <div>{formatDateTime(inc.incidentEndedAt)}</div>
         </>
       ),
     },
@@ -187,6 +185,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         selection={selection}
         hideExpandBar
         connectedExpanded
+        tableClassName="text-xs"
         rowActions={(inc) => (
           <div className="inline-flex items-center gap-2">
             <Link
@@ -217,7 +216,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
           </div>
         )}
         expandedContent={(inc) => (
-          <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8">
+          <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8 text-xs">
             {/* Left: incident metadata as inline "Label: value" rows */}
             <div className="min-[1456px]:flex-1 min-[1456px]:min-w-0 flex flex-col gap-1">
               <div className="flex gap-1">

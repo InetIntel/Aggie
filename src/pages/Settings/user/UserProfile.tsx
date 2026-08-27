@@ -28,6 +28,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { UserRoles } from "../../../api/users/types";
 import SecuritySection from "./components/SecuritySection";
 import PermissionEditor from "./components/PermissionEditor";
+import DisplayPreferencesSection from "./components/DisplayPreferencesSection";
 
 interface IProps {
   session: Session | undefined;
@@ -376,6 +377,7 @@ const UserProfile = ({ session }: IProps) => {
         {isAdmin && !isSelf && data && data.role !== "admin" && (
           <PermissionEditor userId={data._id} />
         )}
+        {isSelf && <DisplayPreferencesSection user={data} />}
 
         <SecuritySection
           session={session}

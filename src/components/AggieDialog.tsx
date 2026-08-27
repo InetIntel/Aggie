@@ -7,7 +7,7 @@ interface IProps {
   isOpen: boolean;
   onClose: () => void;
   data?: {
-    title: string;
+    title: React.ReactNode;
     description?: string;
   };
   children?: React.ReactNode;

@@ -18,11 +18,12 @@ const User = require('./models/user');
 var readLineSync = require('readline-sync');
 var { version: packageVersion } = require('../package.json');
 const cors = require('cors');
-const { getMediaRoot } = require('./fetching/utils/socialImageStorage');
 const groupController = require('./api/controllers/groupController');
 const {
   loadIncidentAccessContext,
 } = require('./api/middlewares/incidentAccessMiddlewares');
+const { normalizeKey } = require('./fetching/utils/socialImageStorage');
+const MediaAsset = require('./models/mediaAsset');
 // Extend global error class
 require('./error');
 require('dotenv').config();
@@ -81,6 +82,32 @@ if (cert) {
   server = require('http').createServer(app);
 }
 
+// Serves media bytes straight from the `mediaassets` Mongo collection at the same unauthenticated
+// GET /media/<key> path the old on-disk `express.static` mount used — so the frontend URL contract
+// is unchanged. Mounted (via app.get below) BEFORE the auth-gated /api in both dev and prod.
+async function serveMediaAsset(req, res) {
+  const key = normalizeKey(req.params[0]);
+  const asset = await MediaAsset.findOne({ key }).lean();
+  if (!asset) return res.sendStatus(404);
+  // Under .lean(), Mongoose 5.9's driver hands back BinData as a mongodb.Binary wrapper, not a
+  // Node Buffer — res.send would JSON-serialize the wrapper. Coerce to the underlying Buffer.
+  const data = Buffer.isBuffer(asset.data) ? asset.data : asset.data.buffer;
+  // social/* keys are random/content-addressed and never mutated → cache hard & immutable.
+  // ioda-chart overwrites in place → revalidate, and key the ETag on updatedAt so a re-fetch busts it.
+  const isImmutable = asset.kind !== 'ioda-chart';
+  const etag = isImmutable ? asset.key : `${asset.key}:${asset.updatedAt.getTime()}`;
+  res.set('Content-Type', asset.contentType);
+  res.set(
+    'Cache-Control',
+    isImmutable
+      ? 'public, max-age=31536000, immutable'
+      : 'public, max-age=0, must-revalidate'
+  );
+  res.set('ETag', etag);
+  if (req.headers['if-none-match'] === etag) return res.sendStatus(304);
+  res.send(data); // Buffer
+}
+
 if (process.env.ENVIRONMENT === 'development') {
   if (process.env.ADMIN_PARTY.toLowerCase() === 'true')
     console.log('Admin Party is enabled.');
@@ -93,10 +120,7 @@ if (process.env.ENVIRONMENT === 'development') {
       credentials: true, // allow session cookie from browser to pass through
     })
   );
-  app.use(
-    '/media',
-    express.static(getMediaRoot())
-  );
+  app.get('/media/*', serveMediaAsset);
   app.use(function (req, res, next) {
     res.header('Access-Control-Allow-Credentials', true);
     res.header('Access-Control-Allow-Origin', req.headers.origin);
@@ -190,10 +214,7 @@ if (process.env.ENVIRONMENT === 'production') {
     '/images',
     express.static(path.join(__dirname, '..', 'build', 'images'))
   );
-  app.use(
-    '/media',
-    express.static(getMediaRoot())
-  );
+  app.get('/media/*', serveMediaAsset);
   app.get('/manifest.json', (req, res) => {
     res.sendFile(path.resolve(__dirname, '..', 'build', 'manifest.json'));
   });

@@ -20,6 +20,7 @@ import TeamsIndex from "./pages/Settings/team/TeamsIndex";
 import TeamDetails from "./pages/Settings/team/TeamDetails";
 import TagsIndex from "./pages/Settings/tag/TagsIndex";
 import CredentialsIndex from "./pages/Settings/Credentials/CredentialsIndex";
+import ConnectionsIndex from "./pages/Settings/Connections/ConnectionsIndex";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Incidents from "./pages/incidents";
@@ -99,6 +100,7 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
         { (sessionData?.role === "admin" || sessionData?.role === "team_lead" ) &&
           <>
             <Route path='users' element={<UsersIndex session={sessionData} />} />
+            <Route path='connections' element={<ConnectionsIndex />} />
             <Route path='credentials' element={<CredentialsIndex />} />
           </>
         }
