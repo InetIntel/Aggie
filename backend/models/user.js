@@ -8,6 +8,7 @@ const {
   PERMISSION_ROLES,
   hasPermission,
 } = require('../access/permissions');
+const { TEAM_PERMISSION_KEYS } = require('../access/teamMemberships');
 require('dotenv').config()
 
 function bufferToBase64url(buf) {
@@ -71,6 +72,18 @@ var userSchema = new Schema({
         type: String,
         enum: ['viewer', 'monitor', 'team_lead'],
         default: 'viewer',
+      },
+      permissionOverrides: {
+        allow: {
+          type: [String],
+          enum: TEAM_PERMISSION_KEYS,
+          default: [],
+        },
+        deny: {
+          type: [String],
+          enum: TEAM_PERMISSION_KEYS,
+          default: [],
+        },
       },
     }],
     default: [],

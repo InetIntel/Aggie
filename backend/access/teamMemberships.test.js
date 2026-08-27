@@ -7,6 +7,7 @@ const {
   getMembershipRole,
   getMembershipTeamIds,
   getTeamIdsWithPermission,
+  getTeamPermissions,
 } = require('./teamMemberships');
 
 test('a global viewer can be a monitor on one team and a viewer on another', () => {
@@ -55,4 +56,43 @@ test('membership ids combine new and legacy fields without duplicates', () => {
   };
 
   assert.deepEqual(getMembershipTeamIds(user), ['team-a', 'team-b']);
+});
+
+test('a member exception can add or remove a team permission', () => {
+  const user = {
+    role: 'viewer',
+    teamMemberships: [
+      {
+        team: 'team-a',
+        role: 'viewer',
+        permissionOverrides: { allow: ['edit data'], deny: [] },
+      },
+      {
+        team: 'team-b',
+        role: 'monitor',
+        permissionOverrides: { allow: [], deny: ['edit data'] },
+      },
+    ],
+  };
+
+  assert.deepEqual(getTeamPermissions(user, 'team-a'), ['view data', 'edit data']);
+  assert.deepEqual(getTeamPermissions(user, 'team-b'), ['view data']);
+});
+
+test('a team limit wins over a member exception', () => {
+  const user = {
+    role: 'viewer',
+    teamMemberships: [
+      {
+        team: 'team-a',
+        role: 'viewer',
+        permissionOverrides: { allow: ['edit data'], deny: [] },
+      },
+    ],
+  };
+  const settings = new Map([
+    ['team-a', { permissionLimits: { deny: ['edit data'] } }],
+  ]);
+
+  assert.deepEqual(getTeamPermissions(user, 'team-a', [], settings), ['view data']);
 });

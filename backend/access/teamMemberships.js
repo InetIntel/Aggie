@@ -6,6 +6,12 @@ const TEAM_MEMBERSHIP_ROLES = Object.freeze([
   'team_lead',
 ]);
 
+const TEAM_PERMISSION_KEYS = Object.freeze([
+  'view data',
+  'edit data',
+  'manage incident access',
+]);
+
 const TEAM_ROLE_PERMISSIONS = Object.freeze({
   viewer: ['view data'],
   monitor: ['view data', 'edit data'],
@@ -23,6 +29,12 @@ const normalizeTeamRole = (role) => {
   return 'viewer';
 };
 
+const normalizeTeamPermissionList = (permissions) => {
+  if (!Array.isArray(permissions)) return [];
+  const known = new Set(TEAM_PERMISSION_KEYS);
+  return [...new Set(permissions.filter((permission) => known.has(permission)))];
+};
+
 const getExplicitMemberships = (user) => {
   if (!user || !Array.isArray(user.teamMemberships)) return [];
 
@@ -30,8 +42,46 @@ const getExplicitMemberships = (user) => {
     .map((membership) => ({
       team: normalizeId(membership && membership.team),
       role: normalizeTeamRole(membership && membership.role),
+      permissionOverrides: {
+        allow: normalizeTeamPermissionList(
+          membership && membership.permissionOverrides && membership.permissionOverrides.allow
+        ),
+        deny: normalizeTeamPermissionList(
+          membership && membership.permissionOverrides && membership.permissionOverrides.deny
+        ),
+      },
     }))
     .filter((membership) => membership.team);
+};
+
+const getTeamPermissions = (
+  user,
+  teamId,
+  explicitlyLedTeamIds = [],
+  teamSettingsById = new Map()
+) => {
+  const normalizedTeamId = normalizeId(teamId);
+  const role = getMembershipRole(user, normalizedTeamId, explicitlyLedTeamIds);
+  if (!role) return [];
+
+  const permissions = new Set(TEAM_ROLE_PERMISSIONS[role]);
+  const membership = getExplicitMemberships(user)
+    .find((item) => item.team === normalizedTeamId);
+
+  if (membership) {
+    membership.permissionOverrides.allow.forEach((permission) => permissions.add(permission));
+    membership.permissionOverrides.deny.forEach((permission) => permissions.delete(permission));
+  }
+
+  const teamSettings = teamSettingsById instanceof Map
+    ? teamSettingsById.get(normalizedTeamId)
+    : teamSettingsById[normalizedTeamId];
+  const teamDenied = normalizeTeamPermissionList(
+    teamSettings && teamSettings.permissionLimits && teamSettings.permissionLimits.deny
+  );
+  teamDenied.forEach((permission) => permissions.delete(permission));
+
+  return [...permissions];
 };
 
 const getMembershipRole = (user, teamId, explicitlyLedTeamIds = []) => {
@@ -68,7 +118,8 @@ const getMembershipTeamIds = (user) => {
 const getTeamIdsWithPermission = (
   user,
   permission,
-  explicitlyLedTeamIds = []
+  explicitlyLedTeamIds = [],
+  teamSettingsById = new Map()
 ) => {
   const candidateTeamIds = [
     ...getMembershipTeamIds(user),
@@ -76,17 +127,24 @@ const getTeamIdsWithPermission = (
   ];
 
   return [...new Set(candidateTeamIds)].filter((teamId) => {
-    const role = getMembershipRole(user, teamId, explicitlyLedTeamIds);
-    return role && TEAM_ROLE_PERMISSIONS[role].includes(permission);
+    return getTeamPermissions(
+      user,
+      teamId,
+      explicitlyLedTeamIds,
+      teamSettingsById
+    ).includes(permission);
   });
 };
 
 module.exports = {
   TEAM_MEMBERSHIP_ROLES,
+  TEAM_PERMISSION_KEYS,
   TEAM_ROLE_PERMISSIONS,
   getExplicitMemberships,
   getMembershipRole,
   getMembershipTeamIds,
   getTeamIdsWithPermission,
+  getTeamPermissions,
+  normalizeTeamPermissionList,
   normalizeTeamRole,
 };
