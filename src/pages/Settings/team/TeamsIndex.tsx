@@ -18,6 +18,7 @@ const TeamsIndex = ({ session }: IProps) => {
 
   const isAdmin = session?.role === "admin";
   const isTeamLead = session?.role === "team_lead";
+  const canCreateTeams = isAdmin || isTeamLead;
   const queryClient = useQueryClient();
 
 const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
@@ -60,9 +61,9 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
         <h2 className='text-3xl font-medium'>Teams</h2>
       </div>
 
-      <div className='grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4'>
+      <div className={canCreateTeams ? "grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4" : "grid"}>
         <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-hidden'>
-          <div className='grid grid-cols-4 px-3 py-3 font-medium text-sm border-b border-slate-300'>
+          <div className={`grid ${canCreateTeams ? "grid-cols-4" : "grid-cols-3"} px-3 py-3 font-medium text-sm border-b border-slate-300`}>
             <p>Name</p>
             <p>Description</p>
             <p>Status</p>
@@ -73,7 +74,7 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
               teams.map((team) => (
                 <article
                   key={team._id}
-                  className='grid grid-cols-4 px-3 py-3 items-center border-b border-slate-200 last:border-b-0'
+                  className={`grid ${canCreateTeams ? "grid-cols-4" : "grid-cols-3"} px-3 py-3 items-center border-b border-slate-200 last:border-b-0`}
                 >
                   <Link 
                     to={`/settings/team/${team._id}`}
@@ -87,7 +88,7 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
                   <p className='text-sm'>
                     {team.active === false ? "Inactive" : "Active"}
                   </p>
-                  <div className='flex justify-end'>
+                  {canCreateTeams && <div className='flex justify-end'>
                     <AggieButton
                       variant='danger'
                       disabled={doDeleteTeam.isLoading}
@@ -99,7 +100,7 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
                     >
                       Delete
                     </AggieButton>
-                  </div>
+                  </div>}
                 </article>
               ))
             ) : (
@@ -110,7 +111,7 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
           </PlaceholderDiv>
         </div>
 
-        <form
+        {canCreateTeams && <form
           onSubmit={onSubmit}
           className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 p-3 h-fit flex flex-col gap-3'
         >
@@ -145,7 +146,7 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
           >
             Create Team
           </AggieButton>
-        </form>
+        </form>}
       </div>
     </section>
   );
