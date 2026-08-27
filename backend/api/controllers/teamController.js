@@ -183,12 +183,8 @@ exports.team_add_member = async (req, res) => {
       return res.status(403).send('Unauthorized to manage team members.');
     }
 
-    if (
-      ['team_lead_scoped', 'team_lead'].includes(role) &&
-      !isAdmin(req.user) &&
-      !isLegacyTeamLead(req.user)
-    ) {
-      return res.status(403).send('Only administrators and legacy team leads can appoint team leads during migration.');
+    if (['team_lead_scoped', 'team_lead'].includes(role) && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can appoint team leads.');
     }
 
     const user = await User.findById(userId).select('-password');
@@ -199,6 +195,11 @@ exports.team_add_member = async (req, res) => {
 
     if (user.role === 'admin') {
       return res.status(403).send('Admin users cannot be assigned from the team page.');
+    }
+
+    const userIsTeamLead = normalizeIds(team.leads).includes(String(user._id));
+    if (userIsTeamLead && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can update team leads.');
     }
 
     user.teams = user.teams || [];
@@ -226,10 +227,7 @@ exports.team_add_member = async (req, res) => {
       });
     }
 
-    if (role === 'team_lead_scoped') {
-      team.leads.addToSet(user._id);
-    } else if (role === 'team_lead') {
-      user.role = role;
+    if (['team_lead_scoped', 'team_lead'].includes(role)) {
       team.leads.addToSet(user._id);
     } else {
       team.leads.pull(user._id);
@@ -274,6 +272,11 @@ exports.team_remove_member = async (req, res) => {
 
     if (user.role === 'admin') {
       return res.status(403).send('Admin users cannot be removed from teams here.');
+    }
+
+    const userIsTeamLead = normalizeIds(team.leads).includes(String(user._id));
+    if (userIsTeamLead && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can remove team leads.');
     }
 
     await User.findByIdAndUpdate(req.params.userId, {
