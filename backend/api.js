@@ -142,7 +142,7 @@ function handleRequestTimeouts(req, res, next) {
   var requestTimeout = parseInt(process.env.API_REQUEST_TIMEOUT);
 
   // exit if disabled
-  if (requestTimeout <= 0) return next();
+  if (!Number.isFinite(requestTimeout) || requestTimeout <= 0) return next();
 
   var timeoutId = setTimeout(function () {
     // timeout has happened, something bad has happened, send 500 back
