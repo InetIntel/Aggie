@@ -2,8 +2,18 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
-import { addTeamMember, getTeam, removeTeamMember } from "../../../api/teams";
-import type { TeamDetailResponse, TeamMember } from "../../../api/teams/types";
+import {
+  addTeamMember,
+  getTeam,
+  removeTeamMember,
+  updateTeamMemberPermissions,
+  updateTeamPermissionLimits,
+} from "../../../api/teams";
+import type {
+  TeamDetailResponse,
+  TeamMember,
+  TeamPermission,
+} from "../../../api/teams/types";
 import type { Session } from "../../../api/session/types";
 import { getManageableUsers } from "../../../api/users";
 import AggieButton from "../../../components/AggieButton";
@@ -16,6 +26,30 @@ interface IProps {
 }
 
 type TeamRole = "viewer" | "monitor" | "team_lead";
+type TeamTab = "overview" | "members" | "advanced";
+type PermissionChoice = "default" | "allow" | "deny";
+
+const teamPermissions: Array<{
+  key: TeamPermission;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: "view data",
+    label: "View team data",
+    description: "View sources, reports, and incidents available to this team.",
+  },
+  {
+    key: "edit data",
+    label: "Edit team data",
+    description: "Make changes to reports and incidents available to this team.",
+  },
+  {
+    key: "manage incident access",
+    label: "Manage incident access",
+    description: "Set or change which teams can access an incident.",
+  },
+];
 
 const roleLabels: Record<TeamRole, string> = {
   viewer: "Viewer",
@@ -42,9 +76,13 @@ const TeamDetails = ({ session }: IProps) => {
   const [selectedRole, setSelectedRole] = useState<TeamRole>("viewer");
   const [pendingRoles, setPendingRoles] = useState<Record<string, TeamRole>>({});
   const [removingUserId, setRemovingUserId] = useState<string>();
+  const [pendingPermission, setPendingPermission] = useState("");
   const [createUserOpen, setCreateUserOpen] = useState(false);
 
-  const activeTab = searchParams.get("tab") === "members" ? "members" : "overview";
+  const requestedTab = searchParams.get("tab");
+  const activeTab: TeamTab = requestedTab === "members" || requestedTab === "advanced"
+    ? requestedTab
+    : "overview";
   const isAdmin = session?.role === "admin";
   const isGlobalTeamLead = session?.role === "team_lead";
   const isScopedTeamLead = session?.isTeamLead === true && !isAdmin && !isGlobalTeamLead;
@@ -92,10 +130,51 @@ const TeamDetails = ({ session }: IProps) => {
     onSettled: () => setRemovingUserId(undefined),
   });
 
+  const doUpdateMemberPermissions = useMutation(
+    ({
+      member,
+      permission,
+      choice,
+    }: {
+      member: TeamMember;
+      permission: TeamPermission;
+      choice: PermissionChoice;
+    }) => {
+      if (!params.id) throw new Error("Team id is missing.");
+
+      const allow = new Set(member.teamPermissionOverrides?.allow || []);
+      const deny = new Set(member.teamPermissionOverrides?.deny || []);
+      allow.delete(permission);
+      deny.delete(permission);
+
+      if (choice === "allow") allow.add(permission);
+      if (choice === "deny") deny.add(permission);
+
+      return updateTeamMemberPermissions({
+        teamId: params.id,
+        userId: member._id,
+        allow: Array.from(allow),
+        deny: Array.from(deny),
+      });
+    },
+    {
+      onMutate: ({ member, permission }) => {
+        setPendingPermission(`${member._id}:${permission}`);
+      },
+      onSuccess: saveTeam,
+      onSettled: () => setPendingPermission(""),
+    }
+  );
+
+  const doUpdateTeamLimits = useMutation(updateTeamPermissionLimits, {
+    onSuccess: saveTeam,
+  });
+
   const members = data?.members || [];
   const teamLeads = members.filter((member) => getTeamRole(member) === "team_lead");
   const monitors = members.filter((member) => getTeamRole(member) === "monitor");
   const viewers = members.filter((member) => getTeamRole(member) === "viewer");
+  const deniedTeamPermissions = data?.team.permissionLimits?.deny || [];
   const existingMemberIds = new Set(members.map((member) => member._id));
   const selectableUsers = (users || []).filter(
     (user) =>
@@ -104,8 +183,17 @@ const TeamDetails = ({ session }: IProps) => {
       !existingMemberIds.has(user._id)
   );
 
-  const setTab = (tab: "overview" | "members") => {
-    setSearchParams(tab === "members" ? { tab: "members" } : {});
+  const setTab = (tab: TeamTab) => {
+    setSearchParams(tab === "overview" ? {} : { tab });
+  };
+
+  const getPermissionChoice = (
+    member: TeamMember,
+    permission: TeamPermission
+  ): PermissionChoice => {
+    if (member.teamPermissionOverrides?.allow.includes(permission)) return "allow";
+    if (member.teamPermissionOverrides?.deny.includes(permission)) return "deny";
+    return "default";
   };
 
   return (
@@ -151,6 +239,17 @@ const TeamDetails = ({ session }: IProps) => {
             >
               Members &amp; Access
             </button>
+            <button
+              type='button'
+              className={`px-3 py-2 text-sm font-medium border-b-2 ${
+                activeTab === "advanced"
+                  ? "border-lime-700 text-lime-800"
+                  : "border-transparent text-slate-600"
+              }`}
+              onClick={() => setTab("advanced")}
+            >
+              Advanced
+            </button>
           </div>
         </div>
 
@@ -195,7 +294,7 @@ const TeamDetails = ({ session }: IProps) => {
               </AggieButton>
             </div>
           </div>
-        ) : (
+        ) : activeTab === "members" ? (
           <div className='grid gap-4 mt-4'>
             <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 p-4'>
               <div className='flex justify-between items-center gap-3 mb-3'>
@@ -331,6 +430,138 @@ const TeamDetails = ({ session }: IProps) => {
                       ) : (
                         <span />
                       )}
+                    </article>
+                  );
+                })
+              ) : (
+                <div className='px-4 py-6 text-sm text-slate-600 dark:text-gray-300'>
+                  No members are assigned to this team.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className='grid gap-4 mt-4'>
+            <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 p-4'>
+              <h3 className='text-xl font-medium'>Team-wide limits</h3>
+              <p className='text-sm text-slate-600 dark:text-gray-300 mt-1'>
+                These limits apply to everyone on the team, even when a member has a broader role.
+              </p>
+
+              <div className='grid md:grid-cols-2 gap-3 mt-4'>
+                {teamPermissions
+                  .filter((permission) => permission.key !== "view data")
+                  .map((permission) => {
+                    const blocked = deniedTeamPermissions.includes(permission.key);
+
+                    return (
+                      <label
+                        key={permission.key}
+                        className='flex items-start gap-3 rounded border border-slate-300 p-3'
+                      >
+                        <input
+                          type='checkbox'
+                          className='mt-1'
+                          checked={blocked}
+                          disabled={!isAdmin || !params.id || doUpdateTeamLimits.isLoading}
+                          onChange={() => {
+                            if (!params.id) return;
+                            const deny = blocked
+                              ? deniedTeamPermissions.filter((item) => item !== permission.key)
+                              : [...deniedTeamPermissions, permission.key];
+                            doUpdateTeamLimits.mutate({ teamId: params.id, deny });
+                          }}
+                        />
+                        <span>
+                          <span className='font-medium'>Block {permission.label.toLowerCase()}</span>
+                          <span className='block text-sm text-slate-600 dark:text-gray-300 mt-1'>
+                            {permission.description}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+              </div>
+
+              {!isAdmin && (
+                <p className='text-sm text-slate-600 dark:text-gray-300 mt-3'>
+                  Only an administrator can change limits for the whole team.
+                </p>
+              )}
+            </div>
+
+            <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-x-auto'>
+              <div className='p-4 border-b border-slate-300'>
+                <h3 className='text-xl font-medium'>Member permission exceptions</h3>
+                <p className='text-sm text-slate-600 dark:text-gray-300 mt-1'>
+                  Use the team role by default, or make an exception for one member on this team.
+                </p>
+              </div>
+
+              <div className='grid min-w-[950px] grid-cols-[minmax(190px,1.4fr)_repeat(3,minmax(190px,1fr))] gap-3 px-4 py-3 text-sm font-medium border-b border-slate-300'>
+                <p>Member</p>
+                {teamPermissions.map((permission) => (
+                  <p key={permission.key}>{permission.label}</p>
+                ))}
+              </div>
+
+              {members.length > 0 ? (
+                members.map((member) => {
+                  const savedRole = getTeamRole(member);
+                  const memberIsAdmin = member.accountRole === "admin";
+                  const canEditPermissions =
+                    !memberIsAdmin && (isAdmin || savedRole !== "team_lead");
+
+                  return (
+                    <article
+                      key={member._id}
+                      className='grid min-w-[950px] grid-cols-[minmax(190px,1.4fr)_repeat(3,minmax(190px,1fr))] gap-3 px-4 py-3 border-b border-slate-200 last:border-b-0'
+                    >
+                      <div>
+                        <p className='font-medium'>{member.displayName || member.username}</p>
+                        <p className='text-xs text-slate-600 dark:text-gray-300 mt-1'>
+                          {roleLabels[savedRole]}
+                        </p>
+                      </div>
+
+                      {teamPermissions.map((permission) => {
+                        const choice = getPermissionChoice(member, permission.key);
+                        const blockedByTeam = deniedTeamPermissions.includes(permission.key);
+                        const allowed = member.teamPermissions?.includes(permission.key) === true;
+                        const pendingKey = `${member._id}:${permission.key}`;
+
+                        return (
+                          <label key={permission.key} className='flex flex-col gap-1 text-sm'>
+                            <select
+                              className='px-2 py-1 rounded border border-slate-300 dark:bg-gray-700'
+                              value={choice}
+                              disabled={
+                                !canEditPermissions ||
+                                pendingPermission === pendingKey ||
+                                blockedByTeam
+                              }
+                              onChange={(event) => {
+                                doUpdateMemberPermissions.mutate({
+                                  member,
+                                  permission: permission.key,
+                                  choice: event.target.value as PermissionChoice,
+                                });
+                              }}
+                            >
+                              <option value='default'>Use team role</option>
+                              <option value='allow'>Allow</option>
+                              <option value='deny'>Deny</option>
+                            </select>
+                            <span className='text-xs text-slate-600 dark:text-gray-300'>
+                              {blockedByTeam
+                                ? "Blocked for the team"
+                                : allowed
+                                  ? "Currently allowed"
+                                  : "Currently not allowed"}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </article>
                   );
                 })

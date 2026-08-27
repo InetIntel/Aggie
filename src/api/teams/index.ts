@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Team, TeamDetailResponse } from "./types";
+import type { Team, TeamDetailResponse, TeamPermission } from "./types";
 
 export const getTeams = async () => {
   const { data } = await axios.get<Team[]>("/api/team");
@@ -52,6 +52,35 @@ export const removeTeamMember = async (params: {
 }) => {
   const { data } = await axios.delete<TeamDetailResponse>(
     "/api/team/" + params.teamId + "/member/" + params.userId
+  );
+
+  return data;
+};
+
+export const updateTeamMemberPermissions = async (params: {
+  teamId: string;
+  userId: string;
+  allow: TeamPermission[];
+  deny: TeamPermission[];
+}) => {
+  const { data } = await axios.put<TeamDetailResponse>(
+    "/api/team/" + params.teamId + "/member/" + params.userId + "/permissions",
+    {
+      allow: params.allow,
+      deny: params.deny,
+    }
+  );
+
+  return data;
+};
+
+export const updateTeamPermissionLimits = async (params: {
+  teamId: string;
+  deny: TeamPermission[];
+}) => {
+  const { data } = await axios.put<TeamDetailResponse>(
+    "/api/team/" + params.teamId + "/permissions",
+    { deny: params.deny }
   );
 
   return data;
