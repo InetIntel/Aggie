@@ -71,3 +71,14 @@ test('unknown permissions cannot be granted through overrides', () => {
   assert.equal(hasPermission(viewer, 'unknown permission'), false);
   assert.equal(getEffectivePermissions(viewer).includes('unknown permission'), false);
 });
+
+test('account administration cannot be granted through an override', () => {
+  const user = {
+    role: 'monitor',
+    permissionOverrides: { allow: ['admin users', 'change admin password', 'manage sources'], deny: [] },
+  };
+
+  assert.equal(hasPermission(user, 'admin users'), false);
+  assert.equal(hasPermission(user, 'change admin password'), false);
+  assert.equal(hasPermission(user, 'manage sources'), true);
+});

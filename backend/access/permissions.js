@@ -21,6 +21,12 @@ const PERMISSION_ROLES = Object.freeze({
 
 const PERMISSION_KEYS = Object.freeze(Object.keys(PERMISSION_ROLES));
 
+// These account controls stay with administrators.
+const ADMIN_ONLY_PERMISSIONS = Object.freeze(['admin users', 'change admin password']);
+const OVERRIDABLE_PERMISSION_KEYS = Object.freeze(
+  PERMISSION_KEYS.filter((permission) => !ADMIN_ONLY_PERMISSIONS.includes(permission))
+);
+
 const normalizePermissionList = (values) => {
   if (!Array.isArray(values)) return [];
   const knownPermissions = new Set(PERMISSION_KEYS);
@@ -49,7 +55,7 @@ const getEffectivePermissions = (user) => {
   // An explicit deny wins when the same permission appears in both lists.
   denied.forEach((permission) => effective.delete(permission));
 
-  return PERMISSION_KEYS.filter((permission) => effective.has(permission));
+  return OVERRIDABLE_PERMISSION_KEYS.filter((permission) => effective.has(permission));
 };
 
 const hasPermission = (user, permission) => {
@@ -58,6 +64,8 @@ const hasPermission = (user, permission) => {
 };
 
 module.exports = {
+  ADMIN_ONLY_PERMISSIONS,
+  OVERRIDABLE_PERMISSION_KEYS,
   PERMISSION_KEYS,
   PERMISSION_ROLES,
   getEffectivePermissions,

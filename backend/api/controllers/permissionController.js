@@ -3,6 +3,8 @@
 const User = require('../../models/user');
 const {
   PERMISSION_KEYS,
+  ADMIN_ONLY_PERMISSIONS,
+  OVERRIDABLE_PERMISSION_KEYS,
   getEffectivePermissions,
   getRolePermissions,
   normalizePermissionList,
@@ -22,7 +24,7 @@ const serializePermissionSettings = (user) => {
     userId: String(user._id),
     role: user.role,
     editable: user.role !== 'admin',
-    permissions: PERMISSION_KEYS.map((permission) => ({
+    permissions: OVERRIDABLE_PERMISSION_KEYS.map((permission) => ({
       permission,
       roleDefault: roleDefaults.has(permission),
       effective: effective.has(permission),
@@ -59,6 +61,9 @@ exports.permission_user_update = async (req, res) => {
   const knownPermissions = new Set(PERMISSION_KEYS);
   if (submitted.some((permission) => !knownPermissions.has(permission))) {
     return res.status(400).send('One or more permissions are invalid.');
+  }
+  if (submitted.some((permission) => ADMIN_ONLY_PERMISSIONS.includes(permission))) {
+    return res.status(400).send('Administrator account controls cannot be overridden.');
   }
 
   const allow = normalizePermissionList(req.body.allow);
