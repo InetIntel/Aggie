@@ -52,20 +52,18 @@ module.exports = (httpServer) => {
   EventRouter.on('tags:delete', handleEvent('tags'));
   EventRouter.on('tags:update', handleEvent('tags'));
 
-  EventRouter.on('sources:create', handleEvent('sources'));
-  EventRouter.on('sources:delete', handleEvent('sources'));
-  EventRouter.on('sources:update', handleEvent('sources'));
+  // Reload through the API so each user only receives data they can access.
+  EventRouter.on('sources:create', handleEvent('sources', () => null));
+  EventRouter.on('sources:delete', handleEvent('sources', () => null));
+  EventRouter.on('sources:update', handleEvent('sources', () => null));
 
-  // Incident payloads may contain restricted titles, notes, comments, and team
-  // assignments. Clients receive only an invalidation signal and refetch data
-  // through the access-controlled API.
   EventRouter.on('groups:create', handleEvent('reports', () => null));
   EventRouter.on('groups:delete', handleEvent('reports', () => null));
   EventRouter.on('groups:update', handleEvent('reports', () => null));
 
-  EventRouter.on('reports:update', handleEvent('reports'));
-  EventRouter.on('reports:create', handleEvent('reports'));
-  EventRouter.on('reports:delete', handleEvent('reports'));
-  EventRouter.on('reports:read', handleEvent('reports'));
+  EventRouter.on('reports:update', handleEvent('reports', () => null));
+  EventRouter.on('reports:create', handleEvent('reports', () => null));
+  EventRouter.on('reports:delete', handleEvent('reports', () => null));
+  EventRouter.on('reports:read', handleEvent('reports', () => null));
 
 };
