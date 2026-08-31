@@ -1,5 +1,6 @@
 import * as Yup from "yup";
 
+import { useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { setPassword as setPasswordApi } from "../../../api/users";
@@ -38,6 +39,14 @@ function errorMessage(err: unknown): string {
 const SetPassword = ({ user, onClose }: IProps) => {
   const doSetPassword = useMutation(setPasswordApi);
 
+  // On success, keep the dialog open briefly so the confirmation message is
+  // visible, then auto-close. Cleanup guards against unmount / re-close.
+  useEffect(() => {
+    if (!doSetPassword.isSuccess) return;
+    const timer = setTimeout(onClose, 1500);
+    return () => clearTimeout(timer);
+  }, [doSetPassword.isSuccess, onClose]);
+
   if (!user) return <></>;
 
   function onSubmitForm(e: IPasswordSchema, resetForm: () => void) {
@@ -45,9 +54,10 @@ const SetPassword = ({ user, onClose }: IProps) => {
     doSetPassword.mutate(
       { _id: user._id, pass: e.password },
       {
+        // Reset the form but keep the dialog open so the success message shows;
+        // the effect above auto-closes it after a short delay.
         onSuccess: () => {
           resetForm();
-          onClose();
         },
         // Keep the dialog open on failure so the error is visible instead of
         // silently swallowed (see doSetPassword.isError render below).
@@ -73,6 +83,11 @@ const SetPassword = ({ user, onClose }: IProps) => {
             {errorMessage(doSetPassword.error)}
           </p>
         )}
+        {doSetPassword.isSuccess && (
+          <p className='text-sm text-green-700' role='status'>
+            Password successfully changed!
+          </p>
+        )}
         <div className='flex justify-between'>
           <AggieButton
             disabled={doSetPassword.isLoading}
@@ -84,7 +99,7 @@ const SetPassword = ({ user, onClose }: IProps) => {
           </AggieButton>
           <AggieButton
             variant='primary'
-            disabled={doSetPassword.isLoading}
+            disabled={doSetPassword.isLoading || doSetPassword.isSuccess}
             loading={doSetPassword.isLoading}
             type={"submit"}
           >
