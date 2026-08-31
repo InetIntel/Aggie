@@ -10,7 +10,7 @@ const eventRouter = require('../sockets/event-router');
 const { saveFile, deleteFile, getUploadDir } = require('../utils/fileStorage');
 const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../../config/models/groupConfigs');
 const path = require('path');
-const { canViewIncident } = require('../../access/incidentAccess');
+const { canViewIncident, canModifyIncidentWithScope } = require('../../access/incidentAccess');
 
 exports.group_attachment_download = async (req, res) => {
   const filename = req.params.filename;
@@ -763,9 +763,15 @@ exports.group_delete = async (req, res, next) => {
 
 // Delete all Groups
 exports.group_all_delete = (req, res) => {
+  if (!req.permissionScope || req.permissionScope.permission !== 'edit data') {
+    return res.status(403).send('Incident permissions have not been checked.');
+  }
   const accessFilter = req.incidentAccess && req.incidentAccess.filter;
   Group.find(accessFilter || {}, function (err, groups) {
     if (err) return res.status(err.status).send(err.message);
+    if (groups.some((group) => !canModifyIncidentWithScope(req.permissionScope, group))) {
+      return res.status(403).send('Your team role cannot delete one or more incidents.');
+    }
     if (groups.length === 0) return res.sendStatus(200);
     var remaining = groups.length;
     groups.forEach(function (group) {

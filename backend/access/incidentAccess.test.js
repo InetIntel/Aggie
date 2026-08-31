@@ -5,6 +5,7 @@ const test = require('node:test');
 
 const {
   buildIncidentAccessFilter,
+  canModifyIncidentWithScope,
   canSetIncidentPolicy,
   canViewIncident,
   getAccessibleTeamIds,
@@ -207,4 +208,12 @@ test('a permission override can grant incident access management', () => {
     ),
     true
   );
+});
+
+test('incident changes need global access or a permitted team', () => {
+  const scope = { permission: 'edit data', teamIds: ['team-a'], allowUnscoped: false };
+  assert.equal(canModifyIncidentWithScope(undefined, restrictedIncident), false);
+  assert.equal(canModifyIncidentWithScope(scope, restrictedIncident), true);
+  assert.equal(canModifyIncidentWithScope({ ...scope, teamIds: [] }, restrictedIncident), false);
+  assert.equal(canModifyIncidentWithScope({ permission: 'edit data', global: true }, restrictedIncident), true);
 });

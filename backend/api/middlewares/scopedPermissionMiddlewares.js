@@ -16,7 +16,7 @@ const allowGlobalOrScoped = (permission) => async (req, res, next) => {
       teams: [],
       teamMemberships: [],
     };
-    req.permissionScope = null;
+    req.permissionScope = { permission, global: true, allowUnscoped: true, teamIds: [] };
     return next();
   }
 
@@ -34,7 +34,10 @@ const allowGlobalOrScoped = (permission) => async (req, res, next) => {
     req.accessUser = user;
     const hasGlobalPermission = hasPermission(user, permission);
     if (user.role === 'admin' || user.role === 'team_lead') {
-      req.permissionScope = null;
+      if (!hasGlobalPermission) {
+        return res.status(403).send(`You are not authorized to ${permission}.`);
+      }
+      req.permissionScope = { permission, global: true, allowUnscoped: true, teamIds: [] };
       return next();
     }
 
@@ -65,6 +68,7 @@ const allowGlobalOrScoped = (permission) => async (req, res, next) => {
 
     req.permissionScope = {
       permission,
+      global: false,
       teamIds,
       allowUnscoped: hasGlobalPermission,
     };

@@ -140,6 +140,10 @@ const canModifyReportsWithinScope = async (
 };
 
 exports.requireReportAccess = async (req, res, next) => {
+  const isMutation = !['GET', 'HEAD'].includes(req.method);
+  if (isMutation && (!req.permissionScope || req.permissionScope.permission !== 'edit data')) {
+    return res.status(403).send('Report permissions have not been checked.');
+  }
   const requestedIds = [
     ...(req.params && req.params._id ? [req.params._id] : []),
     ...(req.body && Array.isArray(req.body.ids) ? req.body.ids : []),
@@ -163,7 +167,7 @@ exports.requireReportAccess = async (req, res, next) => {
     }
 
     if (
-      req.permissionScope &&
+      isMutation && req.permissionScope.global !== true &&
       !(await canModifyReportsWithinScope(
         ids,
         req.permissionScope.teamIds,

@@ -51,6 +51,19 @@ const canViewIncident = (user, incident, explicitlyLedTeamIds = []) => {
   );
 };
 
+const canModifyIncidentWithScope = (scope, incident) => {
+  if (!scope || scope.permission !== 'edit data' || !incident) return false;
+  if (scope.global === true) return true;
+
+  const policy = getIncidentPolicy(incident);
+  if (policy.mode === 'public') return scope.allowUnscoped === true;
+
+  return policy.mode === 'restricted' && hasTeamOverlap(
+    normalizeIds(scope.teamIds),
+    policy.teams
+  );
+};
+
 const buildIncidentAccessFilter = (user, explicitlyLedTeamIds = []) => {
   if (isAdmin(user)) return {};
 
@@ -79,11 +92,6 @@ const canSetIncidentPolicy = (
   if (isAdmin(user) || hasPermission(user, 'manage incident access')) {
     return true;
   }
-
-  const ledTeamIds = normalizeIds(explicitlyLedTeamIds);
-  if (ledTeamIds.length === 0) return false;
-
-  const ledTeams = new Set(ledTeamIds);
   const next = getIncidentPolicy({ accessPolicy: nextPolicy });
   const current = currentIncident ? getIncidentPolicy(currentIncident) : null;
 
@@ -98,6 +106,12 @@ const canSetIncidentPolicy = (
       return true;
     }
   }
+
+  if (user && user.role === 'team_lead') return false;
+
+  const ledTeamIds = normalizeIds(explicitlyLedTeamIds);
+  if (ledTeamIds.length === 0) return false;
+  const ledTeams = new Set(ledTeamIds);
 
   if (next.mode === 'restricted') {
     if (next.teams.length === 0) return false;
@@ -125,6 +139,7 @@ const canSetIncidentPolicy = (
 
 module.exports = {
   buildIncidentAccessFilter,
+  canModifyIncidentWithScope,
   canSetIncidentPolicy,
   canViewIncident,
   getAccessibleTeamIds,

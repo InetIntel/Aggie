@@ -79,7 +79,7 @@ router.patch('/_comment_remove', allowGlobalOrScoped('edit data'), loadIncidentA
 
 
 // User.can('edit data')
-router.delete('/_all', User.can('edit data'), loadIncidentAccessContext, groupController.group_all_delete);
+router.delete('/_all', allowGlobalOrScoped('edit data'), loadIncidentAccessContext, groupController.group_all_delete);
 
 router.delete('/:_id', allowGlobalOrScoped('edit data'), loadIncidentAccessContext, requireIncidentParamAccess, groupController.group_delete);
 
