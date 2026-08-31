@@ -39,8 +39,15 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TTab>("webauthn");
 
-  const mfaEnrolled = !!session?.mfa_enrolled;
   const totpEnabled = !!(user as any)?.mfa?.totp?.enabled;
+  const webauthnEnrolledForUser =
+    Array.isArray((user as any)?.webauthnCredentials) &&
+    (user as any).webauthnCredentials.length > 0;
+  // For your own profile use the live session; when an admin views another
+  // user, derive enrollment from that user's record (session is the admin's).
+  const mfaEnrolled = isSelf
+    ? !!session?.mfa_enrolled
+    : totpEnabled || webauthnEnrolledForUser;
   const [enrollLoading, setEnrollLoading] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [enrollSuccess, setEnrollSuccess] = useState<boolean>(false);
