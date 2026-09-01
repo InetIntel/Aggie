@@ -20,6 +20,11 @@ async function getMaterializedNotableActivities(options = {}) {
   const cacheKey = options.cacheKey || buildAnalyticsCacheKey(timeWindow, filters);
   const now = normalizeDate(options.now || new Date(), 'now');
   const forceRefresh = options.forceRefresh === true;
+  // `limit` is a presentation concern, not a storage one: the cache always holds the full
+  // result set for a (timeWindow + filters) key, and the limit is applied on the way out.
+  // Keeping it out of the cache key means a `?limit=N` request can neither collide with nor
+  // truncate the cached set that unlimited callers (and the socket refresh) read back.
+  const limit = normalizeLimit(options.limit);
 
   const cachedWindow = forceRefresh
     ? null
@@ -31,7 +36,7 @@ async function getMaterializedNotableActivities(options = {}) {
       return buildMaterializedResponse({
         timeWindow,
         cacheKey,
-        notableActivities: cachedActivities,
+        notableActivities: applyLimit(cachedActivities, limit),
         computedAt: cachedWindow.computedAt,
         expiresAt: cachedWindow.expiresAt,
         cacheStatus: 'hit',
@@ -41,6 +46,7 @@ async function getMaterializedNotableActivities(options = {}) {
 
   const notableActivities = await aggregateNotableActivities({
     ...options,
+    limit: undefined,
     timeWindow,
   });
   const computedAt = now;
@@ -69,7 +75,7 @@ async function getMaterializedNotableActivities(options = {}) {
   return buildMaterializedResponse({
     timeWindow,
     cacheKey,
-    notableActivities,
+    notableActivities: applyLimit(notableActivities, limit),
     computedAt,
     expiresAt: cacheExpiresAt,
     cacheStatus: 'miss',
@@ -205,6 +211,16 @@ function buildMaterializedResponse({
       (activity) => activity.isHighConfidence
     ),
   };
+}
+
+function normalizeLimit(limit) {
+  if (typeof limit !== 'number' || !Number.isFinite(limit) || limit < 0) return null;
+  return limit;
+}
+
+function applyLimit(notableActivities, limit) {
+  if (limit === null) return notableActivities;
+  return notableActivities.slice(0, limit);
 }
 
 function buildAnalyticsCacheKey(timeWindow, filters = {}) {
