@@ -10,7 +10,7 @@ import {
   setSelectedAssignedTo,
 } from "../../api/groups";
 import type { Groups } from "../../api/groups/types";
-import { getUsers } from "../../api/users";
+import { getUserDirectory } from "../../api/users";
 
 const defaultOptions = {
   key: ["groups"],
@@ -22,8 +22,8 @@ export const useIncidentMutations = (
   const queryData = useUpdateQueryData();
   
   const { data: users } = useQuery({
-    queryKey: ["users"],
-    queryFn: getUsers,
+    queryKey: ["users", "directory"],
+    queryFn: getUserDirectory,
   });
 
   const doUpdate = useMutation({

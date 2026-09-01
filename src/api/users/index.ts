@@ -3,12 +3,20 @@ import type {
   TeamMemberCandidate,
   User,
   UserCreationData,
+  UserDirectoryEntry,
   UserEditableData,
 } from "./types";
 import type { UserPreferences } from "../session/types";
 
 export const getUsers = async () => {
   const { data } = await axios.get<User[] | undefined>("/api/user");
+  return data;
+};
+
+export const getUserDirectory = async () => {
+  const { data } = await axios.get<UserDirectoryEntry[] | undefined>(
+    "/api/user/directory"
+  );
   return data;
 };
 

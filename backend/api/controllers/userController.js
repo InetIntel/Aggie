@@ -54,6 +54,23 @@ exports.user_users = (req, res) => {
     });
 };
 
+exports.user_directory = (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  User.find({})
+    .select('_id username displayName')
+    .sort({ username: 1 })
+    .lean()
+    .exec((err, users) => {
+      if (err) {
+        return res
+          .status(err.status || 500)
+          .send(err.message || 'User directory query failed');
+      }
+      return res.status(200).send(users);
+    });
+};
+
 // get manageble user list (for admin: all, for team lead: team lead + created users)
 exports.user_manageableUsers = async (req, res) => {
   if (!req.user) return res.status(401).send("Unauthenticated.");
@@ -165,18 +182,11 @@ exports.user_detail = (req, res) => {
       if (err) { return res.status(err.status).send(err.message); }
       else if (!user) { return res.sendStatus(404); }
       else {
-        const role = req.user.role;
         const isSelf = String(user._id) === String(req.user._id);
-        let allowed = false;
-
-      if (role === 'admin') {
-        allowed = true;
-    } else if (role === 'team_lead') {
-      const isViewerOrMonitor = ['viewer', 'monitor'].includes(user.role);
-      allowed = isSelf || isViewerOrMonitor;
-    } else {
-      allowed = isSelf;
-    }
+        const allowed = isSelf || User.hasPermission(
+          req.accessUser || req.user,
+          'view other users'
+        );
 
         if (!allowed) return res.status(403).send('Unauthorized to view the user.');
         return res.status(200).send(normalizeUserTeams(user));

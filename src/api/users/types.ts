@@ -44,6 +44,11 @@ export type TeamMemberCandidate = Pick<
   "_id" | "username" | "displayName" | "role"
 >;
 
+export type UserDirectoryEntry = Pick<
+  User,
+  "_id" | "username" | "displayName"
+>;
+
 export interface UserEditableData {
   username: string;
   displayName?: string;

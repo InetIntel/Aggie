@@ -19,7 +19,7 @@ import {
   GroupEditableData,
   IncidentAccessMode,
 } from "../../api/groups/types";
-import { getUsers } from "../../api/users";
+import { getUserDirectory } from "../../api/users";
 import { getAllAsns } from "../../api/asn";
 import type { AsnInfo } from "../../api/asn/types";
 import { getSession } from "../../api/session";
@@ -152,7 +152,7 @@ const CreateEditIncidentForm = ({
   onCancel,
   isLoading,
 }: IProps) => {
-  const { data: users } = useQuery(["users"], getUsers);
+  const { data: users } = useQuery(["users", "directory"], getUserDirectory);
   const { data: asns } = useQuery<AsnInfo[]>(["asns"], getAllAsns);
   const { data: geoOptions } = useQuery(["geoScopes"], getGeoScopes);
   const { data: session } = useQuery(["session"], getSession, {

@@ -5,7 +5,10 @@ const userController = require('../controllers/userController');
 const User = require('../../models/user');
 
 // Get a list of all Users
-router.get('', User.can('view users'), userController.user_users);
+router.get('', User.can('view other users'), userController.user_users);
+
+// Get names used in incident assignments and filters
+router.get('/directory', User.can('view users'), userController.user_directory);
 
 // Get a list of manageable Users
 router.get('/manageable', userController.user_manageableUsers);
@@ -21,7 +24,7 @@ router.get('/member-candidates', userController.user_member_candidates);
 router.post('', userController.user_create);
 
 // Get Individual User
-router.get('/:_id', userController.user_detail);
+router.get('/:_id', User.can('view users'), userController.user_detail);
 
 // Update User teams
 router.put('/:_id/teams', userController.user_update_teams);

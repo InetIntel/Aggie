@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { getUsers } from "../../api/users";
+import { getUserDirectory } from "../../api/users";
 import {
   GROUP_SORTBY,
   GROUP_SORTBY_LABELS,
@@ -44,7 +44,7 @@ const IncidentsFilters = ({
   clearAll,
   isQuery,
 }: IProps) => {
-  const { data: users } = useQuery(["users"], getUsers);
+  const { data: users } = useQuery(["users", "directory"], getUserDirectory);
 
   const { data: session } = useQuery(["session"], getSession, {
     staleTime: 10000,
