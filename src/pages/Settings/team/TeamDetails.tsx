@@ -244,10 +244,7 @@ const TeamDetails = ({ session }: IProps) => {
   const deniedTeamPermissions = data?.team.permissionLimits?.deny || [];
   const existingMemberIds = new Set(members.map((member) => member._id));
   const selectableUsers = (memberCandidates || []).filter(
-    (user) =>
-      user._id !== session?._id &&
-      user.role !== "admin" &&
-      !existingMemberIds.has(user._id)
+    (user) => !existingMemberIds.has(user._id)
   );
   const searchIsPending =
     trimmedMemberSearch.length >= 2 && memberSearchQuery !== trimmedMemberSearch;

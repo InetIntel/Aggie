@@ -148,16 +148,18 @@ exports.user_member_candidates = async (req, res) => {
 
     const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const roles = role === 'admin'
-      ? ['viewer', 'monitor', 'team_lead']
+      ? ['viewer', 'monitor', 'team_lead', 'admin']
       : ['viewer', 'monitor'];
-    const users = await User.find({
-      _id: { $ne: req.user._id },
+    const filter = {
       role: { $in: roles },
       $or: [
         { username: { $regex: escapedSearch, $options: 'i' } },
         { displayName: { $regex: escapedSearch, $options: 'i' } },
       ],
-    })
+    };
+    if (role !== 'admin') filter._id = { $ne: req.user._id };
+
+    const users = await User.find(filter)
       .select('_id username displayName role')
       .sort({ username: 1 })
       .limit(10)

@@ -350,8 +350,8 @@ exports.team_add_member = async (req, res) => {
       return res.status(404).send('User not found.');
     }
 
-    if (user.role === 'admin') {
-      return res.status(403).send('Admin users cannot be assigned from the team page.');
+    if (user.role === 'admin' && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can assign admin users.');
     }
 
     const userIsTeamLead = normalizeIds(team.leads).includes(String(user._id));
@@ -431,8 +431,8 @@ exports.team_remove_member = async (req, res) => {
       return res.status(404).send('User not found.');
     }
 
-    if (user.role === 'admin') {
-      return res.status(403).send('Admin users cannot be removed from teams here.');
+    if (user.role === 'admin' && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can remove admin users.');
     }
 
     const userIsTeamLead = normalizeIds(team.leads).includes(String(user._id));
