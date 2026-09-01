@@ -160,7 +160,7 @@ exports.user_member_candidates = async (req, res) => {
     })
       .select('_id username displayName role')
       .sort({ username: 1 })
-      .limit(20)
+      .limit(10)
       .lean();
 
     return res.status(200).send(users);

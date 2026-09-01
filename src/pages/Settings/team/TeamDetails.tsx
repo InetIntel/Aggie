@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
@@ -85,6 +85,7 @@ const TeamDetails = ({ session }: IProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedUserId, setSelectedUserId] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [selectedRole, setSelectedRole] = useState<TeamRole>("viewer");
   const [pendingRoles, setPendingRoles] = useState<Record<string, TeamRole>>({});
   const [removingUserId, setRemovingUserId] = useState<string>();
@@ -105,14 +106,28 @@ const TeamDetails = ({ session }: IProps) => {
     return undefined;
   });
   const trimmedMemberSearch = memberSearch.trim();
+
+  useEffect(() => {
+    if (selectedUserId || trimmedMemberSearch.length < 2) {
+      setMemberSearchQuery("");
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setMemberSearchQuery(trimmedMemberSearch);
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [selectedUserId, trimmedMemberSearch]);
+
   const {
     data: memberCandidates,
     isFetching: isSearchingMembers,
     isError: memberSearchFailed,
   } = useQuery(
-    ["users", "member-candidates", trimmedMemberSearch],
-    () => searchTeamMemberCandidates(trimmedMemberSearch),
-    { enabled: trimmedMemberSearch.length >= 2 }
+    ["users", "member-candidates", memberSearchQuery],
+    () => searchTeamMemberCandidates(memberSearchQuery),
+    { enabled: memberSearchQuery.length >= 2 }
   );
 
   const saveTeam = (updatedTeam: TeamDetailResponse) => {
@@ -234,6 +249,8 @@ const TeamDetails = ({ session }: IProps) => {
       user.role !== "admin" &&
       !existingMemberIds.has(user._id)
   );
+  const searchIsPending =
+    trimmedMemberSearch.length >= 2 && memberSearchQuery !== trimmedMemberSearch;
   const isSaving =
     doAddMember.isLoading ||
     doUpdateRole.isLoading ||
@@ -437,7 +454,7 @@ const TeamDetails = ({ session }: IProps) => {
 
                     {!selectedUserId && trimmedMemberSearch.length >= 2 && (
                       <div className='absolute z-10 mt-1 w-full max-h-64 overflow-y-auto rounded border border-slate-300 bg-white dark:bg-gray-800 shadow-lg'>
-                        {isSearchingMembers ? (
+                        {searchIsPending || isSearchingMembers ? (
                           <p className='px-3 py-2 text-slate-600 dark:text-gray-300'>
                             Searching...
                           </p>
@@ -466,21 +483,12 @@ const TeamDetails = ({ session }: IProps) => {
                           ))
                         ) : (
                           <p className='px-3 py-2 text-slate-600 dark:text-gray-300'>
-                            No users found
+                            No available users found
                           </p>
                         )}
                       </div>
                     )}
                   </div>
-                  {selectedUserId ? (
-                    <p className='text-xs text-slate-600 dark:text-gray-300'>
-                      Selected: {memberSearch}
-                    </p>
-                  ) : (
-                    <p className='text-xs text-slate-600 dark:text-gray-300'>
-                      Enter at least 2 characters, then select a result.
-                    </p>
-                  )}
                 </div>
 
                 <label className='flex flex-col gap-1 text-sm'>
@@ -518,6 +526,11 @@ const TeamDetails = ({ session }: IProps) => {
                   {doAddMember.isLoading ? "Adding..." : "Add"}
                 </button>
               </div>
+              {selectedUserId && (
+                <p className='text-xs text-slate-600 dark:text-gray-300 mt-2'>
+                  Selected: {memberSearch}
+                </p>
+              )}
               {data?.team.active === false && (
                 <p className='text-sm text-slate-600 dark:text-gray-300 mt-3'>
                   Reactivate this team before adding new members.
@@ -655,19 +668,12 @@ const TeamDetails = ({ session }: IProps) => {
               )}
             </div>
 
-            <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-x-auto'>
+            <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-hidden'>
               <div className='p-4 border-b border-slate-300'>
                 <h3 className='text-xl font-medium'>Member permission exceptions</h3>
                 <p className='text-sm text-slate-600 dark:text-gray-300 mt-1'>
                   Use the team role by default, or make an exception for one member on this team.
                 </p>
-              </div>
-
-              <div className='grid min-w-[950px] grid-cols-[minmax(190px,1.4fr)_repeat(3,minmax(190px,1fr))] gap-3 px-4 py-3 text-sm font-medium border-b border-slate-300'>
-                <p>Member</p>
-                {teamPermissions.map((permission) => (
-                  <p key={permission.key}>{permission.label}</p>
-                ))}
               </div>
 
               {members.length > 0 ? (
@@ -680,7 +686,7 @@ const TeamDetails = ({ session }: IProps) => {
                   return (
                     <article
                       key={member._id}
-                      className='grid min-w-[950px] grid-cols-[minmax(190px,1.4fr)_repeat(3,minmax(190px,1fr))] gap-3 px-4 py-3 border-b border-slate-200 last:border-b-0'
+                      className='grid gap-4 p-4 lg:grid-cols-[180px_minmax(0,1fr)] border-b border-slate-200 last:border-b-0'
                     >
                       <div>
                         <p className='font-medium'>{member.displayName || member.username}</p>
@@ -689,52 +695,55 @@ const TeamDetails = ({ session }: IProps) => {
                         </p>
                       </div>
 
-                      {teamPermissions.map((permission) => {
-                        const choice = getPermissionChoice(member, permission.key);
-                        const blockedByTeam = deniedTeamPermissions.includes(permission.key);
-                        const allowed = member.teamPermissions?.includes(permission.key) === true;
-                        const pendingKey = `${member._id}:${permission.key}`;
+                      <div className='grid gap-3 sm:grid-cols-3'>
+                        {teamPermissions.map((permission) => {
+                          const choice = getPermissionChoice(member, permission.key);
+                          const blockedByTeam = deniedTeamPermissions.includes(permission.key);
+                          const allowed = member.teamPermissions?.includes(permission.key) === true;
+                          const pendingKey = `${member._id}:${permission.key}`;
 
-                        return (
-                          <label key={permission.key} className='flex flex-col gap-1 text-sm'>
-                            <select
-                              className='px-2 py-1 rounded border border-slate-300 dark:bg-gray-700'
-                              value={choice}
-                              disabled={
-                                !canEditPermissions ||
-                                pendingPermission === pendingKey ||
-                                blockedByTeam
-                              }
-                              onChange={(event) => {
-                                doUpdateMemberPermissions.mutate({
-                                  member,
-                                  permission: permission.key,
-                                  choice: event.target.value as PermissionChoice,
-                                });
-                              }}
-                            >
-                              <option value='default'>Use team role</option>
-                              <option value='allow'>Allow</option>
-                              <option value='deny'>Deny</option>
-                            </select>
-                            <span
-                              className={`w-fit rounded-full px-2 py-0.5 text-xs ${
-                                blockedByTeam || !allowed
-                                  ? "bg-slate-200 text-slate-700 dark:bg-gray-700 dark:text-gray-200"
-                                  : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-                              }`}
-                            >
-                              {pendingPermission === pendingKey
-                                ? "Saving..."
-                                : blockedByTeam
-                                  ? "Blocked for team"
-                                  : allowed
-                                    ? "Allowed"
-                                    : "Not allowed"}
-                            </span>
-                          </label>
-                        );
-                      })}
+                          return (
+                            <label key={permission.key} className='flex flex-col gap-1 text-sm min-w-0'>
+                              <span className='font-medium'>{permission.label}</span>
+                              <select
+                                className='px-2 py-1 rounded border border-slate-300 dark:bg-gray-700 w-full min-w-0'
+                                value={choice}
+                                disabled={
+                                  !canEditPermissions ||
+                                  pendingPermission === pendingKey ||
+                                  blockedByTeam
+                                }
+                                onChange={(event) => {
+                                  doUpdateMemberPermissions.mutate({
+                                    member,
+                                    permission: permission.key,
+                                    choice: event.target.value as PermissionChoice,
+                                  });
+                                }}
+                              >
+                                <option value='default'>Use team role</option>
+                                <option value='allow'>Allow</option>
+                                <option value='deny'>Deny</option>
+                              </select>
+                              <span
+                                className={`w-fit rounded-full px-2 py-0.5 text-xs ${
+                                  blockedByTeam || !allowed
+                                    ? "bg-slate-200 text-slate-700 dark:bg-gray-700 dark:text-gray-200"
+                                    : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                                }`}
+                              >
+                                {pendingPermission === pendingKey
+                                  ? "Saving..."
+                                  : blockedByTeam
+                                    ? "Blocked for team"
+                                    : allowed
+                                      ? "Allowed"
+                                      : "Not allowed"}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </article>
                   );
                 })
