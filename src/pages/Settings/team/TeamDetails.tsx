@@ -70,6 +70,15 @@ const getTeamRole = (member: TeamMember): TeamRole => {
   return member.teamRole === "monitor" ? "monitor" : "viewer";
 };
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === "object" && "response" in error) {
+    const response = (error as { response?: { data?: unknown } }).response;
+    if (typeof response?.data === "string") return response.data;
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
+};
+
 const TeamDetails = ({ session }: IProps) => {
   const params = useParams();
   const queryClient = useQueryClient();
@@ -81,6 +90,7 @@ const TeamDetails = ({ session }: IProps) => {
   const [removingUserId, setRemovingUserId] = useState<string>();
   const [pendingPermission, setPendingPermission] = useState("");
   const [createUserOpen, setCreateUserOpen] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const requestedTab = searchParams.get("tab");
   const activeTab: TeamTab = requestedTab === "members" || requestedTab === "advanced"
@@ -90,12 +100,16 @@ const TeamDetails = ({ session }: IProps) => {
   const isGlobalTeamLead = session?.role === "team_lead";
   const isScopedTeamLead = session?.isTeamLead === true && !isAdmin && !isGlobalTeamLead;
 
-  const { data, isLoading } = useQuery(["teams", params.id], () => {
+  const { data, isLoading, isError, error } = useQuery(["teams", params.id], () => {
     if (params.id) return getTeam(params.id);
     return undefined;
   });
   const trimmedMemberSearch = memberSearch.trim();
-  const { data: memberCandidates, isFetching: isSearchingMembers } = useQuery(
+  const {
+    data: memberCandidates,
+    isFetching: isSearchingMembers,
+    isError: memberSearchFailed,
+  } = useQuery(
     ["users", "member-candidates", trimmedMemberSearch],
     () => searchTeamMemberCandidates(trimmedMemberSearch),
     { enabled: trimmedMemberSearch.length >= 2 }
@@ -108,22 +122,26 @@ const TeamDetails = ({ session }: IProps) => {
   };
 
   const doAddMember = useMutation(addTeamMember, {
+    onMutate: () => setActionError(""),
     onSuccess: (updatedTeam: TeamDetailResponse) => {
       saveTeam(updatedTeam);
       setSelectedUserId("");
       setMemberSearch("");
       setSelectedRole("viewer");
     },
+    onError: (error) => setActionError(getErrorMessage(error, "Unable to add this member.")),
   });
 
   const doUpdateRole = useMutation(addTeamMember, {
     onMutate: ({ userId, role }) => {
+      setActionError("");
       setPendingRoles((current) => ({
         ...current,
         [userId]: role as TeamRole,
       }));
     },
     onSuccess: saveTeam,
+    onError: (error) => setActionError(getErrorMessage(error, "Unable to update this role.")),
     onSettled: (_data, _error, variables) => {
       setPendingRoles((current) => {
         const next = { ...current };
@@ -134,8 +152,12 @@ const TeamDetails = ({ session }: IProps) => {
   });
 
   const doRemoveMember = useMutation(removeTeamMember, {
-    onMutate: ({ userId }) => setRemovingUserId(userId),
+    onMutate: ({ userId }) => {
+      setActionError("");
+      setRemovingUserId(userId);
+    },
     onSuccess: saveTeam,
+    onError: (error) => setActionError(getErrorMessage(error, "Unable to remove this member.")),
     onSettled: () => setRemovingUserId(undefined),
   });
 
@@ -168,24 +190,36 @@ const TeamDetails = ({ session }: IProps) => {
     },
     {
       onMutate: ({ member, permission }) => {
+        setActionError("");
         setPendingPermission(`${member._id}:${permission}`);
       },
       onSuccess: saveTeam,
+      onError: (error) => setActionError(
+        getErrorMessage(error, "Unable to update this permission.")
+      ),
       onSettled: () => setPendingPermission(""),
     }
   );
 
   const doUpdateTeamLimits = useMutation(updateTeamPermissionLimits, {
+    onMutate: () => setActionError(""),
     onSuccess: saveTeam,
+    onError: (error) => setActionError(
+      getErrorMessage(error, "Unable to update the team limits.")
+    ),
   });
 
   const doUpdateStatus = useMutation(updateTeamStatus, {
+    onMutate: () => setActionError(""),
     onSuccess: (updatedTeam) => {
       saveTeam(updatedTeam);
       queryClient.invalidateQueries(["teams"]);
       queryClient.invalidateQueries(["teams", "manageable"]);
       queryClient.invalidateQueries(["teams", "incident-access"]);
     },
+    onError: (error) => setActionError(
+      getErrorMessage(error, "Unable to update the team status.")
+    ),
   });
 
   const members = data?.members || [];
@@ -200,6 +234,13 @@ const TeamDetails = ({ session }: IProps) => {
       user.role !== "admin" &&
       !existingMemberIds.has(user._id)
   );
+  const isSaving =
+    doAddMember.isLoading ||
+    doUpdateRole.isLoading ||
+    doRemoveMember.isLoading ||
+    doUpdateMemberPermissions.isLoading ||
+    doUpdateTeamLimits.isLoading ||
+    doUpdateStatus.isLoading;
 
   const setTab = (tab: TeamTab) => {
     setSearchParams(tab === "overview" ? {} : { tab });
@@ -213,6 +254,19 @@ const TeamDetails = ({ session }: IProps) => {
     if (member.teamPermissionOverrides?.deny.includes(permission)) return "deny";
     return "default";
   };
+
+  if (isError) {
+    return (
+      <section className='mt-4'>
+        <Link to='/settings/teams' className='text-sm text-lime-800 hover:underline'>
+          Back to Teams
+        </Link>
+        <div className='mt-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800'>
+          {getErrorMessage(error, "Unable to load this team.")}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className='mt-4'>
@@ -249,6 +303,19 @@ const TeamDetails = ({ session }: IProps) => {
               <span className='text-sm px-2 py-1 bg-slate-100 dark:bg-gray-700 rounded border border-slate-300'>
                 {data?.team.active === false ? "Inactive" : "Active"}
               </span>
+            )}
+          </div>
+
+          <div aria-live='polite'>
+            {actionError && (
+              <p className='mt-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800'>
+                {actionError}
+              </p>
+            )}
+            {isSaving && !actionError && (
+              <p className='mt-3 text-sm text-slate-600 dark:text-gray-300'>
+                Saving changes...
+              </p>
             )}
           </div>
 
@@ -337,7 +404,7 @@ const TeamDetails = ({ session }: IProps) => {
                 <div>
                   <h3 className='text-xl font-medium'>Add team member</h3>
                   <p className='text-sm text-slate-600 dark:text-gray-300 mt-1'>
-                    Account roles and individual permissions are managed from the user profile.
+                    Add an existing account or create a new one. Permission exceptions are available under Advanced.
                   </p>
                 </div>
                 <AggieButton
@@ -354,43 +421,66 @@ const TeamDetails = ({ session }: IProps) => {
               <div className='grid grid-cols-1 md:grid-cols-[1fr_180px_120px] gap-2 items-end'>
                 <div className='flex flex-col gap-1 text-sm'>
                   <label htmlFor='team-member-search' className='font-medium'>User</label>
-                  <input
-                    id='team-member-search'
-                    type='search'
-                    className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
-                    value={memberSearch}
-                    placeholder='Search by name or username'
-                    disabled={data?.team.active === false}
-                    onChange={(event) => {
-                      setMemberSearch(event.target.value);
-                      setSelectedUserId("");
-                    }}
-                  />
-                  <select
-                    className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
-                    value={selectedUserId}
-                    disabled={
-                      data?.team.active === false ||
-                      trimmedMemberSearch.length < 2 ||
-                      isSearchingMembers
-                    }
-                    onChange={(event) => setSelectedUserId(event.target.value)}
-                  >
-                    <option value=''>
-                      {trimmedMemberSearch.length < 2
-                        ? "Enter at least 2 characters"
-                        : isSearchingMembers
-                          ? "Searching..."
-                          : selectableUsers.length > 0
-                            ? "Select user"
-                            : "No users found"}
-                    </option>
-                    {selectableUsers.map((user) => (
-                      <option key={user._id} value={user._id}>
-                        {user.displayName || user.username} ({user.username})
-                      </option>
-                    ))}
-                  </select>
+                  <div className='relative'>
+                    <input
+                      id='team-member-search'
+                      type='search'
+                      className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700 w-full'
+                      value={memberSearch}
+                      placeholder='Search by name or username'
+                      disabled={data?.team.active === false}
+                      onChange={(event) => {
+                        setMemberSearch(event.target.value);
+                        setSelectedUserId("");
+                      }}
+                    />
+
+                    {!selectedUserId && trimmedMemberSearch.length >= 2 && (
+                      <div className='absolute z-10 mt-1 w-full max-h-64 overflow-y-auto rounded border border-slate-300 bg-white dark:bg-gray-800 shadow-lg'>
+                        {isSearchingMembers ? (
+                          <p className='px-3 py-2 text-slate-600 dark:text-gray-300'>
+                            Searching...
+                          </p>
+                        ) : memberSearchFailed ? (
+                          <p className='px-3 py-2 text-red-700'>Search failed. Try again.</p>
+                        ) : selectableUsers.length > 0 ? (
+                          selectableUsers.map((user) => (
+                            <button
+                              key={user._id}
+                              type='button'
+                              className='block w-full px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-gray-700'
+                              onClick={() => {
+                                setSelectedUserId(user._id);
+                                setMemberSearch(user.displayName || user.username);
+                              }}
+                            >
+                              <span className='font-medium'>
+                                {user.displayName || user.username}
+                              </span>
+                              {user.displayName && (
+                                <span className='ml-2 text-slate-600 dark:text-gray-300'>
+                                  {user.username}
+                                </span>
+                              )}
+                            </button>
+                          ))
+                        ) : (
+                          <p className='px-3 py-2 text-slate-600 dark:text-gray-300'>
+                            No users found
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {selectedUserId ? (
+                    <p className='text-xs text-slate-600 dark:text-gray-300'>
+                      Selected: {memberSearch}
+                    </p>
+                  ) : (
+                    <p className='text-xs text-slate-600 dark:text-gray-300'>
+                      Enter at least 2 characters, then select a result.
+                    </p>
+                  )}
                 </div>
 
                 <label className='flex flex-col gap-1 text-sm'>
@@ -398,6 +488,7 @@ const TeamDetails = ({ session }: IProps) => {
                   <select
                     className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
                     value={selectedRole}
+                    disabled={data?.team.active === false || doAddMember.isLoading}
                     onChange={(event) => setSelectedRole(event.target.value as TeamRole)}
                   >
                     <option value='viewer'>Viewer</option>
@@ -424,7 +515,7 @@ const TeamDetails = ({ session }: IProps) => {
                     });
                   }}
                 >
-                  Add
+                  {doAddMember.isLoading ? "Adding..." : "Add"}
                 </button>
               </div>
               {data?.team.active === false && (
@@ -527,30 +618,32 @@ const TeamDetails = ({ session }: IProps) => {
                     const blocked = deniedTeamPermissions.includes(permission.key);
 
                     return (
-                      <label
+                      <div
                         key={permission.key}
-                        className='flex items-start gap-3 rounded border border-slate-300 p-3'
+                        className='flex items-start justify-between gap-4 rounded border border-slate-300 p-3'
                       >
-                        <input
-                          type='checkbox'
-                          className='mt-1'
-                          checked={blocked}
-                          disabled={!isAdmin || !params.id || doUpdateTeamLimits.isLoading}
-                          onChange={() => {
-                            if (!params.id) return;
-                            const deny = blocked
-                              ? deniedTeamPermissions.filter((item) => item !== permission.key)
-                              : [...deniedTeamPermissions, permission.key];
-                            doUpdateTeamLimits.mutate({ teamId: params.id, deny });
-                          }}
-                        />
                         <span>
-                          <span className='font-medium'>Block {permission.label.toLowerCase()}</span>
+                          <span className='font-medium'>{permission.label}</span>
                           <span className='block text-sm text-slate-600 dark:text-gray-300 mt-1'>
                             {permission.description}
                           </span>
                         </span>
-                      </label>
+                        <span className='flex items-center gap-2 shrink-0 text-sm'>
+                          <span>{blocked ? "Blocked" : "Allowed"}</span>
+                          <AggieSwitch
+                            checked={!blocked}
+                            disabled={!isAdmin || !params.id || doUpdateTeamLimits.isLoading}
+                            label={`Allow ${permission.label.toLowerCase()}`}
+                            onChange={() => {
+                              if (!params.id) return;
+                              const deny = blocked
+                                ? deniedTeamPermissions.filter((item) => item !== permission.key)
+                                : [...deniedTeamPermissions, permission.key];
+                              doUpdateTeamLimits.mutate({ teamId: params.id, deny });
+                            }}
+                          />
+                        </span>
+                      </div>
                     );
                   })}
               </div>
@@ -624,12 +717,20 @@ const TeamDetails = ({ session }: IProps) => {
                               <option value='allow'>Allow</option>
                               <option value='deny'>Deny</option>
                             </select>
-                            <span className='text-xs text-slate-600 dark:text-gray-300'>
-                              {blockedByTeam
-                                ? "Blocked for the team"
-                                : allowed
-                                  ? "Currently allowed"
-                                  : "Currently not allowed"}
+                            <span
+                              className={`w-fit rounded-full px-2 py-0.5 text-xs ${
+                                blockedByTeam || !allowed
+                                  ? "bg-slate-200 text-slate-700 dark:bg-gray-700 dark:text-gray-200"
+                                  : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                              }`}
+                            >
+                              {pendingPermission === pendingKey
+                                ? "Saving..."
+                                : blockedByTeam
+                                  ? "Blocked for team"
+                                  : allowed
+                                    ? "Allowed"
+                                    : "Not allowed"}
                             </span>
                           </label>
                         );
