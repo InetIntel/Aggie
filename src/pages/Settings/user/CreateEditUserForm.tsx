@@ -50,6 +50,15 @@ type createSchema = Yup.InferType<typeof userCreateSchema>;
 
 const defaultCreateSchema = userCreateSchema.getDefault();
 
+const getErrorMessage = (error: unknown) => {
+  if (error && typeof error === "object" && "response" in error) {
+    const response = (error as { response?: { data?: unknown } }).response;
+    if (typeof response?.data === "string") return response.data;
+  }
+  if (error instanceof Error) return error.message;
+  return "Unable to save this user.";
+};
+
 interface IProps {
   user?: User;
   onClose: () => void;
@@ -102,6 +111,7 @@ const CreateEditUserForm = ({
   
   const allowedRoleList = (isCreate && isTeamLead) ? (['viewer','monitor']) : USER_ROLES;
   const inputsDisabled = isLoading || (!!user && isTeamLead);
+  const saveError = doCreateUser.error || doEditUser.error;
 
   const schema = !user ? userCreateSchema : userEditSchema;
   const defaultUser = !user
@@ -119,7 +129,7 @@ const CreateEditUserForm = ({
       validationSchema={schema}
       validateOnBlur={true}
     >
-      <Form className='flex flex-col gap-3'>
+      <Form className='flex flex-col gap-3' autoComplete='off'>
         <FormikDropdown
           label='Role'
           name='role'
@@ -132,21 +142,39 @@ const CreateEditUserForm = ({
             }
             disabled={user ? (!canEditRole || isTeamLead) : inputsDisabled}
         />
-        <FormikInput label='Username' name='username' disabled={inputsDisabled}/>
+        <FormikInput
+          label='Username'
+          name='username'
+          autoComplete={isCreate ? "off" : "username"}
+          disabled={inputsDisabled}
+        />
         <FormikInput
           label='Display Name'
           name='displayName'
           placeholder='(optional) display name'
           disabled={inputsDisabled}
         />
-        <FormikInput label='Email' name='email' type='email' disabled={inputsDisabled} />
+        <FormikInput
+          label='Email'
+          name='email'
+          type='email'
+          autoComplete={isCreate ? "off" : "email"}
+          disabled={inputsDisabled}
+        />
         {!user && (
           <>
-            <FormikInput name='password' label='Password' type='password' disabled={inputsDisabled}/>
+            <FormikInput
+              name='password'
+              label='Password'
+              type='password'
+              autoComplete='new-password'
+              disabled={inputsDisabled}
+            />
             <FormikInput
               name='confirmPassword'
               label='Re-type Password'
               type='password'
+              autoComplete='new-password'
               disabled={inputsDisabled}
             />
           </>
@@ -169,6 +197,11 @@ const CreateEditUserForm = ({
             Confirm
           </AggieButton>
         </div>
+        {saveError && (
+          <p className='rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800'>
+            {getErrorMessage(saveError)}
+          </p>
+        )}
         {user && isTeamLead && (
           <div className="text-sm text-red-500">
             Team leads cannot edit users. Try delete and re-create users.
