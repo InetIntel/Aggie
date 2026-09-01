@@ -45,7 +45,7 @@ const fallbackTimeSeries = [
   bucketStart,
   bucketEnd: new Date(new Date(bucketStart).getTime() + 30 * 60 * 1000).toISOString(),
   // totalReports: [8, 6, 7, 11, 14, 13, 9][index],
-  totalReports:[][index],
+  totalReports: 0,
   notableActivityCount: 0,
   highConfidenceActivityCount: 0,
 }));
@@ -820,7 +820,7 @@ function NotableActivityCard({
           className='flex w-full items-center justify-center gap-2 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800'
         >
           <FontAwesomeIcon icon={faBell} />
-          <span>View Related Reports</span>
+          <span>View Reports</span>
         </Link>
       </div>
     </article>

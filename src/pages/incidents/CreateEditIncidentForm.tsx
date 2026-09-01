@@ -86,12 +86,12 @@ const CreateEditIncidentForm = ({
           locationName: initialValues?.locationName || group?.locationName || "",
           closed: initialValues?.closed ?? group?.closed ?? false,
           verification_status:
-            initialValues?.verification_status ||
-            group?.verification_status ||
+            initialValues?.verification_status ??
+            group?.verification_status ??
             "maybe",
           confirmation_status:
-            initialValues?.confirmation_status ||
-            group?.confirmation_status ||
+            initialValues?.confirmation_status ??
+            group?.confirmation_status ??
             "maybe",
           publication_status:
             initialValues?.publication_status ||

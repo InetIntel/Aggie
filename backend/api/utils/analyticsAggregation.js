@@ -138,11 +138,6 @@ function flattenArrayValues(values) {
   }, []);
 }
 
-function countDistinct(values) {
-  if (!Array.isArray(values)) return 0;
-  return getDistinctNonEmptyStrings(values).length;
-}
-
 function getSingleDisplayValue(values) {
   if (!Array.isArray(values)) return undefined;
   const distinctValues = getNonEmptyValues(values);
