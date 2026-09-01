@@ -1,5 +1,10 @@
 import axios from "axios";
-import type { User, UserCreationData, UserEditableData } from "./types";
+import type {
+  TeamMemberCandidate,
+  User,
+  UserCreationData,
+  UserEditableData,
+} from "./types";
 import type { UserPreferences } from "../session/types";
 
 export const getUsers = async () => {
@@ -58,5 +63,13 @@ export const updateUserPreferences = async (params: {
   const { data } = await axios.put<User>("/api/user/" + params._id, {
     preferences: params.preferences,
   });
+  return data;
+};
+
+export const searchTeamMemberCandidates = async (search: string) => {
+  const { data } = await axios.get<TeamMemberCandidate[]>(
+    "/api/user/member-candidates",
+    { params: { q: search } }
+  );
   return data;
 };

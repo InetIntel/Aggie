@@ -39,6 +39,11 @@ export interface User extends hasId {
   };
 }
 
+export type TeamMemberCandidate = Pick<
+  User,
+  "_id" | "username" | "displayName" | "role"
+>;
+
 export interface UserEditableData {
   username: string;
   displayName?: string;

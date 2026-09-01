@@ -16,7 +16,7 @@ import type {
   TeamPermission,
 } from "../../../api/teams/types";
 import type { Session } from "../../../api/session/types";
-import { getManageableUsers } from "../../../api/users";
+import { searchTeamMemberCandidates } from "../../../api/users";
 import AggieButton from "../../../components/AggieButton";
 import AggieDialog from "../../../components/AggieDialog";
 import AggieSwitch from "../../../components/AggieSwitch";
@@ -75,6 +75,7 @@ const TeamDetails = ({ session }: IProps) => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
   const [selectedRole, setSelectedRole] = useState<TeamRole>("viewer");
   const [pendingRoles, setPendingRoles] = useState<Record<string, TeamRole>>({});
   const [removingUserId, setRemovingUserId] = useState<string>();
@@ -93,7 +94,12 @@ const TeamDetails = ({ session }: IProps) => {
     if (params.id) return getTeam(params.id);
     return undefined;
   });
-  const { data: users } = useQuery(["users", "manageable"], getManageableUsers);
+  const trimmedMemberSearch = memberSearch.trim();
+  const { data: memberCandidates, isFetching: isSearchingMembers } = useQuery(
+    ["users", "member-candidates", trimmedMemberSearch],
+    () => searchTeamMemberCandidates(trimmedMemberSearch),
+    { enabled: trimmedMemberSearch.length >= 2 }
+  );
 
   const saveTeam = (updatedTeam: TeamDetailResponse) => {
     queryClient.setQueryData(["teams", params.id], updatedTeam);
@@ -105,6 +111,7 @@ const TeamDetails = ({ session }: IProps) => {
     onSuccess: (updatedTeam: TeamDetailResponse) => {
       saveTeam(updatedTeam);
       setSelectedUserId("");
+      setMemberSearch("");
       setSelectedRole("viewer");
     },
   });
@@ -187,7 +194,7 @@ const TeamDetails = ({ session }: IProps) => {
   const viewers = members.filter((member) => getTeamRole(member) === "viewer");
   const deniedTeamPermissions = data?.team.permissionLimits?.deny || [];
   const existingMemberIds = new Set(members.map((member) => member._id));
-  const selectableUsers = (users || []).filter(
+  const selectableUsers = (memberCandidates || []).filter(
     (user) =>
       user._id !== session?._id &&
       user.role !== "admin" &&
@@ -345,22 +352,46 @@ const TeamDetails = ({ session }: IProps) => {
               </div>
 
               <div className='grid grid-cols-1 md:grid-cols-[1fr_180px_120px] gap-2 items-end'>
-                <label className='flex flex-col gap-1 text-sm'>
-                  <span className='font-medium'>User</span>
+                <div className='flex flex-col gap-1 text-sm'>
+                  <label htmlFor='team-member-search' className='font-medium'>User</label>
+                  <input
+                    id='team-member-search'
+                    type='search'
+                    className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
+                    value={memberSearch}
+                    placeholder='Search by name or username'
+                    disabled={data?.team.active === false}
+                    onChange={(event) => {
+                      setMemberSearch(event.target.value);
+                      setSelectedUserId("");
+                    }}
+                  />
                   <select
                     className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
                     value={selectedUserId}
-                    disabled={data?.team.active === false}
+                    disabled={
+                      data?.team.active === false ||
+                      trimmedMemberSearch.length < 2 ||
+                      isSearchingMembers
+                    }
                     onChange={(event) => setSelectedUserId(event.target.value)}
                   >
-                    <option value=''>Select user</option>
+                    <option value=''>
+                      {trimmedMemberSearch.length < 2
+                        ? "Enter at least 2 characters"
+                        : isSearchingMembers
+                          ? "Searching..."
+                          : selectableUsers.length > 0
+                            ? "Select user"
+                            : "No users found"}
+                    </option>
                     {selectableUsers.map((user) => (
                       <option key={user._id} value={user._id}>
-                        {user.displayName || user.username} ({user.email})
+                        {user.displayName || user.username} ({user.username})
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
 
                 <label className='flex flex-col gap-1 text-sm'>
                   <span className='font-medium'>Role on this team</span>
@@ -626,7 +657,7 @@ const TeamDetails = ({ session }: IProps) => {
           onClose={() => {
             setCreateUserOpen(false);
             queryClient.invalidateQueries(["teams", params.id]);
-            queryClient.invalidateQueries(["users", "manageable"]);
+            queryClient.invalidateQueries(["users", "member-candidates"]);
           }}
           currentUserRole={session?.role}
           scopedTeamLead={isScopedTeamLead}

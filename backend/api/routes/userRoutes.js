@@ -10,6 +10,9 @@ router.get('', User.can('view users'), userController.user_users);
 // Get a list of manageable Users
 router.get('/manageable', userController.user_manageableUsers);
 
+// Find an existing account to add to a team
+router.get('/member-candidates', userController.user_member_candidates);
+
 
 // Create a user
 // Authorization is team-aware and is enforced in the controller. In addition

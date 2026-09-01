@@ -79,17 +79,19 @@ exports.user_manageableUsers = async (req, res) => {
       scopedTeamIds = new Set(leadTeams.map((team) => String(team._id)));
 
       if (scopedTeamIds.size > 0) {
+        const ledTeamIds = [...scopedTeamIds];
         filter = {
           $or: [
             { _id: self },
-            { role: { $in: ["viewer", "monitor"] } },
+            { teams: { $in: ledTeamIds } },
+            { 'teamMemberships.team': { $in: ledTeamIds } },
           ],
         };
       }
     }
 
     const users = await User.find(filter)
-      .select("-password")
+      .select('_id username displayName email role active teams teamMemberships createdBy')
       .populate([teamPopulate, teamMembershipPopulate])
       .lean();
 
@@ -98,6 +100,9 @@ exports.user_manageableUsers = async (req, res) => {
       return {
         ...user,
         teams: user.teams.filter((team) => scopedTeamIds.has(String(team._id))),
+        teamMemberships: (user.teamMemberships || []).filter((membership) =>
+          scopedTeamIds.has(String(membership.team?._id || membership.team))
+        ),
       };
     });
 
@@ -106,6 +111,46 @@ exports.user_manageableUsers = async (req, res) => {
     return res
       .status(err.status || 500)
       .send(err.message || "User query failed");
+  }
+};
+
+exports.user_member_candidates = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  try {
+    const role = req.user.role;
+    if (role !== 'admin' && role !== 'team_lead') {
+      const ledTeamCount = await Team.countDocuments({ leads: req.user._id });
+      if (ledTeamCount === 0) {
+        return res.status(403).send('Unauthorized to add team members.');
+      }
+    }
+
+    const search = String(req.query.q || '').trim().slice(0, 64);
+    if (search.length < 2) return res.status(200).send([]);
+
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const roles = role === 'admin'
+      ? ['viewer', 'monitor', 'team_lead']
+      : ['viewer', 'monitor'];
+    const users = await User.find({
+      _id: { $ne: req.user._id },
+      role: { $in: roles },
+      $or: [
+        { username: { $regex: escapedSearch, $options: 'i' } },
+        { displayName: { $regex: escapedSearch, $options: 'i' } },
+      ],
+    })
+      .select('_id username displayName role')
+      .sort({ username: 1 })
+      .limit(20)
+      .lean();
+
+    return res.status(200).send(users);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'User search failed');
   }
 };
 
