@@ -221,20 +221,33 @@ async function syncNotableActivityIncidentContext(reportIds) {
 
   if (!notableActivities.length) return;
 
-  for (const notableActivity of notableActivities) {
-    const reports = await Report.find({ _id: { $in: notableActivity.reportIds } })
-      .select('_group')
-      .lean()
-      .exec();
+  const referencedIds = [
+    ...new Set(
+      notableActivities.flatMap((notableActivity) =>
+        (notableActivity.reportIds || []).map((id) => id.toString())
+      )
+    ),
+  ];
 
-    const hasUnassigned = reports.some((report) => !report._group);
-    const groupIds = [
-      ...new Set(
-        reports
-          .map((report) => (report._group ? report._group.toString() : null))
-          .filter(Boolean)
-      ),
-    ];
+  const reports = await Report.find({ _id: { $in: referencedIds } })
+    .select('_group')
+    .lean()
+    .exec();
+
+  const groupByReportId = new Map(
+    reports.map((report) => [
+      report._id.toString(),
+      report._group ? report._group.toString() : null,
+    ])
+  );
+
+  for (const notableActivity of notableActivities) {
+    const found = (notableActivity.reportIds || [])
+      .map((id) => groupByReportId.get(id.toString()))
+      .filter((groupId) => groupId !== undefined);
+
+    const hasUnassigned = found.some((groupId) => !groupId);
+    const groupIds = [...new Set(found.filter(Boolean))];
 
     const incidentId = !hasUnassigned && groupIds.length === 1 ? groupIds[0] : null;
     const currentIncidentId = notableActivity.incidentId
