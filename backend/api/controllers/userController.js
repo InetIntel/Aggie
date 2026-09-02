@@ -476,27 +476,35 @@ exports.user_update = (req, res) => {
 
 // Update a User Password
 exports.user_update_password = (req, res) => {
-  User.findById(req.params._id, (err, user) => {
-    if (err) return res.status(err.status).send(err.message);
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  const targetId = req.params._id;
+  const isSelf = String(targetId) === String(req.user._id);
+  const isAdmin = req.user.role === 'admin';
+
+  // Only an admin may set another user's password; any user may change their own.
+  if (!isSelf && !isAdmin) {
+    return res.status(403).send("You are not authorized to set this user's password.");
+  }
+
+  // Validate server-side (mirror the client rule: at least 7 characters).
+  const password = req.body.password;
+  if (typeof password !== 'string' || password.length < 7) {
+    return res.status(400).send('Password must be at least 7 characters.');
+  }
+
+  User.findById(targetId, (err, user) => {
+    if (err) return res.status(err.status || 500).send(err.message);
     if (!user) return res.sendStatus(404);
 
-    // Only admin can update users other than itself
-    // (im not sure if this logic works)
-    if (
-      req.user &&
-      !User.can('admin users') &&
-      req.params._id != req.user._id
-    )
-      return res.send(403);
-    user.setPassword(req.body.password, (err, user) => {
-      if (err) res.status(err.status).send(err.message);
-      else
-        user.save(user, (err, user) => {
-          if (err) res.status(err.status).send(err.message);
-          else res.sendStatus(200)
-        })
-    })
-
+    // setPassword updates the plugin-managed hash/salt fields (what login checks).
+    user.setPassword(password, (err) => {
+      if (err) return res.status(err.status || 400).send(err.message);
+      user.save((err) => {
+        if (err) return res.status(err.status || 500).send(err.message);
+        return res.status(200).json({ success: true, message: 'Password updated.' });
+      });
+    });
   });
 };
 
