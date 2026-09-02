@@ -231,32 +231,6 @@ exports.logout = (req, res) => {
   res.status(200).send("Logged Out")
 };
 
-exports.passwordReset = (req, res) => {
-  User.findOne({ username: req.body.username }, (err, user) => {
-    if (err) {
-      res.status(err.status).send(err.message);
-    } else {
-
-      const payload = {
-        id: user._id,
-        username: user.username,
-        role: user.role,
-      };
-      const token = jwt.sign(payload, process.env.SECRET, { expiresIn: '12h' });
-      res.cookie('jwt', token, {
-        httpOnly: true,
-        expires: new Date(Date.now() + 43200000), // +1 day
-        secure: true,
-      });
-      res.json({
-        token: token,
-        success: true,
-        message: "Authentication successful"
-      });
-    }
-  });
-}
-
 // WebAuthn Registration & Login Controllers
 exports.webauthnRegisterStart = async (req, res) => {
   try {
@@ -758,6 +732,42 @@ exports.totpDisable = async (req, res) => {
   } catch (err) {
     console.error('[totpDisable] error:', err);
     return res.status(400).json({ ok: false, error: 'Could not disable TOTP' });
+  }
+};
+
+// Admin: clear ALL MFA (TOTP + WebAuthn) for another user by id.
+// Recovery path for a user who lost their authenticator/security key.
+// Authorization is enforced by the route guard (User.can('admin users')).
+exports.adminResetUserMfa = async (req, res) => {
+  try {
+    const user = await User.findById(req.params._id);
+    if (!user) return res.status(404).json({ ok: false, error: 'User not found' });
+
+    // Clear TOTP (mirror the disabled shape used by totpDisable).
+    user.mfa = user.mfa || {};
+    user.mfa.totp = {
+      enabled: false,
+      secretEnc: undefined,
+      verifiedAt: undefined,
+      lastTimestepUsed: undefined,
+      issuer: undefined,
+      digits: TOTP_DIGITS,
+      period: TOTP_PERIOD,
+      algo: TOTP_ALGO,
+      recoveryCodes: []
+    };
+
+    // Clear WebAuthn credentials and enrollment/enforcement state so the user
+    // can log in with their password alone and re-enroll.
+    user.webauthnCredentials = [];
+    user.mfaEnforced = false;
+    user.mfaEnrolledAt = undefined;
+
+    await user.save();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[adminResetUserMfa] error:', err);
+    return res.status(400).json({ ok: false, error: 'Could not reset MFA for user' });
   }
 };
 
