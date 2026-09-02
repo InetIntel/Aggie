@@ -831,6 +831,8 @@ function NotableActivityCard({
         )}
         <Link
           to={`/alerts?reportIds=${activity.reportIds.join(",")}&alerts=true`}
+          target='_blank'
+          rel='noopener noreferrer'
           className='flex w-full items-center justify-center gap-2 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800'
         >
           <FontAwesomeIcon icon={faBell} />
