@@ -238,14 +238,18 @@ const TeamDetails = ({ session }: IProps) => {
   });
 
   const members = data?.members || [];
-  const teamLeads = members.filter((member) => getTeamRole(member) === "team_lead");
-  const monitors = members.filter((member) => getTeamRole(member) === "monitor");
-  const viewers = members.filter((member) => getTeamRole(member) === "viewer");
+  const adminMembers = members.filter((member) => member.accountRole === "admin");
+  const permissionMembers = members.filter((member) => member.accountRole !== "admin");
+  const teamLeads = permissionMembers.filter((member) => getTeamRole(member) === "team_lead");
+  const monitors = permissionMembers.filter((member) => getTeamRole(member) === "monitor");
+  const viewers = permissionMembers.filter((member) => getTeamRole(member) === "viewer");
   const deniedTeamPermissions = data?.team.permissionLimits?.deny || [];
   const existingMemberIds = new Set(members.map((member) => member._id));
   const selectableUsers = (memberCandidates || []).filter(
     (user) => !existingMemberIds.has(user._id)
   );
+  const selectedUser = selectableUsers.find((user) => user._id === selectedUserId);
+  const selectedUserIsAdmin = selectedUser?.role === "admin";
   const searchIsPending =
     trimmedMemberSearch.length >= 2 && memberSearchQuery !== trimmedMemberSearch;
   const isSaving =
@@ -283,7 +287,7 @@ const TeamDetails = ({ session }: IProps) => {
   }
 
   return (
-    <section className='mt-4'>
+    <section className='mt-4 pb-8'>
       <Link to='/settings/teams' className='text-sm text-lime-800 hover:underline'>
         Back to Teams
       </Link>
@@ -476,6 +480,11 @@ const TeamDetails = ({ session }: IProps) => {
                                   {user.username}
                                 </span>
                               )}
+                              {user.role === "admin" && (
+                                <span className='ml-2 rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:bg-gray-700 dark:text-gray-200'>
+                                  Global admin
+                                </span>
+                              )}
                             </button>
                           ))
                         ) : (
@@ -490,16 +499,22 @@ const TeamDetails = ({ session }: IProps) => {
 
                 <label className='flex flex-col gap-1 text-sm'>
                   <span className='font-medium'>Role on this team</span>
-                  <select
-                    className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
-                    value={selectedRole}
-                    disabled={data?.team.active === false || doAddMember.isLoading}
-                    onChange={(event) => setSelectedRole(event.target.value as TeamRole)}
-                  >
-                    <option value='viewer'>Viewer</option>
-                    <option value='monitor'>Monitor</option>
-                    {isAdmin && <option value='team_lead'>Team Lead</option>}
-                  </select>
+                  {selectedUserIsAdmin ? (
+                    <span className='px-3 py-2 rounded border border-slate-300 bg-slate-100 text-slate-700 dark:bg-gray-700 dark:text-gray-200'>
+                      Global Admin
+                    </span>
+                  ) : (
+                    <select
+                      className='px-3 py-2 rounded border border-slate-300 dark:bg-gray-700'
+                      value={selectedRole}
+                      disabled={data?.team.active === false || doAddMember.isLoading}
+                      onChange={(event) => setSelectedRole(event.target.value as TeamRole)}
+                    >
+                      <option value='viewer'>Viewer</option>
+                      <option value='monitor'>Monitor</option>
+                      {isAdmin && <option value='team_lead'>Team Lead</option>}
+                    </select>
+                  )}
                 </label>
 
                 <button
@@ -516,7 +531,7 @@ const TeamDetails = ({ session }: IProps) => {
                     doAddMember.mutate({
                       teamId: params.id,
                       userId: selectedUserId,
-                      role: selectedRole,
+                      role: selectedUserIsAdmin ? "viewer" : selectedRole,
                     });
                   }}
                 >
@@ -549,7 +564,7 @@ const TeamDetails = ({ session }: IProps) => {
                   const savedRole = getTeamRole(member);
                   const displayedRole = pendingRoles[member._id] || savedRole;
                   const memberIsAdmin = member.accountRole === "admin";
-                  const canEditRole = isAdmin || (!memberIsAdmin && savedRole !== "team_lead");
+                  const canEditRole = !memberIsAdmin && (isAdmin || savedRole !== "team_lead");
                   const canRemove = isAdmin || (!memberIsAdmin && savedRole !== "team_lead");
 
                   return (
@@ -564,7 +579,9 @@ const TeamDetails = ({ session }: IProps) => {
                         </p>
                       </div>
                       <p className='text-sm capitalize'>{member.accountRole || member.role}</p>
-                      {canEditRole ? (
+                      {memberIsAdmin ? (
+                        <p className='text-sm'>Global Admin</p>
+                      ) : canEditRole ? (
                         <select
                           className='px-2 py-1 rounded border border-slate-300 dark:bg-gray-700 text-sm'
                           value={displayedRole}
@@ -586,7 +603,7 @@ const TeamDetails = ({ session }: IProps) => {
                         <p className='text-sm'>{roleLabels[savedRole]}</p>
                       )}
                       <p className='text-sm text-slate-600 dark:text-gray-300'>
-                        {roleAccess[displayedRole]}
+                        {memberIsAdmin ? "Has access to all teams" : roleAccess[displayedRole]}
                       </p>
                       {canRemove ? (
                         <button
@@ -673,12 +690,10 @@ const TeamDetails = ({ session }: IProps) => {
                 </p>
               </div>
 
-              {members.length > 0 ? (
-                members.map((member) => {
+              {permissionMembers.length > 0 ? (
+                permissionMembers.map((member) => {
                   const savedRole = getTeamRole(member);
-                  const memberIsAdmin = member.accountRole === "admin";
-                  const canEditPermissions =
-                    !memberIsAdmin && (isAdmin || savedRole !== "team_lead");
+                  const canEditPermissions = isAdmin || savedRole !== "team_lead";
 
                   return (
                     <article
@@ -746,10 +761,36 @@ const TeamDetails = ({ session }: IProps) => {
                 })
               ) : (
                 <div className='px-4 py-6 text-sm text-slate-600 dark:text-gray-300'>
-                  No members are assigned to this team.
+                  No members use team permission exceptions.
                 </div>
               )}
             </div>
+
+            {adminMembers.length > 0 && (
+              <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-hidden'>
+                <div className='p-4 border-b border-slate-300'>
+                  <h3 className='text-xl font-medium'>Global administrators</h3>
+                  <p className='text-sm text-slate-600 dark:text-gray-300 mt-1'>
+                    Global administrators have access to all teams. Team permission exceptions do not apply to these accounts.
+                  </p>
+                </div>
+                <div className='divide-y divide-slate-200'>
+                  {adminMembers.map((member) => (
+                    <div key={member._id} className='flex items-center justify-between gap-4 px-4 py-4'>
+                      <div>
+                        <p className='font-medium'>{member.displayName || member.username}</p>
+                        <p className='text-xs text-slate-600 dark:text-gray-300 mt-1'>
+                          {member.email}
+                        </p>
+                      </div>
+                      <span className='shrink-0 rounded bg-slate-200 px-2 py-1 text-sm text-slate-700 dark:bg-gray-700 dark:text-gray-200'>
+                        Global Admin
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </PlaceholderDiv>
