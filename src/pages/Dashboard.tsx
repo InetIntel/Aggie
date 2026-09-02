@@ -29,6 +29,7 @@ import type {
 import { DATA_SOURCE_OPTIONS } from "../api/common";
 import { SocketContext, SocketEvent, useSocketSubscribe } from "../hooks/WebsocketProvider";
 import AggieDialog from "../components/AggieDialog";
+import NotableActivityTitle from "./notableActivity/NotableActivityTitle";
 import CreateEditIncidentForm from "./incidents/CreateEditIncidentForm";
 import type { IncidentFormValues } from "./incidents/CreateEditIncidentForm";
 import type { GroupEditableData } from "../api/groups/types";
@@ -712,7 +713,18 @@ function NotableActivityCard({
   onCreateIncident: () => void;
   isCreatingIncident: boolean;
 }) {
-  const locationSummary = [activity.asn, activity.geoScope].filter(Boolean).join(" / ");
+  // One "asn / geoScope" title per impacted ASN. Today the backend returns a
+  // single `asn`, so this is a one-element list; when `asn` becomes an array
+  // (many impacted ASNs) this yields one title per ASN and NotableActivityTitle
+  // concatenates them into the reserved two lines with a "+N more" popover.
+  const asns = Array.isArray(activity.asn)
+    ? activity.asn
+    : activity.asn
+    ? [activity.asn]
+    : [];
+  const titles = (asns.length > 0 ? asns : [undefined]).map((asn) =>
+    [asn, activity.geoScope].filter(Boolean).join(" / ")
+  );
 
   return (
     <article className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800'>
@@ -745,9 +757,11 @@ function NotableActivityCard({
       <p className='mt-6 text-base font-semibold leading-tight text-slate-950 dark:text-white'>
         {formatActivityWindow(activity.bucketStart, activity.bucketEnd)}
       </p>
-      <p className='mt-3 text-xl italic text-slate-700 dark:text-gray-300'>
-        {locationSummary || "Location details unavailable"}
-      </p>
+      <NotableActivityTitle
+        className='mt-3'
+        titles={titles}
+        fallback='Location details unavailable'
+      />
 
       <div className='my-5 h-px bg-slate-200 dark:bg-gray-700' />
 
