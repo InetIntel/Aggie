@@ -22,7 +22,9 @@ const sourceLabels: Record<string, string> = {
 // Every notable activity card action shares this box so the row of incident
 // buttons stays exactly as tall as the full-width actions above and below it.
 const cardActionClass =
-  "flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-medium shadow-sm transition";
+  "flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-md text-xs font-medium shadow-sm transition";
+const fullWidthActionClass = `${cardActionClass} w-full gap-2 px-4`;
+const pairedActionClass = `${cardActionClass} w-full min-w-0 gap-1 px-2`;
 
 function NotableActivityCard({
   activity,
@@ -58,7 +60,7 @@ function NotableActivityCard({
         <div className='flex flex-wrap items-center gap-2'>
           <span
             className={[
-              "inline-flex items-center rounded-full px-4 py-1 text-sm font-medium",
+              "inline-flex items-center rounded-full px-4 py-1 text-xs font-medium",
               activity.isHighConfidence
                 ? "border border-red-300 bg-red-100 text-red-700"
                 : "border border-amber-300 bg-amber-100 text-amber-700",
@@ -66,21 +68,21 @@ function NotableActivityCard({
           >
             {activity.isHighConfidence ? "High" : "Medium"}
           </span>
-          <span className='inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'>
+          <span className='inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'>
             {activity.totalReports} report{activity.totalReports === 1 ? "" : "s"}
           </span>
         </div>
         <button
           type='button'
           onClick={onDismiss}
-          className='grid h-10 w-10 place-items-center rounded-full bg-white text-xl text-slate-700 shadow-[0_4px_10px_rgba(15,23,42,0.16)] transition hover:bg-slate-100 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+          className='grid h-10 w-10 place-items-center rounded-full bg-white text-lg text-slate-700 shadow-[0_4px_10px_rgba(15,23,42,0.16)] transition hover:bg-slate-100 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
           aria-label='Dismiss activity card'
         >
           <FontAwesomeIcon icon={faXmark} />
         </button>
       </div>
 
-      <p className='mt-6 text-base font-semibold leading-tight text-slate-950 dark:text-white'>
+      <p className='mt-6 text-sm font-semibold leading-tight text-slate-950 dark:text-white'>
         {formatActivityWindow(activity.bucketStart, activity.bucketEnd)}
       </p>
       <NotableActivityTitle
@@ -136,24 +138,24 @@ function NotableActivityCard({
         {activity.incidentId ? (
           <Link
             to={`/incidents/${activity.incidentId}`}
-            className={`${cardActionClass} w-full bg-[#1683A3] text-white hover:bg-[#126b85]`}
+            className={`${fullWidthActionClass} bg-[#1683A3] text-white hover:bg-[#126b85]`}
           >
             <FontAwesomeIcon icon={faLink} />
             <span>Open Linked Incident</span>
           </Link>
         ) : (
-          <div className='flex items-stretch gap-3'>
+          <div className='grid grid-cols-2 items-stretch gap-2'>
             <button
               type='button'
               onClick={onCreateIncident}
               disabled={!cacheKey || isCreatingIncident}
-              className={`${cardActionClass} min-w-0 flex-1 bg-[#166534] text-white hover:bg-[#14532d] disabled:cursor-not-allowed disabled:opacity-60`}
+              className={`${pairedActionClass} bg-[#166534] text-white hover:bg-[#14532d] disabled:cursor-not-allowed disabled:opacity-60`}
             >
               <FontAwesomeIcon
                 icon={isCreatingIncident ? faSpinner : faPlus}
-                className={isCreatingIncident ? "animate-spin" : undefined}
+                className={`shrink-0 ${isCreatingIncident ? "animate-spin" : ""}`}
               />
-              <span className='truncate'>
+              <span className='min-w-0 truncate'>
                 {isCreatingIncident ? "Creating" : "New Incident"}
               </span>
             </button>
@@ -161,10 +163,10 @@ function NotableActivityCard({
               type='button'
               onClick={onAddToIncident}
               disabled={!cacheKey || isCreatingIncident}
-              className={`${cardActionClass} min-w-0 flex-1 border border-[#166534] text-[#166534] hover:bg-[#166534]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-lime-500 dark:text-lime-300 dark:hover:bg-lime-500/10`}
+              className={`${pairedActionClass} border border-[#166534] text-[#166534] hover:bg-[#166534]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-lime-500 dark:text-lime-300 dark:hover:bg-lime-500/10`}
             >
-              <FontAwesomeIcon icon={faFolderPlus} />
-              <span className='truncate'>Add to Incident</span>
+              <FontAwesomeIcon icon={faFolderPlus} className='shrink-0' />
+              <span className='min-w-0 truncate'>Add to Incident</span>
             </button>
           </div>
         )}
@@ -172,7 +174,7 @@ function NotableActivityCard({
           to={`/alerts?reportIds=${activity.reportIds.join(",")}&alerts=true`}
           target='_blank'
           rel='noopener noreferrer'
-          className={`${cardActionClass} w-full bg-slate-700 text-white hover:bg-slate-800`}
+          className={`${fullWidthActionClass} bg-slate-700 text-white hover:bg-slate-800`}
         >
           <FontAwesomeIcon icon={faBell} />
           <span>View Reports</span>
@@ -208,7 +210,7 @@ function NotableActivityIndicatorRow({
 
   return (
     <div>
-      <p className='text-lg font-medium text-slate-900 dark:text-white'>{title}</p>
+      <p className='text-base font-medium text-slate-900 dark:text-white'>{title}</p>
       <div className='mt-3 flex flex-wrap gap-2'>
         {displayOptions.map((option) => {
           const isActive = activeValues.has(normalizeActivityIndicatorValue(option));
@@ -218,7 +220,7 @@ function NotableActivityIndicatorRow({
               key={option}
               aria-label={`${renderLabel(option)} ${isActive ? "active" : "inactive"}`}
               className={[
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition",
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition",
                 isActive
                   ? "border-lime-400 bg-lime-100 text-slate-800 shadow-[0_0_0_1px_rgba(132,204,22,0.25)] dark:border-lime-500 dark:bg-lime-900/40 dark:text-lime-100"
                   : "border-slate-200 bg-slate-50 text-slate-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500",

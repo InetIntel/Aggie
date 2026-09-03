@@ -23,10 +23,10 @@ interface NotableActivityTitleProps {
   className?: string;
 }
 
-// Two rendered lines at text-xl (1.25rem) with leading-snug (1.375):
-// 1.25 * 1.375 * 2 = 3.4375rem. Reserving this height keeps 1-line and 2-line
+// Two rendered lines at text-base (1rem) with leading-snug (1.375):
+// 1 * 1.375 * 2 = 2.75rem. Reserving this height keeps 1-line and 2-line
 // (or clamped multi-line) titles the same height so cards align in the grid.
-const TWO_LINE_MIN_HEIGHT = "3.4375rem";
+const TWO_LINE_MIN_HEIGHT = "2.75rem";
 
 /**
  * Renders the notable-activity card title clamped to two lines with a reserved
@@ -82,7 +82,7 @@ export default function NotableActivityTitle({
     <div className={className}>
       <p
         ref={clampRef}
-        className='line-clamp-2 text-xl italic leading-snug text-slate-700 dark:text-gray-300'
+        className='line-clamp-2 text-base italic leading-snug text-slate-700 dark:text-gray-300'
         style={{ minHeight: TWO_LINE_MIN_HEIGHT }}
       >
         {hasItems ? items.join(", ") : fallback}
@@ -117,7 +117,7 @@ export default function NotableActivityTitle({
               {items.map((item, index) => (
                 <li
                   key={`${item}-${index}`}
-                  className='rounded px-1 py-0.5 text-sm italic text-slate-700 dark:text-gray-200'
+                  className='rounded px-1 py-0.5 text-xs italic text-slate-700 dark:text-gray-200'
                 >
                   {item}
                 </li>

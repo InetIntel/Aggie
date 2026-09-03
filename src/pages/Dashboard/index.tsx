@@ -57,7 +57,7 @@ const bucketLabels: Record<AnalyticsBucketPreset, string> = {
 };
 
 // const maxNotableCards = 6;
-const notableCardsPerPage = 9;
+const notableCardsPerPage = 12;
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -361,7 +361,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className='mt-5 grid gap-4 xl:grid-cols-3'>
+        <div className='mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
           {paginatedLiveNotableActivities.map((activity) => (
             <NotableActivityCard
               key={activity.eventAggKey}
