@@ -13,13 +13,20 @@ const Group = require("../../models/group");
 const eventRouter = require('../sockets/event-router');
 const {  recomputeIncidentDurationForGroups } = require('../utils/incidentDuration');
 const { buildMediaUrl } = require('../../fetching/utils/socialImageStorage');
+const {
+  attachReportsToGroup,
+  removeReportsFromGroup,
+} = require('../utils/reportGroupActions');
+const { resolveUseDedup } = require('../utils/reportCounts');
 
 // Determine the search keywords
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
   // Data passed through URL parameters
-  var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before', 'media','dataSources', 'entityLevel',
-    'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant", 'ongoing']);
+  var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before',
+    'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media', 'dataSources', 'entityLevel',
+    'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity',
+    'isRelevantReports', "irrelevant", 'ongoing']);
 
   if (query.ongoing === 'true') {
     query.isOutageOngoing = true;
@@ -37,16 +44,10 @@ const parseQueryData = (queryString) => {
   
   if (query.dataSources) query.dataSources = query.dataSources.split(",").filter(Boolean);
   if (query.entityLevel) query.entityLevel = query.entityLevel.split(',').map(s => s.trim()).filter(Boolean);
+  if (query.reportIds) query.reportIds = query.reportIds.split(',').map(s => s.trim()).filter(Boolean);
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 }
-
-// Detemine whether should dedup overlapping reports
-const shouldDedupByEventIdentifier = (entityLevel, groupId) => {
-  if (groupId) return false;
-  if (!entityLevel || entityLevel.length === 0) return true;
-  return entityLevel.includes('AS') && entityLevel.includes('AS - Country');
-};
 
 // `stripChart` drops the (potentially few-KB) IODA signal series from list rows; the
 // detail endpoint keeps it and the frontend lazy-loads it per report.
@@ -131,16 +132,11 @@ exports.report_reports = (req, res) => {
   if (queryData) {
     let query = new ReportQuery(queryData);
 
-    const entityLevel = queryData.entityLevel;
-    const hideDuplicateASNsParam = req.query.hideDuplicateASNs;
-    
-    // Determine if we should deduplicate
-    let useDedup = shouldDedupByEventIdentifier(entityLevel, queryData.groupId);
-    
-    // If user explicitly set the toggle, use that value
-    if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {
-      useDedup = hideDuplicateASNsParam === 'true';
-    }
+    // Determine if we should deduplicate (shared with the analytics metrics endpoint
+    // so counts and list totals stay in parity).
+    const useDedup = resolveUseDedup(queryData, {
+      hideDuplicateASNs: req.query.hideDuplicateASNs,
+    });
 
     const handler = (err, reports) => {
       // The timeout middleware may have already responded; never write twice.
@@ -368,104 +364,7 @@ exports.reports_group_update = async (req, res) => {
     if (!groupPayload || !groupPayload._id) {
       return res.status(400).send('Target group is required');
     }
-
-    const targetGroupId = groupPayload._id.toString();
-
-    const reports = await Report.find({ _id: { $in: ids } });
-    if (!reports.length) return res.sendStatus(200);
-
-    const prevGroupIds = [
-      ...new Set(
-        reports
-          .filter(
-            (r) =>
-              r._group &&
-              r._group.toString() !== targetGroupId
-          )
-          .map((r) => r._group.toString())
-      ),
-    ];
-
-    if (prevGroupIds.length) {
-      const prevGroups = await Group.find({ _id: { $in: prevGroupIds } });
-
-      for (const prevGroup of prevGroups) {
-        if (!Array.isArray(prevGroup._reports) || !prevGroup._reports.length) continue;
-
-        prevGroup._reports = prevGroup._reports.filter(
-          (id) => !ids.some((rid) => id.equals(rid))
-        );
-        
-        //TODO: currently we use a conservative deletion design 
-        //  i.e. without removing ASN/geoScope from origianl incident, only manual delete
-        await prevGroup.save();
-      }
-    }
-
-    const group = await Group.findById(targetGroupId);
-    if (!group) {
-      return res.status(404).send('Group not found');
-    }
-
-    if (!Array.isArray(group._reports)) group._reports = [];
-    const reportIdSet = new Set(group._reports.map((id) => id.toString()));
-
-    if (!Array.isArray(group.impactedAsns)) group.impactedAsns = [];
-    if (!Array.isArray(group.impactedGeoScopes)) group.impactedGeoScopes = [];
-
-    for (const report of reports) {
-      report._group = targetGroupId;
-      report.read = true;
-      await report.save(); 
-
-      const rid = report._id.toString();
-      if (!reportIdSet.has(rid)) {
-        group._reports.push(report._id);
-        reportIdSet.add(rid);
-      }
-
-      addImpactedFromReportToGroup(group, report);
-    }
-
-    await group.save();
-
-    // recomputate and update incident duration fields (startedAt / endedAt / duration)
-    const groupIdsToRecompute = new Set([
-      ...prevGroupIds,
-      targetGroupId,
-    ]);
-    if (groupIdsToRecompute.size > 0) {
-      await recomputeIncidentDurationForGroups([...groupIdsToRecompute]);
-    }
-
-    const updatedTargetGroup = await Group.findById(targetGroupId)
-      .select(
-        '_id _reports impactedAsns impactedGeoScopes incidentStartedAt incidentEndedAt incidentDurationSeconds'
-      )
-      .lean()
-      .exec();
-
-    if (!updatedTargetGroup) {
-      return res.sendStatus(200);
-    }
-
-    await eventRouter.publish('groups:update', {
-      ids: [group._id],
-      update: {
-        _reports: group._reports,
-        impactedAsns: group.impactedAsns || [],
-        impactedGeoScopes: group.impactedGeoScopes || [],
-        incidentStartedAt: updatedTargetGroup.incidentStartedAt || null,
-        incidentEndedAt: updatedTargetGroup.incidentEndedAt || null,
-        incidentDurationSeconds: updatedTargetGroup.incidentDurationSeconds ?? null,
-      },
-    });
-
-    await eventRouter.publish('reports:update', {
-      ids: req.body.ids,
-      update: { _group: group._id, read: true },
-    });
-
+    await attachReportsToGroup(ids, groupPayload._id, { markRead: true });
     return res.sendStatus(200);
   } catch (err) {
     console.error('Error in reports_group_update', err);
@@ -488,61 +387,7 @@ exports.reports_group_remove = async (req, res) => {
       return res.status(400).send('Group is required');
     }
 
-    const groupId = groupPayload._id.toString();
-
-    const reports = await Report.find({ _id: { $in: ids } });
-    if (!reports.length) return res.sendStatus(200);
-
-    for (const report of reports) {
-      report._group = undefined;
-      await report.save();
-    }
-
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).send('Group not found');
-    }
-
-    if (!Array.isArray(group._reports)) group._reports = [];
-
-    const idsSet = new Set(ids.map((id) => id.toString()));
-
-    group._reports = group._reports.filter(
-      (rid) => !idsSet.has(rid.toString())
-    );
-
-    await group.save();
-
-    await recomputeIncidentDurationForGroups([groupId]);
-
-    const updatedGroup = await Group.findById(groupId)
-      .select(
-        '_id _reports impactedAsns impactedGeoScopes incidentStartedAt incidentEndedAt incidentDurationSeconds'
-      )
-      .lean()
-      .exec();
-
-    if (!updatedGroup) {
-      return res.sendStatus(200);
-    }
-
-    await eventRouter.publish('groups:update', {
-      ids: [updatedGroup._id],
-      update: {
-        _reports: updatedGroup._reports,
-        impactedAsns: updatedGroup.impactedAsns || [],
-        impactedGeoScopes: updatedGroup.impactedGeoScopes || [],
-        incidentStartedAt: updatedGroup.incidentStartedAt || null,
-        incidentEndedAt: updatedGroup.incidentEndedAt || null,
-        incidentDurationSeconds: updatedGroup.incidentDurationSeconds ?? null,
-      },
-    });
-
-    await eventRouter.publish('reports:update', {
-      ids,
-      update: { _group: null },
-    });
-
+    await removeReportsFromGroup(ids, groupPayload._id);
     return res.sendStatus(200);
   } catch (err) {
     console.error('Error in reports_group_remove', err);
@@ -727,24 +572,3 @@ exports.reports_tags_clear = (req, res) => {
   });
 }
 
-
-
-//Helper: calculate and add impacted ASN/GeoScope to corresponding incident
-function addImpactedFromReportToGroup(group, report) {
-  if (!report.isOutageEvent) return;
-
-  if (!Array.isArray(group.impactedAsns)) group.impactedAsns = [];
-  if (!Array.isArray(group.impactedGeoScopes)) group.impactedGeoScopes = [];
-
-  if (report.isAsnScoped && typeof report.asn === 'string' && report.asn.length > 0) {
-    if (!group.impactedAsns.includes(report.asn)) {
-      group.impactedAsns.push(report.asn);
-    }
-  }
-
-  if (typeof report.geoScope === 'string' && report.geoScope.length > 0) {
-    if (!group.impactedGeoScopes.includes(report.geoScope)) {
-      group.impactedGeoScopes.push(report.geoScope);
-    }
-  }
-}

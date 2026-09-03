@@ -275,6 +275,37 @@ Report.queryReports = function (query, page, callback) {
   Report.findSortedPage(filter, page, callback);
 };
 
+// Deduped total for a mongoose filter: identified reports count once per distinct
+// eventIdentifier; reports without one (missing, null, or '') share the null bucket
+// and count per-doc, matching the `!key` handling in queryReportsDeduped's dedup loop.
+// Extracted so the analytics report-metrics endpoint counts alerts exactly as the list.
+Report.countReportsDedupedTotal = async function (filter, { maxTimeMS = 30000 } = {}) {
+  const countRows = await Report.aggregate([
+    { $match: filter },
+    {
+      $group: {
+        _id: {
+          $cond: [
+            { $in: [{ $ifNull: ["$eventIdentifier", null] }, [null, ""]] },
+            null,
+            "$eventIdentifier",
+          ],
+        },
+        c: { $sum: 1 },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: { $cond: [{ $eq: ["$_id", null] }, "$c", 1] } },
+      },
+    },
+    { $project: { _id: 0, total: 1 } },
+  ]).option({ maxTimeMS });
+  const [{ total = 0 } = {}] = countRows;
+  return total;
+};
+
 // Dedup reports based on eventidentifier(if exist), general findPage() does not apply to this
 Report.queryReportsDeduped = async function (query, page, callback) {
   if (typeof page === "function") {
@@ -310,7 +341,7 @@ Report.queryReportsDeduped = async function (query, page, callback) {
     // middleware never responds first and the late result double-sends.
     const QUERY_TIME_LIMIT_MS = 30000;
 
-    const [rawReports, countRows] = await Promise.all([
+    const [rawReports, total] = await Promise.all([
       // fetch raw candidates
       // Rows are fetched in full here; the IODA signal series
       // (metadata.rawAPIResponse.chart) is stripped from list rows downstream in
@@ -321,34 +352,9 @@ Report.queryReportsDeduped = async function (query, page, callback) {
         .limit(rawFetchLimit)
         .maxTimeMS(QUERY_TIME_LIMIT_MS)
         .lean(),
-      // Deduped total: identified reports count once per distinct eventIdentifier;
-      // reports without one (missing, null, or '') share the null bucket and count
-      // per-doc, matching the `!key` handling in the dedup loop below.
-      Report.aggregate([
-        { $match: filter },
-        {
-          $group: {
-            _id: {
-              $cond: [
-                { $in: [{ $ifNull: ["$eventIdentifier", null] }, [null, ""]] },
-                null,
-                "$eventIdentifier",
-              ],
-            },
-            c: { $sum: 1 },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: { $cond: [{ $eq: ["$_id", null] }, "$c", 1] } },
-          },
-        },
-        { $project: { _id: 0, total: 1 } },
-      ]).option({ maxTimeMS: QUERY_TIME_LIMIT_MS }),
+      // Deduped total — same aggregation, shared with the analytics metrics endpoint.
+      Report.countReportsDedupedTotal(filter, { maxTimeMS: QUERY_TIME_LIMIT_MS }),
     ]);
-
-    const [{ total = 0 } = {}] = countRows;
 
     const seen = new Set();
     const deduped = [];

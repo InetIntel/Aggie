@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const analyticsRouter = require('./analyticsRoutes');
 const asnRouter = require('./asnRoutes');
 const credentialRouter = require('./credentialsRoutes');
 const csvRouter = require('./csvRoutes');
@@ -15,6 +16,7 @@ const visualizationRouter = require('./visualizationRoutes');
 const teamRouter = require('./teamRoutes');
 
 // Add all API routes
+router.use('/analytics', analyticsRouter);
 router.use('/asn', asnRouter);
 router.use('/credential', credentialRouter);
 router.use('/csv', csvRouter);
@@ -29,5 +31,4 @@ router.use('/user', userRouter);
 router.use('/visualization', visualizationRouter);
 router.use('/team', teamRouter);
 module.exports = router;
-
 
