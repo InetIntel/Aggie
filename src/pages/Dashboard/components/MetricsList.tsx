@@ -76,7 +76,7 @@ const MetricsList = ({ data, isLoading }: MetricsListProps) => {
             </h3>
             <div className='border-b border-[#CDEAF4] dark:border-gray-700' />
           </div>
-          <div className='flex flex-wrap content-start justify-between gap-2'>
+          <div className='flex flex-wrap content-start justify-start gap-2'>
             {category.metrics.map((metric) => {
               const Icon = METRIC_ICONS[metric.key];
               return (
@@ -87,8 +87,8 @@ const MetricsList = ({ data, isLoading }: MetricsListProps) => {
                   rel='noopener noreferrer'
                   className='flex items-center gap-2 rounded-[10px] bg-white p-[5px] shadow-[0_4px_10px_rgba(0,0,0,0.25)] transition hover:brightness-95 dark:bg-gray-700'
                 >
-                  <span className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#51B6D8]'>
-                    {Icon && <Icon className='h-5 w-5' aria-hidden />}
+                  <span className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#51B6D8]'>
+                    {Icon && <Icon className='h-4 w-4' aria-hidden />}
                   </span>
                   <span className='flex flex-col'>
                     <span className='text-xs font-extralight text-black dark:text-gray-200'>
