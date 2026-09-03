@@ -25,6 +25,7 @@ import {
   faEdit,
   faEllipsis,
   faMinusCircle,
+  faLock,
   faPlus,
   faTrash,
   faUserEdit,
@@ -128,6 +129,12 @@ const IncidentListItem = ({
                 <span className='px-1 bg-red-200 dark:bg-red-200 dark:saturate-[0.7] text-red-800 font-medium inline-flex gap-1 items-center'>
                   <FontAwesomeIcon icon={faTrash} />
                   Deleted
+                </span>
+              )}
+              {item.accessPolicy?.mode === "restricted" && (
+                <span className='px-1 bg-amber-100 text-amber-800 font-medium inline-flex gap-1 items-center'>
+                  <FontAwesomeIcon icon={faLock} />
+                  Restricted
                 </span>
               )}
               <TagsList values={item.smtcTags} />

@@ -1,33 +1,189 @@
 // Handles CRUD requests for teams.
 const User = require('../../models/user');
 const Team = require('../../models/team');
+const {
+  canCreateOrDeleteTeams,
+  canManageTeam,
+  isAdmin,
+  isLegacyTeamLead,
+  normalizeIds,
+} = require('../../access/teamAccess');
+const {
+  TEAM_PERMISSION_KEYS,
+  getMembershipTeamIds,
+  getMembershipRole,
+  getTeamIdsWithPermission,
+  getTeamPermissions,
+  normalizeTeamPermissionList,
+  normalizeTeamRole,
+} = require('../../access/teamMemberships');
 
-const assignableRoles = ['viewer', 'monitor', 'team_lead'];
+const assignableRoles = ['viewer', 'monitor', 'team_lead_scoped', 'team_lead'];
+const teamLimitPermissions = TEAM_PERMISSION_KEYS.filter(
+  (permission) => permission !== 'view data'
+);
 
-const canManageTeams = (user) => {
-  return user && ['admin', 'team_lead'].includes(user.role);
+const serializeTeamDetail = (team, members) => {
+  const plainTeam = typeof team.toObject === 'function' ? team.toObject() : team;
+  const leadIds = new Set(normalizeIds(plainTeam.leads));
+  const teamSettings = new Map([[String(plainTeam._id), plainTeam]]);
+
+  return {
+    team: plainTeam,
+    members: members.map((member) => {
+      const isTeamLead = leadIds.has(String(member._id));
+      const teamRole = getMembershipRole(
+        member,
+        plainTeam._id,
+        isTeamLead ? [plainTeam._id] : []
+      );
+      const membership = (member.teamMemberships || []).find(
+        (item) => String(item.team && (item.team._id || item.team)) === String(plainTeam._id)
+      );
+      const permissionOverrides = {
+        allow: normalizeTeamPermissionList(
+          membership && membership.permissionOverrides && membership.permissionOverrides.allow
+        ),
+        deny: normalizeTeamPermissionList(
+          membership && membership.permissionOverrides && membership.permissionOverrides.deny
+        ),
+      };
+
+      return {
+        ...member,
+        accountRole: member.role,
+        role: teamRole || normalizeTeamRole(member.role),
+        teamRole: teamRole || normalizeTeamRole(member.role),
+        teamPermissionOverrides: permissionOverrides,
+        teamPermissions: getTeamPermissions(
+          member,
+          plainTeam._id,
+          isTeamLead ? [plainTeam._id] : [],
+          teamSettings
+        ),
+        isTeamLead,
+      };
+    }),
+  };
+};
+
+exports.team_update_member_permissions = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+  if (!Array.isArray(req.body.allow) || !Array.isArray(req.body.deny)) {
+    return res.status(400).send('Allow and deny must both be arrays.');
+  }
+
+  const submitted = [...req.body.allow, ...req.body.deny];
+  if (submitted.some((permission) => !TEAM_PERMISSION_KEYS.includes(permission))) {
+    return res.status(400).send('One or more team permissions are invalid.');
+  }
+
+  const allow = normalizeTeamPermissionList(req.body.allow);
+  const deny = normalizeTeamPermissionList(req.body.deny);
+  if (allow.some((permission) => deny.includes(permission))) {
+    return res.status(400).send('A permission cannot be both allowed and denied.');
+  }
+
+  try {
+    const team = await Team.findById(req.params._id);
+    if (!team) return res.sendStatus(404);
+    if (!canManageTeam(req.user, team)) {
+      return res.status(403).send('Unauthorized to manage team members.');
+    }
+
+    const user = await User.findById(req.params.userId).select('-password');
+    if (!user) return res.status(404).send('User not found.');
+    if (user.role === 'admin') {
+      return res.status(403).send('Admin users do not use team permission exceptions.');
+    }
+
+    const userIsTeamLead = normalizeIds(team.leads).includes(String(user._id));
+    if (userIsTeamLead && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can update team leads.');
+    }
+
+    const belongsToTeam = (user.teams || []).some(
+      (teamId) => String(teamId) === String(team._id)
+    );
+    if (!belongsToTeam) {
+      return res.status(400).send('This user is not a member of the team.');
+    }
+
+    user.teamMemberships = user.teamMemberships || [];
+    let membership = user.teamMemberships.find(
+      (item) => String(item.team) === String(team._id)
+    );
+    if (!membership) {
+      user.teamMemberships.push({
+        team: team._id,
+        role: getMembershipRole(user, team._id, userIsTeamLead ? [team._id] : []),
+      });
+      membership = user.teamMemberships[user.teamMemberships.length - 1];
+    }
+
+    membership.permissionOverrides = { allow, deny };
+    await user.save();
+
+    const members = await User.find({ teams: team._id })
+      .select('_id username displayName email role teamMemberships createdBy')
+      .sort({ role: 1, username: 1 })
+      .lean();
+    return res.status(200).send(serializeTeamDetail(team, members));
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team permission update failed');
+  }
+};
+
+exports.team_update_permission_limits = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+  if (!isAdmin(req.user)) {
+    return res.status(403).send('Only administrators can change team limits.');
+  }
+  if (!Array.isArray(req.body.deny)) {
+    return res.status(400).send('Deny must be an array.');
+  }
+  if (req.body.deny.some((permission) => !teamLimitPermissions.includes(permission))) {
+    return res.status(400).send('One or more team limits are invalid.');
+  }
+
+  try {
+    const team = await Team.findById(req.params._id);
+    if (!team) return res.sendStatus(404);
+
+    team.permissionLimits = {
+      deny: normalizeTeamPermissionList(req.body.deny),
+    };
+    await team.save();
+
+    const members = await User.find({ teams: team._id })
+      .select('_id username displayName email role teamMemberships createdBy')
+      .sort({ role: 1, username: 1 })
+      .lean();
+    return res.status(200).send(serializeTeamDetail(team, members));
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team limit update failed');
+  }
 };
 
 // Get all teams
-exports.team_list = (req, res) => {
+exports.team_list = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
-    return res.status(403).send('Unauthorized to view teams.');
+  try {
+    const filter = isAdmin(req.user) || isLegacyTeamLead(req.user)
+      ? {}
+      : { leads: req.user._id };
+    const teams = await Team.find(filter).sort({ name: 1 }).lean();
+    return res.status(200).send(teams);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team query failed');
   }
-
-  Team.find({})
-    .sort({ name: 1 })
-    .lean()
-    .exec((err, teams) => {
-      if (err) {
-        return res
-          .status(err.status || 500)
-          .send(err.message || 'Team query failed');
-      }
-
-      return res.status(200).send(teams);
-    });
 };
 
 // Get teams the current user can manage
@@ -35,7 +191,7 @@ exports.team_manageable_list = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
   try {
-    if (req.user.role === 'admin') {
+    if (isAdmin(req.user)) {
       const teams = await Team.find({})
         .sort({ name: 1 })
         .lean();
@@ -43,7 +199,7 @@ exports.team_manageable_list = async (req, res) => {
       return res.status(200).send(teams);
     }
 
-    if (req.user.role === 'team_lead') {
+    if (isLegacyTeamLead(req.user)) {
       const actor = await User.findById(req.user._id)
         .select('teams')
         .lean();
@@ -59,7 +215,11 @@ exports.team_manageable_list = async (req, res) => {
       return res.status(200).send(teams);
     }
 
-    return res.status(403).send('Unauthorized to view manageable teams.');
+    const teams = await Team.find({ leads: req.user._id })
+      .sort({ name: 1 })
+      .lean();
+
+    return res.status(200).send(teams);
   } catch (err) {
     return res
       .status(err.status || 500)
@@ -71,9 +231,6 @@ exports.team_manageable_list = async (req, res) => {
 exports.team_detail = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
-  return res.status(403).send('Unauthorized to view team details.');
-}
   try {
     const team = await Team.findById(req.params._id)
       .lean();
@@ -82,15 +239,16 @@ exports.team_detail = async (req, res) => {
       return res.sendStatus(404);
     }
 
+    if (!canManageTeam(req.user, team)) {
+      return res.status(403).send('Unauthorized to view team details.');
+    }
+
     const members = await User.find({ teams: req.params._id })
-      .select('_id username displayName email role createdBy')
+      .select('_id username displayName email role teamMemberships createdBy')
       .sort({ role: 1, username: 1 })
       .lean();
 
-    return res.status(200).send({
-      team,
-      members,
-    });
+    return res.status(200).send(serializeTeamDetail(team, members));
   } catch (err) {
     if (err.name === 'CastError') {
       return res.status(400).send('Invalid team id.');
@@ -102,11 +260,40 @@ exports.team_detail = async (req, res) => {
   }
 };
 
+exports.team_update_status = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+  if (!isAdmin(req.user)) {
+    return res.status(403).send('Only administrators can change team status.');
+  }
+  if (typeof req.body.active !== 'boolean') {
+    return res.status(400).send('Active must be true or false.');
+  }
+
+  try {
+    const team = await Team.findById(req.params._id);
+    if (!team) return res.sendStatus(404);
+
+    team.active = req.body.active;
+    await team.save();
+
+    const members = await User.find({ teams: team._id })
+      .select('_id username displayName email role teamMemberships createdBy')
+      .sort({ role: 1, username: 1 })
+      .lean();
+
+    return res.status(200).send(serializeTeamDetail(team, members));
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team status update failed');
+  }
+};
+
 // Create a team
 exports.team_create = (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
+  if (!canCreateOrDeleteTeams(req.user)) {
     return res.status(403).send('Unauthorized to create teams.');
   }
 
@@ -131,10 +318,6 @@ exports.team_create = (req, res) => {
 exports.team_add_member = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
-    return res.status(403).send('Unauthorized to manage team members.');
-  }
-
   const userId = req.body.userId;
   const role = req.body.role;
 
@@ -143,14 +326,22 @@ exports.team_add_member = async (req, res) => {
   }
 
   if (!assignableRoles.includes(role)) {
-    return res.status(400).send('Role must be viewer, monitor, or team_lead.');
+    return res.status(400).send('Role must be viewer, monitor, team_lead_scoped, or team_lead.');
   }
 
   try {
-    const team = await Team.findById(req.params._id).lean();
+    const team = await Team.findById(req.params._id);
 
     if (!team) {
       return res.sendStatus(404);
+    }
+
+    if (!canManageTeam(req.user, team)) {
+      return res.status(403).send('Unauthorized to manage team members.');
+    }
+
+    if (['team_lead_scoped', 'team_lead'].includes(role) && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can appoint team leads.');
     }
 
     const user = await User.findById(userId).select('-password');
@@ -159,32 +350,59 @@ exports.team_add_member = async (req, res) => {
       return res.status(404).send('User not found.');
     }
 
-    if (user.role === 'admin') {
-      return res.status(403).send('Admin users cannot be assigned from the team page.');
+    if (user.role === 'admin' && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can assign admin users.');
     }
 
-    user.role = role;
+    const userIsTeamLead = normalizeIds(team.leads).includes(String(user._id));
+    if (userIsTeamLead && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can update team leads.');
+    }
+
     user.teams = user.teams || [];
+    user.teamMemberships = user.teamMemberships || [];
 
     const alreadyInTeam = user.teams.some(
       (teamId) => String(teamId) === String(req.params._id)
     );
 
+    if (team.active === false && !alreadyInTeam) {
+      return res.status(400).send('Inactive teams cannot receive new members.');
+    }
+
     if (!alreadyInTeam) {
       user.teams.push(req.params._id);
     }
 
+    const membershipRole = normalizeTeamRole(role);
+    const existingMembership = user.teamMemberships.find(
+      (membership) => String(membership.team) === String(req.params._id)
+    );
+
+    if (existingMembership) {
+      existingMembership.role = membershipRole;
+    } else {
+      user.teamMemberships.push({
+        team: req.params._id,
+        role: membershipRole,
+      });
+    }
+
+    if (['team_lead_scoped', 'team_lead'].includes(role)) {
+      team.leads.addToSet(user._id);
+    } else {
+      team.leads.pull(user._id);
+    }
+
     await user.save();
+    await team.save();
 
     const members = await User.find({ teams: req.params._id })
-      .select('_id username displayName email role createdBy')
+      .select('_id username displayName email role teamMemberships createdBy')
       .sort({ role: 1, username: 1 })
       .lean();
 
-    return res.status(200).send({
-      team,
-      members,
-    });
+    return res.status(200).send(serializeTeamDetail(team, members));
   } catch (err) {
     return res
       .status(err.status || 500)
@@ -196,15 +414,15 @@ exports.team_add_member = async (req, res) => {
 exports.team_remove_member = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-  if (!canManageTeams(req.user)) {
-    return res.status(403).send('Unauthorized to manage team members.');
-  }
-
   try {
-    const team = await Team.findById(req.params._id).lean();
+    const team = await Team.findById(req.params._id);
 
     if (!team) {
       return res.sendStatus(404);
+    }
+
+    if (!canManageTeam(req.user, team)) {
+      return res.status(403).send('Unauthorized to manage team members.');
     }
 
     const user = await User.findById(req.params.userId).select('-password');
@@ -213,23 +431,30 @@ exports.team_remove_member = async (req, res) => {
       return res.status(404).send('User not found.');
     }
 
-    if (user.role === 'admin') {
-      return res.status(403).send('Admin users cannot be removed from teams here.');
+    if (user.role === 'admin' && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can remove admin users.');
+    }
+
+    const userIsTeamLead = normalizeIds(team.leads).includes(String(user._id));
+    if (userIsTeamLead && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can remove team leads.');
     }
 
     await User.findByIdAndUpdate(req.params.userId, {
-      $pull: { teams: req.params._id },
+      $pull: {
+        teams: req.params._id,
+        teamMemberships: { team: req.params._id },
+      },
     });
+    team.leads.pull(req.params.userId);
+    await team.save();
 
     const members = await User.find({ teams: req.params._id })
-      .select('_id username displayName email role createdBy')
+      .select('_id username displayName email role teamMemberships createdBy')
       .sort({ role: 1, username: 1 })
       .lean();
 
-    return res.status(200).send({
-      team,
-      members,
-    });
+    return res.status(200).send(serializeTeamDetail(team, members));
   } catch (err) {
     return res
       .status(err.status || 500)
@@ -241,7 +466,7 @@ exports.team_remove_member = async (req, res) => {
 exports.team_delete = async (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
 
-if (!canManageTeams(req.user)) {
+if (!canCreateOrDeleteTeams(req.user)) {
   return res.status(403).send('Unauthorized to delete teams.');
 }
 
@@ -264,5 +489,59 @@ if (!canManageTeams(req.user)) {
     return res
       .status(err.status || 500)
       .send(err.message || 'Team deletion failed');
+  }
+};
+
+// Get only the team names the current user may use in an incident policy.
+exports.team_incident_access_list = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  try {
+    if (isAdmin(req.user) || isLegacyTeamLead(req.user)) {
+      const teams = await Team.find({ active: true })
+        .select('_id name description active')
+        .sort({ name: 1 })
+        .lean();
+      return res.status(200).send(teams);
+    }
+
+    const actor = await User.findById(req.user._id)
+      .select('_id role teams teamMemberships')
+      .lean();
+    if (!actor) return res.status(401).send('Unauthenticated.');
+
+    const ledTeams = await Team.find({ leads: actor._id })
+      .select('_id permissionLimits')
+      .lean();
+    const ledTeamIds = ledTeams.map((team) => String(team._id));
+    const candidateTeamIds = [...new Set([
+      ...getMembershipTeamIds(actor),
+      ...ledTeamIds,
+    ])];
+    const candidateTeams = await Team.find({ _id: { $in: candidateTeamIds } })
+      .select('_id permissionLimits')
+      .lean();
+    const teamSettings = new Map(
+      candidateTeams.map((team) => [String(team._id), team])
+    );
+    const allowedTeamIds = getTeamIdsWithPermission(
+      actor,
+      'manage incident access',
+      ledTeamIds,
+      teamSettings
+    );
+    const teams = await Team.find({
+      _id: { $in: allowedTeamIds },
+      active: true,
+    })
+      .select('_id name description active')
+      .sort({ name: 1 })
+      .lean();
+
+    return res.status(200).send(teams);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Incident access team query failed');
   }
 };

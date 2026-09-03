@@ -36,7 +36,8 @@ interface IProps {
   type: CredentialOption;
   sources: Source[];
   credentials: Credential[];
-  isManager: boolean;
+  canManageConnections: boolean;
+  canManageSources: boolean;
   // Toggle from the Feeds page: allow more than one connection per provider.
   allowMultipleConnections: boolean;
 }
@@ -48,7 +49,8 @@ const ApiTypeSection = ({
   type,
   sources,
   credentials,
-  isManager,
+  canManageConnections,
+  canManageSources,
   allowMultipleConnections,
 }: IProps) => {
   const queryClient = useQueryClient();
@@ -109,7 +111,7 @@ const ApiTypeSection = ({
             {label}
           </h2>
         </div>
-        {isManager && canAddConnection && (
+        {canManageConnections && canAddConnection && (
           <AggieButton
             onClick={() => setOpenCreateCredential(true)}
             variant='primary'
@@ -123,7 +125,7 @@ const ApiTypeSection = ({
       </div>
 
       {/* Connections for this provider */}
-      {isManager && (
+      {canManageConnections && (
         <>
           <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400 mb-1'>
             {allowMultipleConnections ? "Connections" : "Connection"}
@@ -161,7 +163,7 @@ const ApiTypeSection = ({
       )}
 
       {/* Feeds for this provider */}
-      {isManager && (
+      {canManageSources && (
         <p className='text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400 mb-1'>
           Feeds
         </p>
@@ -178,7 +180,7 @@ const ApiTypeSection = ({
                 <p className='text-sm break-words'>{source.nickname}</p>
               </main>
               <div className='flex flex-wrap items-center gap-2'>
-                {isManager && (
+                {canManageSources && (
                   <p className='bg-slate-200 dark:bg-gray-600 rounded-full px-2 max-w-full py-1'>
                     <span
                       className='flex items-center gap-2 min-w-0'
@@ -212,7 +214,7 @@ const ApiTypeSection = ({
                   </p>
                 )}
               </div>
-              {isManager && (
+              {canManageSources && (
                 <div className='flex items-center gap-2 lg:justify-end shrink-0'>
                   <p className='text-xs font-medium text-slate-600 dark:text-gray-400'>
                     {source.enabled ? "Enabled" : "Disabled"}
@@ -273,7 +275,7 @@ const ApiTypeSection = ({
             No {label} feeds yet.
           </p>
         )}
-        {isManager && (
+        {canManageSources && (
           <div className='px-3 py-3'>
             <AggieButton
               onClick={() => setOpenSource("new")}
@@ -295,7 +297,7 @@ const ApiTypeSection = ({
       </div>
 
       {/* Dialogs */}
-      {isManager && (
+      {(canManageConnections || canManageSources) && (
         <>
           <AggieDialog
             isOpen={openCreateCredential}

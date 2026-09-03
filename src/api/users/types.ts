@@ -11,6 +11,11 @@ export interface UserTeam {
   active?: boolean;
 }
 
+export interface UserTeamMembership {
+  team: UserTeam | string;
+  role: "viewer" | "monitor" | "team_lead";
+}
+
 export interface User extends hasId {
   provider: string;
   hasDefaultPassword: boolean;
@@ -19,6 +24,7 @@ export interface User extends hasId {
   username: string;
   displayName?: string;
   teams?: UserTeam[];
+  teamMemberships?: UserTeamMembership[];
   __v: number;
   createdBy?: string;
   preferences?: UserPreferences;
@@ -33,6 +39,16 @@ export interface User extends hasId {
   };
 }
 
+export type TeamMemberCandidate = Pick<
+  User,
+  "_id" | "username" | "displayName" | "role"
+>;
+
+export type UserDirectoryEntry = Pick<
+  User,
+  "_id" | "username" | "displayName"
+>;
+
 export interface UserEditableData {
   username: string;
   displayName?: string;
@@ -44,4 +60,5 @@ export interface UserEditableData {
 
 export interface UserCreationData extends UserEditableData {
   password: string;
+  teams?: string[];
 }

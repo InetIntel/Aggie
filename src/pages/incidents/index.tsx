@@ -6,7 +6,7 @@ import { useMultiSelect } from "../../hooks/useMultiSelect";
 import _ from "lodash";
 
 import { getGroups } from "../../api/groups";
-import type { Group, GroupQueryState, Groups } from "../../api/groups/types";
+import type { Group, GroupQueryState } from "../../api/groups/types";
 
 import { Link, useNavigationType } from "react-router-dom";
 import IncidentsFilters from "./IncidentsFilters";
@@ -25,8 +25,6 @@ import { formatPageCount } from "../../utils/format";
 import AggieButton from "../../components/AggieButton";
 import CompareToolbar from "../../components/CompareModal/CompareToolbar";
 import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
-import { updateByIds } from "../../utils/immutable";
-import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
 
 let savedScrollTop: number | null = null;
 
@@ -40,7 +38,6 @@ const MAX_COMPARE = 6;
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
     useQueryParams<IncidentsQueryState>();
-  const queryData = useUpdateQueryData();
   const navigationType = useNavigationType();
 
   // "view" is a UI toggle, not a filter — exclude it so switching to the table
@@ -144,27 +141,9 @@ const Incidents = () => {
     }
   }, [data, navigationType]);
 
-  interface GroupUpdateEvent extends SocketEvent {
-    data: {
-      ids: string[];
-      update: Record<string, any>;
-    };
-  }
-
-  const handleSocketUpdate = (message: GroupUpdateEvent) => {
+  const handleSocketUpdate = (message: SocketEvent) => {
     if (message.event !== "groups:update") return;
-    console.log("sockets", message);
-
-    queryData.update<Groups>(["groups"], (data) => {
-      const updateData = updateByIds(
-        message.data.ids,
-        data.results,
-        message.data.update
-      );
-      return {
-        results: updateData,
-      };
-    });
+    refetch();
   };
   useSocketSubscribe("groups:update", handleSocketUpdate);
 

@@ -90,6 +90,7 @@ const Incident = () => {
     isError,
     data: group,
     error: groupError,
+    refetch: incidentRefetch,
   } = useQuery(["group", id], () => getGroup(id), {
     onSuccess: (data) => { },
   });
@@ -157,24 +158,10 @@ const Incident = () => {
     navigate({ pathname: "/incidents/new", search: params.toString() });
   }
 
-  interface GroupUpdateEvent extends SocketEvent {
-    data: {
-      ids: string[];
-      update: Record<string, any>;
-    };
-  }
-  const handleSocketUpdate = (message: GroupUpdateEvent) => {
+  const handleSocketUpdate = (message: SocketEvent) => {
     if (message.event !== "groups:update") return;
-
-    // update single report
-    if (id && message.data.ids.includes(id)) {
-      queryData.update<Report>(["group", id], (_) => {
-        return message.data.update;
-      });
-      if ("_reports" in message.data.update) {
-        groupRefetch();
-      }
-    }
+    incidentRefetch();
+    groupRefetch();
   };
   useSocketSubscribe("groups:update", handleSocketUpdate);
 

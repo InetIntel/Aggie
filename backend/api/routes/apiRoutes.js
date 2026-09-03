@@ -13,6 +13,7 @@ const userRouter = require('./userRoutes');
 const searchRouter = require('./searchRoutes');
 const visualizationRouter = require('./visualizationRoutes');
 const teamRouter = require('./teamRoutes');
+const permissionRouter = require('./permissionRoutes');
 
 // Add all API routes
 router.use('/asn', asnRouter);
@@ -28,6 +29,7 @@ router.use('/tag', tagRouter);
 router.use('/user', userRouter);
 router.use('/visualization', visualizationRouter);
 router.use('/team', teamRouter);
+router.use('/permission', permissionRouter);
 module.exports = router;
 
 

@@ -29,6 +29,7 @@ const TagsIndex = (props: IProps) => {
   const queryClient = useQueryClient();
   const { data, isSuccess, refetch } = useQuery(["tags"], getTags);
   const { data: session } = useQuery(["session"], getSession);
+  const canEditTags = session?.permissions?.includes("edit tags") === true;
 
   const doDeleteTag = useMutation(deleteTag, {
     onSuccess: () => {
@@ -53,7 +54,7 @@ const TagsIndex = (props: IProps) => {
         <h3 className={"text-3xl font-medium"}>Tags</h3>
 
         {
-          session?.role === "admin" &&
+          canEditTags &&
           <AggieButton
             variant='primary'
             padding='px-3 py-2'
@@ -81,7 +82,7 @@ const TagsIndex = (props: IProps) => {
               </header>
               <main className='col-span-2 text-sm'>{tag.description}</main>
               <footer className='flex justify-end items-center'>
-                { session?.role === "admin" &&
+                {canEditTags &&
                   <DropdownMenu
                     variant='secondary'
                     className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
@@ -108,7 +109,7 @@ const TagsIndex = (props: IProps) => {
             </article>
           ))}
       </section>
-      { session?.role === "admin" && <>
+      {canEditTags && <>
         <AggieDialog
           isOpen={!!editOpen}
           onClose={() => setEditOpen("")}

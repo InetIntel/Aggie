@@ -228,6 +228,9 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
   const [cutoffField] = useField<string>("accessPolicyCutoffDate");
 
   const selectedTeamIds = teamsField.value || [];
+  const availableTeams = (teams || []).filter(
+    (team) => team.active !== false || selectedTeamIds.includes(team._id)
+  );
   const isRestricted =
     modeField.value === "restricted" || modeField.value === "public_until";
 
@@ -280,8 +283,8 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
             Allowed Teams
           </label>
 
-          {teams && teams.length > 0 ? (
-            teams.map((team) => (
+          {availableTeams.length > 0 ? (
+            availableTeams.map((team) => (
               <label
                 key={team._id}
                 className='flex items-center gap-2 text-sm'
@@ -291,7 +294,7 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
                   checked={selectedTeamIds.includes(team._id)}
                   onChange={() => toggleTeam(team._id)}
                 />
-                <span>{team.name}</span>
+                <span>{team.name}{team.active === false ? " (inactive)" : ""}</span>
               </label>
             ))
           ) : (

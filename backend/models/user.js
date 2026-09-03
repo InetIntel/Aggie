@@ -3,6 +3,12 @@ var database = require('../database');
 const mongoose = database.mongoose;
 const Schema = mongoose.Schema;
 const passportLocalMongoose = require('passport-local-mongoose');
+const {
+  PERMISSION_KEYS,
+  PERMISSION_ROLES,
+  hasPermission,
+} = require('../access/permissions');
+const { TEAM_PERMISSION_KEYS } = require('../access/teamMemberships');
 require('dotenv').config()
 
 function bufferToBase64url(buf) {
@@ -41,10 +47,46 @@ var userSchema = new Schema({
   password: { type: String },
   hasDefaultPassword: { type: Boolean, default: true },
   role: { type: String, default: 'viewer' },
+  permissionOverrides: {
+    allow: {
+      type: [String],
+      enum: PERMISSION_KEYS,
+      default: [],
+    },
+    deny: {
+      type: [String],
+      enum: PERMISSION_KEYS,
+      default: [],
+    },
+  },
   teams: {
       type: [{ type: Schema.Types.ObjectId, ref: 'Team' }],
       default: [],
       index: true,
+  },
+  teamMemberships: {
+    type: [{
+      _id: false,
+      team: { type: Schema.Types.ObjectId, ref: 'Team', required: true },
+      role: {
+        type: String,
+        enum: ['viewer', 'monitor', 'team_lead'],
+        default: 'viewer',
+      },
+      permissionOverrides: {
+        allow: {
+          type: [String],
+          enum: TEAM_PERMISSION_KEYS,
+          default: [],
+        },
+        deny: {
+          type: [String],
+          enum: TEAM_PERMISSION_KEYS,
+          default: [],
+        },
+      },
+    }],
+    default: [],
   },
   active: { type: Boolean, default: true },
   attempts: { type: Number, default: 0 },
@@ -80,6 +122,7 @@ userSchema.index(
   { unique: true, sparse: true }
 );
 userSchema.index({ 'webauthnCredentials.credentialID': 1 });
+userSchema.index({ 'teamMemberships.team': 1 });
 
 userSchema.set('toJSON', {
   transform: function (doc, ret) {
@@ -118,38 +161,37 @@ userSchema.plugin(passportLocalMongoose, {
 
 var User = mongoose.model('User', userSchema);
 
-User.permissions = {
-  'manage trends': ['admin'],
-  'view data': ['viewer', 'monitor', 'admin', 'team_lead'],
-  'edit data': ['monitor', 'admin', 'team_lead'],
-  'change settings': ['admin', 'team_lead'],
-  'view users': ['viewer', 'monitor', 'admin', 'team_lead'],
-  'view other users': ['manager', 'admin','team_lead'],
-  'update users': ['viewer', 'monitor', 'admin'],
-  'delete users': ['admin', 'team_lead'],
-  'admin users': ['admin'],
-  'change admin password': ['admin'],
-  'edit tags': ['manager', 'admin']
-};
+// Kept as a public model property for compatibility with existing callers.
+User.permissions = PERMISSION_ROLES;
+User.hasPermission = hasPermission;
 
 // Determine if a user can do a certain action
 User.can = (permission) => {
   return (req, res, next) => {
     const user = req.user;
-    if (process.env.ADMIN_PARTY.toLowerCase() === "true") {
-      next();
+    if (String(process.env.ADMIN_PARTY).toLowerCase() === 'true') {
+      req.accessUser = {
+        _id: user && (user._id || user.id),
+        role: 'admin',
+        teams: [],
+      };
+      return next();
     }
-    User.findById(user.id, (err, foundUser) => {
+    if (!user) {
+      return res.status(401).send('Authentication required.');
+    }
+    User.findById(user.id || user._id, (err, foundUser) => {
       if (err) {
-        res.status(422).send("No user found.");
-        return next(err);
+        return res.status(422).send('Unable to verify user permissions.');
       }
-      if (User.permissions[permission]) {
-        if (User.permissions[permission].indexOf(foundUser.role) > -1) {
-          return next();
-        }
+      if (!foundUser || !foundUser.active) {
+        return res.status(401).send('User account is unavailable.');
       }
-      res.status(401).send("You are not authorized to " + permission + ".");
+      if (hasPermission(foundUser, permission)) {
+        req.accessUser = foundUser;
+        return next();
+      }
+      return res.status(403).send('You are not authorized to ' + permission + '.');
     });
   };
 };

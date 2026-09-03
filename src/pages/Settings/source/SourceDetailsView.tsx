@@ -227,7 +227,7 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
   });
 
   const isManager =
-    session?.role === "admin" || session?.role === "team_lead";
+    session?.permissions?.includes("manage sources") === true;
   const isLoading = doEditSource.isLoading || !data;
 
   // Read-only config derived from the same fields the edit form exposes.

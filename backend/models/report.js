@@ -239,7 +239,7 @@ SMTCTag.schema.on("tag:removed", function (id) {
 });
 
 // queryReports reports based on passed query data
-Report.queryReports = function (query, page, callback) {
+Report.queryReports = function (query, page, callback, extraFilter) {
   if (typeof query === "function") return Report.findPage(query);
   if (typeof page === "function") {
     callback = page;
@@ -249,7 +249,16 @@ Report.queryReports = function (query, page, callback) {
     page = 0;
   if (page < 0) page = 0;
 
-  const filter = query.toMongooseFilter();
+  let filter = query.toMongooseFilter();
+
+  if (extraFilter && Object.keys(extraFilter).length) {
+    filter = {
+      $and: [
+        filter,
+        extraFilter,
+      ],
+    };
+  }
 
   // Re-set search timestamp
   query.since = new Date();
@@ -276,7 +285,7 @@ Report.queryReports = function (query, page, callback) {
 };
 
 // Dedup reports based on eventidentifier(if exist), general findPage() does not apply to this
-Report.queryReportsDeduped = async function (query, page, callback) {
+Report.queryReportsDeduped = async function (query, page, callback, extraFilter) {
   if (typeof page === "function") {
     callback = page;
     page = 0;
@@ -288,7 +297,16 @@ Report.queryReportsDeduped = async function (query, page, callback) {
       page = 0;
     if (page < 0) page = 0;
 
-    const filter = query.toMongooseFilter();
+    let filter = query.toMongooseFilter();
+
+    if (extraFilter && Object.keys(extraFilter).length) {
+      filter = {
+        $and: [
+          filter,
+          extraFilter,
+        ],
+      };
+    }
 
     // same extra filters as queryReports
     if (query.escalated === "escalated") filter.escalated = true;

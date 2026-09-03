@@ -39,12 +39,12 @@ module.exports = (httpServer) => {
   ns['groups'].on('connection', onConnection('groups'));
   ns['reports'].on('connection', onConnection('reports'));
 
-  const handleEvent = (nsName) => async (eventName, data) => {
+  const handleEvent = (nsName, serialize = (data) => data) => async (eventName, data) => {
     //console.log('Received event', eventName, 'with data', data);
 
     ns[nsName].emit(eventName, {
       event: eventName,
-      data,
+      data: serialize(data),
     });
   };
 
@@ -52,17 +52,18 @@ module.exports = (httpServer) => {
   EventRouter.on('tags:delete', handleEvent('tags'));
   EventRouter.on('tags:update', handleEvent('tags'));
 
-  EventRouter.on('sources:create', handleEvent('sources'));
-  EventRouter.on('sources:delete', handleEvent('sources'));
-  EventRouter.on('sources:update', handleEvent('sources'));
+  // Reload through the API so each user only receives data they can access.
+  EventRouter.on('sources:create', handleEvent('sources', () => null));
+  EventRouter.on('sources:delete', handleEvent('sources', () => null));
+  EventRouter.on('sources:update', handleEvent('sources', () => null));
 
-  EventRouter.on('groups:create', handleEvent('reports'));
-  EventRouter.on('groups:delete', handleEvent('reports'));
-  EventRouter.on('groups:update', handleEvent('reports'));
+  EventRouter.on('groups:create', handleEvent('reports', () => null));
+  EventRouter.on('groups:delete', handleEvent('reports', () => null));
+  EventRouter.on('groups:update', handleEvent('reports', () => null));
 
-  EventRouter.on('reports:update', handleEvent('reports'));
-  EventRouter.on('reports:create', handleEvent('reports'));
-  EventRouter.on('reports:delete', handleEvent('reports'));
-  EventRouter.on('reports:read', handleEvent('reports'));
+  EventRouter.on('reports:update', handleEvent('reports', () => null));
+  EventRouter.on('reports:create', handleEvent('reports', () => null));
+  EventRouter.on('reports:delete', handleEvent('reports', () => null));
+  EventRouter.on('reports:read', handleEvent('reports', () => null));
 
 };

@@ -1,9 +1,22 @@
 import axios from "axios";
-import type { User, UserEditableData } from "./types";
+import type {
+  TeamMemberCandidate,
+  User,
+  UserCreationData,
+  UserDirectoryEntry,
+  UserEditableData,
+} from "./types";
 import type { UserPreferences } from "../session/types";
 
 export const getUsers = async () => {
   const { data } = await axios.get<User[] | undefined>("/api/user");
+  return data;
+};
+
+export const getUserDirectory = async () => {
+  const { data } = await axios.get<UserDirectoryEntry[] | undefined>(
+    "/api/user/directory"
+  );
   return data;
 };
 
@@ -20,7 +33,7 @@ export const getUser = async (id: string) => {
 };
 
 // We use UserEditableData because we don't actually pass a full user object when creating one.
-export const newUser = async (user: UserEditableData) => {
+export const newUser = async (user: UserCreationData) => {
   const { data } = await axios.post("/api/user/", user);
   return data;
 };
@@ -56,7 +69,6 @@ export const updateUserTeams = async (params: { _id: string; teams: string[] }) 
   });
   return data;
 };
-
 // Date/time display preferences are self-service; the backend user_update handler
 // whitelists the nested `preferences` object separately from the other fields.
 export const updateUserPreferences = async (params: {
@@ -66,5 +78,13 @@ export const updateUserPreferences = async (params: {
   const { data } = await axios.put<User>("/api/user/" + params._id, {
     preferences: params.preferences,
   });
+  return data;
+};
+
+export const searchTeamMemberCandidates = async (search: string) => {
+  const { data } = await axios.get<TeamMemberCandidate[]>(
+    "/api/user/member-candidates",
+    { params: { q: search } }
+  );
   return data;
 };

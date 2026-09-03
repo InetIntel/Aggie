@@ -14,6 +14,14 @@ const eventRouter = require('../sockets/event-router');
 const {  recomputeIncidentDurationForGroups } = require('../utils/incidentDuration');
 const { buildMediaUrl } = require('../../fetching/utils/socialImageStorage');
 
+const Source = require('../../models/source');
+const User = require('../../models/user');
+const { buildReportSourceAccessFilter } = require('../../access/sourceAccess');
+const { normalizeIds } = require('../../access/teamAccess');
+const {
+  hideRestrictedIncidentReferences,
+} = require('../../access/reportIncidentReferences');
+
 // Determine the search keywords
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
@@ -40,6 +48,146 @@ const parseQueryData = (queryString) => {
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 }
+
+//report AccessUser
+const getReportAccessUser = async (req) => {
+  if (req.accessUser) {
+    return req.accessUser;
+  }
+
+  if (!req.user) {
+    return null;
+  }
+
+  if (req.user.role === 'admin') {
+    return req.user;
+  }
+
+  const userId = req.user._id || req.user.id;
+
+  return User.findById(userId)
+    .select('_id role teams teamMemberships')
+    .lean();
+};
+
+const getReportSourceAccessFilter = async (req) => {
+  const accessUser = await getReportAccessUser(req);
+
+  if (accessUser && accessUser.role === 'admin') {
+    return {};
+  }
+
+  const sources = await Source.find({}, '_id accessPolicy')
+    .lean()
+    .exec();
+
+  return buildReportSourceAccessFilter(accessUser, sources);
+};
+
+const combineReportFilters = (filter, sourceAccessFilter) => {
+  if (!sourceAccessFilter || Object.keys(sourceAccessFilter).length === 0) {
+    return filter;
+  }
+
+  return { $and: [filter, sourceAccessFilter] };
+};
+
+const canModifyReportsWithinScope = async (
+  reportIds,
+  scopedTeamIds,
+  allowUnscoped = false
+) => {
+  const reports = await Report.find({ _id: { $in: reportIds } })
+    .select('_sources _group')
+    .lean();
+  const sourceIds = [...new Set(reports.flatMap((report) => report._sources || []))];
+  const groupIds = [...new Set(
+    reports.map((report) => report._group).filter(Boolean).map(String)
+  )];
+  const [sources, groups] = await Promise.all([
+    Source.find({ _id: { $in: sourceIds } })
+      .select('_id accessPolicy')
+      .lean(),
+    Group.find({ _id: { $in: groupIds } })
+      .select('_id accessPolicy')
+      .lean(),
+  ]);
+  const sourceTeams = new Map(sources.map((source) => [
+    String(source._id),
+    source.accessPolicy && source.accessPolicy.mode !== 'public'
+      ? normalizeIds(source.accessPolicy.teams)
+      : [],
+  ]));
+  const groupTeams = new Map(groups.map((group) => [
+    String(group._id),
+    group.accessPolicy && group.accessPolicy.mode === 'restricted'
+      ? normalizeIds(group.accessPolicy.teams)
+      : [],
+  ]));
+  const allowedTeams = new Set(normalizeIds(scopedTeamIds));
+
+  return reports.length === reportIds.length && reports.every((report) => {
+    const reportTeamIds = [
+      ...(report._sources || []).flatMap(
+        (sourceId) => sourceTeams.get(String(sourceId)) || []
+      ),
+      ...(report._group ? groupTeams.get(String(report._group)) || [] : []),
+    ];
+
+    if (reportTeamIds.length === 0) return allowUnscoped;
+    return reportTeamIds.some((teamId) => allowedTeams.has(teamId));
+  });
+};
+
+exports.requireReportAccess = async (req, res, next) => {
+  const isMutation = !['GET', 'HEAD'].includes(req.method);
+  if (isMutation && (!req.permissionScope || req.permissionScope.permission !== 'edit data')) {
+    return res.status(403).send('Report permissions have not been checked.');
+  }
+  const requestedIds = [
+    ...(req.params && req.params._id ? [req.params._id] : []),
+    ...(req.body && Array.isArray(req.body.ids) ? req.body.ids : []),
+  ];
+  const ids = [...new Set(requestedIds.filter(Boolean).map(String))];
+
+  if (ids.length === 0) return next();
+
+  try {
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
+    const idFilter = { _id: { $in: ids } };
+    const [existingCount, accessibleCount] = await Promise.all([
+      Report.countDocuments(idFilter).exec(),
+      Report.countDocuments(
+        combineReportFilters(idFilter, sourceAccessFilter)
+      ).exec(),
+    ]);
+
+    if (accessibleCount !== existingCount) {
+      return res.status(403).send('Unauthorized to access one or more reports.');
+    }
+
+    if (
+      isMutation && req.permissionScope.global !== true &&
+      !(await canModifyReportsWithinScope(
+        ids,
+        req.permissionScope.teamIds,
+        req.permissionScope.allowUnscoped
+      ))
+    ) {
+      return res.status(403).send(
+        'Your team role cannot modify one or more reports.'
+      );
+    }
+
+    req.reportSourceAccessFilter = sourceAccessFilter;
+    return next();
+  } catch (err) {
+    if (res.headersSent) return;
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to check report access.');
+  }
+};
 
 // Detemine whether should dedup overlapping reports
 const shouldDedupByEventIdentifier = (entityLevel, groupId) => {
@@ -123,71 +271,117 @@ const serializeReportResponse = (payload) => {
   return serializeRow(payload);
 };
 
+const sendReportResponse = async (req, res, payload, status = 200) => {
+  try {
+    const serialized = serializeReportResponse(payload);
+    const safePayload = await hideRestrictedIncidentReferences(
+      req.accessUser || req.user,
+      serialized
+    );
+    if (res.headersSent) return;
+    return res.status(status).send(safePayload);
+  } catch (err) {
+    if (res.headersSent) return;
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to protect incident references.');
+  }
+};
+
 // Get a list of queried Reports
-exports.report_reports = (req, res) => {
-  // Parse query string
+exports.report_reports = async (req, res) => {
+  try {
+    const queryData = parseQueryData(req.query);
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
 
-  const queryData = parseQueryData(req.query);
-  if (queryData) {
-    let query = new ReportQuery(queryData);
+    if (queryData) {
+      let query = new ReportQuery(queryData);
 
-    const entityLevel = queryData.entityLevel;
-    const hideDuplicateASNsParam = req.query.hideDuplicateASNs;
-    
-    // Determine if we should deduplicate
-    let useDedup = shouldDedupByEventIdentifier(entityLevel, queryData.groupId);
-    
-    // If user explicitly set the toggle, use that value
-    if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {
-      useDedup = hideDuplicateASNsParam === 'true';
-    }
+      const entityLevel = queryData.entityLevel;
+      const hideDuplicateASNsParam = req.query.hideDuplicateASNs;
 
-    const handler = (err, reports) => {
-      // The timeout middleware may have already responded; never write twice.
-      if (res.headersSent) {
-        if (err) console.error('report_reports: response already sent, dropping late error:', err.message);
-        return;
+      // Determine if we should deduplicate
+      let useDedup = shouldDedupByEventIdentifier(entityLevel, queryData.groupId);
+
+      // If user explicitly set the toggle, use that value
+      if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {
+        useDedup = hideDuplicateASNsParam === 'true';
       }
-      if (err) return res.status(err.status || 500).send(err.message);
-      return res.send(serializeReportResponse(reports));
-    };
 
-    if (useDedup) {
-      Report.queryReportsDeduped(query, req.query.page, handler);
-    } else {
-      Report.queryReports(query, req.query.page, handler);
+      const handler = (err, reports) => {
+        // The timeout middleware may have already responded; never write twice.
+        if (res.headersSent) {
+          if (err) {
+            console.error(
+              'report_reports: response already sent, dropping late error:',
+              err.message
+            );
+          }
+          return;
+        }
+        if (err) return res.status(err.status || 500).send(err.message);
+        return sendReportResponse(req, res, reports);
+      };
+
+      if (useDedup) {
+        Report.queryReportsDeduped(query, req.query.page, handler, sourceAccessFilter);
+      } else {
+        Report.queryReports(query, req.query.page, handler, sourceAccessFilter);
+      }
+
+      return;
     }
 
-  } else {
     // Return all reports using pagination
-    Report.findSortedPage({}, page, (err, reports) => {
-      if (err) return res.status(err.status).send(err.message);
-      else return res.status(200).send(reports);
+    Report.findSortedPage(sourceAccessFilter, req.query.page, (err, reports) => {
+      if (res.headersSent) return;
+      if (err) return res.status(err.status || 500).send(err.message);
+      return sendReportResponse(req, res, reports);
     });
+  } catch (err) {
+    if (res.headersSent) return;
+
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to fetch reports.');
   }
 }
 
 // Load batch
-exports.report_batch = (req, res) => {
-  batch.load(req.user._id, (err, reports) => {
-    if (err) res.status(err.status).send(err.message);
-    else {
-      
-      res.status(200).send({ results: reports, total: reports.length });
-    }
-  });
+exports.report_batch = async (req, res) => {
+  try {
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
+    batch.load(req.user._id, sourceAccessFilter, (err, reports) => {
+      if (res.headersSent) return;
+      if (err) return res.status(err.status || 500).send(err.message);
+      return sendReportResponse(req, res, {
+        results: reports,
+        total: reports.length,
+      });
+    });
+  } catch (err) {
+    if (res.headersSent) return;
+    return res.status(err.status || 500).send(err.message || 'Unable to load batch.');
+  }
 }
 
 // Checkout new batch
-exports.report_batch_new = (req, res) => {
-  const query = new ReportQuery(req.body);
-  batch.checkout(req.user._id, query, (err, reports) => {
-    if (err) res.status(err.status).send(err.message);
-    else {
-      
-      res.status(200).send({ results: reports, total: reports.length });
-    }
-  });
+exports.report_batch_new = async (req, res) => {
+  try {
+    const query = new ReportQuery(req.body);
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
+    batch.checkout(req.user._id, query, sourceAccessFilter, (err, reports) => {
+      if (res.headersSent) return;
+      if (err) return res.status(err.status || 500).send(err.message);
+      return sendReportResponse(req, res, {
+        results: reports,
+        total: reports.length,
+      });
+    });
+  } catch (err) {
+    if (res.headersSent) return;
+    return res.status(err.status || 500).send(err.message || 'Unable to create batch.');
+  }
 }
 
 // Cancel batch
@@ -208,7 +402,7 @@ exports.report_details = (req, res) => {
     else if (!report) res.sendStatus(404);
     else {
       
-      res.status(200).send(serializeReport(report));
+      return sendReportResponse(req, res, report);
     }
   });
 }
@@ -219,12 +413,13 @@ exports.report_comments = (req, res) => {
   const queryData = { commentTo: req.params._id };
   const query = new ReportQuery(queryData);
   Report.queryReports(query, page, (err, reports) => {
+    if (res.headersSent) return;
     if (err) res.status(err.status).send(err.message);
     else {
       
-      res.status(200).send(reports);
+      return sendReportResponse(req, res, reports);
     }
-  });
+  }, req.reportSourceAccessFilter);
 }
 
 // Update Report data
@@ -234,7 +429,9 @@ exports.report_update = (req, res) => {
     if (err) return res.status(err.status).send(err.message);
     if (!report) return res.sendStatus(404);
     // Update the actual value
-    _.forEach(_.pick(req.body, ['_group', 'read', 'smtcTags', 'notes', 'escalated', 'veracity', "aitags_feedback"]), (val, key) => {
+    // Incident links are changed only through the dedicated endpoints, which
+    // authorize access to both the report and every affected incident.
+    _.forEach(_.pick(req.body, ['read', 'smtcTags', 'notes', 'escalated', 'veracity', "aitags_feedback"]), (val, key) => {
       report[key] = val;
     });
     if (!report.read) {
@@ -463,7 +660,8 @@ exports.reports_group_update = async (req, res) => {
 
     await eventRouter.publish('reports:update', {
       ids: req.body.ids,
-      update: { _group: group._id, read: true },
+      // Incident details are delivered only by the access-controlled group API.
+      update: { read: true },
     });
 
     return res.sendStatus(200);
@@ -540,7 +738,7 @@ exports.reports_group_remove = async (req, res) => {
 
     await eventRouter.publish('reports:update', {
       ids,
-      update: { _group: null },
+      update: {},
     });
 
     return res.sendStatus(200);

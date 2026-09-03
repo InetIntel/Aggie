@@ -40,7 +40,7 @@ const SourcesSection = () => {
   const [detailsEditing, setDetailsEditing] = useState(false);
 
   const isManager =
-    session?.role === "admin" || session?.role === "team_lead";
+    session?.permissions?.includes("manage sources") === true;
 
   const doDeleteSource = useMutation(deleteSource, {
     onSuccess: () => {
