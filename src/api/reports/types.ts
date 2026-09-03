@@ -58,6 +58,8 @@ export interface ReportQueryState {
   reportIds?: string;
   before?: Date | string;
   after?: Date | string;
+  outageAfter?: Date | string;
+  outageBefore?: Date | string;
   tagNames?: string[];
   page?: number;
   batch?: boolean;

@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useHref, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBell,
@@ -93,6 +93,8 @@ const chartFrame = {
   height: 142,
 };
 
+const chartTooltipFontSize = 14;
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -102,6 +104,7 @@ const Dashboard = () => {
   const [dismissedActivityKeys, setDismissedActivityKeys] = useState<string[]>([]);
   const [notablePage, setNotablePage] = useState(0);
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
+  const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
   const [activityToPromote, setActivityToPromote] = useState<NotableActivity | null>(
     null
   );
@@ -128,7 +131,17 @@ const Dashboard = () => {
 
   useEffect(() => {
     setNotablePage(0);
+    setPinnedPointIndex(null);
   }, [range, bucket]);
+
+  useEffect(() => {
+    if (pinnedPointIndex === null) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setPinnedPointIndex(null);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pinnedPointIndex]);
 
   const overviewQuery = useQuery({
     queryKey: ["analytics", "overview", range, bucket],
@@ -225,8 +238,15 @@ const Dashboard = () => {
   }));
   const chartPoints = chartPointCoords.map(({ x, y }) => `${x},${y}`).join(" ");
   const xAxisLabelIndexes = getXAxisLabelIndexes(timeSeries.length);
-  const hoveredPoint =
-    hoveredPointIndex === null ? null : chartPointCoords[hoveredPointIndex] || null;
+
+  const activePointIndex =
+    pinnedPointIndex !== null && pinnedPointIndex < chartPointCoords.length
+      ? pinnedPointIndex
+      : hoveredPointIndex;
+  const activePoint =
+    activePointIndex === null ? null : chartPointCoords[activePointIndex] || null;
+  const isActivePointPinned =
+    activePointIndex !== null && activePointIndex === pinnedPointIndex;
 
   const liveNotableActivities = notableActivitiesQuery.data?.notableActivities || [];
   const visibleLiveNotableActivities = liveNotableActivities.filter(
@@ -387,6 +407,9 @@ const Dashboard = () => {
             <div className='mb-3 flex items-center justify-between gap-3'>
               <div>
                 <h3 className='text-2xl font-medium text-sky-700'>Alert</h3>
+                <p className='text-xs text-slate-500 dark:text-gray-400'>
+                  Click a point to view the reports in that time bucket
+                </p>
                 {/* <p className='text-sm text-slate-500 dark:text-gray-400'>
                   {overviewQuery.data ? "Reports per time bucket" : "Static dashboard placeholder"}
                 </p> */}
@@ -409,6 +432,7 @@ const Dashboard = () => {
                   width={chartFrame.width}
                   height={chartFrame.height}
                   fill='transparent'
+                  onClick={() => setPinnedPointIndex(null)}
                 />
                 {xAxisLabelIndexes.map((index) => (
                   <line
@@ -452,11 +476,11 @@ const Dashboard = () => {
                     strokeWidth='2.5'
                     points={chartPoints}
                   />
-                  {hoveredPoint && (
+                  {activePoint && (
                     <line
-                      x1={hoveredPoint.x}
+                      x1={activePoint.x}
                       y1={chartFrame.top}
-                      x2={hoveredPoint.x}
+                      x2={activePoint.x}
                       y2={chartFrame.top + chartFrame.height}
                       stroke='#94A3B8'
                       strokeDasharray='3 3'
@@ -467,10 +491,10 @@ const Dashboard = () => {
                       key={item.bucketStart || index}
                       cx={x}
                       cy={y}
-                      r={hoveredPointIndex === index ? 6 : 4}
+                      r={activePointIndex === index ? 6 : 4}
                       fill={trendColor}
-                      stroke={hoveredPointIndex === index ? "#FFFFFF" : "none"}
-                      strokeWidth={hoveredPointIndex === index ? 2 : 0}
+                      stroke={activePointIndex === index ? "#FFFFFF" : "none"}
+                      strokeWidth={activePointIndex === index ? 2 : 0}
                     />
                   ))}
                   {chartPointCoords.map(({ item, x, y }, index) => (
@@ -490,6 +514,11 @@ const Dashboard = () => {
                           current === index ? null : current
                         )
                       }
+                      onClick={() =>
+                        setPinnedPointIndex((current) =>
+                          current === index ? null : index
+                        )
+                      }
                     >
                       <title>
                         {`${formatActivityWindow(item.bucketStart, item.bucketEnd)}: ${
@@ -500,7 +529,14 @@ const Dashboard = () => {
                   ))}
                 </g>
 
-                {hoveredPoint && <ChartTooltip point={hoveredPoint} />}
+                {activePoint && (
+                  <ChartTooltip
+                    point={activePoint}
+                    isPinned={isActivePointPinned}
+                    reportsTo={buildBucketReportsTo(activePoint.item)}
+                    onClose={() => setPinnedPointIndex(null)}
+                  />
+                )}
 
                 {xAxisLabelIndexes.map((index) => {
                   const item = timeSeries[index];
@@ -676,30 +712,76 @@ const Dashboard = () => {
   );
 };
 
+// The alerts list filters outage reports on `outageStartedAt`, which is the same
+// field the analytics buckets are built from — so this window reproduces exactly
+// the reports counted by one point on the trend chart.
+function buildBucketReportsTo(item: AnalyticsOverview["timeSeries"][number]) {
+  const params = new URLSearchParams({
+    outageAfter: new Date(item.bucketStart).toISOString(),
+    outageBefore: new Date(item.bucketEnd).toISOString(),
+    alerts: "true",
+  });
+  return `/alerts?${params.toString()}`;
+}
+
 function ChartTooltip({
   point,
+  isPinned,
+  reportsTo,
+  onClose,
 }: {
   point: { item: AnalyticsOverview["timeSeries"][number]; x: number; y: number };
+  isPinned: boolean;
+  reportsTo: string;
+  onClose: () => void;
 }) {
+  // Router-resolved so the link honours the PUBLIC_URL basename, like <Link> does.
+  const reportsHref = useHref(reportsTo);
   const { item, x, y } = point;
   const lines = [
     `${item.totalReports} report${item.totalReports === 1 ? "" : "s"}`,
     formatActivityWindow(item.bucketStart, item.bucketEnd),
   ];
-  const paddingX = 8;
-  const lineHeight = 14;
-  const boxWidth =
-    Math.max(...lines.map((line) => line.length)) * 5.6 + paddingX * 2;
-  const boxHeight = lineHeight * lines.length + 10;
+  const actionLabel = "View Reports";
+  const showAction = isPinned && item.totalReports > 0;
+
+  // All geometry is a multiple of the base font size so the box, the padding and
+  // the action button grow together when `chartTooltipFontSize` changes.
+  const fontSize = chartTooltipFontSize;
+  const charWidth = fontSize * 0.52;
+  const lineHeight = Math.round(fontSize * 1.35);
+  const paddingX = Math.round(fontSize * 0.75);
+  const paddingY = Math.round(fontSize * 0.5);
+  const actionHeight = Math.round(fontSize * 2);
+  const actionGap = Math.round(fontSize * 0.55);
+  const closeSize = Math.round(fontSize * 1.3);
+
+  const contentWidth = Math.max(
+    Math.max(...lines.map((line) => line.length)) * charWidth,
+    // Room for the close affordance next to the first (short) line.
+    lines[0].length * charWidth + closeSize + paddingX,
+    showAction ? actionLabel.length * charWidth * 1.15 : 0
+  );
+  const boxWidth = contentWidth + paddingX * 2;
+  const boxHeight =
+    paddingY * 2 +
+    lineHeight * lines.length +
+    (showAction ? actionHeight + actionGap : 0);
   const boxX = Math.min(
     Math.max(x - boxWidth / 2, chartFrame.left),
     chartFrame.left + chartFrame.width - boxWidth
   );
   const placeBelow = y - boxHeight - 12 < chartFrame.top;
-  const boxY = placeBelow ? y + 12 : y - boxHeight - 12;
+  // Keep the box inside the plot area even when the taller pinned version would
+  // otherwise spill onto the x-axis labels.
+  const boxY = Math.min(
+    placeBelow ? y + 12 : y - boxHeight - 12,
+    chartFrame.top + chartFrame.height - boxHeight
+  );
+  const actionY = boxY + paddingY + lineHeight * lines.length + actionGap;
 
   return (
-    <g pointerEvents='none'>
+    <g pointerEvents={isPinned ? "auto" : "none"}>
       <rect
         x={boxX}
         y={boxY}
@@ -712,14 +794,59 @@ function ChartTooltip({
         <text
           key={line}
           x={boxX + paddingX}
-          y={boxY + 17 + index * lineHeight}
+          y={boxY + paddingY + fontSize + index * lineHeight}
           fill='#FFFFFF'
-          fontSize='11'
+          fontSize={fontSize}
           fontWeight={index === 0 ? "600" : "400"}
         >
           {line}
         </text>
       ))}
+      {showAction && (
+        <a href={reportsHref} target='_blank' rel='noopener noreferrer'>
+          <rect
+            x={boxX + paddingX}
+            y={actionY}
+            width={boxWidth - paddingX * 2}
+            height={actionHeight}
+            rx='4'
+            fill='#334155'
+            className='cursor-pointer'
+          />
+          <text
+            x={boxX + boxWidth / 2}
+            y={actionY + actionHeight / 2 + fontSize * 0.36}
+            fill='#FFFFFF'
+            fontSize={fontSize}
+            fontWeight='600'
+            textAnchor='middle'
+            className='cursor-pointer'
+          >
+            {actionLabel}
+          </text>
+        </a>
+      )}
+      {isPinned && (
+        <g className='cursor-pointer' onClick={onClose}>
+          <rect
+            x={boxX + boxWidth - paddingX - closeSize}
+            y={boxY + paddingY - 2}
+            width={closeSize}
+            height={closeSize}
+            rx='3'
+            fill='transparent'
+          />
+          <text
+            x={boxX + boxWidth - paddingX - closeSize / 2}
+            y={boxY + paddingY + fontSize}
+            fill='#CBD5E1'
+            fontSize={fontSize * 1.15}
+            textAnchor='middle'
+          >
+            &#215;
+          </text>
+        </g>
+      )}
     </g>
   );
 }
