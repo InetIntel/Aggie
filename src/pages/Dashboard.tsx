@@ -7,6 +7,7 @@ import {
   faBell,
   faChevronLeft,
   faChevronRight,
+  faFolderPlus,
   faLink,
   faPlus,
   faRotateLeft,
@@ -31,6 +32,7 @@ import { SocketContext, SocketEvent, useSocketSubscribe } from "../hooks/Websock
 import AggieDialog from "../components/AggieDialog";
 import NotableActivityTitle from "./notableActivity/NotableActivityTitle";
 import CreateEditIncidentForm from "./incidents/CreateEditIncidentForm";
+import DashboardAddToIncident from "./DashboardAddToIncident";
 import type { IncidentFormValues } from "./incidents/CreateEditIncidentForm";
 import type { GroupEditableData } from "../api/groups/types";
 
@@ -79,6 +81,11 @@ const sourceLabels: Record<string, string> = {
   ioda: "IODA",
   cloudflare: "Cloudflare",
 };
+// Every notable activity card action shares this box so the row of incident
+// buttons stays exactly as tall as the full-width actions above and below it.
+const cardActionClass =
+  "flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-medium shadow-sm transition";
+
 const chartFrame = {
   left: 30,
   top: 8,
@@ -98,6 +105,7 @@ const Dashboard = () => {
   const [activityToPromote, setActivityToPromote] = useState<NotableActivity | null>(
     null
   );
+  const [activityToLink, setActivityToLink] = useState<NotableActivity | null>(null);
 
   useEffect(() => {
     document.title = "Dashboard - Aggie";
@@ -571,6 +579,7 @@ const Dashboard = () => {
               cacheKey={notableActivitiesQuery.data?.cacheKey || ""}
               onDismiss={() => dismissActivity(activity.eventAggKey)}
               onCreateIncident={() => setActivityToPromote(activity)}
+              onAddToIncident={() => setActivityToLink(activity)}
               isCreatingIncident={
                 createIncidentMutation.isLoading &&
                 activityToPromote?.eventAggKey === activity.eventAggKey
@@ -648,6 +657,21 @@ const Dashboard = () => {
           </div>
         )}
       </AggieDialog>
+
+      <DashboardAddToIncident
+        isOpen={!!activityToLink}
+        activity={activityToLink}
+        cacheKey={notableActivitiesQuery.data?.cacheKey || ""}
+        windowLabel={
+          activityToLink
+            ? formatActivityWindow(activityToLink.bucketStart, activityToLink.bucketEnd)
+            : ""
+        }
+        locationLabel={
+          activityToLink ? getActivityLocationSummary(activityToLink) : ""
+        }
+        onClose={() => setActivityToLink(null)}
+      />
     </section>
   );
 };
@@ -705,12 +729,14 @@ function NotableActivityCard({
   cacheKey,
   onDismiss,
   onCreateIncident,
+  onAddToIncident,
   isCreatingIncident,
 }: {
   activity: NotableActivity;
   cacheKey: string;
   onDismiss: () => void;
   onCreateIncident: () => void;
+  onAddToIncident: () => void;
   isCreatingIncident: boolean;
 }) {
   // One "asn / geoScope" title per impacted ASN. Today the backend returns a
@@ -810,30 +836,43 @@ function NotableActivityCard({
         {activity.incidentId ? (
           <Link
             to={`/incidents/${activity.incidentId}`}
-            className='flex w-full items-center justify-center gap-2 rounded-md bg-[#1683A3] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#126b85]'
+            className={`${cardActionClass} w-full bg-[#1683A3] text-white hover:bg-[#126b85]`}
           >
             <FontAwesomeIcon icon={faLink} />
             <span>Open Linked Incident</span>
           </Link>
         ) : (
-          <button
-            type='button'
-            onClick={onCreateIncident}
-            disabled={!cacheKey || isCreatingIncident}
-            className='flex w-full items-center justify-center gap-2 rounded-md bg-[#166534] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#14532d] disabled:cursor-not-allowed disabled:opacity-60'
-          >
-            <FontAwesomeIcon
-              icon={isCreatingIncident ? faSpinner : faPlus}
-              className={isCreatingIncident ? "animate-spin" : undefined}
-            />
-            <span>{isCreatingIncident ? "Creating Incident" : "Create New Incident"}</span>
-          </button>
+          <div className='flex items-stretch gap-3'>
+            <button
+              type='button'
+              onClick={onCreateIncident}
+              disabled={!cacheKey || isCreatingIncident}
+              className={`${cardActionClass} min-w-0 flex-1 bg-[#166534] text-white hover:bg-[#14532d] disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              <FontAwesomeIcon
+                icon={isCreatingIncident ? faSpinner : faPlus}
+                className={isCreatingIncident ? "animate-spin" : undefined}
+              />
+              <span className='truncate'>
+                {isCreatingIncident ? "Creating" : "New Incident"}
+              </span>
+            </button>
+            <button
+              type='button'
+              onClick={onAddToIncident}
+              disabled={!cacheKey || isCreatingIncident}
+              className={`${cardActionClass} min-w-0 flex-1 border border-[#166534] text-[#166534] hover:bg-[#166534]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-lime-500 dark:text-lime-300 dark:hover:bg-lime-500/10`}
+            >
+              <FontAwesomeIcon icon={faFolderPlus} />
+              <span className='truncate'>Add to Incident</span>
+            </button>
+          </div>
         )}
         <Link
           to={`/alerts?reportIds=${activity.reportIds.join(",")}&alerts=true`}
           target='_blank'
           rel='noopener noreferrer'
-          className='flex w-full items-center justify-center gap-2 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800'
+          className={`${cardActionClass} w-full bg-slate-700 text-white hover:bg-slate-800`}
         >
           <FontAwesomeIcon icon={faBell} />
           <span>View Reports</span>
