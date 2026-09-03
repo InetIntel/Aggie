@@ -1,15 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog } from "@headlessui/react";
 
-import { updateNotableActivityIncident } from "../api/analytics";
-import type { NotableActivity } from "../api/analytics/types";
-import { getGroups } from "../api/groups";
-import type { Group, GroupQueryState } from "../api/groups/types";
-import { useQueryParamsInternal } from "../hooks/useQueryParamsInternal";
+import { updateNotableActivityIncident } from "../../../api/analytics";
+import type { NotableActivity } from "../../../api/analytics/types";
+import { getGroups } from "../../../api/groups";
+import type { Group, GroupQueryState } from "../../../api/groups/types";
+import { useQueryParamsInternal } from "../../../hooks/useQueryParamsInternal";
 
-import AggieButton from "../components/AggieButton";
-import IncidentsFilters from "./incidents/IncidentsFilters";
-import NestedIncidentsList from "./Reports/components/NestedIncidentsList";
+import AggieButton from "../../../components/AggieButton";
+import IncidentsFilters from "../../incidents/IncidentsFilters";
+import NestedIncidentsList from "../../Reports/components/NestedIncidentsList";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner, faWarning } from "@fortawesome/free-solid-svg-icons";
