@@ -4,6 +4,7 @@ import type {
   AnalyticsQueryState,
   CreateNotableActivityIncidentPayload,
   NotableActivitiesResponse,
+  ReportMetricsResponse,
   UpdateNotableActivityIncidentPayload,
 } from "./types";
 import type { Group } from "../groups/types";
@@ -37,6 +38,15 @@ export const getNotableActivities = async (
     ? `/api/analytics/notable-activities?${query}`
     : "/api/analytics/notable-activities";
   const { data } = await axios.get<NotableActivitiesResponse>(url);
+  return data;
+};
+
+export const getReportMetrics = async (params: AnalyticsQueryState = {}) => {
+  const query = buildAnalyticsQuery(params);
+  const url = query
+    ? `/api/analytics/report-metrics?${query}`
+    : "/api/analytics/report-metrics";
+  const { data } = await axios.get<ReportMetricsResponse>(url);
   return data;
 };
 

@@ -9,11 +9,35 @@ const {
 const {
   getBucketEndUtc,
   getBucketStartUtc,
+  resolveAnalyticsTimeWindow,
+  VALID_BUCKETS_BY_RANGE,
+  DEFAULT_RANGE_PRESET,
 } = require('../utils/analyticsTime');
 const {
   attachReportsToGroup,
   removeReportsFromGroup,
 } = require('../utils/reportGroupActions');
+const { countReports } = require('../utils/reportCounts');
+
+// All entity levels — matches the frontend's ENTITY_LEVEL_OPTIONS (src/api/common.ts).
+// Alert metric counts carry these so their filter/dedup matches the deduped alerts list.
+const ENTITY_LEVEL_OPTIONS = ['Region', 'AS - Region', 'AS - Country', 'AS'];
+
+// Single source of truth for the six triage rows, expressed as the deep-link URL params
+// a monitor lands on. `status`/`groupId`/`irrelevant` mirror the reports list filters.
+const METRIC_ROWS = [
+  { key: 'read', label: 'Read', params: { status: 'Read', irrelevant: 'all' } },
+  { key: 'unread', label: 'Unread', params: { status: 'Unread', irrelevant: 'all' } },
+  { key: 'linked', label: 'Linked to incident', params: { groupId: 'any', irrelevant: 'all' } },
+  { key: 'unlinked', label: 'Unlinked to incident', params: { groupId: 'none', irrelevant: 'all' } },
+  { key: 'investigate-linked', label: 'Investigate — linked', params: { groupId: 'any', irrelevant: 'false' } },
+  { key: 'investigate-unlinked', label: 'Investigate — unlinked', params: { groupId: 'none', irrelevant: 'false' } },
+];
+
+const METRIC_CATEGORIES = [
+  { key: 'alerts', label: 'Alerts', isOutageEvent: true },
+  { key: 'social', label: 'Social Media', isOutageEvent: false },
+];
 
 exports.analytics_notable_activities = async (req, res) => {
   try {
@@ -48,6 +72,64 @@ exports.analytics_overview = async (req, res) => {
     });
   } catch (err) {
     return handleAnalyticsError(res, err, 'Error fetching analytics overview');
+  }
+};
+
+exports.analytics_report_metrics = async (req, res) => {
+  try {
+    // Metrics only need the range bounds, not a bucket. Pick any bucket valid for the
+    // range so resolveAnalyticsTimeWindow's range/bucket validation passes (its default
+    // '1h' is invalid for last7d). An unknown range still throws a 400 below.
+    const range = req.query.range || DEFAULT_RANGE_PRESET;
+    const bucket = (VALID_BUCKETS_BY_RANGE[range] || [])[0];
+    const timeWindow = resolveAnalyticsTimeWindow({ range, bucket });
+    const after = timeWindow.rangeStartUtc.toISOString();
+    const before = timeWindow.rangeEndUtc.toISOString();
+
+    const categories = await Promise.all(
+      METRIC_CATEGORIES.map(async (category) => {
+        const metrics = await Promise.all(
+          METRIC_ROWS.map(async (row) => {
+            // Alerts are outage events: range-filter by outageStartedAt (outageAfter/
+            // outageBefore). Social posts filter by authoredAt (after/before). Both the
+            // deep-link and the count use the same bounds so parity holds.
+            const rangeParams =
+              category.key === 'alerts'
+                ? { outageAfter: after, outageBefore: before }
+                : { after, before };
+
+            // Deep-link params the frontend serializes into the destination list URL.
+            const query = { ...row.params, ...rangeParams };
+
+            // Query the count runs. Alerts mirror the list's forced entityLevel + dedup
+            // so the metric equals the deduped alerts list's "Showing X of N".
+            const queryData = {
+              ...row.params,
+              ...rangeParams,
+              isOutageEvent: category.isOutageEvent,
+            };
+            let hideDuplicateASNs;
+            if (category.key === 'alerts') {
+              queryData.entityLevel = ENTITY_LEVEL_OPTIONS;
+              hideDuplicateASNs = 'true';
+            }
+
+            const count = await countReports(queryData, { hideDuplicateASNs });
+            return { key: row.key, label: row.label, count, query };
+          })
+        );
+        return { key: category.key, label: category.label, metrics };
+      })
+    );
+
+    return res.status(200).send({
+      rangePreset: timeWindow.rangePreset,
+      rangeStartUtc: timeWindow.rangeStartUtc,
+      rangeEndUtc: timeWindow.rangeEndUtc,
+      categories,
+    });
+  } catch (err) {
+    return handleAnalyticsError(res, err, 'Error fetching report metrics');
   }
 };
 

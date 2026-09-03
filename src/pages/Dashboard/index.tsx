@@ -11,6 +11,7 @@ import {
   createNotableActivityIncident,
   getAnalyticsOverview,
   getNotableActivities,
+  getReportMetrics,
 } from "../../api/analytics";
 import type {
   AnalyticsSocketQuery,
@@ -25,6 +26,7 @@ import CreateEditIncidentForm from "../incidents/CreateEditIncidentForm";
 import AlertsTrendChart from "./components/AlertsTrendChart";
 import DashboardAddToIncident from "./components/DashboardAddToIncident";
 import NotableActivityCard from "./components/NotableActivityCard";
+import MetricsList from "./components/MetricsList";
 import {
   buildIncidentInitialValues,
   buildIncidentTitle,
@@ -107,6 +109,12 @@ const Dashboard = () => {
     keepPreviousData: true,
   });
 
+  const reportMetricsQuery = useQuery({
+    queryKey: ["analytics", "report-metrics", range],
+    queryFn: () => getReportMetrics({ range }),
+    keepPreviousData: true,
+  });
+
   const createIncidentMutation = useMutation({
     mutationFn: createNotableActivityIncident,
     onSuccess: (group) => {
@@ -128,6 +136,9 @@ const Dashboard = () => {
       queryClient.invalidateQueries({ queryKey: ["analytics", "overview", range, bucket] });
       queryClient.invalidateQueries({
         queryKey: ["analytics", "notable-activities", range, bucket],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["analytics", "report-metrics", range],
       });
     },
     [bucket, notableActivitiesQuery.data?.cacheKey, queryClient, range]
@@ -157,24 +168,6 @@ const Dashboard = () => {
       socket.emit("analytics", null);
     };
   }, [notableActivitiesQuery.data, socket]);
-
-  const metricItems = overviewQuery.data
-    ? [
-        {
-          label: "Notable activities",
-          value: overviewQuery.data.metrics.notableActivityCount,
-          ring: true,
-        },
-        {
-          label: "High confidence",
-          value: overviewQuery.data.metrics.highConfidenceActivityCount,
-        },
-        {
-          label: "Total reports",
-          value: overviewQuery.data.metrics.totalReports,
-        },
-      ]
-    : [];
 
   const liveNotableActivities = notableActivitiesQuery.data?.notableActivities || [];
   const visibleLiveNotableActivities = liveNotableActivities.filter(
@@ -279,32 +272,10 @@ const Dashboard = () => {
           <h1 className='text-xl font-semibold text-slate-900 dark:text-white'>
             Metrics
           </h1>
-          <div className='flex flex-1 flex-wrap content-center items-center justify-center gap-5 py-4'>
-            {metricItems.length > 0 ? (
-              metricItems.map((item) => (
-                <article
-                  key={item.label}
-                  className={[
-                    "flex h-36 w-36 flex-col items-center justify-center rounded-full border bg-white px-3 text-center shadow-[0_6px_12px_rgba(15,23,42,0.12)] dark:bg-gray-800",
-                    item.ring
-                      ? "border-[14px] border-[#166534]"
-                      : "border-slate-200 dark:border-gray-600",
-                  ].join(" ")}
-                >
-                  <p className='max-w-[8rem] text-lg font-medium leading-tight text-slate-900 dark:text-white'>
-                    {item.label}
-                  </p>
-                  <p className='mt-2 text-2xl font-semibold text-[#166534]'>
-                    {item.value}
-                  </p>
-                </article>
-              ))
-            ) : (
-              <p className='text-sm text-slate-500 dark:text-gray-400'>
-                Loading metrics
-              </p>
-            )}
-          </div>
+          <MetricsList
+            data={reportMetricsQuery.data}
+            isLoading={reportMetricsQuery.isLoading}
+          />
         </section>
 
         <section className={`${sectionCardClass} p-4`}>

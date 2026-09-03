@@ -17,6 +17,7 @@ const {
   attachReportsToGroup,
   removeReportsFromGroup,
 } = require('../utils/reportGroupActions');
+const { resolveUseDedup } = require('../utils/reportCounts');
 
 // Determine the search keywords
 const parseQueryData = (queryString) => {
@@ -47,13 +48,6 @@ const parseQueryData = (queryString) => {
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 }
-
-// Detemine whether should dedup overlapping reports
-const shouldDedupByEventIdentifier = (entityLevel, groupId) => {
-  if (groupId) return false;
-  if (!entityLevel || entityLevel.length === 0) return true;
-  return entityLevel.includes('AS') && entityLevel.includes('AS - Country');
-};
 
 // `stripChart` drops the (potentially few-KB) IODA signal series from list rows; the
 // detail endpoint keeps it and the frontend lazy-loads it per report.
@@ -138,18 +132,11 @@ exports.report_reports = (req, res) => {
   if (queryData) {
     let query = new ReportQuery(queryData);
 
-    const entityLevel = queryData.entityLevel;
-    const hideDuplicateASNsParam = req.query.hideDuplicateASNs;
-    
-    // Determine if we should deduplicate
-    let useDedup = shouldDedupByEventIdentifier(entityLevel, queryData.groupId);
-    
-    // If user explicitly set the toggle, use that value
-    if (queryData.reportIds && queryData.reportIds.length > 0) {
-      useDedup = false;
-    } else if (hideDuplicateASNsParam === 'true' || hideDuplicateASNsParam === 'false') {
-      useDedup = hideDuplicateASNsParam === 'true';
-    }
+    // Determine if we should deduplicate (shared with the analytics metrics endpoint
+    // so counts and list totals stay in parity).
+    const useDedup = resolveUseDedup(queryData, {
+      hideDuplicateASNs: req.query.hideDuplicateASNs,
+    });
 
     const handler = (err, reports) => {
       // The timeout middleware may have already responded; never write twice.

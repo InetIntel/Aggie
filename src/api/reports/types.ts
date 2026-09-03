@@ -49,6 +49,7 @@ export interface ReportQueryState {
   keywords?: string;
   author?: string;
   groupId?: string;
+  status?: string; // 'Read' or 'Unread'
   media?: string;
   dataSources?: string[];
   entityLevel?: string[];

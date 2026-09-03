@@ -71,7 +71,6 @@ ReportQuery.prototype.toMongooseFilter = function () {
   if (this.reportIds && this.reportIds.length > 0) {
     filter._id = { $in: this.reportIds };
   }
-  if (this.groupId === "none") filter._group = { $eq: null }
   if (this.escalated === 'unescalated') filter.escalated = false;
   if (this.escalated === 'escalated') filter.escalated = true;
 
@@ -140,10 +139,13 @@ ReportQuery.prototype.toMongooseFilter = function () {
     //filter.$and.push(res)
   }
 
-  // default filter open
+  // Triage flag is a ternary: "true" = Ignore, "false" = Investigate, "maybe" =
+  // untriaged (default). The default filter (no param) shows everything-not-ignored;
+  // "all" removes it; "true"/"false" match that exact state.
   filter.irrelevant = { $ne: "true" };
   if (this.irrelevant === 'all') delete filter.irrelevant
   if (this.irrelevant === 'true') filter.irrelevant = "true";
+  if (this.irrelevant === 'false') filter.irrelevant = "false";
 
   if (this.tags) {
     filter.smtcTags = { $all: this.tags };
@@ -188,10 +190,13 @@ ReportQuery.prototype._parseStatus = function (status) {
 };
 
 ReportQuery.prototype._parseGroupId = function (groupId) {
+  // `_group` is an ObjectId path, so an empty string can't be cast — use null-only
+  // predicates ($eq/$ne null, which also match missing fields). Both are objects, so
+  // they survive the _.omitBy(nil) in toMongooseFilter.
   if (groupId === 'any') {
-    this.groupId = { $nin: [null, ''] };
+    this.groupId = { $ne: null };
   } else if (groupId === 'none') {
-    this.groupId = { $in: [null, ''] };
+    this.groupId = { $eq: null };
   } else {
     this.groupId = groupId;
   }

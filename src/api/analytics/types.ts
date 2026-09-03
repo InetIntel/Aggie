@@ -81,6 +81,27 @@ export interface AnalyticsOverview {
   timeSeries: AnalyticsTimeSeriesBucket[];
 }
 
+export interface ReportMetric {
+  key: string;
+  label: string;
+  count: number;
+  // Deep-link URL params for the destination reports list; serialized verbatim.
+  query: Record<string, string>;
+}
+
+export interface ReportMetricCategory {
+  key: "alerts" | "social";
+  label: string;
+  metrics: ReportMetric[];
+}
+
+export interface ReportMetricsResponse {
+  rangePreset: AnalyticsRangePreset;
+  rangeStartUtc: string;
+  rangeEndUtc: string;
+  categories: ReportMetricCategory[];
+}
+
 export interface NotableActivity {
   eventAggKey: string;
   eventAggKeyBase: string;
