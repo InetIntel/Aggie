@@ -35,6 +35,7 @@ interface IProps {
   onCheckChange: () => void;
   onOpenReportAttachModal?: () => void;
   setSelection?: (i: Report) => void;
+  multiSelection?: Report[];
   /** When provided, renders a "View details" toggle + inline ReportDetail. */
   isExpanded?: boolean;
   onToggleExpand?: () => void;
@@ -48,6 +49,7 @@ const ReportListItem = ({
   onCheckChange,
   isExpanded,
   onToggleExpand,
+  multiSelection,
 }: IProps) => {
   const { id: currentPageId } = useParams();
 
@@ -66,7 +68,14 @@ const ReportListItem = ({
     { enabled: !!report._group }
   );
 
-  const [openAttachModal, setOpenAttachModal] = useState(false);
+  const [attachSelection, setAttachSelection] = useState<Report[] | null>(null);
+
+  const groupSelection =
+    multiSelection &&
+    multiSelection.length > 1 &&
+    multiSelection.some((i) => i._id === report._id)
+      ? multiSelection
+      : null;
 
   // refactor at some point
   function bgState() {
@@ -196,21 +205,39 @@ const ReportListItem = ({
             <AggieButton
               onClick={(e) => {
                 e.stopPropagation();
-                setOpenAttachModal(true);
+                setAttachSelection(groupSelection ?? [report]);
               }}
               className='rounded-lg flex-grow flex gap-1 bg-slate-50 dark:bg-gray-900 border border-dashed hover:border-slate-300 border-slate-300 focus-theme hover:bg-white dark:hover:bg-gray-800 justify-center items-center h-full '
-              icon={faPlus}
+              icon={groupSelection ? undefined : faPlus}
             >
-              Add to Incident
+              {groupSelection ? (
+                <span className='flex flex-col items-center leading-tight'>
+                  <span className='flex gap-1 items-center'>
+                    <FontAwesomeIcon icon={faPlus} />
+                    Add to Incident
+                  </span>
+                  <span className='text-xs font-normal text-slate-500 dark:text-gray-400'>
+                    ({groupSelection.length} selected)
+                  </span>
+                </span>
+              ) : (
+                "Add to Incident"
+              )}
             </AggieButton>
           )}
         </div>
         <AddReportsToIncidents
-          selection={[report]}
-          isOpen={openAttachModal}
+          selection={attachSelection ?? []}
+          isOpen={!!attachSelection}
           queryKey={reportsQueryKey}
-          onClose={() => setOpenAttachModal(false)}
-          addRemove={() => setOpenAttachModal(false)}
+          onClose={() => setAttachSelection(null)}
+          addRemove={(removed) =>
+            setAttachSelection((current) => {
+              const next =
+                current?.filter((i) => i._id !== removed._id) ?? [];
+              return next.length ? next : null;
+            })
+          }
         />
       </div>
 

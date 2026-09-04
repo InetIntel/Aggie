@@ -374,6 +374,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           isLoading={isLoading}
           queryKey={reportsQueryKey}
           currentPageId={currentPageId}
+          multiSelection={multiSelect.selection}
           selection={{
             isActive: multiSelect.isActive,
             alwaysShow: true,
@@ -401,6 +402,7 @@ const AllReportsList = ({ alerts }: IProps) => {
                 queryKey={reportsQueryKey}
                 isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
+                multiSelection={multiSelect.selection}
                 onCheckChange={() => onReportCheck(report)}
               />
             </div>
