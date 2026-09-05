@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSession } from "../../../api/session";
 import { deleteTag, getTags } from "../../../api/tags";
+import { TAG_CATEGORY_LABELS } from "../../../api/tags/types";
 
 import AggieButton from "../../../components/AggieButton";
 import UserToken from "../../../components/UserToken";
@@ -70,7 +71,12 @@ const TagsIndex = (props: IProps) => {
           data.map((tag) => (
             <article key={tag._id} className='py-2 px-3 grid grid-cols-5'>
               <header className='col-span-2'>
-                <h2 className='text-lg font-medium'>{tag.name}</h2>
+                <div className='flex items-center gap-2'>
+                  <h2 className='text-lg font-medium'>{tag.name}</h2>
+                  <span className='rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:bg-gray-700 dark:text-gray-200'>
+                    {TAG_CATEGORY_LABELS[tag.category || "general"]}
+                  </span>
+                </div>
                 <p className='text-sm'>
                   <span className='italic'>created by </span>
                   <UserToken id={tag.user?._id || ""} loading={!data} />

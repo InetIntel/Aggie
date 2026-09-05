@@ -5,14 +5,23 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { editTag, newTag } from "../../../api/tags";
-import type { Tag } from "../../../api/tags/types";
+import {
+  TAG_CATEGORIES,
+  TAG_CATEGORY_LABELS,
+  type Tag,
+} from "../../../api/tags/types";
 import type { AxiosError } from "axios";
 
 import AggieButton from "../../../components/AggieButton";
+import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
 
 const tagEditSchema = Yup.object().shape({
   name: Yup.string().required("Tag name required"),
+  category: Yup.mixed()
+    .oneOf([...TAG_CATEGORIES])
+    .required("Category required")
+    .default("general"),
   description: Yup.string(),
   isCommentTag: Yup.boolean().default(false),
   color: Yup.string().required("Required").default("#fff"),
@@ -33,6 +42,7 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
     ? (defaultTagEditValues as editSchema)
     : ({
         name: tag.name,
+        category: tag.category || "general",
         description: tag.description,
         isCommentTag: tag.isCommentTag,
         color: tag.color,
@@ -85,6 +95,14 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
         )}
 
         <FormikInput label='name' name='name' />
+        <FormikDropdown
+          label='Category'
+          name='category'
+          list={TAG_CATEGORIES.map((category) => ({
+            _id: category,
+            label: TAG_CATEGORY_LABELS[category],
+          }))}
+        />
         <label className='flex flex-col'>
           Description
           <Field

@@ -8,6 +8,11 @@ var lengthValidator = function (str) {
 };
 var tagSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
+  category: {
+    type: String,
+    enum: ['general', 'protocol', 'cause', 'circumvention_solution'],
+    default: 'general',
+  },
   color: String,
   description: String,
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
@@ -44,6 +49,7 @@ tagSchema.post('save', function () {
   tagSchema.emit('tag:new', {
     _id: this._id.toString(),
     name: this.name,
+    category: this.category,
     color: this.color,
     description: this.description,
     isCommentTag: this.isCommentTag,
