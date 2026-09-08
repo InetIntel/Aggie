@@ -7,6 +7,7 @@ import { useIncidentMutations } from "../useIncidentMutations";
 import {
   getGroup,
   getGroupReports,
+  setGroupTags,
   setSelectedPublic,
 } from "../../../api/groups";
 import { Group, Groups } from "../../../api/groups/types";
@@ -59,6 +60,8 @@ import {
   useSocketSubscribe,
 } from "../../../hooks/WebsocketProvider";
 import { removeReportsFromGroup } from "../../../api/reports";
+import { getSession } from "../../../api/session";
+import IncidentTagsDialog from "./IncidentTagsDialog";
 
 const Incident = () => {
   const { id } = useParams();
@@ -68,6 +71,7 @@ const Incident = () => {
     useQueryParams<ReportQueryState>();
   const { doUpdate, doSetClosed } = useIncidentMutations();
   const [deleteModal, setDeleteModal] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
 
   const [removeReports, setRemoveReports] = useState(false);
   const doRemoveReportFromGroup = useMutation(removeReportsFromGroup, {
@@ -93,6 +97,22 @@ const Incident = () => {
     refetch: incidentRefetch,
   } = useQuery(["group", id], () => getGroup(id), {
     onSuccess: (data) => { },
+  });
+  const { data: session } = useQuery(["session"], getSession, {
+    staleTime: 50000,
+  });
+  const canManageTags = session?.permissions?.includes("edit data") === true;
+
+  const doSetTags = useMutation(setGroupTags, {
+    onSuccess: (_, params) => {
+      if (id) {
+        queryData.update<Group>(["group", id], () => ({
+          smtcTags: params.tagIds,
+        }));
+        queryClient.invalidateQueries(["group", id]);
+      }
+      setIsTagsOpen(false);
+    },
   });
 
   const doDelete = useMutation(setSelectedPublic, {
@@ -274,6 +294,11 @@ const Incident = () => {
           group={group}
           isLoading={isLoading}
           onEdit={() => setIsEditOpen(true)}
+          canManageTags={canManageTags}
+          onManageTags={() => {
+            doSetTags.reset();
+            setIsTagsOpen(true);
+          }}
         />
 
         <CommentTimeline group={group} isLoading={isLoading} />
@@ -473,6 +498,17 @@ const Incident = () => {
           isLoading={doUpdate.isLoading}
         />
       </AggieDialog>
+      <IncidentTagsDialog
+        isOpen={isTagsOpen}
+        selectedTagIds={group?.smtcTags || []}
+        isSaving={doSetTags.isLoading}
+        saveError={doSetTags.isError}
+        onClose={() => setIsTagsOpen(false)}
+        onSave={(tagIds) => {
+          if (!group?._id) return;
+          doSetTags.mutate({ groupIds: [group._id], tagIds });
+        }}
+      />
       <ConfirmationDialog
         isOpen={deleteModal}
         onClose={() => setDeleteModal(false)}
