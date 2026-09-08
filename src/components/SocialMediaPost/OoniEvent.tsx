@@ -1,14 +1,21 @@
 import type { Report } from "../../api/reports/types";
+import { useFormatters } from "../../utils/useFormatters";
 
 const OoniEvent = ({ report }: { report: Report }) => {
+  const { formatDateTime } = useFormatters();
   const raw = report.metadata?.rawAPIResponse;
   const trigger = raw?.triggers?.[0];
   const asn = raw?.probeASN ? `AS${raw.probeASN}` : report.author;
   const zeroDomains: string[] = raw?.zeroDomains || [];
 
+  const windowEnd = raw?.windowEnd || trigger?.windowEnd;
+
   return (
     <div className='space-y-3'>
-      <p className='whitespace-pre-wrap break-words'>{report.content}</p>
+      <p className='whitespace-pre-wrap break-words'>
+        {report.content}
+        {windowEnd && <> measured at {formatDateTime(windowEnd)}.</>}
+      </p>
       <dl className='grid grid-cols-2 gap-x-4 gap-y-2 border-t border-slate-200 pt-3 text-sm dark:border-gray-700'>
         <div>
           <dt className='text-slate-500 dark:text-gray-400'>Network</dt>
@@ -20,11 +27,15 @@ const OoniEvent = ({ report }: { report: Report }) => {
         </div>
         <div>
           <dt className='text-slate-500 dark:text-gray-400'>Window start</dt>
-          <dd className='font-medium'>{raw?.windowStart || trigger?.windowStart || "Unknown"}</dd>
+          <dd className='font-medium'>
+            {formatDateTime(raw?.windowStart || trigger?.windowStart, "Unknown")}
+          </dd>
         </div>
         <div>
           <dt className='text-slate-500 dark:text-gray-400'>Window end</dt>
-          <dd className='font-medium'>{raw?.windowEnd || trigger?.windowEnd || "Unknown"}</dd>
+          <dd className='font-medium'>
+            {formatDateTime(raw?.windowEnd || trigger?.windowEnd, "Unknown")}
+          </dd>
         </div>
         <div>
           <dt className='text-slate-500 dark:text-gray-400'>Measurements</dt>

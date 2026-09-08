@@ -285,6 +285,15 @@ function renderText(
           {endDate === "now" ? "now" : formatDateTime(endDate, prefs)}
         </p>
       );
+    case "ooni": {
+      const windowEnd = report?.metadata?.rawAPIResponse?.windowEnd;
+      return (
+        <p className='text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+          {formatText(report.content)}
+          {windowEnd && <> measured at {formatDateTime(windowEnd, prefs)}.</>}
+        </p>
+      );
+    }
     default:
       return (
         <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>

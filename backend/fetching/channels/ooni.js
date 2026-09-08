@@ -24,15 +24,20 @@ function alertGuid(asn, alertDate, domainMode) {
 
 function alertContent(asn, alerts) {
   const network = NETWORK_NAMES[asn] || `AS${asn}`;
-  const windowEnd = alerts[0].windowEnd;
+  // No timestamp embedded here deliberately: this raw string is stored once and
+  // shown to every viewer, but "when" should render per-viewer display
+  // preferences (12h/24h, date order, timezone), not a fixed server-side format.
+  // Deliberately no trailing period either - the frontend (SocialMediaListItem,
+  // OoniEvent) appends "measured at <formatDateTime(windowEnd)>." to finish the
+  // sentence with a preference-aware timestamp.
   if (alerts[0].type === 'zero_domain_measurements') {
     const domains = alerts.map((alert) => alert.domain);
     // Domain names deliberately excluded here - this text is what shows in the
     // Alerts list preview. The full list is in raw.zeroDomains, shown only in
     // the report detail view (OoniEvent.tsx).
-    return `OONI domain alert for ${network} (AS${asn}): no measurements were recorded for ${domains.length} watched domain(s) in the 24 hours ending ${windowEnd}.`;
+    return `OONI domain alert for ${network} (AS${asn}): no measurements were recorded for ${domains.length} watched domain(s) for the past 24 hours`;
   }
-  return `OONI volume alert for ${network} (AS${asn}): no web connectivity measurements were recorded in the 24 hours ending ${windowEnd}.`;
+  return `OONI volume alert for ${network} (AS${asn}): no web connectivity measurements were recorded for the past 24 hours`;
 }
 
 class OONIChannel extends PollChannel {
@@ -151,3 +156,7 @@ class OONIChannel extends PollChannel {
 }
 
 module.exports = OONIChannel;
+// Exposed so scripts/backfill/backfill-ooni-report-content.js can regenerate
+// stored content for existing reports using the exact same text this channel
+// generates for new ones, instead of a separately maintained copy.
+module.exports.alertContent = alertContent;

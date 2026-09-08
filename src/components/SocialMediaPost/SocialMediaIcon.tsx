@@ -57,6 +57,8 @@ const SocialMediaIcon = ({
           width: "1.125em",
           overflow: "visible",
           verticalAlign: "-0.125em",
+          borderRadius: "50%",
+          objectFit: "cover",
         }}
       />
     );
