@@ -61,7 +61,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   let bgColor: string;
 
   if (isOoni) {
-    end = formatStamp(raw?.windowEnd);
+    end = formatDateTime(raw?.windowEnd);
     duration = "Rolling 24 hours";
     signal = "Zero Measurements";
     bgColor = "bg-red-600";
@@ -108,7 +108,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
         </div>
         <div>
           <dt className='text-slate-500 dark:text-gray-400'>Window start</dt>
-          <dd className='font-semibold'>{formatStamp(raw?.windowStart || trigger?.windowStart)}</dd>
+          <dd className='font-semibold'>{formatDateTime(raw?.windowStart || trigger?.windowStart)}</dd>
         </div>
         <div>
           <dt className='text-slate-500 dark:text-gray-400'>Zero domains</dt>

@@ -651,7 +651,7 @@ function onSubmit(data: any) {
         keywords: source?.keywords || "IR",
         lists: source?.lists || "44244, 58224",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id || "",
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "",
         ...sourceAccessInitialValues,
@@ -664,15 +664,10 @@ function onSubmit(data: any) {
       onClose={onClose}
     >
       <FormikInput name='nickname' label='Source Name' />
-      <FormikDropdown
-        list={
-          credentialsList?.map((credential) => ({
-            _id: credential._id,
-            label: credential.name,
-          })) || [{ _id: "", label: "loading" }]
-        }
-        label={"OONI Credentials"}
-        name={"credentials"}
+      <CredentialPickerField
+        label='OONI Credentials'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
       />
       <FormikInput
         name='lists'
