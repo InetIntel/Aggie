@@ -63,11 +63,19 @@ npm run backtest:ooni -- 2026-07-30 "44244,58224"
 ```
 
 The first optional argument is the last UTC midnight window end-date to
-evaluate; the second is a comma- or space-separated ASN list. The backtest uses
-daily aggregation as an efficient equivalent for these midnight-ended 24-hour
-windows. Results are written
-to the ignored `data/ooni-alert-backtest.json` and
-`data/ooni-alert-backtest.csv` files.
+evaluate; the second is a comma- or space-separated ASN list; the third is an
+optional UTC start date, defaulting to 14 days before the end-date. The
+backtest uses daily aggregation as an efficient equivalent for these
+midnight-ended 24-hour windows. Results are written to the ignored
+`data/ooni-alert-backtest.json` and `data/ooni-alert-backtest.csv` files.
+
+OONI's public API enforces a per-IP quota (measured in seconds of server
+processing time per day/week/month, not a fixed requests-per-second cap), so
+widening the date range multiplies API calls and risks exhausting it for the
+rest of the day. The script waits 500ms between requests and retries once on
+a 429 with backoff (honoring `Retry-After` when present), but that cannot
+help once the daily quota itself is spent - if every request 429s
+immediately, wait and retry later rather than widening the range.
 
 The integration emits only zero-measurement alerts. There is no incident-level
 cooldown beyond one deterministic report per ASN, mode, and UTC window

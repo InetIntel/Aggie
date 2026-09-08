@@ -44,7 +44,11 @@ async function fetchDailyMeasurements({
     headers: { accept: 'application/json' },
   });
   if (!response.ok) {
-    throw new Error(`OONI aggregation request failed (${response.status}): ${url}`);
+    const error = new Error(`OONI aggregation request failed (${response.status}): ${url}`);
+    error.status = response.status;
+    const retryAfter = response.headers?.get?.('retry-after');
+    if (retryAfter) error.retryAfterSeconds = Number(retryAfter) || undefined;
+    throw error;
   }
 
   const payload = await response.json();

@@ -8,7 +8,6 @@ import {
 } from "@fortawesome/free-brands-svg-icons";
 import { faQuestionCircle } from "@fortawesome/free-regular-svg-icons";
 import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import { faGlobe } from "@fortawesome/free-solid-svg-icons";
 
 const mediaIcons: Record<string, IconDefinition | BrandsDef> = {
   // tiktok: faTiktok,
@@ -24,7 +23,6 @@ const mediaIcons: Record<string, IconDefinition | BrandsDef> = {
   mastodon: faMastodon,
   ioda: faQuestionCircle,
   cloudflare: faCloudflare,
-  ooni: faGlobe,
 };
 
 const SocialMediaIcon = ({
@@ -33,7 +31,7 @@ const SocialMediaIcon = ({
   mediaKey: string | undefined;
 }) => {
   if (!!mediaKey && mediaKey in mediaIcons) {
-    if (mediaKey == "ioda") {
+    if (mediaKey === "ioda") {
       return <img src="https://ioda.inetintel.cc.gatech.edu/icon-32-new.png"
         alt="IODA-icon"
         style={{
@@ -46,6 +44,22 @@ const SocialMediaIcon = ({
     }
     //@ts-ignore
     return <FontAwesomeIcon icon={mediaIcons[mediaKey]} />;
+  }
+  if (mediaKey === "ooni") {
+    return (
+      <img
+        src="/images/ooni-logo.svg.png"
+        alt="OONI logo"
+        style={{
+          boxSizing: "content-box",
+          display: "inline-block",
+          height: "1.125em",
+          width: "1.125em",
+          overflow: "visible",
+          verticalAlign: "-0.125em",
+        }}
+      />
+    );
   }
   return <FontAwesomeIcon icon={faQuestionCircle} />;
 };

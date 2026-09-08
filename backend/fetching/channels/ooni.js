@@ -27,9 +27,10 @@ function alertContent(asn, alerts) {
   const windowEnd = alerts[0].windowEnd;
   if (alerts[0].type === 'zero_domain_measurements') {
     const domains = alerts.map((alert) => alert.domain);
-    const preview = domains.slice(0, 5).join(', ');
-    const remainder = domains.length > 5 ? ` and ${domains.length - 5} more` : '';
-    return `OONI domain alert for ${network} (AS${asn}): no measurements were recorded for ${domains.length} watched domain(s) in the 24 hours ending ${windowEnd}: ${preview}${remainder}.`;
+    // Domain names deliberately excluded here - this text is what shows in the
+    // Alerts list preview. The full list is in raw.zeroDomains, shown only in
+    // the report detail view (OoniEvent.tsx).
+    return `OONI domain alert for ${network} (AS${asn}): no measurements were recorded for ${domains.length} watched domain(s) in the 24 hours ending ${windowEnd}.`;
   }
   return `OONI volume alert for ${network} (AS${asn}): no web connectivity measurements were recorded in the 24 hours ending ${windowEnd}.`;
 }

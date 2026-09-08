@@ -10,13 +10,42 @@ const {
 const configuredDomainMode = require('../backend/fetching/config/ooni.json');
 
 const DEFAULT_ASNS = [44244, 58224];
-const ALERT_SINCE = '2025-12-01';
+// How far back to evaluate by default. OONI's public API enforces a per-IP
+// quota (seconds of processing time per day/week/month, not a simple
+// requests-per-second cap), so keep this small - a wide range here is what
+// exhausts the quota and makes every request fail with 429 for the rest of
+// the day. Override with a 4th CLI arg (a UTC date) to look back further.
+const DEFAULT_LOOKBACK_DAYS = 14;
+const REQUEST_DELAY_MS = 500;
+const RETRY_DELAYS_MS = [2000, 5000, 15000];
 const NETWORK_NAMES = { 44244: 'IranCell', 58224: 'MCCI' };
 
 function shiftDay(day, offset) {
   const value = new Date(`${day}T00:00:00.000Z`);
   value.setUTCDate(value.getUTCDate() + offset);
   return value.toISOString().slice(0, 10);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchDailyMeasurementsWithRetry(options) {
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const result = await fetchDailyMeasurements(options);
+      await sleep(REQUEST_DELAY_MS);
+      return result;
+    } catch (error) {
+      const isLastAttempt = attempt === RETRY_DELAYS_MS.length;
+      if (error.status !== 429 || isLastAttempt) throw error;
+      const waitMs = error.retryAfterSeconds
+        ? error.retryAfterSeconds * 1000
+        : RETRY_DELAYS_MS[attempt];
+      console.error(`Rate limited by OONI, waiting ${Math.round(waitMs / 1000)}s before retrying...`);
+      await sleep(waitMs);
+    }
+  }
 }
 
 function csvValue(value) {
@@ -34,7 +63,8 @@ async function main() {
   if (asns.length === 0 || asns.some((asn) => !Number.isInteger(asn) || asn <= 0)) {
     throw new Error('Backtest ASNs must be positive integers separated by spaces or commas.');
   }
-  const dataSince = shiftDay(ALERT_SINCE, -1);
+  const alertSince = process.argv[4] || shiftDay(alertUntil, -DEFAULT_LOOKBACK_DAYS);
+  const dataSince = shiftDay(alertSince, -1);
   const dataUntil = alertUntil;
   const output = [];
   const domainConfig = normalizeDomainConfig(configuredDomainMode);
@@ -42,11 +72,11 @@ async function main() {
   for (const asn of asns) {
     let dailyCounts;
     if (domainConfig.useAllDomains) {
-      const rows = await fetchDailyMeasurements({ asn, since: dataSince, until: dataUntil });
+      const rows = await fetchDailyMeasurementsWithRetry({ asn, since: dataSince, until: dataUntil });
       dailyCounts = normalizeDailyCounts(rows, dataSince, dataUntil);
     }
 
-    for (let alertDate = ALERT_SINCE; alertDate <= alertUntil; alertDate = shiftDay(alertDate, 1)) {
+    for (let alertDate = alertSince; alertDate <= alertUntil; alertDate = shiftDay(alertDate, 1)) {
       const windowStartDay = shiftDay(alertDate, -1);
       const windowStart = `${windowStartDay}T00:00:00.000Z`;
       const windowEnd = `${alertDate}T00:00:00.000Z`;
@@ -59,7 +89,7 @@ async function main() {
           windowEnd,
         );
       } else {
-        const rows = await fetchDailyMeasurements({
+        const rows = await fetchDailyMeasurementsWithRetry({
           asn,
           since: windowStartDay,
           until: alertDate,
