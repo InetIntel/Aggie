@@ -289,6 +289,35 @@ exports.group_tags_add = (req, res) => {
   });
 };
 
+exports.group_tags_update = async (req, res) => {
+  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+  if (!Array.isArray(req.body.tags)) {
+    return res.status(400).send('Tags must be provided as a list.');
+  }
+
+  try {
+    const groups = req.incidents || await Group.find({
+      _id: { $in: req.body.ids },
+    });
+
+    await Promise.all(groups.map((group) => {
+      group.smtcTags = [...new Set(req.body.tags)];
+      return group.save();
+    }));
+
+    await eventRouter.publish('groups:update', {
+      ids: req.body.ids,
+      update: { smtcTags: req.body.tags },
+    });
+
+    return res.sendStatus(200);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to update incident tags.');
+  }
+};
+
 exports.group_tags_remove = (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
   Group.find({ _id: { $in: req.body.ids } }, function (err, groups) {
