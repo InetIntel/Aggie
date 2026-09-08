@@ -5,7 +5,6 @@ import {
   faRightFromBracket,
   faBars,
   faExternalLinkSquareAlt,
-  faPalette,
   faSun,
   faMoon,
   faShieldHalved,
@@ -202,7 +201,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
             <FontAwesomeIcon icon={faBars} />
           </Menu.Button>
           <Menu.Items className='absolute top-full right-0 mt-1 shadow-md overflow-hidden rounded-lg bg-white dark:bg-gray-800 border border-slate-200 z-30 text-sm font-medium'>
-            {Object.entries(menuLinks(session?.role)).map(([name, link]) => (
+            {Object.entries(menuLinks(session?.role, session?.isTeamLead)).map(([name, link]) => (
               <Menu.Item key={name}>
                 {({ active }) => (
                   <Link
@@ -218,21 +217,6 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
                 )}
               </Menu.Item>
             ))}
-            { session?.role === "admin"
-              && (process.env.ENVIRONMENT === "development" || process.env.NODE_ENV === "development")
-              && (
-                <Link
-                  className='px-3 py-2  hover:bg-slate-200 dark:hover:bg-gray-600 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left'
-                  to='/style'
-                >
-                  <FontAwesomeIcon
-                    icon={faPalette}
-                    className='place-self-center'
-                  />
-                  Style
-                </Link>
-              )
-            }
             <Menu.Item>
               <span>
                 <AggieButton

@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { Report } from "../../api/reports/types";
-import { resolveMediaUrl } from "../SocialMediaPost/reportParser";
 import { useReportChartImage } from "./useReportChartImage";
+import ExpandableChart from "./ExpandableChart";
+import { useFormatters } from "../../utils/useFormatters";
 
 interface IProps {
   report: Report;
@@ -9,33 +9,9 @@ interface IProps {
   compact?: boolean;
 }
 
-const TrafficImage = ({
-  src,
-  className,
-}: {
-  src: string;
-  className: string;
-}) => {
-  const [loaded, setLoaded] = useState(false);
-  return (
-    <div className='relative'>
-      {!loaded && (
-        <div className='flex items-center justify-center w-full h-48 rounded bg-slate-100 dark:bg-gray-700 text-slate-400 text-sm animate-pulse'>
-          Loading…
-        </div>
-      )}
-      <img
-        src={src}
-        alt='traffic trend'
-        onLoad={() => setLoaded(true)}
-        className={loaded ? className : "hidden"}
-      />
-    </div>
-  );
-};
-
 // cloudflare traffic anomaly
 const TrafficEvent = ({ report, compact }: IProps) => {
+  const { formatDateTime } = useFormatters();
   const rawData = report?.metadata?.rawAPIResponse;
   const endDate = rawData?.rawEvent?.endDate || "now";
   // Chart is a media-storage key (served at /media/...) or a legacy absolute URL;
@@ -45,23 +21,15 @@ const TrafficEvent = ({ report, compact }: IProps) => {
     <>
       <h2 className='font-medium'>{report?.author}</h2>
       <p className='mb-1'>
-        {
-          report?.authoredAt?.replace('T', ' ').substring(0, 16)
-        } - {endDate.replace('T', ' ').substring(0, 16)} UTC
+        {formatDateTime(report?.authoredAt)} -{" "}
+        {endDate === "now" ? "now" : formatDateTime(endDate)}
       </p>
-      {!!image && (
-        // Key on the resolved src so switching reports remounts the <img>
-        // instead of reusing the DOM node and briefly showing the stale chart.
-        <TrafficImage
-          key={image}
-          src={resolveMediaUrl(image)}
-          className={
-            compact
-              ? "w-full max-h-52 object-contain object-center"
-              : "w-full"
-          }
-        />
-      )}
+      <ExpandableChart
+        key={image}
+        image={image}
+        alt='traffic trend'
+        compact={compact}
+      />
     </>
   );
 };

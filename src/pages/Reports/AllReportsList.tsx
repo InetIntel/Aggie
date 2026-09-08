@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import _ from "lodash";
 import { useMultiSelect } from "../../hooks/useMultiSelect";
 import { useQueryParams } from "../../hooks/useQueryParams";
+import { useMeasuredHeight } from "../../hooks/useMeasuredHeight";
 
 import { formatPageCount } from "../../utils/format";
 import { getReports, getReport } from "../../api/reports";
@@ -17,8 +18,7 @@ import ReportsCompareModal from "./TableView/ReportsCompareModal";
 import Pagination from "../../components/Pagination";
 import AggieCheck from "../../components/AggieCheck";
 import AggieButton from "../../components/AggieButton";
-import CompareIcon from "../../components/icons/CompareIcon";
-import CompareActionBar from "../../components/CompareModal/CompareActionBar";
+import CompareToolbar from "../../components/CompareModal/CompareToolbar";
 
 import {
   faList,
@@ -76,6 +76,10 @@ const AllReportsList = ({ alerts }: IProps) => {
   // doesn't refetch) and out of the request to the API.
   const apiSearchParams = new URLSearchParams(searchParams);
   apiSearchParams.delete("view");
+  // The real query identity, ignoring the UI-only `view` toggle. Resets (clear
+  // selection, scroll to top) key off this so switching list↔table keeps the
+  // selection — the underlying results are identical across both views.
+  const queryParamsString = apiSearchParams.toString();
   const reportsQueryKey = [
     "reports",
     alerts ? "alerts" : "mediaposts",
@@ -108,7 +112,7 @@ const AllReportsList = ({ alerts }: IProps) => {
       top: 0,
       behavior: "smooth",
     });
-  }, [alerts, searchParams]);
+  }, [alerts, queryParamsString]);
 
   const multiSelect = useMultiSelect({
     allItems: reports?.results,
@@ -128,16 +132,6 @@ const AllReportsList = ({ alerts }: IProps) => {
     if (!next) setCompareOpen(false);
   }
 
-  // Reset compare mode + selection whenever the view (list/table) changes so
-  // checkboxes and the compare set never leak from the table into the list.
-  useEffect(() => {
-    setCompareMode(false);
-    setCompareOpen(false);
-    multiSelect.set([]);
-    multiSelect.setActive(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
-
   // Warm the per-report chart image so the compare modal renders it immediately.
   // The dedup list endpoint strips metadata.rawAPIResponse.image (see report.js),
   // so cards would otherwise lazily fetch N charts at once when the modal opens;
@@ -149,6 +143,51 @@ const AllReportsList = ({ alerts }: IProps) => {
       () => getReport(report._id),
       { staleTime: 5 * 60 * 1000 }
     );
+  }
+
+  // Compare-mode selection toggle shared by the table rows and the list rows:
+  // enforce the MAX_COMPARE cap (allow deselect) and warm the chart image on add
+  // so the compare modal renders it immediately.
+  function toggleReportForCompare(report: Report) {
+    if (
+      !multiSelect.exists(report) &&
+      multiSelect.selection.length >= MAX_COMPARE
+    )
+      return;
+    if (!multiSelect.exists(report)) prefetchChart(report);
+    multiSelect.addRemove(report);
+  }
+
+  // A row checkbox (list or table): in compare mode, toggle within the cap; in
+  // the mark relevant/irrelevant select mode, plain add/remove; when idle, the
+  // check flips compare mode on (Compare bar + cap kick in) and selects the row.
+  // The relevance bar (select all / mark read etc.) renders alongside compare in
+  // both views whenever a selection is active (see its gate below).
+  function onReportCheck(report: Report) {
+    if (compareMode) return toggleReportForCompare(report);
+    if (multiSelect.isActive) return multiSelect.addRemove(report);
+    setCompareMode(true);
+    multiSelect.setActive(true);
+    toggleReportForCompare(report);
+  }
+
+  // "Select all on this page" is an uncapped relevance action, incompatible with
+  // the 6-item compare cap — so leave compare mode when it's used, keeping just
+  // the mark relevant/irrelevant selection (this also collapses the compare bar).
+  function selectAllOnPage() {
+    // When everything is already selected this click clears it — return fully to
+    // idle (drop select + compare mode) instead of lingering in an empty select
+    // mode, so the next single check launches compare again.
+    if (multiSelect.all()) {
+      multiSelect.set([]);
+      multiSelect.setActive(false);
+      setCompareMode(false);
+      return;
+    }
+    // Leaving compare mode also collapses the compare toolbar back to its idle
+    // "Compare" button, keeping just the mark relevant/irrelevant selection.
+    if (compareMode) setCompareMode(false);
+    multiSelect.addRemoveAll(reports?.results);
   }
 
   // List view opens a report's detail in the persistent right panel (1/3 column
@@ -209,20 +248,14 @@ const AllReportsList = ({ alerts }: IProps) => {
           Table
         </AggieButton>
       </div>
-      {view === "table" && (
-        <AggieButton
-          className={`px-3 py-1 text-sm rounded-lg border ${
-            compareMode
-              ? "bg-aggie-secondary-500 text-white border-aggie-secondary-500 hover:bg-aggie-secondary-500/90"
-              : "bg-white dark:bg-gray-800 border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-          }`}
-          aria-pressed={compareMode}
-          onClick={toggleCompareMode}
-        >
-          <CompareIcon className='w-4 h-4' />
-          Compare
-        </AggieButton>
-      )}
+      <CompareToolbar
+        active={compareMode}
+        count={multiSelect.selection.length}
+        noun='alert'
+        onToggle={toggleCompareMode}
+        onCompare={() => setCompareOpen(true)}
+        onClear={() => multiSelect.set([])}
+      />
     </div>
   ) : undefined;
 
@@ -242,17 +275,8 @@ const AllReportsList = ({ alerts }: IProps) => {
   // park just beneath the bar. The bar's height is dynamic (grows in
   // select/compare mode, wraps when narrow), so measure it and publish it as
   // the `--dt-sticky-top` CSS var that DataTable's header reads.
-  const filtersRef = useRef<HTMLDivElement>(null);
-  const [filtersHeight, setFiltersHeight] = useState(0);
-  useEffect(() => {
-    const el = filtersRef.current;
-    if (!el) return;
-    const measure = () => setFiltersHeight(el.offsetHeight);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const { ref: filtersRef, height: filtersHeight } =
+    useMeasuredHeight<HTMLDivElement>();
 
   return (
     <div style={{ ["--dt-sticky-top" as any]: `${filtersHeight}px` }}>
@@ -306,16 +330,16 @@ const AllReportsList = ({ alerts }: IProps) => {
             )
           }
         />
-        {!compareMode && multiSelect.isActive && (
+        {multiSelect.isActive && (
           <div className='px-1 flex flex-wrap gap-2 text-xs font-medium items-center mt-2'>
             <AggieCheck
               active={multiSelect.any()}
               icon={!multiSelect.all() ? faMinus : undefined}
-              onClick={() => multiSelect.addRemoveAll(reports?.results)}
+              onClick={selectAllOnPage}
             />
             <span
               className='cursor-pointer select-none'
-              onClick={() => multiSelect.addRemoveAll(reports?.results)}
+              onClick={selectAllOnPage}
             >
               Select all on this page ({reports?.results?.length ?? 0})
             </span>
@@ -335,10 +359,9 @@ const AllReportsList = ({ alerts }: IProps) => {
         {alerts && (
           <div className='px-1 flex flex-wrap items-center gap-2 mt-2 text-xs font-medium'>
             {viewToggle}
-            {compareMode && (
+            {compareMode && multiSelect.selection.length === 0 && (
               <p className='text-slate-600 dark:text-gray-400'>
-                Select up to {MAX_COMPARE} alerts, then compare them from the bar
-                below.
+                Select up to {MAX_COMPARE} alerts to compare.
               </p>
             )}
           </div>
@@ -353,20 +376,9 @@ const AllReportsList = ({ alerts }: IProps) => {
           currentPageId={currentPageId}
           selection={{
             isActive: multiSelect.isActive,
+            alwaysShow: true,
             isChecked: (report) => multiSelect.exists(report),
-            onToggle: (report) => {
-              // In compare mode, block selecting past the cap (allow deselect).
-              if (
-                compareMode &&
-                !multiSelect.exists(report) &&
-                multiSelect.selection.length >= MAX_COMPARE
-              )
-                return;
-              // About to add → warm its chart image ahead of the compare modal.
-              if (compareMode && !multiSelect.exists(report))
-                prefetchChart(report);
-              multiSelect.addRemove(report);
-            },
+            onToggle: (report) => onReportCheck(report),
           }}
         />
       ) : (
@@ -374,7 +386,11 @@ const AllReportsList = ({ alerts }: IProps) => {
         {!!reports?.results && reports?.total > 0 ? (
           reports?.results.map((report) => (
             <div
-              onClick={() => onReportItemClick(report._id)}
+              onClick={() =>
+                compareMode
+                  ? onReportCheck(report)
+                  : onReportItemClick(report._id)
+              }
               className='cursor-pointer group focus-theme'
               key={report._id}
               tabIndex={0}
@@ -385,7 +401,7 @@ const AllReportsList = ({ alerts }: IProps) => {
                 queryKey={reportsQueryKey}
                 isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
-                onCheckChange={() => multiSelect.addRemove(report)}
+                onCheckChange={() => onReportCheck(report)}
               />
             </div>
           ))
@@ -418,15 +434,6 @@ const AllReportsList = ({ alerts }: IProps) => {
           {formatPageCount(Number(getParam("page")), 50, reports?.total)}
         </small>
       </div>
-
-      {compareMode && multiSelect.selection.length >= 1 && (
-        <CompareActionBar
-          count={multiSelect.selection.length}
-          noun='alert'
-          onCompare={() => setCompareOpen(true)}
-          onClear={() => multiSelect.set([])}
-        />
-      )}
 
       {compareMode && (
         <ReportsCompareModal

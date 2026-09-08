@@ -32,6 +32,13 @@ export interface DataTableSelection<T> {
   isActive: boolean;
   isChecked: (row: T) => boolean;
   onToggle: (row: T) => void;
+  /**
+   * Keep the checkbox column visible even when `isActive` is false. Idle
+   * checkboxes reveal on row hover (or when the row is checked); clicking one is
+   * what flips selection on. Mirrors the list view's hover checkbox. Defaults to
+   * off (column only appears once selection is active).
+   */
+  alwaysShow?: boolean;
 }
 
 export interface DataTableProps<T> {

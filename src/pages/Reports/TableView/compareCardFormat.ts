@@ -1,12 +1,6 @@
-// Date/time formatting for the compare-modal alert cards. Kept here (alert-compare
+// Duration formatting for the compare-modal alert cards. Kept here (alert-compare
 // scope) rather than in the shared reportParser since it's only used by CompareCardBody.
-
-// "2026-04-27T17:00:00Z" -> "2026-04-27 @ 17:00 UTC"
-export const formatStamp = (iso?: string): string => {
-  const s = iso?.replace("T", " ").substring(0, 16);
-  if (!s) return "";
-  return `${s.replace(" ", " @ ")} UTC`;
-};
+// (Date/time stamps now go through the user-preference-aware useFormatters hook.)
 
 // Humanized gap between two ISO stamps. "" on missing/invalid/negative input.
 export const formatDuration = (startIso?: string, endIso?: string): string => {

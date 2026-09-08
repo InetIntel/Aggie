@@ -3,15 +3,13 @@ const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const REGION_CODES = require('../../config/fetching/channels/iodaMappings');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS } = require('../../config/fetching/externalApis');
 const {
-    extractCleanSVGFromPage,
+    fetchSignals,
     buildEventAggKeyBase,
     buildEventIdentifier
 } = require('../utils/iodaUtils');
 const {  recomputeIncidentDurationForGroups } = require('../../api/utils/incidentDuration');
 const Group = require('../../models/group');
 const Report = require('../../models/report');
-const { persistSvgChart } = require('../utils/socialImageStorage');
-const { chromium } = require('playwright');
 const countries = require('i18n-iso-countries');
 require('dotenv').config();
 
@@ -204,12 +202,12 @@ class IODAChannel extends PollChannel {
         const queryType = this.queryTypeFromGuid(report.guid);
         if (!queryType) return;
 
-        const formattedEvent = await this.parseEvent(event, queryType, { withImage: false });
+        const formattedEvent = await this.parseEvent(event, queryType, { withChart: false });
         if (!formattedEvent) return;
 
-        const previousImage = report.metadata
+        const previousChart = report.metadata
             && report.metadata.rawAPIResponse
-            && report.metadata.rawAPIResponse.image;
+            && report.metadata.rawAPIResponse.chart;
 
         report.content = formattedEvent.content;
         report.url = formattedEvent.url;
@@ -217,8 +215,8 @@ class IODAChannel extends PollChannel {
 
         report.metadata = report.metadata || {};
         report.metadata.rawAPIResponse = formattedEvent.raw;
-        if (previousImage) {
-            report.metadata.rawAPIResponse.image = previousImage;
+        if (previousChart) {
+            report.metadata.rawAPIResponse.chart = previousChart;
         }
         report.markModified('metadata');
 
@@ -236,16 +234,6 @@ class IODAChannel extends PollChannel {
     async fetch() {
         const outages = [];
 
-        // reuseable broswer for fetching SVG components on each fetch()
-        this.browser = null;
-        const newBrowser = await chromium.launch({headless: true});
-        if (!newBrowser) {
-            console.error('debugging - Failed initializing browser for fetching graphs');
-        } else {
-            this.browser = newBrowser;
-        }
-
-        try{
         // update fetchTo timestamp for each fetch
         this.fetchToTimestamp = Math.floor(Date.now() / 1000);
         this.fetchFromTimestamp = Math.min(this.fetchFromTimestamp, this.fetchToTimestamp - 2 * 60 * 60);
@@ -274,7 +262,6 @@ class IODAChannel extends PollChannel {
                 let existedReportCount = 0;
                 let irrelevantRegionReportCount = 0;
                 let ongoingReportCount = 0;
-                this.linkedPageCache = {}; // avoid duplicately extract graph components
 
                 const affectedGroupIds = new Set();
 
@@ -298,12 +285,12 @@ class IODAChannel extends PollChannel {
                     try {
                         const existingReport = await Report.findOne({ guid });
 
-                        // Rendering the chart costs a headless page load per event and dominates
-                        // the runtime of a poll. A closed outage's chart can never change again,
-                        // so only pay for it on first ingest and while the outage is still running.
-                        const withImage = !existingReport || existingReport.isOutageOngoing;
+                        // Fetching the signal series is a lightweight API call, but a closed
+                        // outage's chart can never change again, so only pay for it on first
+                        // ingest and while the outage is still running.
+                        const withChart = !existingReport || existingReport.isOutageOngoing;
 
-                        const formattedEvent = await this.parseEvent(event, queryType, { withImage });
+                        const formattedEvent = await this.parseEvent(event, queryType, { withChart });
 
                         if (!formattedEvent) {
                             console.error(`\tFailed parsing formattedEvent: ${JSON.stringify(event)}.`);
@@ -328,11 +315,11 @@ class IODAChannel extends PollChannel {
                             // false and the incident is no longer recomputed on every poll.
                             const endChanged = prevEnd !== newEnd;
 
-                            // Carried over when we skip chart extraction, so the wholesale
+                            // Carried over when we skip the signals fetch, so the wholesale
                             // rawAPIResponse replacement below doesn't drop the stored chart.
-                            const previousImage = existingReport.metadata
+                            const previousChart = existingReport.metadata
                                 && existingReport.metadata.rawAPIResponse
-                                && existingReport.metadata.rawAPIResponse.image;
+                                && existingReport.metadata.rawAPIResponse.chart;
 
                             // update fields
                             existingReport.content = formattedEvent.content;
@@ -344,8 +331,8 @@ class IODAChannel extends PollChannel {
                             // update whole metadata.rawAPIResponse object
                             existingReport.metadata = existingReport.metadata || {};
                             existingReport.metadata.rawAPIResponse = formattedEvent.raw;
-                            if (!withImage && previousImage) {
-                                existingReport.metadata.rawAPIResponse.image = previousImage;
+                            if (!withChart && previousChart) {
+                                existingReport.metadata.rawAPIResponse.chart = previousChart;
                             }
                             existingReport.markModified('metadata');
 
@@ -399,11 +386,7 @@ class IODAChannel extends PollChannel {
         }
 
         return outages;
-
-    } finally {
-        await this.browser.close(); // ensure closing headerless browser
     }
-}
 
     /**
      * Close out reports still flagged ongoing whose event IODA no longer returns.
@@ -520,7 +503,7 @@ class IODAChannel extends PollChannel {
     /**
      * Parse the fetched event data to SocialMediaPost.
      */
-    async parseEvent(event, queryType, { withImage = true } = {}) {
+    async parseEvent(event, queryType, { withChart = true } = {}) {
 
         // Enriched attributes
         let entityLevel = null;
@@ -535,7 +518,7 @@ class IODAChannel extends PollChannel {
         let geoScope = null;
 
         let linkedPage = null;
-        let image = null;
+        let chart = null;
 
 
         // Extract event timing
@@ -619,32 +602,23 @@ class IODAChannel extends PollChannel {
             geoScope = entityScope;
         }
 
-        if (withImage) {
-            let svg = this.linkedPageCache[linkedPage];
-            if (svg === undefined) {
-                try {
-                    svg = await extractCleanSVGFromPage(this.browser, linkedPage, queryType);
-                } catch (err) {
-                    console.error(`Error extracting SVG for URL ${linkedPage}:`, err);
-                    svg = null;
-                }
-                this.linkedPageCache[linkedPage] = svg;
-            }
-
-            // Persist the SVG to media storage keyed by guid and store the key (not the
-            // raw SVG) on the report, so list/detail responses stay small. Keyed by guid
-            // means a re-fetch of the same outage overwrites the same file in place.
-            if (svg) {
-                try {
-                    image = await persistSvgChart({ svg, guid });
-                } catch (err) {
-                    console.error(`Error persisting SVG chart for guid ${guid}:`, err);
-                }
+        if (withChart) {
+            // Signals use the canonical entity path `event.location` (e.g. "region/1843",
+            // "asn/34918", "geoasn/47262-IR"). Note this differs from `entityCode` above: the
+            // dashboard LINK strips the "geo" prefix for geoasn routing, but the signals API
+            // rejects that stripped form (500) and wants the un-stripped location. Same window
+            // as the "view on IODA" link, so the chart spans the range the dashboard shows.
+            try {
+                chart = await fetchSignals({
+                    entity: event.location,
+                    from: urlFromTime,
+                    until: urlToTime,
+                });
+            } catch (err) {
+                console.error(`Error fetching IODA signals for ${event.location}:`, err);
+                chart = null;
             }
         }
-
-
-
 
         const post =  new SocialMediaPost({
             authoredAt: eventStartedAt,
@@ -665,7 +639,7 @@ class IODAChannel extends PollChannel {
                 'ended': eventEndedAt, // null while the outage is still running
                 'duration': eventDuration,
                 'isOngoing': isOngoing,
-                'image': image, // media-storage key for the chart SVG (see persistSvgChart)
+                'chart': chart, // compact signal series for client-side recharts (see fetchSignals)
 
             }
         });

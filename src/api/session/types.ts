@@ -6,15 +6,25 @@ import type {
   AuthenticationResponseJSON,
 } from "@simplewebauthn/browser";
 
+export interface UserPreferences {
+  timeFormat: "12h" | "24h";
+  dateFormat: "MDY" | "DMY";
+  timeZone: "local" | "utc";
+}
+
 export interface Session extends hasId {
   email: string;
   hasDefaultPassword: boolean;
   provider: string;
   role: "admin" | "monitor" |"viewer" |"team_lead" | undefined;
+  permissions?: Permission[];
+  teamRoles?: Record<string, "viewer" | "monitor" | "team_lead">;
+  isTeamLead?: boolean;
   username: string;
   mfa?: boolean;              // session is MFA-verified
   mfa_enrolled?: boolean;     // account has at least one WebAuthn / TOTP credential
   mfa_enforced?: boolean;     // MFA policy enforced for this user/org
+  preferences?: UserPreferences; // date/time display preferences
   __v?: number;
 }
 
@@ -84,3 +94,18 @@ export interface TotpRecoveryCodesResponse {
   ok: boolean;
   recoveryCodes: string[];
 }
+
+export type Permission =
+  | "manage trends"
+  | "view data"
+  | "edit data"
+  | "change settings"
+  | "manage sources"
+  | "manage incident access"
+  | "view users"
+  | "view other users"
+  | "update users"
+  | "delete users"
+  | "admin users"
+  | "change admin password"
+  | "edit tags";

@@ -85,11 +85,13 @@ const UsersIndex = ({ session }: IProps) => {
             const isAdmin = role === 'admin';
             const isTeamLead = role === 'team_lead';
             const isSelf = user._id === session?._id;
-            const canEditRow = isAdmin && !isSelf; // edit & change password allowed here
+            const canEditRow = isAdmin && !isSelf; // edit others (admin only)
+            // Admins can set anyone's password; any user can set their own.
+            const canChangePassword = isAdmin || isSelf;
             const canDeleteAsAdmin = isAdmin && !isSelf;
             const canDeleteAsTeamLead = isTeamLead && !isSelf && String(user.createdBy) === String(session?._id);
             const canDeleteRow = canDeleteAsAdmin || canDeleteAsTeamLead;
-            const showMenuRow = canEditRow || canDeleteRow;
+            const showMenuRow = canEditRow || canChangePassword || canDeleteRow;
             return (
             <article
               key={user._id}
@@ -133,7 +135,6 @@ const UsersIndex = ({ session }: IProps) => {
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
                   {canEditRow && (
-                    <>
                     <AggieButton
                       className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => setEditUser(user._id)}
@@ -141,6 +142,8 @@ const UsersIndex = ({ session }: IProps) => {
                       <FontAwesomeIcon icon={faEdit} />
                       Edit
                     </AggieButton>
+                  )}
+                  {canChangePassword && (
                     <AggieButton
                       className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => setEditPassword(user._id)}
@@ -148,7 +151,6 @@ const UsersIndex = ({ session }: IProps) => {
                       <FontAwesomeIcon icon={faUserShield} />
                       Change Password
                     </AggieButton>
-                    </>
                   )}
                   {canDeleteRow && (
                     <AggieButton

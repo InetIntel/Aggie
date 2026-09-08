@@ -7,9 +7,56 @@ const _ = require('lodash');
 var tags = require('../../shared/tags');
 const Report = require('../../models/report');
 const eventRouter = require('../sockets/event-router');
-const { saveFile, deleteFile } = require('../utils/fileStorage');
+const { saveFile, deleteFile, getUploadDir } = require('../utils/fileStorage');
 const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../../config/models/groupConfigs');
 const path = require('path');
+const { canViewIncident, canModifyIncidentWithScope } = require('../../access/incidentAccess');
+
+exports.group_attachment_download = async (req, res) => {
+  const filename = req.params.filename;
+  if (!filename || path.basename(filename) !== filename) {
+    return res.status(400).send('Invalid attachment path.');
+  }
+
+  const publicPath = `/incidents/uploads/${filename}`;
+
+  try {
+    const groups = await Group.find({
+      'comments.attachments.path': publicPath,
+    });
+
+    const accessibleGroup = groups.find((group) =>
+      canViewIncident(
+        req.incidentAccess.user,
+        group,
+        req.incidentAccess.ledTeamIds
+      )
+    );
+
+    if (!accessibleGroup) return res.sendStatus(404);
+
+    const attachment = accessibleGroup.comments
+      .flatMap((comment) => comment.attachments || [])
+      .find((item) => item.path === publicPath);
+
+    if (!attachment) return res.sendStatus(404);
+
+    const uploadRoot = path.resolve(getUploadDir());
+    const serverPath = path.resolve(uploadRoot, filename);
+    if (!serverPath.startsWith(`${uploadRoot}${path.sep}`)) {
+      return res.status(400).send('Invalid attachment storage path.');
+    }
+
+    return res.sendFile(serverPath, (err) => {
+      if (!err || res.headersSent) return;
+      return res.sendStatus(err.statusCode || 404);
+    });
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to download attachment.');
+  }
+};
 
 exports.group_create = (req, res) => {
   req.body.creator = req.user;
@@ -29,7 +76,12 @@ exports.group_create = (req, res) => {
 // lean option means only return name and id
 exports.group_all_groups = (req, res) => {
   const projection = req.query.lean === "true" ? 'title closed escalated idnum' : '';
-  Group.find({ public: true }, projection, {}, (err, groups) => {
+  const accessFilter = req.incidentAccess && req.incidentAccess.filter;
+  const filter = accessFilter && Object.keys(accessFilter).length > 0
+    ? { $and: [{ public: true }, accessFilter] }
+    : { public: true };
+
+  Group.find(filter, projection, {}, (err, groups) => {
     if (err) res.status(err.status).send(err.message);
     else res.status(200).send(groups);
   });
@@ -63,6 +115,7 @@ exports.group_groups = (req, res) => {
         { path: 'creator', select: 'username' },
         { path: 'assignedTo', select: 'username' },
       ],
+      accessFilter: req.incidentAccess && req.incidentAccess.filter,
     },
     async (err, groups) => {
       if (err) {
@@ -72,9 +125,10 @@ exports.group_groups = (req, res) => {
 
       try {
         const enrichedResults = await addPopulationCoverageToGroups(groups.results || []);
+        const withSources = await addReportSourcesToGroups(enrichedResults);
         res.status(200).send({
           ...groups,
-          results: enrichedResults,
+          results: withSources,
         });
       } catch (coverageErr) {
         console.error('Error enriching groups with population coverage:', coverageErr);
@@ -709,8 +763,15 @@ exports.group_delete = async (req, res, next) => {
 
 // Delete all Groups
 exports.group_all_delete = (req, res) => {
-  Group.find(function (err, groups) {
+  if (!req.permissionScope || req.permissionScope.permission !== 'edit data') {
+    return res.status(403).send('Incident permissions have not been checked.');
+  }
+  const accessFilter = req.incidentAccess && req.incidentAccess.filter;
+  Group.find(accessFilter || {}, function (err, groups) {
     if (err) return res.status(err.status).send(err.message);
+    if (groups.some((group) => !canModifyIncidentWithScope(req.permissionScope, group))) {
+      return res.status(403).send('Your team role cannot delete one or more incidents.');
+    }
     if (groups.length === 0) return res.sendStatus(200);
     var remaining = groups.length;
     groups.forEach(function (group) {
@@ -729,10 +790,13 @@ exports.group_all_delete = (req, res) => {
 
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
-  if (queryString.before) queryString.storedAt = { $lte: queryString.before };
+  // Filter incidents by when the outage started (incidentStartedAt), not by
+  // ingest time (storedAt). Cast to Date so the Mongo comparison is correct.
+  if (queryString.before)
+    queryString.incidentStartedAt = { $lte: new Date(queryString.before) };
   if (queryString.after)
-    queryString.storedAt = Object.assign({}, queryString.storedAt, {
-      $gte: queryString.after,
+    queryString.incidentStartedAt = Object.assign({}, queryString.incidentStartedAt, {
+      $gte: new Date(queryString.after),
     });
   let query = _.pick(queryString, Group.filterAttributes);
   if (query.tags) query.tags = tags.toArray(query.tags);
@@ -816,6 +880,44 @@ async function addPopulationCoverageToGroups(groups) {
       indirectPopulationCoverageScore: indirectCount > 0 ?
         (indirectMax > 1 ? 1 : indirectMax) :
         null,
+    };
+  });
+}
+
+// Attaches the distinct set of report source medias (e.g. ['ioda','cloudflare'])
+// to each group as `reportSources`, computed in a single aggregation over the
+// page's group ids. Reports back-reference their incident via `_group` and
+// carry their source(s) in `_media`.
+async function addReportSourcesToGroups(groups) {
+  if (!Array.isArray(groups) || groups.length === 0) return groups;
+
+  const normalize = (group) =>
+    typeof group.toObject === 'function' ? group.toObject() : group;
+
+  const groupObjectIds = groups
+    .map((group) => group._id)
+    .filter((id) => id != null);
+
+  if (groupObjectIds.length === 0) {
+    return groups.map((group) => ({ ...normalize(group), reportSources: [] }));
+  }
+
+  const rows = await Report.aggregate([
+    { $match: { _group: { $in: groupObjectIds } } },
+    { $unwind: '$_media' },
+    { $group: { _id: '$_group', sources: { $addToSet: '$_media' } } },
+  ]);
+
+  const sourcesByGroup = new Map();
+  for (const row of rows) {
+    sourcesByGroup.set(String(row._id), row.sources || []);
+  }
+
+  return groups.map((group) => {
+    const normalizedGroup = normalize(group);
+    return {
+      ...normalizedGroup,
+      reportSources: sourcesByGroup.get(String(normalizedGroup._id)) || [],
     };
   });
 }

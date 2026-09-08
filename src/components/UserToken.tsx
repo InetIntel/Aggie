@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { getUsers } from "../api/users";
-import type { User } from "../api/users/types";
+import { useNavigate } from "react-router-dom";
+import { getSession } from "../api/session";
+import { getUserDirectory } from "../api/users";
+import type { UserDirectoryEntry } from "../api/users/types";
 
 interface IProps {
   id: string;
@@ -12,18 +13,24 @@ interface IProps {
 }
 const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery(["users"], getUsers, {
+  const { data, isLoading } = useQuery(["users", "directory"], getUserDirectory, {
     enabled: true,
     staleTime: 50000,
   });
+  const { data: session } = useQuery(["session"], getSession, {
+    staleTime: 50000,
+  });
 
-  function getUser(users: User[] | undefined) {
+  function getUser(users: UserDirectoryEntry[] | undefined) {
     if (!users) return;
     const newUser = users.find((i) => i._id === id);
     return newUser;
   }
 
   const user = useMemo(() => getUser(data), [data, id]);
+  const canOpenProfile =
+    session?._id === user?._id ||
+    session?.permissions?.includes("view other users") === true;
 
   function onUserClick(e: React.MouseEvent) {
     e.preventDefault();
@@ -43,7 +50,9 @@ const UserToken = ({ id, className = "", disabled, loading }: IProps) => {
         {"[Deleted User]"}
       </span>
     );
-  if (disabled) return <span className={`${className}`}> {preferredName}</span>;
+  if (disabled || !canOpenProfile) {
+    return <span className={`${className}`}> {preferredName}</span>;
+  }
   return (
     <button
       onClick={onUserClick}

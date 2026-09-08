@@ -37,7 +37,7 @@ const Configuration = () => {
           fetchSuccess && !fetchStatusMutation.isLoading ? "" : "opacity-50"
         }`}
       >
-        <h2 className='font-medium text-lg'>Enable Fetching</h2>
+        <h2 className='font-medium text-sm'>Enable Fetching</h2>
         <AggieSwitch
           checked={fetchStatus}
           onChange={() => {

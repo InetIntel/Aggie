@@ -1,5 +1,6 @@
 const database = require('../database');
 const mongoose = database.mongoose;
+const { TEAM_PERMISSION_KEYS } = require('../access/teamMemberships');
 
 const teamSchema = new mongoose.Schema({
   name: {
@@ -18,6 +19,18 @@ const teamSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
     index: true,
+  },
+  leads: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    default: [],
+    index: true,
+  },
+  permissionLimits: {
+    deny: {
+      type: [String],
+      enum: TEAM_PERMISSION_KEYS,
+      default: [],
+    },
   },
 }, { timestamps: true });
 

@@ -21,6 +21,8 @@ import {
   totpRegenerateRecoveryCodes,
 } from "../../../../api/session";
 
+import { adminResetUserMfa } from "../../../../api/users";
+
 import AggieButton from "../../../../components/AggieButton";
 import WebAuthnDeviceRow from "./WebAuthnDeviceRow";
 
@@ -37,8 +39,15 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TTab>("webauthn");
 
-  const mfaEnrolled = !!session?.mfa_enrolled;
   const totpEnabled = !!(user as any)?.mfa?.totp?.enabled;
+  const webauthnEnrolledForUser =
+    Array.isArray((user as any)?.webauthnCredentials) &&
+    (user as any).webauthnCredentials.length > 0;
+  // For your own profile use the live session; when an admin views another
+  // user, derive enrollment from that user's record (session is the admin's).
+  const mfaEnrolled = isSelf
+    ? !!session?.mfa_enrolled
+    : totpEnabled || webauthnEnrolledForUser;
   const [enrollLoading, setEnrollLoading] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [enrollSuccess, setEnrollSuccess] = useState<boolean>(false);
@@ -68,6 +77,17 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
         await refetchDevices();
         const fresh = await getSession();
         queryClient.setQueryData(["session"], fresh);
+      },
+    }
+  );
+
+  // Admin action: clear the viewed user's MFA so a locked-out user can recover.
+  const isAdmin = session?.role === "admin";
+  const doAdminResetMfa = useMutation(
+    () => adminResetUserMfa(user?._id),
+    {
+      onSuccess: async () => {
+        await onUserUpdated();
       },
     }
   );
@@ -215,10 +235,47 @@ const SecuritySection = ({ session, user, isSelf, onUserUpdated }: SecuritySecti
         </span>
       </div>
 
-      {!isSelf && (
+      {!isSelf && !isAdmin && (
         <p className="text-sm text-slate-500 dark:text-gray-400">
           You can only manage MFA for your own account.
         </p>
+      )}
+
+      {!isSelf && isAdmin && (
+        <div className="text-sm text-slate-600 dark:text-gray-300 flex flex-col gap-2">
+          <p>
+            You can’t manage this user’s MFA methods, but if they’ve lost their
+            authenticator or security key you can reset their MFA. This removes
+            all of their TOTP and passkey enrollment so they can log in with
+            their password and re-enroll.
+          </p>
+          <div>
+            <AggieButton
+              variant="danger"
+              disabled={doAdminResetMfa.isLoading}
+              loading={doAdminResetMfa.isLoading}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Reset MFA for this user? This clears all of their authenticator apps and security keys. They will be able to log in with their password alone and will need to re-enroll."
+                  )
+                ) {
+                  doAdminResetMfa.mutate();
+                }
+              }}
+            >
+              Reset MFA
+            </AggieButton>
+          </div>
+          {doAdminResetMfa.isError && (
+            <p className="text-red-600" role="alert">
+              Could not reset MFA. Please try again.
+            </p>
+          )}
+          {doAdminResetMfa.isSuccess && (
+            <p className="text-green-700">MFA has been reset for this user.</p>
+          )}
+        </div>
       )}
 
       {isSelf && (

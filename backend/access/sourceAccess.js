@@ -1,5 +1,8 @@
 'use strict';
 
+const { hasPermission } = require('./permissions');
+const { getMembershipTeamIds } = require('./teamMemberships');
+
 const normalizeIds = (values) => {
   if (!Array.isArray(values)) return [];
 
@@ -12,8 +15,7 @@ const normalizeIds = (values) => {
 };
 
 const getUserTeamIds = (user) => {
-  if (!user || !Array.isArray(user.teams)) return [];
-  return normalizeIds(user.teams);
+  return getMembershipTeamIds(user);
 };
 
 const getSourcePolicy = (source) => {
@@ -101,10 +103,102 @@ const canViewSourceDataForDate = (user, source, recordDate) => {
   return false;
 };
 
+const canManageSource = (user) => hasPermission(user, 'manage sources');
+
+const getSourceId = (source) => {
+  if (!source) return null;
+  if (source._id) return String(source._id);
+  if (source.id) return String(source.id);
+  return null;
+};
+
+const getVisibleSourceIds = (user, sources) => {
+  if (!Array.isArray(sources)) {
+    return [];
+  }
+
+  return sources
+    .filter((source) => canViewSource(user, source))
+    .map(getSourceId)
+    .filter(Boolean);
+};
+
+const getReportDateBeforeFilter = (cutoffDate) => ({
+  $or: [
+    { authoredAt: { $lt: cutoffDate } },
+    {
+      $and: [
+        { authoredAt: null },
+        { fetchedAt: { $lt: cutoffDate } },
+      ],
+    },
+    {
+      $and: [
+        { authoredAt: null },
+        { fetchedAt: null },
+        { storedAt: { $lt: cutoffDate } },
+      ],
+    },
+  ],
+});
+
+const buildReportSourceAccessFilter = (user, sources) => {
+  if (isAdmin(user) || !Array.isArray(sources) || sources.length === 0) {
+    return {};
+  }
+
+  const knownSourceIds = sources.map(getSourceId).filter(Boolean);
+  const fullyVisibleSourceIds = getVisibleSourceIds(user, sources);
+  const accessClauses = [];
+
+  // Preserve historical behavior for reports with no source or whose source
+  // record no longer exists. Access policies only restrict known sources.
+  if (knownSourceIds.length > 0) {
+    accessClauses.push({ _sources: { $nin: knownSourceIds } });
+  }
+
+  if (fullyVisibleSourceIds.length > 0) {
+    accessClauses.push({ _sources: { $in: fullyVisibleSourceIds } });
+  }
+
+  sources.forEach((source) => {
+    const sourceId = getSourceId(source);
+    const policy = getSourcePolicy(source);
+
+    if (
+      !sourceId ||
+      policy.mode !== 'public_until' ||
+      canAccessRestrictedPolicy(user, policy) ||
+      !policy.cutoffDate
+    ) {
+      return;
+    }
+
+    const cutoffDate = new Date(policy.cutoffDate);
+    if (Number.isNaN(cutoffDate.getTime())) return;
+
+    accessClauses.push({
+      $and: [
+        { _sources: sourceId },
+        getReportDateBeforeFilter(cutoffDate),
+      ],
+    });
+  });
+
+  if (accessClauses.length === 0) {
+    return { _id: { $in: [] } };
+  }
+
+  return { $or: accessClauses };
+};
+
 module.exports = {
+  buildReportSourceAccessFilter,
+  canManageSource,
   canViewSource,
   canViewSourceDataForDate,
   getSourcePolicy,
   getUserTeamIds,
   normalizeIds,
+  getVisibleSourceIds,
 };

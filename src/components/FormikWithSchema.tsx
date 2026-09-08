@@ -30,7 +30,7 @@ const FormikWithSchema = ({
       validationSchema={schema}
       onSubmit={(e) => onSubmit(e)}
     >
-      {({ isValid }) => (
+      {({ isValid, dirty }) => (
         <Form className='flex flex-col gap-3'>
           {children}
           <div className='flex justify-between '>
@@ -44,7 +44,9 @@ const FormikWithSchema = ({
             </AggieButton>
             <AggieButton
               variant='primary'
-              disabled={disabled || !isValid || loading}
+              // Block submission until the user has actually changed something
+              // (`dirty`), so nothing can be confirmed on a pristine form.
+              disabled={disabled || !isValid || !dirty || loading}
               loading={loading}
               type={"submit"}
             >

@@ -1,23 +1,19 @@
 import {
   useOutlet,
-  useParams,
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
-import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
-import type { Report, Reports as IReports } from "../../api/reports/types";
-import { updateByIds } from "../../utils/immutable";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSocketSubscribe } from "../../hooks/WebsocketProvider";
 
 interface IProps {
   children: React.ReactNode
 }
 
 const Reports = ({ children }: IProps) => {
-  const queryData = useUpdateQueryData();
+  const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
-  const { id: pageId } = useParams();
   const outlet = useOutlet();
 
   // List view uses a persistent 1/3 right detail panel (the selected report
@@ -39,55 +35,14 @@ const Reports = ({ children }: IProps) => {
     : "list";
   const listView = view === "list";
 
-  interface ReportUpdateEvent extends SocketEvent {
-    data: {
-      ids: string[];
-      update: Record<string, any>;
-    };
-  }
-
-  // update local data on websocket update
-  const handleSocketUpdate = (message: ReportUpdateEvent) => {
-    if (message.event !== "reports:update") return;
-    console.log("sockets", message);
-    const key = location.pathname.includes("batch") ? ["batch"] : ["reports"];
-    if (key.includes("batch")) {
-      queryData.update<IReports>(key, (data) => {
-        const updateData = updateByIds(
-          message.data.ids,
-          data.results,
-          message.data.update
-        );
-        return {
-          results: updateData,
-        };
-      });
-    } else {
-      const reportListQueries = queryData.queryClient.getQueriesData<IReports>({
-        queryKey: ["reports"],
-      });
-      reportListQueries.forEach(([queryKey, data]) => {
-        if (!data || !Array.isArray(queryKey) || queryKey.length !== 3) return;
-
-        const updateData = updateByIds(
-          message.data.ids,
-          data.results,
-          message.data.update
-        );
-        queryData.queryClient.setQueryData(queryKey, {
-          ...data,
-          results: updateData,
-        });
-      });
-    }
-    // update single report
-    if (pageId) {
-      queryData.update<Report>(["reports", pageId], (data) => {
-        return message.data.update;
-      });
-    }
+  const handleSocketUpdate = () => {
+    queryClient.invalidateQueries(["reports"]);
+    queryClient.invalidateQueries(["batch"]);
   };
   useSocketSubscribe("reports:update", handleSocketUpdate);
+  useSocketSubscribe("reports:create", handleSocketUpdate);
+  useSocketSubscribe("reports:delete", handleSocketUpdate);
+  useSocketSubscribe("reports:read", handleSocketUpdate);
 
   if (listView) {
     return (

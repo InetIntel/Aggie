@@ -1,4 +1,11 @@
 const User = require("../../models/user");
+const Team = require('../../models/team');
+const { getEffectivePermissions } = require('../../access/permissions');
+const {
+  getMembershipRole,
+  getMembershipTeamIds,
+  getTeamPermissions,
+} = require('../../access/teamMemberships');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const crypto = require('crypto');
@@ -205,17 +212,55 @@ exports.session = async (req, res, next) => {
 
     const enforced = user.mfaEnforced === true;
     const mfa = !!(req.userToken && req.userToken.mfa === true);
+    const ledTeams = await Team.find({ leads: user._id })
+      .select('_id permissionLimits')
+      .lean();
+    const ledTeamIds = ledTeams.map((team) => String(team._id));
+    const membershipTeamIds = [...new Set([
+      ...getMembershipTeamIds(user),
+      ...ledTeamIds,
+    ])];
+    const teamRoles = Object.fromEntries(
+      membershipTeamIds.map((teamId) => [
+        teamId,
+        getMembershipRole(user, teamId, ledTeamIds),
+      ])
+    );
+    const teams = await Team.find({ _id: { $in: membershipTeamIds } })
+      .select('_id permissionLimits')
+      .lean();
+    const teamSettings = new Map(
+      teams.map((team) => [String(team._id), team])
+    );
+    const scopedPermissions = [...new Set(
+      membershipTeamIds.flatMap(
+        (teamId) => getTeamPermissions(
+          user,
+          teamId,
+          ledTeamIds,
+          teamSettings
+        )
+      )
+    )];
+    const permissions = [...new Set([
+      ...getEffectivePermissions(user),
+      ...scopedPermissions,
+    ])];
 
     const userStripped = {
       _id: user._id,
       username: user.username,
       email: user.email,
       role: user.role,
+      permissions,
+      teamRoles,
+      isTeamLead: user.role === 'team_lead' || ledTeamIds.length > 0,
       hasDefaultPassword: user.hasDefaultPassword,
       provider: user.provider,
       mfa,
       mfa_enrolled: enrolled,
       mfa_enforced: enforced,
+      preferences: user.preferences || { timeFormat: '24h', dateFormat: 'DMY', timeZone: 'local' },
     }
     return res.status(200).json(userStripped); 
   } catch (err) {
@@ -225,35 +270,10 @@ exports.session = async (req, res, next) => {
 };
 
 exports.logout = (req, res) => {
-  req.logout();
+  const { maxAge, ...clearOpts } = cookieOpts();
+  res.clearCookie('jwt', clearOpts);
   res.status(200).send("Logged Out")
 };
-
-exports.passwordReset = (req, res) => {
-  User.findOne({ username: req.body.username }, (err, user) => {
-    if (err) {
-      res.status(err.status).send(err.message);
-    } else {
-
-      const payload = {
-        id: user._id,
-        username: user.username,
-        role: user.role,
-      };
-      const token = jwt.sign(payload, process.env.SECRET, { expiresIn: '12h' });
-      res.cookie('jwt', token, {
-        httpOnly: true,
-        expires: new Date(Date.now() + 43200000), // +1 day
-        secure: true,
-      });
-      res.json({
-        token: token,
-        success: true,
-        message: "Authentication successful"
-      });
-    }
-  });
-}
 
 // WebAuthn Registration & Login Controllers
 exports.webauthnRegisterStart = async (req, res) => {
@@ -756,6 +776,42 @@ exports.totpDisable = async (req, res) => {
   } catch (err) {
     console.error('[totpDisable] error:', err);
     return res.status(400).json({ ok: false, error: 'Could not disable TOTP' });
+  }
+};
+
+// Admin: clear ALL MFA (TOTP + WebAuthn) for another user by id.
+// Recovery path for a user who lost their authenticator/security key.
+// Authorization is enforced by the route guard (User.can('admin users')).
+exports.adminResetUserMfa = async (req, res) => {
+  try {
+    const user = await User.findById(req.params._id);
+    if (!user) return res.status(404).json({ ok: false, error: 'User not found' });
+
+    // Clear TOTP (mirror the disabled shape used by totpDisable).
+    user.mfa = user.mfa || {};
+    user.mfa.totp = {
+      enabled: false,
+      secretEnc: undefined,
+      verifiedAt: undefined,
+      lastTimestepUsed: undefined,
+      issuer: undefined,
+      digits: TOTP_DIGITS,
+      period: TOTP_PERIOD,
+      algo: TOTP_ALGO,
+      recoveryCodes: []
+    };
+
+    // Clear WebAuthn credentials and enrollment/enforcement state so the user
+    // can log in with their password alone and re-enroll.
+    user.webauthnCredentials = [];
+    user.mfaEnforced = false;
+    user.mfaEnrolledAt = undefined;
+
+    await user.save();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[adminResetUserMfa] error:', err);
+    return res.status(400).json({ ok: false, error: 'Could not reset MFA for user' });
   }
 };
 

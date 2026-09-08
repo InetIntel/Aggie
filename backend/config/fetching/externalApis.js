@@ -13,6 +13,7 @@ const API_ROUTES = {
     IODA: {
         ENTITY_QUERY:'entities/query',
         OUTAGE_EVENTS:'outages/events',
+        SIGNALS_RAW:'signals/raw',
     },
     
     CLOUDFLARE:{

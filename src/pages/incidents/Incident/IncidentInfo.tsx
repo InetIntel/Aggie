@@ -6,6 +6,7 @@ import {
 import {
   faArrowRight,
   faMinusCircle,
+  faLock,
   faSort,
   faSortDown,
   faSortUp,
@@ -25,6 +26,7 @@ import { IncidentOverallStatus, IncidentStatuses } from "../IncidentStatuses";
 import { getAsnsByIds } from "../../../api/asn";
 import type { AsnInfoMap } from "../../../api/asn/types";
 import { formatDurationFromSeconds } from "../../../utils/format";
+import { useFormatters } from "../../../utils/useFormatters";
 import ImpactedAsnTable from "./ImpactedAsnTable";
 
 
@@ -34,6 +36,7 @@ interface IProps {
   onEdit: () => void;
 }
 const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
+  const { formatDateTime } = useFormatters();
   const [isStatusClicked, setIsStatusClicked] = useState(false);
   const [isStatusHovered, setIsStatusHovered] = useState(false);
   const [asnSort, setAsnSort] = useState<{
@@ -169,18 +172,6 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
     return asnSort.direction === "asc" ? faSortUp : faSortDown;
   };
 
-  
-  function formatIsoTime (iso : string | Date) {
-    if (!iso) return "Unknown Date";
-    const date = (iso instanceof Date) ? iso : new Date(iso);
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(date.getUTCDate()).padStart(2, "0");
-    const hour = String(date.getUTCHours()).padStart(2, "0");
-    const minute = String(date.getUTCMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day} ${hour}:${minute}`;
-  }
-
   // The impacted-ASN table now lives in a shared component (reused by the
   // incidents table expanded row). The sort state/helpers above are kept for
   // potential future use even though this render no longer references them.
@@ -233,6 +224,12 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
               <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center dark:bg-red-200 dark:saturate-[0.7]'>
                 <FontAwesomeIcon icon={faTrash} />
                 Deleted
+              </span>
+            )}
+            {group?.accessPolicy?.mode === "restricted" && (
+              <span className='px-1 bg-amber-100 text-amber-800 font-medium inline-flex gap-1 items-center'>
+                <FontAwesomeIcon icon={faLock} />
+                Restricted
               </span>
             )}
             <TagsList values={group?.smtcTags} />
@@ -315,7 +312,7 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
         >
           {(group?.incidentStartedAt || group?.incidentEndedAt) ? (
             <p className='whitespace-pre-line max-w-prose text-black dark:text-gray-300'>
-              {formatIsoTime(group?.incidentStartedAt)} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {group?.incidentEndedAt ? formatIsoTime(group?.incidentEndedAt) : "Present"}
+              {formatDateTime(group?.incidentStartedAt, "Unknown Date")} {<FontAwesomeIcon icon={faArrowRight} size="sm" />} {group?.incidentEndedAt ? formatDateTime(group?.incidentEndedAt, "Unknown Date") : "Present"}
             </p>
           ) : (
             <p className='italic text-slate-600 dark:text-gray-400'>No Date Set</p>
