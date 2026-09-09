@@ -18,6 +18,10 @@ const User = require('./models/user');
 var readLineSync = require('readline-sync');
 var { version: packageVersion } = require('../package.json');
 const cors = require('cors');
+const groupController = require('./api/controllers/groupController');
+const {
+  loadIncidentAccessContext,
+} = require('./api/middlewares/incidentAccessMiddlewares');
 const { normalizeKey } = require('./fetching/utils/socialImageStorage');
 const MediaAsset = require('./models/mediaAsset');
 // Extend global error class
@@ -116,11 +120,6 @@ if (process.env.ENVIRONMENT === 'development') {
       credentials: true, // allow session cookie from browser to pass through
     })
   );
-  app.use(
-    '/incidents/uploads',
-    auth.authenticate(),
-    express.static(path.join(__dirname,'..', 'public', 'uploads'))
-  );
   app.get('/media/*', serveMediaAsset);
   app.use(function (req, res, next) {
     res.header('Access-Control-Allow-Credentials', true);
@@ -143,7 +142,7 @@ function handleRequestTimeouts(req, res, next) {
   var requestTimeout = parseInt(process.env.API_REQUEST_TIMEOUT);
 
   // exit if disabled
-  if (requestTimeout <= 0) return next();
+  if (!Number.isFinite(requestTimeout) || requestTimeout <= 0) return next();
 
   var timeoutId = setTimeout(function () {
     // timeout has happened, something bad has happened, send 500 back
@@ -183,6 +182,16 @@ passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 app.use(authRoutes);
 
+// Incident comment attachments retain their existing URLs, but downloads are
+// authorized against the incident that owns the attachment.
+app.get(
+  '/incidents/uploads/:filename',
+  auth.authenticate(),
+  User.can('view data'),
+  loadIncidentAccessContext,
+  groupController.group_attachment_download
+);
+
 // setup api logging
 app.all('/api/*', morgan('combined'));
 
@@ -204,11 +213,6 @@ if (process.env.ENVIRONMENT === 'production') {
   app.use(
     '/images',
     express.static(path.join(__dirname, '..', 'build', 'images'))
-  );
-  app.use(
-    '/incidents/uploads',
-    auth.authenticate(),
-    express.static(path.join(__dirname,'..', 'public', 'uploads'))
   );
   app.get('/media/*', serveMediaAsset);
   app.get('/manifest.json', (req, res) => {

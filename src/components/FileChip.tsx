@@ -21,6 +21,10 @@ export default function FileChip({
   hoveredIndex, setHoveredIndex,
   edit,
 }: FileChipProps) {
+  const attachmentPath = path.startsWith("/incidents/uploads/")
+    ? `${(process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/$/, "")}${path}`
+    : path;
+
   return (
     <span
       key={name + index}
@@ -74,7 +78,7 @@ export default function FileChip({
           />
         </span>
       )}
-      <a href={path} target='_blank' className='hover:underline'>{name}</a>
+      <a href={attachmentPath} target='_blank' className='hover:underline'>{name}</a>
     </span>
   );
 }

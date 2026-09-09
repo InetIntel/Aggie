@@ -30,8 +30,10 @@ const ConnectionsIndex = () => {
   const { data: credentials } = useQuery(["credentials"], getCredentials);
   const { data: session } = useQuery(["session"], getSession);
 
-  const isManager =
-    session?.role === "admin" || session?.role === "team_lead";
+  const canManageConnections =
+    session?.permissions?.includes("change settings") === true;
+  const canManageSources =
+    session?.permissions?.includes("manage sources") === true;
 
   // Allow more than one connection per provider. Seeded from the code default,
   // then persisted per-browser so the choice survives reloads.
@@ -63,7 +65,7 @@ const ConnectionsIndex = () => {
         to collect the posts and signals you care about, which show up as Alerts.
         Connect a Provider first, then add Feeds to it.
       </p>
-      {isManager && (
+      {canManageConnections && (
         <div className='mb-6'>
           <Configuration />
         </div>
@@ -75,12 +77,13 @@ const ConnectionsIndex = () => {
           type={type}
           sources={sources ?? []}
           credentials={credentials ?? []}
-          isManager={isManager}
+          canManageConnections={canManageConnections}
+          canManageSources={canManageSources}
           allowMultipleConnections={allowMultipleConnections}
         />
       ))}
 
-      {isManager && (
+      {canManageConnections && (
         <label className='flex items-center gap-3 mt-8 pt-4 border-t border-slate-200 dark:border-gray-700 text-sm'>
           <AggieSwitch
             checked={allowMultipleConnections}

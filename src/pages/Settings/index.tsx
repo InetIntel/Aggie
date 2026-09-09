@@ -12,7 +12,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { getSession } from "../../api/session";
 
-export function menuLinks(role: string | undefined) {
+export function menuLinks(role: string | undefined, isTeamLead = false) {
   switch (role) {
     case "admin":
       return {
@@ -30,6 +30,13 @@ export function menuLinks(role: string | undefined) {
       };
     case "monitor":
     case "viewer":
+      if (isTeamLead) {
+        return {
+          "Teams": { to: "teams", icon: faUsersCog },
+          "Tags": { to: "tags", icon: faTags },
+          "Sources": { to: "sources", icon: faCloudArrowDown },
+        };
+      }
       return {
         "Tags": { to: "tags", icon: faTags },
         "Providers and Feeds": { to: "sources", icon: faCloudArrowDown },
@@ -48,7 +55,7 @@ const Settings = () => {
   return (
     <section className='max-w-screen-xl mx-auto w-full px-4 flex flex-col min-[1080px]:flex-row gap-4'>
       <nav className='flex flex-wrap min-[1080px]:flex-col gap-2 mt-3 min-[1080px]:pr-3 min-[1080px]:border-r border-slate-300 min-[1080px]:w-[300px] min-[1080px]:shrink-0 min-[1080px]:min-h-[80vh]'>
-        {Object.entries(menuLinks(session?.role)).map(([name, link]) => (
+        {Object.entries(menuLinks(session?.role, session?.isTeamLead)).map(([name, link]) => (
           <Link
             key={name}
             className={`px-3 py-2 flex items-center gap-3 font-medium text-left rounded-lg min-[1080px]:w-full ${location.pathname.includes(link.to)

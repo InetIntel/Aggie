@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowDown,
+  faLock,
   faPencil,
   faTrash,
   faUpRightFromSquare,
@@ -93,6 +94,11 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
             <div className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
               {reportCount} {reportCount === 1 ? "report" : "reports"}
             </div>
+            {inc.accessPolicy?.mode === "restricted" && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-100 px-1 rounded mt-1">
+                <FontAwesomeIcon icon={faLock} /> Restricted
+              </span>
+            )}
           </>
         );
       },

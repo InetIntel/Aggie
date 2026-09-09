@@ -1,51 +1,36 @@
-# Access Control Permissions Matrix
+# Access Control Permissions
 
-## Current roles
+There are two role levels:
 
-Aggie currently uses these main user roles:
+- The account role is the default for public or unscoped work.
+- The team role applies when editing data restricted to that team.
 
-- admin
-- team_lead
-- monitor
-- viewer
+Admins bypass team restrictions. Individual allow/deny overrides apply to account permissions; they are not per-team overrides.
 
-The access-control work is currently focused on connecting these roles to teams and source access rules.
+By default, viewers can read, monitors can read and edit, legacy team leads keep their compatibility permissions, and admins have every permission.
 
-## Current behavior
+| Action | Admin | Global team lead | Team lead | Team monitor | Team viewer |
+|---|---|---|---|---|---|
+| View public data | Yes | Yes | Yes | Yes | Yes |
+| View data restricted to the team | Yes | If assigned or leading | Yes | Yes | Yes |
+| Edit data restricted to the team | Yes | If accessible | Yes | Yes | No |
+| Set incident access | Any team | Any team | Teams led | No, unless separately granted | No |
+| Download a restricted incident attachment | Yes | If incident is accessible | Yes | Yes | Yes |
+| Add or update team members | Yes | Compatibility access | Team led | No | No |
+| Create viewer or monitor accounts | Yes | Yes | For teams led | No | No |
+| Create or delete teams | Yes | Compatibility access | No | No | No |
+| Configure sources | Yes | Only with an override | Only with an override | Only with an override | No |
+| View global visualization totals | Yes | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` |
+| Edit permission overrides | Yes | No | No | No | No |
 
-| Area | Admin | Team Lead | Monitor | Viewer |
-|---|---|---|---|---|
-| View own user profile | Yes | Yes | Yes | Yes |
-| Update own user profile | Yes | Yes | Yes | No |
-| View all users | Yes | Limited | No | No |
-| Create users | Yes | No | No | No |
-| Assign users to teams | Yes | Limited | No | No |
-| View teams | Yes | Yes | No | No |
-| Create teams | Yes | Yes during current testing | No | No |
-| Delete teams | Yes | Yes during current testing | No | No |
-| View team detail page | Yes | Yes | No | No |
-| View source access policy fields | Yes | Yes | No | No |
-| Configure source access policy | Yes | Yes during current testing | No | No |
+## Access modes
 
-## Notes
+| Item | Mode | Behavior |
+|---|---|---|
+| Source | `public` | Normal authenticated access |
+| Source | `restricted` | Assigned teams only |
+| Source | `public_until` | Reports before the cutoff stay public; reports on or after it require an assigned team |
+| Incident | `public` | Normal authenticated access |
+| Incident | `restricted` | Incident, comments, and attachments require an assigned team |
 
-The current `team_lead` role is still being reviewed.
-
-Right now, `team_lead` works as a global role. That makes testing easier, but it is probably too broad for the final model. A better long-term model may be for admins to assign someone as the lead of a specific team.
-
-That would make the structure closer to:
-
-- admin = global manager
-- team lead = manager inside one assigned team
-- monitor/viewer = normal team members
-
-## Source access modes
-
-Sources now support initial access policy metadata.
-
-| Mode | Meaning |
-|---|---|
-| public | Source is broadly visible |
-| restricted | Source is restricted to selected teams |
-| public_until | Source is public until a cutoff date, then restricted |
-
+Missing policies are treated as `public`.

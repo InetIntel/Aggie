@@ -201,7 +201,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
             <FontAwesomeIcon icon={faBars} />
           </Menu.Button>
           <Menu.Items className='absolute top-full right-0 mt-1 shadow-md overflow-hidden rounded-lg bg-white dark:bg-gray-800 border border-slate-200 z-30 text-sm font-medium'>
-            {Object.entries(menuLinks(session?.role)).map(([name, link]) => (
+            {Object.entries(menuLinks(session?.role, session?.isTeamLead)).map(([name, link]) => (
               <Menu.Item key={name}>
                 {({ active }) => (
                   <Link
