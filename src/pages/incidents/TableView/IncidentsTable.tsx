@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowDown,
@@ -10,10 +11,13 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import type { Group } from "../../../api/groups/types";
+import { getGroupReports } from "../../../api/groups";
 import { useIncidentMutations } from "../useIncidentMutations";
 import { IncidentOverallStatus } from "../IncidentStatuses";
 import { CoverageBadge } from "../IncidentCoverage";
 import ImpactedAsnTable from "../Incident/ImpactedAsnTable";
+import GroupReportListItem from "../Incident/GroupReportListItem";
+import AsnChips from "./AsnChips";
 import { formatDurationFromSeconds } from "../../../utils/format";
 import { useFormatters } from "../../../utils/useFormatters";
 
@@ -59,6 +63,38 @@ const AlertsCount = ({ count }: { count: number }) => (
   </>
 );
 
+// The incident's alerts, rendered the same way the incident detail page does
+// (getGroupReports -> GroupReportListItem -> SocialMediaListItem). Mounted inside
+// DataTable's expandedContent, which only renders when a row is expanded, so the
+// per-incident fetch fires lazily on expand. Read-only here: select-mode props are
+// stubbed since report management lives on the detail page.
+const IncidentAlertsList = ({ groupId }: { groupId: string }) => {
+  const { data, isLoading } = useQuery(
+    ["groups", "reports", { groupId }],
+    () => getGroupReports({ groupId })
+  );
+  if (isLoading)
+    return (
+      <span className="text-slate-500 dark:text-gray-400">Loading alerts…</span>
+    );
+  const results = data?.results ?? [];
+  if (results.length === 0)
+    return <span className="text-slate-500 dark:text-gray-400">No alerts.</span>;
+  return (
+    <div className="flex flex-col rounded-lg bg-slate-50 dark:bg-gray-900 border border-slate-300 dark:border-gray-600 divide-y divide-slate-200 dark:divide-gray-700">
+      {results.map((report) => (
+        <GroupReportListItem
+          key={report._id}
+          report={report}
+          isChecked={false}
+          isSelectMode={false}
+          onCheckChange={() => {}}
+        />
+      ))}
+    </div>
+  );
+};
+
 const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
   const [editTarget, setEditTarget] = useState<Group | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
@@ -78,8 +114,17 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "title",
       header: "Incident Title",
-      thClassName: "pr-4",
-      tdClassName: "pr-4 max-w-[22rem] [overflow-wrap:anywhere]",
+      // Explicit *percentage* width (not a fixed rem, not auto). Under the
+      // table's fixed layout a full-width `colSpan` cell — which the expanded
+      // detail row is — shrinks any *auto*-width column to its min-content, so a
+      // widthless `title` collapsed to a vertical single-letter stack on expand.
+      // A percentage is explicit (the span can't collapse it) yet scales with the
+      // table, so the table still never overflows at any width. Verified 375–1920.
+      thClassName: "w-[30%] pr-4",
+      // Word-level wrapping only — NOT `overflow-wrap: anywhere`, which would drop
+      // the min-content to one character. Long titles are clamped by
+      // `line-clamp-2` and clipped by the cell's `overflow-hidden`.
+      tdClassName: "pr-4",
       cell: (inc) => {
         const reportCount = inc._reports?.length ?? 0;
         return (
@@ -131,6 +176,26 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
           className="px-1.5 py-0.5 rounded-full font-medium text-xs text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit"
         />
       ),
+    },
+    {
+      id: "asn",
+      header: "ASN / Geo Scope",
+      bucket: "lg",
+      thClassName: "w-40",
+      tdClassName: "w-40 max-w-[10rem] align-top",
+      cell: (inc) => {
+        const scopes = inc.impactedGeoScopes ?? [];
+        return (
+          <div className="flex flex-col items-start gap-0.5 leading-tight max-w-[10rem]">
+            <AsnChips asns={inc.impactedAsns} />
+            {scopes.length > 0 && (
+              <span className="text-xs text-slate-400 dark:text-gray-500 break-words">
+                {scopes.join(" · ")}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "dpc",
@@ -186,6 +251,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         hideExpandBar
         connectedExpanded
         tableClassName="text-xs"
+        actionsColClassName="w-24"
         rowActions={(inc) => (
           <div className="inline-flex items-center gap-2">
             <Link
@@ -216,7 +282,8 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
           </div>
         )}
         expandedContent={(inc) => (
-          <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8 text-xs">
+          <div className="flex flex-col gap-4 text-xs">
+          <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8">
             {/* Left: incident metadata as inline "Label: value" rows */}
             <div className="min-[1456px]:flex-1 min-[1456px]:min-w-0 flex flex-col gap-1">
               <div className="flex gap-1">
@@ -296,6 +363,18 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
                 <ImpactedAsnTable asns={inc.impactedAsns ?? []} />
               </div>
             </div>
+          </div>
+
+          {/* Full-width alerts list, rendered like the incident detail page.
+              Lazy-fetched per incident (only mounts when the row is expanded). */}
+          <div className="w-full">
+            <strong className="text-teal-900 dark:text-teal-200">
+              Alerts ({inc._reports?.length ?? 0}):
+            </strong>
+            <div className="mt-1">
+              <IncidentAlertsList groupId={inc._id} />
+            </div>
+          </div>
           </div>
         )}
       />

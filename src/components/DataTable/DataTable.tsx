@@ -42,6 +42,7 @@ function DataTable<T>({
   isLoading,
   emptyMessage = "No Results Found",
   rowActions,
+  actionsColClassName = "w-16",
   expandedContent,
   onRowClick,
   rowClassName,
@@ -76,7 +77,12 @@ function DataTable<T>({
   return (
     <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800'>
       <table
-        className={`w-full text-slate-700 dark:text-gray-300 ${
+        // `table-fixed` is the structural guarantee that the table can never be
+        // wider than its container: widths come from the `w-*` header hints
+        // (scaled to fit) rather than from content, so a column-heavy table fits
+        // the page instead of spilling off the right edge. Cells clip/truncate
+        // their content (below) rather than force the table wider.
+        className={`w-full table-fixed text-slate-700 dark:text-gray-300 ${
           tableClassName ?? "text-sm"
         }`}
       >
@@ -96,7 +102,7 @@ function DataTable<T>({
                 key={col.id}
                 scope='col'
                 style={stickyTop}
-                className={`px-2 py-2 text-left font-semibold whitespace-nowrap ${STICKY_TH} ${
+                className={`px-2 py-2 text-left font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${STICKY_TH} ${
                   col.bucket ? HIDDEN_CELL[col.bucket] : ""
                 } ${col.thClassName ?? ""}`}
               >
@@ -107,7 +113,7 @@ function DataTable<T>({
               <th
                 scope='col'
                 style={stickyTop}
-                className={`w-px px-2 py-2 text-right ${STICKY_TH}`}
+                className={`${actionsColClassName} px-2 py-2 text-right ${STICKY_TH}`}
               >
                 <span className='sr-only'>Actions</span>
               </th>
@@ -116,7 +122,7 @@ function DataTable<T>({
               <th
                 scope='col'
                 style={stickyTop}
-                className={`w-px px-2 py-2 ${STICKY_TH}`}
+                className={`w-10 px-2 py-2 ${STICKY_TH}`}
               >
                 <span className='sr-only'>Details</span>
               </th>
@@ -196,7 +202,7 @@ function DataTable<T>({
                 {columns.map((col) => (
                   <td
                     key={col.id}
-                    className={`px-2 pt-2 align-top ${
+                    className={`px-2 pt-2 align-top overflow-hidden ${
                       col.bucket ? HIDDEN_CELL[col.bucket] : ""
                     } ${col.tdClassName ?? ""}`}
                   >
@@ -206,7 +212,7 @@ function DataTable<T>({
 
                 {actionsCol && (
                   <td
-                    className='w-px px-2 pt-2 align-top text-right whitespace-nowrap'
+                    className={`${actionsColClassName} px-2 pt-2 align-top text-right whitespace-nowrap`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {rowActions!(row)}
@@ -214,7 +220,7 @@ function DataTable<T>({
                 )}
 
                 {caretCol && (
-                  <td className='px-2 pt-2 align-top text-right w-px'>
+                  <td className='px-2 pt-2 align-top text-right w-10'>
                     <button
                       type='button'
                       onClick={(e) => {

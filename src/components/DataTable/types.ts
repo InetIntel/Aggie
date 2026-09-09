@@ -50,6 +50,13 @@ export interface DataTableProps<T> {
   /** Per-row actions, rendered in a trailing right-aligned Actions column. */
   rowActions?: (row: T) => React.ReactNode;
   /**
+   * Width class for the Actions column. Under the table's fixed layout this
+   * column needs a concrete width sized to its buttons (a `w-px`-style
+   * shrink-to-content trick collapses to 1px). Set it to fit the widest action
+   * set; may be responsive (e.g. `"w-24 xl:w-36"`). Defaults to `"w-16"`.
+   */
+  actionsColClassName?: string;
+  /**
    * Extra detail rendered in the expanded row, below the auto-generated
    * spillover blocks for hidden columns (e.g. notes, tags, url).
    */
