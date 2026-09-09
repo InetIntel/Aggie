@@ -2,6 +2,25 @@
 
 const { getSourceID, getChannel } = require('../sourceToChannel');
 const { parseJunkipediaPostMetadata } = require('../utils/junkipediaUtils');
+const SMTCTag = require('../../models/tag');
+
+const OONI_TAG_NAME = 'connectivity test';
+
+// Find-or-create so the OONI channel (running unattended, hourly) never needs
+// a human to pre-create this tag in Settings first.
+async function ensureOoniTag() {
+    const existing = await SMTCTag.findOne({ name: OONI_TAG_NAME });
+    if (existing) return existing;
+    try {
+        return await SMTCTag.create({
+            name: OONI_TAG_NAME,
+            description: 'OONI network connectivity measurement alerts',
+        });
+    } catch (err) {
+        // Another concurrent report creation won the race and created it first.
+        return SMTCTag.findOne({ name: OONI_TAG_NAME });
+    }
+}
 
 module.exports = async function postToReport(post, next) {
     const {
@@ -36,6 +55,11 @@ module.exports = async function postToReport(post, next) {
     }
     post.tags = channel.tags;
     post.guid = post.guid || post.link || post.platformID || post.id || null;
+
+    if (platform === 'ooni') {
+        const ooniTag = await ensureOoniTag();
+        if (ooniTag) post.smtcTags = [ooniTag._id];
+    }
 
     post.isOutageEvent = isOutageEvent;
     post.isAsnScoped = isAsnScoped;
