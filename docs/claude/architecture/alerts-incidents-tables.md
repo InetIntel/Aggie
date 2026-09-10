@@ -79,7 +79,7 @@ the table's real width even when a sidebar narrows it — not the viewport.
 > `@container/dt` wrapper + a `@[Npx]/dt:…` ladder). It could not account for the
 > **select checkbox column**, which appears only in compare/select mode: the collapse
 > thresholds are static CSS, so in select mode the extra column pushed the row past the
-> container and — because fixed layout *grows* rather than shrinks when specified
+> container and — because fixed layout _grows_ rather than shrinks when specified
 > widths exceed the container — the actions group spilled off the right edge. Measuring
 > in JS lets the fit math see the select column (and the exact actions width), so it
 > can never under-budget.
@@ -129,7 +129,7 @@ box** (commit `ab168e49`), which is why no scroll wrapper exists.
 Note: the **expanded detail** `<td>` _does_ set `overflow-x-auto` — only the detail
 content can scroll horizontally, not the column grid.
 
-The collapse system only *reads* the wrapper's width (`ResizeObserver`) — it adds no
+The collapse system only _reads_ the wrapper's width (`ResizeObserver`) — it adds no
 `overflow` and no CSS containment — so the sticky header is unaffected.
 
 ### Expanded rows
@@ -217,13 +217,14 @@ still escape it.
 ## Status: done
 
 - [x] Both tables are responsive to the **table's own width** — a `ResizeObserver`
-  measures the wrapper and `computeFit()` drops columns into "More Info" instead of
-  ever scrolling horizontally (see "Measured collapse").
+      measures the wrapper and `computeFit()` drops columns into "More Info" instead of
+      ever scrolling horizontally (see "Measured collapse").
 - [x] Each column has a `minWidth` (applied as its width basis).
 - [x] Column display order + collapse order + min-widths per the spec below.
 - [x] Actions + caret merged into one pinned trailing column.
 
 Two deviations from the literal spec, agreed with the maintainer:
+
 - **"Other button group" stays pinned** (always visible), so it does not appear in the
   collapse order — its listed collapse position is treated as "never collapses".
 - **Incidents ASN / Geo Scope column** is kept as-is (provisional `minWidth` /
@@ -271,7 +272,9 @@ The original spec is preserved below for reference.
   7. Other button group with a minimum column width of 175 px
 
 - other fixes:
-  - the grouping of other buttons on the right side of the table should all be one group. right now the carrot is in it's own column and that can just be combined
+- rearrange the order of the tagging for the alert buttons, make add to incident the far left button so the rest of the buttons still align when scrolling
+- platform can take up less space than it's alloted
+- asn / network / geoscope should remain - let date disspear before that
 
 ### incidents table
 
@@ -309,4 +312,11 @@ The original spec is preserved below for reference.
   9. Other button group with a minimum column width of 175 px
 
 - other fixes:
-  - the grouping of other buttons on the right side of the table should all be one group. right now the carrot is in it's own column and that can just be combined
+  - make the other button groups (open external, edit, delete) look and feel more like the alerts other buttons (read/unread, investigate, ignore)
+  - do something with the status column of incidents, i don't think we really need color there? or the color should mean something more specific
+  - asn/geo scope column should remain with the title, let status collapse first and then date
+  - make ID column smaller -> that can prob be 75 px
+
+## other fixes
+
+- the edges of the table on both alerts and incidents are cut off (should be round? not certain) fix that
