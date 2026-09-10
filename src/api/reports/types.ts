@@ -49,14 +49,18 @@ export interface ReportQueryState {
   keywords?: string;
   author?: string;
   groupId?: string;
+  status?: string; // 'Read' or 'Unread'
   media?: string;
   dataSources?: string[];
   entityLevel?: string[];
   hideDuplicateASNs?: string; // 'true' or 'false'
   sourceId?: string;
   list?: string;
+  reportIds?: string;
   before?: Date | string;
   after?: Date | string;
+  outageAfter?: Date | string;
+  outageBefore?: Date | string;
   tagNames?: string[];
   page?: number;
   batch?: boolean;
