@@ -19,6 +19,8 @@ A caller passes `columns: DataTableColumn<T>[]` and `data: T[]`. Column shape
 - `collapsePriority?: number` — **higher = more persistent** (dropped later). Columns
   with a priority collapse into "More Info" as the table narrows, in descending
   priority order. Omit for an always-visible column. See below.
+- `grow?: boolean` — mark the one column that absorbs leftover width so the row fills
+  the table exactly (others stay at `minWidth`). One per table.
 - `thClassName` / `tdClassName` — alignment / content hints (no longer width).
 - `spilloverLabel?`, `noSpillover?` — control the "More Info" panel.
 
@@ -92,10 +94,13 @@ the table's real width even when a sidebar narrows it — not the viewport.
   drop out of layout entirely (no width, no overflow).
 - It returns an explicit px width for every visible column: columns sit at their
   `minWidth` and the `grow` column (incidents `title`, alerts `source`) absorbs the
-  leftover so the widths sum to exactly the container. Computing the widths (rather
-  than leaving it to the browser) matters because a full-width `colSpan` detail row
-  otherwise leaves the fixed columns short and floats the actions column with a gap on
-  its right — the bug seen when a row was expanded.
+  leftover so the widths sum to exactly the available width. Computing the widths
+  (rather than leaving it to the browser) is what makes the columns fill reliably in
+  both collapsed and expanded states — a full-width `colSpan` detail row otherwise
+  disrupts how fixed layout distributes slack.
+- The fit is computed against the measured width minus a small `FIT_SAFETY` margin
+  (6px), so borders and sub-pixel rounding can never tip the last column (the
+  actions/caret group) past the container's right edge.
 - If even the always-on columns + reserved don't fit (a narrow phone), every width —
   data, select, and actions — is scaled down by one factor so the table shrinks to fit
   instead of growing past the container.
@@ -134,12 +139,25 @@ The collapse system only *reads* the wrapper's width (`ResizeObserver`) — it a
 lazily per row. Options: `hideExpandBar` (caret instead of a centered "View details"
 bar) and `connectedExpanded` (row + detail share one card/accent).
 
+The expanded detail cell (and the empty-state cell) uses `colSpan={totalCols}`, and
+`totalCols` counts only the **currently visible** columns (`columns.length −
+hiddenIds.size`), _not_ the collapsed ones. Hidden columns are `display:none`, so
+counting them would make the browser pad phantom empty columns onto the right of an
+expanded row — the "gap on the right when a row is open" bug.
+
 ### Trailing actions/caret column
 
 The row actions (`rowActions`) and — when `hideExpandBar` is set — the expand caret
-render together in a **single pinned trailing column** (`inline-flex` group), not two
-separate columns. It never collapses; its width is `actionsColWidth` px (alerts 192,
-incidents 176 — ≥ the 175px minimum), reserved by the fit calculation.
+render together in a **single pinned trailing column**, not two separate columns. It
+never collapses; its width is `actionsColWidth` px (alerts 216, incidents 176 — ≥ the
+175px minimum), reserved by the fit calculation.
+
+The group is a **block `flex justify-end`** (not `inline-flex`): it fills the cell and
+right-aligns, so if the buttons are ever wider than the column they overflow **left**
+(into the neighbor column, which clips) and the caret stays pinned at the cell's right
+edge. An `inline-flex` here spilled the group to the **right**, pushing the caret past
+the table's right border. The cell itself is left unclipped so a row-action popout can
+still escape it.
 
 ## Reports (alerts) table
 
@@ -153,8 +171,11 @@ incidents 176 — ≥ the 175px minimum), reserved by the fit calculation.
   scope; `minWidth: 200`, `collapsePriority: 4`.
 - Columns (display order, `minWidth` / `collapsePriority`): `platform` (140, always
   on), `status` (140 / 2), `date` (200 / 5), `source`/ASN (200 / 4, the `grow` column),
-  `incident` (200 / 3), `signal` (175 / 1). Collapse order as the table narrows: signal
+  `incident` (200 / 3), `signal` (200 / 1). Collapse order as the table narrows: signal
   → status → Incident → ASN → date; platform always stays.
+- The **Signal** tag (`SignalCell`) is `whitespace-nowrap` so a label like "Active
+  Probing" stays on one line rather than wrapping; the signal column is sized wide
+  enough (200) to hold it.
 
 ## Incidents table
 

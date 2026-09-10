@@ -168,8 +168,14 @@ function DataTable<T>({
     (c) => hiddenIds.has(c.id) && !c.noSpillover
   );
 
+  // colSpan for the full-width rows (expanded detail, empty state) must count only
+  // the columns actually rendered — hidden columns are display:none, so counting
+  // them would make the browser pad phantom empty columns onto the right of an
+  // expanded row (a gap).
   const totalCols =
-    (showSelect ? 1 : 0) + columns.length + (trailingCol ? 1 : 0);
+    (showSelect ? 1 : 0) +
+    (columns.length - hiddenIds.size) +
+    (trailingCol ? 1 : 0);
   const isEmpty = !data || data.length === 0;
 
   return (
