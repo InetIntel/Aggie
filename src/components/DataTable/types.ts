@@ -1,40 +1,37 @@
 import type React from "react";
 
-/**
- * Container width (px) at/above which a column shows in the row; below it the
- * column is hidden and instead surfaces in the row's "More Info" panel.
- * `undefined` means the column is always visible (never collapses).
- *
- * These are **container-query** thresholds measured against the DataTable's own
- * width (the `@container/dt` wrapper), not the viewport — so collapse tracks the
- * table's actual width even when a sidebar narrows it. Pick the value from the
- * ladder in `DataTable.tsx` nearest the cumulative min-width at which the column
- * stops fitting (i.e. the sum of the min-widths of everything shown at/above it,
- * including the pinned actions column). One value drives both the in-table cell
- * (`hidden @[Npx]/dt:table-cell`) and its spillover block (`@[Npx]/dt:hidden`),
- * so the two can never drift apart.
- */
-export type CollapseStep =
-  | 480 | 560 | 640 | 720 | 800 | 880 | 960 | 1040
-  | 1120 | 1200 | 1280 | 1360 | 1440 | 1520 | 1600 | 1680;
-
 export interface DataTableColumn<T> {
   id: string;
   /** Header label. When a string it doubles as the spillover `<dt>` label. */
   header: React.ReactNode;
   cell: (row: T) => React.ReactNode;
   /**
-   * Container width (px) below which this column collapses into "More Info".
-   * Omit for an always-visible column. See {@link CollapseStep}.
+   * Collapse priority. Lower = more persistent (collapses later); columns with a
+   * `collapsePriority` drop into "More Info" as the table narrows, in descending
+   * priority order. Omit for an always-visible column that never collapses.
+   *
+   * DataTable measures its own width and keeps the highest-priority columns whose
+   * `minWidth`s (plus the checkbox and actions columns) still fit, so collapse
+   * tracks the table's real width — including the dynamic select column, which a
+   * pure-CSS breakpoint could not account for. The numeric value only sets order;
+   * spacing between values is irrelevant.
    */
-  collapseStep?: CollapseStep;
+  collapsePriority?: number;
   /**
-   * The column's minimum/target width in px. Under the table's fixed layout this
-   * is applied as the `<th>` width basis (columns scale up to fill slack, so it
-   * acts as a floor). Collapse thresholds are chosen so a column only appears
-   * when there is room for it at this width.
+   * The column's minimum/target width in px, applied as the `<th>` width basis.
+   * DataTable computes each visible column's width from the measured table width:
+   * columns sit at `minWidth`, the `grow` column absorbs the leftover so the table
+   * fills exactly (no trailing gap), and if the visible set is too wide (narrow
+   * mobile) every width is scaled down so the table still never overflows.
    */
   minWidth?: number;
+  /**
+   * Mark the one column that should absorb leftover width so the row fills the
+   * table exactly (others stay at `minWidth`). Without a `grow` column a narrow
+   * set would leave empty space on the right. One per table (the flexible column,
+   * e.g. the incident title).
+   */
+  grow?: boolean;
   /** Extra classes on the `<th>` (alignment, etc.). */
   thClassName?: string;
   /** Extra classes on the `<td>`. */
@@ -64,15 +61,18 @@ export interface DataTableProps<T> {
   getRowKey: (row: T) => string;
   isLoading?: boolean;
   emptyMessage?: React.ReactNode;
-  /** Per-row actions, rendered in a trailing right-aligned Actions column. */
+  /**
+   * Per-row actions, rendered in a single pinned trailing column together with
+   * the expand caret (when `hideExpandBar` is set). Always visible.
+   */
   rowActions?: (row: T) => React.ReactNode;
   /**
-   * Width class for the Actions column. Under the table's fixed layout this
-   * column needs a concrete width sized to its buttons (a `w-px`-style
-   * shrink-to-content trick collapses to 1px). Set it to fit the widest action
-   * set; may be responsive (e.g. `"w-24 xl:w-36"`). Defaults to `"w-16"`.
+   * Width (px) of the pinned actions/caret column. Sized to fit the widest action
+   * set plus the caret (its content is not clipped, so an undersized value lets
+   * buttons spill past the table edge). Also reserved by the column measurer so
+   * data columns collapse before crowding it. Defaults to 96.
    */
-  actionsColClassName?: string;
+  actionsColWidth?: number;
   /**
    * Extra detail rendered in the expanded row, below the auto-generated
    * spillover blocks for hidden columns (e.g. notes, tags, url).

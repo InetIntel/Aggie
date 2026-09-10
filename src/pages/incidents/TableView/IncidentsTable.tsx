@@ -103,11 +103,10 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
   const { formatDateTime } = useFormatters();
 
   // Display order is fixed here; collapse order is encoded independently by
-  // `collapseStep` (the container width below which a column drops into "More
-  // Info"). As the table narrows, columns collapse in this order: Assigned To →
-  // # Of Alerts → IPC → DPC → ASN → Status → Date → Title; ID# always stays.
-  // Thresholds are the cumulative min-widths (ID# 100 + actions 175 base, then
-  // each column added in persistence order), rounded up to the nearest step.
+  // `collapsePriority` (higher = more persistent). As the table narrows, columns
+  // collapse in this order: Assigned To → # Of Alerts → IPC → DPC → ASN →
+  // Status → Date → Title; ID# has no priority so it always stays. Widths are the
+  // per-column minimums.
   const columns: DataTableColumn<Group>[] = [
     {
       id: "idnum",
@@ -127,7 +126,8 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       // collapsed by the span; it also scales up to absorb slack (title is the
       // widest column, so it grows most) while the table never overflows.
       minWidth: 300,
-      collapseStep: 640,
+      collapsePriority: 8,
+      grow: true,
       thClassName: "pr-4",
       // Word-level wrapping only — NOT `overflow-wrap: anywhere`, which would drop
       // the min-content to one character. Long titles are clamped by
@@ -160,7 +160,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "date",
       header: "Date",
       minWidth: 220,
-      collapseStep: 800,
+      collapsePriority: 7,
       noSpillover: true, // duration already shown in the expanded detail
       tdClassName: "whitespace-nowrap text-xs",
       cell: (inc) => (
@@ -177,7 +177,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "status",
       header: "Status",
       minWidth: 240,
-      collapseStep: 1040,
+      collapsePriority: 6,
       tdClassName: "whitespace-nowrap",
       cell: (inc) => (
         <IncidentOverallStatus
@@ -191,7 +191,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "asn",
       header: "ASN / Geo Scope",
       minWidth: 160,
-      collapseStep: 1200,
+      collapsePriority: 5,
       tdClassName: "max-w-[10rem] align-top",
       cell: (inc) => {
         const scopes = inc.impactedGeoScopes ?? [];
@@ -211,7 +211,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "dpc",
       header: "DPC",
       minWidth: 100,
-      collapseStep: 1360,
+      collapsePriority: 4,
       noSpillover: true, // shown in the expanded detail metadata
       tdClassName: "whitespace-nowrap",
       cell: (inc) => (
@@ -222,7 +222,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "ipc",
       header: "IPC",
       minWidth: 100,
-      collapseStep: 1440,
+      collapsePriority: 3,
       noSpillover: true, // shown in the expanded detail metadata
       tdClassName: "whitespace-nowrap",
       cell: (inc) => (
@@ -233,7 +233,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "alertsReport",
       header: "# Of Alerts",
       minWidth: 100,
-      collapseStep: 1520,
+      collapsePriority: 2,
       noSpillover: true, // shown in the expanded detail metadata
       cell: (inc) => <AlertsCount count={inc._reports?.length ?? 0} />,
     },
@@ -241,7 +241,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       id: "assignedTo",
       header: "Assigned To",
       minWidth: 140,
-      collapseStep: 1680,
+      collapsePriority: 1,
       noSpillover: true, // shown in the expanded detail metadata
       cell: (inc) =>
         formatAssignedTo(inc) || (
@@ -261,7 +261,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         hideExpandBar
         connectedExpanded
         tableClassName="text-xs"
-        actionsColClassName="w-44"
+        actionsColWidth={176}
         rowActions={(inc) => (
           <div className="inline-flex items-center gap-2">
             <Link

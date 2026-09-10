@@ -16,13 +16,15 @@ A caller passes `columns: DataTableColumn<T>[]` and `data: T[]`. Column shape
   `cell: (row) => ReactNode`.
 - `minWidth?: number` — the column's min/target width in px (applied as the `<th>`
   width basis; see below).
-- `collapseStep?: CollapseStep` — the **container width** (px) below which the column
-  collapses into "More Info" (see below). Omit for an always-visible column.
+- `collapsePriority?: number` — **higher = more persistent** (dropped later). Columns
+  with a priority collapse into "More Info" as the table narrows, in descending
+  priority order. Omit for an always-visible column. See below.
 - `thClassName` / `tdClassName` — alignment / content hints (no longer width).
 - `spilloverLabel?`, `noSpillover?` — control the "More Info" panel.
 
-Other props: `getRowKey`, `rowActions`, `expandedContent`, `selection`,
-`hideExpandBar`, `connectedExpanded`, `tableClassName`.
+Other props: `getRowKey`, `rowActions`, `actionsColWidth` (px width of the pinned
+actions/caret column), `expandedContent`, `selection`, `hideExpandBar`,
+`connectedExpanded`, `tableClassName`.
 
 ### Layout model (fixed layout — the table always fits the page)
 
@@ -35,12 +37,11 @@ The markup is:
 
 - The table is `w-full` with **fixed** layout, so it is always exactly the width of
   its container (the host's `max-w-screen-2xl`) and **can never be wider**. Column
-  widths come from each column's `minWidth` (applied inline as the `<th>` `width`
-  basis), _not_ from content. Under `w-full` fixed layout the browser scales those
-  bases up to fill the container, so `minWidth` behaves as a floor — a column shown
-  at all renders at/above its `minWidth` (the collapse thresholds guarantee it only
-  appears when there is room; see below). The widest column (incidents `title`,
-  `minWidth: 300`) absorbs the most slack and effectively acts as the flex column.
+  widths are **computed in JS** from the measured width (see "Measured collapse") and
+  applied inline as the `<th>` `width` (never a CSS `min-width`) — _not_ derived from
+  content. The visible columns sit at their `minWidth`, the `grow` column absorbs the
+  leftover so they fill the table exactly, and on a too-narrow container every width is
+  scaled down so the table still never overflows.
 - **Every column must have an explicit width** (`minWidth`). Do NOT leave a column
   widthless (`auto`). Under fixed layout, the expanded detail row is a `colSpan`-all
   cell, and Chromium shrinks any _auto_-width column to its min-content whenever such
@@ -52,55 +53,59 @@ The markup is:
   wider: data `<th>`s are `truncate` (nowrap + ellipsis) and data `<td>`s are
   `overflow-hidden` (wrapping cells still wrap; long nowrap values truncate). The
   **actions** cell is deliberately left unclipped so a row-action popout can escape
-  it; its width is set per table via the `actionsColClassName` prop (fixed layout
-  turns the old `w-px` shrink-to-content trick into a literal 1px, so it needs a real
-  width — both tables use `w-44`). The expand **caret** now shares this one trailing
-  column with the row actions rather than getting its own (see below).
+  it; its width is set per table via the `actionsColWidth` prop (px), sized to fit the
+  buttons plus the caret and reserved by the fit calculation. The expand **caret** now
+  shares this one trailing column with the row actions rather than getting its own
+  (see below).
 - **There is deliberately still no `overflow-x` container** around the table — one
   isn't needed (the table can't overflow) and would re-base the sticky header to the
   wrapper (see "Sticky header"). So the table fits by **fixed layout + clipping**,
-  and the container-query collapse system additionally _hides_ low-priority columns
-  into "More Info" as the table narrows.
+  and the measured-collapse system additionally _hides_ low-priority columns into
+  "More Info" as the table narrows.
 
 (Historical note: before `table-fixed`, the table was auto-layout with
 `whitespace-nowrap` headers and no guard, so a column-heavy table spilled off the
 right edge of the page. That was the "overflow bug" — now fixed structurally.)
 
-### Container-query collapse + the "More Info" spillover
+### Measured collapse + the "More Info" spillover
 
-Collapse is driven by **CSS container queries** against the table's own width, not
-the viewport — the wrapper `<div>` is a named container (`@container/dt`, i.e.
-`container-type: inline-size`), so a table narrowed by a sidebar collapses correctly
-even when the window is wide. (This needs the `@tailwindcss/container-queries` plugin,
-registered in `tailwind.config.js`.)
+Collapse is driven by **measuring the table's own width** with a `ResizeObserver`
+(`src/hooks/useMeasuredWidth.ts`, a width sibling of `useMeasuredHeight`), so it tracks
+the table's real width even when a sidebar narrows it — not the viewport.
 
-- `HIDDEN_CELL[step]` = `hidden @[{px}px]/dt:table-cell` and `SPILLOVER_BLOCK[step]` =
-  `@[{px}px]/dt:hidden`. A column with `collapseStep: N` is hidden in the row while
-  the container is narrower than `N` px and shown at/above it; a column with **no**
-  `collapseStep` always shows. One value drives both maps so cell and spillover can't
-  disagree.
-- **JIT gotcha:** Tailwind only generates classes it sees as **literal strings**, so
-  the full step ladder is spelled out literally in `DataTable.tsx` (a computed
-  `@[${n}px]/dt:…` would emit no CSS). Callers pick a `collapseStep` from that ladder.
-- Thresholds are chosen by **cumulative min-width**: a column's step ≈ the sum of the
-  min-widths of everything shown at/above it (the always-visible columns + the pinned
-  actions column + higher-priority columns + itself), rounded up to the nearest ladder
-  step. So a column only reappears once there is genuinely room for it at its
-  `minWidth`, which is why visible columns always meet their floor.
-- When a row is expanded, `spilloverColumns()` (columns that have a `collapseStep` and
-  are not `noSpillover`) render in a `<dl>` inside the detail cell under
-  `SPILLOVER_BLOCK[step]` — each hidden column reappears as a "Label: value" line
-  **only while it is hidden from the row**. Once the container is wide enough that
-  nothing is hidden, the whole spillover list collapses away.
+> **Why not CSS container queries?** That was the first implementation (a
+> `@container/dt` wrapper + a `@[Npx]/dt:…` ladder). It could not account for the
+> **select checkbox column**, which appears only in compare/select mode: the collapse
+> thresholds are static CSS, so in select mode the extra column pushed the row past the
+> container and — because fixed layout *grows* rather than shrinks when specified
+> widths exceed the container — the actions group spilled off the right edge. Measuring
+> in JS lets the fit math see the select column (and the exact actions width), so it
+> can never under-budget.
 
-So the collapse **order** is encoded independently of display order by the
-`collapseStep` values: lower-priority columns get a higher step so they drop into
-"More Info" first as the table narrows.
+`computeFit()` in `DataTable.tsx`, given the measured width:
 
-(If container queries ever prove insufficient — JIT limits, threshold granularity, a
-containment edge case — the documented fallback is to drive the same hide/show
-decision from JS by measuring the wrapper width with a `ResizeObserver` sibling of
-`src/hooks/useMeasuredHeight.ts`; the column metadata stays identical.)
+- Reserves the select column (when shown) and the actions column, then walks the
+  `collapsePriority` columns **most-persistent-first**, keeping each while its
+  `minWidth` still fits the running total; the rest are hidden. Columns with no
+  `collapsePriority` always show.
+- Hidden columns get the `hidden` (display:none) class on their `<th>`/`<td>`, so they
+  drop out of layout entirely (no width, no overflow).
+- It returns an explicit px width for every visible column: columns sit at their
+  `minWidth` and the `grow` column (incidents `title`, alerts `source`) absorbs the
+  leftover so the widths sum to exactly the container. Computing the widths (rather
+  than leaving it to the browser) matters because a full-width `colSpan` detail row
+  otherwise leaves the fixed columns short and floats the actions column with a gap on
+  its right — the bug seen when a row was expanded.
+- If even the always-on columns + reserved don't fit (a narrow phone), every width —
+  data, select, and actions — is scaled down by one factor so the table shrinks to fit
+  instead of growing past the container.
+- When a row is expanded, exactly the currently-hidden, non-`noSpillover` columns
+  render as "Label: value" lines in a `<dl>` in the detail cell. When the table is wide
+  enough to show everything, that list is empty.
+
+So the collapse **order** is encoded independently of display order by
+`collapsePriority` (higher = kept longer); the collapse **thresholds** are computed
+from the real widths, so there are no hand-tuned magic numbers.
 
 ### Sticky header (why there's no scroll wrapper)
 
@@ -119,9 +124,8 @@ box** (commit `ab168e49`), which is why no scroll wrapper exists.
 Note: the **expanded detail** `<td>` _does_ set `overflow-x-auto` — only the detail
 content can scroll horizontally, not the column grid.
 
-The wrapper's `@container/dt` (`container-type: inline-size`, added for the collapse
-system) is **not** a scroll container, so it should not re-base the sticky header
-(only `overflow != visible` would) — worth a quick in-app confirm when changing it.
+The collapse system only *reads* the wrapper's width (`ResizeObserver`) — it adds no
+`overflow` and no CSS containment — so the sticky header is unaffected.
 
 ### Expanded rows
 
@@ -134,8 +138,8 @@ bar) and `connectedExpanded` (row + detail share one card/accent).
 
 The row actions (`rowActions`) and — when `hideExpandBar` is set — the expand caret
 render together in a **single pinned trailing column** (`inline-flex` group), not two
-separate columns. It never collapses; its width is `actionsColClassName` (`w-44` on
-both tables, ≥ the 175px minimum).
+separate columns. It never collapses; its width is `actionsColWidth` px (alerts 192,
+incidents 176 — ≥ the 175px minimum), reserved by the fit calculation.
 
 ## Reports (alerts) table
 
@@ -146,19 +150,20 @@ both tables, ≥ the 175px minimum).
   by `reportNetwork()` in `src/components/SocialMediaPost/reportParser.ts` from
   `report.asn` + `report.metadata.rawAPIResponse.entityName/entityScope`. A single
   report has one ASN / one scope, so the cell is a short stacked ASN / network /
-  scope; `minWidth: 200`, `collapseStep: 720`.
-- Columns (display order): `platform` (min 140, always on), `status` (140), `date`
-  (200), `source`/ASN (200), `incident` (200), `signal` (175). Collapse order as the
-  table narrows: signal → status → Incident → ASN → date; platform always stays.
+  scope; `minWidth: 200`, `collapsePriority: 4`.
+- Columns (display order, `minWidth` / `collapsePriority`): `platform` (140, always
+  on), `status` (140 / 2), `date` (200 / 5), `source`/ASN (200 / 4, the `grow` column),
+  `incident` (200 / 3), `signal` (175 / 1). Collapse order as the table narrows: signal
+  → status → Incident → ASN → date; platform always stays.
 
 ## Incidents table
 
 - `src/pages/incidents/TableView/IncidentsTable.tsx`. Row type is **`Group`**
   ("incident" is just the UI label). Columns (display order, `minWidth` /
-  `collapseStep`): `idnum` (100, always on), `title` (300, the flex column — largest
-  width, absorbs slack), `date` (220 / 800), `status` (240 / 1040), `asn` (160 / 1200),
-  `dpc` (100 / 1360), `ipc` (100 / 1440), `alertsReport` (100 / 1520), `assignedTo`
-  (140 / 1680). Collapse order as the table narrows: assignedTo → alertsReport → ipc →
+  `collapsePriority`): `idnum` (100, always on), `title` (300 / 8, the flex column —
+  largest width, absorbs slack), `date` (220 / 7), `status` (240 / 6), `asn` (160 / 5),
+  `dpc` (100 / 4), `ipc` (100 / 3), `alertsReport` (100 / 2), `assignedTo`
+  (140 / 1). Collapse order as the table narrows: assignedTo → alertsReport → ipc →
   dpc → asn → status → date → title; idnum always stays. This is a **column-dense**
   table — several columns show at once when wide, which is what makes the fit
   discipline matter here.
@@ -166,12 +171,12 @@ both tables, ≥ the 175px minimum).
   `impactedGeoScopes?: string[]` (`src/api/groups/types.ts`), also editable via
   `GroupEditableData`. Per-ASN metadata (org name, coverage) is _not_ on the Group —
   it is fetched via `getAsnsByIds` (POST `/api/asn/bulk`, `src/api/asn/`).
-- **ASN / Geo Scope column** (`id: "asn"`, after `status`, `collapseStep: 1200`) — the
+- **ASN / Geo Scope column** (`id: "asn"`, after `status`, `collapsePriority: 5`) — the
   incidents-table counterpart to the Reports ASN column. Renders `AsnChips` over
   `Group.impactedAsns` plus a compact muted line of `Group.impactedGeoScopes` joined
   by `·`. Both fields live directly on the incident, so it works on every row with no
-  fetch. It collapses into "More Info" below a 1200px container. **Left as-is pending
-  a separate rework of ASN handling** — its `minWidth`/`collapseStep` are provisional.
+  fetch. **Left as-is pending a separate rework of ASN handling** — its `minWidth` /
+  `collapsePriority` are provisional.
 - `AsnChips` (`.../TableView/AsnChips.tsx`) renders a wrapped, width-bounded row of
   teal ASN chips with a `+N` overflow (`—` when empty) — purpose-built for the
   multi-ASN incident case (an incident spans many ASNs, unlike a single report).
@@ -190,18 +195,23 @@ both tables, ≥ the 175px minimum).
 
 ## Status: done
 
-- [x] Both tables are responsive to the **table's own width** via CSS container
-  queries (`@container/dt` + per-column `collapseStep`); columns collapse into "More
-  Info" instead of ever scrolling horizontally.
-- [x] Each column has a `minWidth` (applied as its width basis / floor).
+- [x] Both tables are responsive to the **table's own width** — a `ResizeObserver`
+  measures the wrapper and `computeFit()` drops columns into "More Info" instead of
+  ever scrolling horizontally (see "Measured collapse").
+- [x] Each column has a `minWidth` (applied as its width basis).
 - [x] Column display order + collapse order + min-widths per the spec below.
 - [x] Actions + caret merged into one pinned trailing column.
 
 Two deviations from the literal spec, agreed with the maintainer:
 - **"Other button group" stays pinned** (always visible), so it does not appear in the
   collapse order — its listed collapse position is treated as "never collapses".
-- **Incidents ASN / Geo Scope column** is kept as-is (provisional `minWidth`/step)
-  pending a separate rework; the spec's incidents column list omits it.
+- **Incidents ASN / Geo Scope column** is kept as-is (provisional `minWidth` /
+  `collapsePriority`) pending a separate rework; the spec's incidents column list omits
+  it.
+
+(Implementation note: the first cut used CSS container queries; it was replaced with
+the measured approach because pure-CSS thresholds could not budget the dynamic select
+column — see "Measured collapse".)
 
 The original spec is preserved below for reference.
 

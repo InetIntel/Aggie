@@ -3,57 +3,101 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
 import AggieCheck from "../AggieCheck";
-import type { CollapseStep, DataTableColumn, DataTableProps } from "./types";
+import { useMeasuredWidth } from "../../hooks/useMeasuredWidth";
+import type { DataTableColumn, DataTableProps } from "./types";
 
-// collapseStep → classes for the in-table cell (hidden below the threshold) and
-// the "More Info" spillover block (shown only below the threshold). One step
-// drives both so they can never disagree. Thresholds are **container queries**
-// against the `dt` container (the wrapper's `@container/dt`), so collapse tracks
-// the table's own width, not the viewport.
+// The checkbox column's on-screen width (w-8 + px-2 both sides). Reserved by the
+// column-fit math so data columns collapse before crowding it.
+const SELECT_COL_W = 48;
+// Keep the computed columns a few px inside the measured width so borders and
+// sub-pixel rounding can never tip the last column (the actions/caret group) past
+// the container's right edge.
+const FIT_SAFETY = 6;
+
+interface FitResult {
+  /** Column ids currently collapsed into "More Info". */
+  hidden: Set<string>;
+  /** Explicit px width for each column id (and the select/actions columns). */
+  widths: Map<string, number>;
+  selectWidth: number;
+  actionsWidth: number;
+}
+
+// Decide which columns fit at the table's measured width, then hand back an
+// explicit px width for every visible column. Columns with a `collapsePriority`
+// collapse into "More Info" as the table narrows (highest priority = most
+// persistent, dropped last); the rest always show. Because we measure the real
+// width, the dynamic select column and the actions column are budgeted precisely
+// — something a pure-CSS breakpoint could not do — so the table never overflows.
 //
-// The class strings are LITERAL on purpose: Tailwind's JIT only generates a
-// class it can see verbatim in the source, so a computed name such as
-// `@[${n}px]/dt:table-cell` would silently emit no CSS. Keep every step spelled
-// out here (this is also the ladder callers pick `collapseStep` values from).
-const HIDDEN_CELL: Record<CollapseStep, string> = {
-  480: "hidden @[480px]/dt:table-cell",
-  560: "hidden @[560px]/dt:table-cell",
-  640: "hidden @[640px]/dt:table-cell",
-  720: "hidden @[720px]/dt:table-cell",
-  800: "hidden @[800px]/dt:table-cell",
-  880: "hidden @[880px]/dt:table-cell",
-  960: "hidden @[960px]/dt:table-cell",
-  1040: "hidden @[1040px]/dt:table-cell",
-  1120: "hidden @[1120px]/dt:table-cell",
-  1200: "hidden @[1200px]/dt:table-cell",
-  1280: "hidden @[1280px]/dt:table-cell",
-  1360: "hidden @[1360px]/dt:table-cell",
-  1440: "hidden @[1440px]/dt:table-cell",
-  1520: "hidden @[1520px]/dt:table-cell",
-  1600: "hidden @[1600px]/dt:table-cell",
-  1680: "hidden @[1680px]/dt:table-cell",
-};
-const SPILLOVER_BLOCK: Record<CollapseStep, string> = {
-  480: "@[480px]/dt:hidden",
-  560: "@[560px]/dt:hidden",
-  640: "@[640px]/dt:hidden",
-  720: "@[720px]/dt:hidden",
-  800: "@[800px]/dt:hidden",
-  880: "@[880px]/dt:hidden",
-  960: "@[960px]/dt:hidden",
-  1040: "@[1040px]/dt:hidden",
-  1120: "@[1120px]/dt:hidden",
-  1200: "@[1200px]/dt:hidden",
-  1280: "@[1280px]/dt:hidden",
-  1360: "@[1360px]/dt:hidden",
-  1440: "@[1440px]/dt:hidden",
-  1520: "@[1520px]/dt:hidden",
-  1600: "@[1600px]/dt:hidden",
-  1680: "@[1680px]/dt:hidden",
-};
+// Widths are computed (not left to the browser) so the visible columns always
+// sum to exactly the container: the `grow` column absorbs any leftover, so the
+// row fills the table even when a full-width `colSpan` detail row is present
+// (which otherwise leaves the fixed columns short, floating the actions column).
+function computeFit<T>(
+  columns: DataTableColumn<T>[],
+  containerWidth: number,
+  selectW: number,
+  actionsW: number
+): FitResult {
+  const hidden = new Set<string>();
+  const widths = new Map<string, number>();
+  const w = (c: DataTableColumn<T>) => c.minWidth ?? 0;
+  const reserved = selectW + actionsW;
 
-function spilloverColumns<T>(columns: DataTableColumn<T>[]) {
-  return columns.filter((c) => c.collapseStep && !c.noSpillover);
+  // Before the first measurement, show everything at its base width.
+  if (!containerWidth) {
+    columns.forEach((c) => widths.set(c.id, w(c)));
+    return { hidden, widths, selectWidth: selectW, actionsWidth: actionsW };
+  }
+
+  // Fit against a hair less than the true width so the table never touches (let
+  // alone crosses) the container's right edge.
+  const avail = containerWidth - FIT_SAFETY;
+
+  const always = columns.filter((c) => c.collapsePriority == null);
+  const collapsible = columns
+    .filter((c) => c.collapsePriority != null)
+    // Most persistent first (higher priority kept longer).
+    .sort((a, b) => b.collapsePriority! - a.collapsePriority!);
+
+  const visible = [...always];
+  let used = reserved + always.reduce((s, c) => s + w(c), 0);
+  let fits = true;
+  for (const c of collapsible) {
+    if (fits && used + w(c) <= avail) {
+      used += w(c);
+      visible.push(c);
+    } else {
+      fits = false;
+      hidden.add(c.id);
+    }
+  }
+
+  if (used > avail) {
+    // Even the retained set is too wide (narrow phone): scale everything down so
+    // the table fits instead of growing past its container.
+    const scale = avail / used;
+    visible.forEach((c) => widths.set(c.id, Math.max(1, Math.round(w(c) * scale))));
+    return {
+      hidden,
+      widths,
+      selectWidth: Math.max(1, Math.round(selectW * scale)),
+      actionsWidth: Math.max(1, Math.round(actionsW * scale)),
+    };
+  }
+
+  // Fits with slack: base widths, and the grow column absorbs the leftover so the
+  // columns sum to exactly the available width (no trailing gap, no overflow).
+  visible.forEach((c) => widths.set(c.id, w(c)));
+  const growCol = visible.find((c) => c.grow);
+  if (growCol) {
+    const others =
+      reserved +
+      visible.reduce((s, c) => (c === growCol ? s : s + w(c)), 0);
+    widths.set(growCol.id, Math.max(w(growCol), avail - others));
+  }
+  return { hidden, widths, selectWidth: selectW, actionsWidth: actionsW };
 }
 
 // Header cells stay pinned as the page scrolls. The offset comes from the
@@ -73,7 +117,7 @@ function DataTable<T>({
   isLoading,
   emptyMessage = "No Results Found",
   rowActions,
-  actionsColClassName = "w-16",
+  actionsColWidth = 96,
   expandedContent,
   onRowClick,
   rowClassName,
@@ -90,8 +134,12 @@ function DataTable<T>({
       return next;
     });
 
-  const hasSpillover = spilloverColumns(columns).length > 0;
-  const hasExpandable = hasSpillover || !!expandedContent;
+  // Any column that can drop into "More Info" (has a priority and isn't excluded
+  // from the panel). Static — governs whether rows are expandable at all.
+  const hasCollapsible = columns.some(
+    (c) => c.collapsePriority != null && !c.noSpillover
+  );
+  const hasExpandable = hasCollapsible || !!expandedContent;
   const showSelect = !!selection && (selection.isActive || !!selection.alwaysShow);
   const actionsCol = !!rowActions;
   // With the toggle bar hidden, a caret marks each expandable row's open/closed
@@ -102,23 +150,40 @@ function DataTable<T>({
   // hidden) the caret, side by side.
   const trailingCol = actionsCol || caretInGroup;
 
+  // Measure the table's own width and decide which columns fit (see computeFit).
+  const { ref: wrapperRef, width: containerWidth } =
+    useMeasuredWidth<HTMLDivElement>();
+  const {
+    hidden: hiddenIds,
+    widths,
+    selectWidth,
+    actionsWidth,
+  } = computeFit(
+    columns,
+    containerWidth,
+    showSelect ? SELECT_COL_W : 0,
+    trailingCol ? actionsColWidth : 0
+  );
+  const spilledColumns = columns.filter(
+    (c) => hiddenIds.has(c.id) && !c.noSpillover
+  );
+
   const totalCols =
     (showSelect ? 1 : 0) + columns.length + (trailingCol ? 1 : 0);
   const isEmpty = !data || data.length === 0;
 
   return (
-    // `@container/dt` makes this wrapper a named query container so columns can
-    // collapse against the table's own width (see the collapseStep ladder), not
-    // the viewport. `container-type: inline-size` is not a scroll container, so
-    // it does not disturb the page-based sticky header.
-    <div className='@container/dt border border-slate-300 rounded-lg bg-white dark:bg-gray-800'>
+    <div
+      ref={wrapperRef}
+      className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800'
+    >
       <table
         // `table-fixed` is the structural guarantee that the table can never be
         // wider than its container: widths come from the per-column `minWidth`
-        // (applied as the `<th>` width basis and scaled to fit) rather than from
-        // content, so a column-heavy table fits the page instead of spilling off
-        // the right edge. Cells clip/truncate their content (below) rather than
-        // force the table wider.
+        // (applied as the `<th>` width basis) rather than from content, so a
+        // column-heavy table fits the page instead of spilling off the right
+        // edge. Which columns show, and a global down-scale on a too-narrow
+        // container, are computed from the measured width (see computeFit).
         className={`w-full table-fixed text-slate-700 dark:text-gray-300 ${
           tableClassName ?? "text-sm"
         }`}
@@ -128,8 +193,8 @@ function DataTable<T>({
             {showSelect && (
               <th
                 scope='col'
-                style={stickyTop}
-                className={`w-8 px-2 py-2 ${STICKY_TH}`}
+                style={{ ...stickyTop, width: selectWidth }}
+                className={`px-2 py-2 ${STICKY_TH}`}
               >
                 <span className='sr-only'>Select</span>
               </th>
@@ -138,13 +203,9 @@ function DataTable<T>({
               <th
                 key={col.id}
                 scope='col'
-                style={
-                  col.minWidth
-                    ? { ...stickyTop, width: col.minWidth, minWidth: col.minWidth }
-                    : stickyTop
-                }
+                style={{ ...stickyTop, width: widths.get(col.id) }}
                 className={`px-2 py-2 text-left font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${STICKY_TH} ${
-                  col.collapseStep ? HIDDEN_CELL[col.collapseStep] : ""
+                  hiddenIds.has(col.id) ? "hidden" : ""
                 } ${col.thClassName ?? ""}`}
               >
                 {col.header}
@@ -153,8 +214,8 @@ function DataTable<T>({
             {trailingCol && (
               <th
                 scope='col'
-                style={stickyTop}
-                className={`${actionsColClassName} px-2 py-2 text-right ${STICKY_TH}`}
+                style={{ ...stickyTop, width: actionsWidth }}
+                className={`px-2 py-2 text-right ${STICKY_TH}`}
               >
                 <span className='sr-only'>Actions</span>
               </th>
@@ -235,7 +296,7 @@ function DataTable<T>({
                   <td
                     key={col.id}
                     className={`px-2 pt-2 align-top overflow-hidden ${
-                      col.collapseStep ? HIDDEN_CELL[col.collapseStep] : ""
+                      hiddenIds.has(col.id) ? "hidden" : ""
                     } ${col.tdClassName ?? ""}`}
                   >
                     {col.cell(row)}
@@ -244,12 +305,17 @@ function DataTable<T>({
 
                 {trailingCol && (
                   <td
-                    className={`${actionsColClassName} px-2 pt-2 align-top text-right whitespace-nowrap`}
+                    className='px-2 pt-2 align-top text-right whitespace-nowrap'
                     onClick={(e) => e.stopPropagation()}
                   >
                     {/* One pinned group: row actions plus (when the toggle bar
-                        is hidden) the expand caret, side by side. */}
-                    <div className='inline-flex items-center justify-end gap-1'>
+                        is hidden) the expand caret, side by side. A block `flex`
+                        (not `inline-flex`) fills the cell and right-aligns the
+                        group, so if the buttons are ever wider than the column
+                        they overflow LEFT (into the clipped neighbor) and the
+                        caret stays pinned at the cell's right edge — never
+                        spilling past the table's right border. */}
+                    <div className='flex items-center justify-end gap-1'>
                       {actionsCol && rowActions!(row)}
                       {caretInGroup && (
                         <button
@@ -322,17 +388,14 @@ function DataTable<T>({
                         : "bg-slate-50 dark:bg-gray-900/40 border-t border-slate-200 dark:border-gray-700"
                     }`}
                   >
-                    {/* Auto-generated spillover: each hidden column renders here
-                        under its inverse responsive class, so at the widest
-                        breakpoint (where nothing is hidden) the whole list
-                        collapses away. */}
-                    {hasSpillover && (
+                    {/* Auto-generated spillover: exactly the columns currently
+                        hidden by the fit calculation render here as "Label:
+                        value" lines. When the table is wide enough to show
+                        everything, this list is empty. */}
+                    {spilledColumns.length > 0 && (
                       <dl className='flex flex-col'>
-                        {spilloverColumns(columns).map((col) => (
-                          <div
-                            key={col.id}
-                            className={`${SPILLOVER_BLOCK[col.collapseStep!]} mb-1 flex gap-1`}
-                          >
+                        {spilledColumns.map((col) => (
+                          <div key={col.id} className='mb-1 flex gap-1'>
                             <dt className='font-semibold text-slate-700 dark:text-gray-300 shrink-0'>
                               {col.spilloverLabel ??
                                 (typeof col.header === "string"

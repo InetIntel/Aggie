@@ -13,7 +13,7 @@ import { getGroup } from "../../../api/groups";
 import {
   signalToNameColor,
   reportNetwork,
-  SIGNAL_BADGE_CLASS,
+  SIGNAL_BADGE_BASE,
 } from "../../../components/SocialMediaPost/reportParser";
 
 import type { DataTableColumn } from "../../../components/DataTable/types";
@@ -87,7 +87,9 @@ const SignalCell = ({ report }: { report: Report }) => {
   const [signal, bgColor] = reportSignal(report);
   if (!signal) return dash;
   return (
-    <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
+    <AggieToken
+      className={`${bgColor} ${SIGNAL_BADGE_BASE} text-sm whitespace-nowrap`}
+    >
       {signal}
     </AggieToken>
   );
@@ -126,11 +128,9 @@ const IncidentCell = ({ report }: { report: Report }) => {
 };
 
 // Display order is fixed here; collapse order is encoded independently by
-// `collapseStep` (the container width below which a column drops into "More
-// Info"). As the table narrows, columns collapse in this order: signal →
-// status → Incident → ASN → date; platform always stays. Thresholds are the
-// cumulative min-widths (platform 140 + actions 175 base, then each column
-// added in persistence order), rounded up to the nearest ladder step.
+// `collapsePriority` (higher = more persistent). As the table narrows, columns
+// collapse in this order: signal → status → Incident → ASN → date; platform has
+// no priority so it always stays. Widths are the per-column minimums.
 export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "platform",
@@ -144,14 +144,14 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
     id: "status",
     header: "Status",
     minWidth: 140,
-    collapseStep: 1120,
+    collapsePriority: 2,
     cell: (report) => <StatusCell report={report} />,
   },
   {
     id: "date",
     header: "Date",
     minWidth: 200,
-    collapseStep: 560,
+    collapsePriority: 5,
     tdClassName: "whitespace-nowrap text-xs",
     cell: (report) => <DateTime dateString={report.authoredAt} />,
   },
@@ -159,21 +159,22 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
     id: "source",
     header: "ASN / Network / Geo Scope",
     minWidth: 200,
-    collapseStep: 720,
+    collapsePriority: 4,
+    grow: true,
     cell: (report) => <NetworkCell report={report} />,
   },
   {
     id: "incident",
     header: "Incident",
     minWidth: 200,
-    collapseStep: 960,
+    collapsePriority: 3,
     cell: (report) => <IncidentCell report={report} />,
   },
   {
     id: "signal",
     header: "Signal",
-    minWidth: 175,
-    collapseStep: 1280,
+    minWidth: 200,
+    collapsePriority: 1,
     noSpillover: true, // signal already shown by the IODA badge in the expanded detail
     cell: (report) => <SignalCell report={report} />,
   },

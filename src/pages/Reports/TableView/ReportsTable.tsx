@@ -140,7 +140,7 @@ const ReportsTable = ({
       hideExpandBar
       connectedExpanded
       tableClassName='text-xs'
-      actionsColClassName='w-44'
+      actionsColWidth={216}
       rowActions={(report) => (
         <ReportRowActions
           report={report}
