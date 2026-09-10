@@ -316,6 +316,7 @@ The original spec is preserved below for reference.
   - do something with the status column of incidents, i don't think we really need color there? or the color should mean something more specific
   - asn/geo scope column should remain with the title, let status collapse first and then date
   - make ID column smaller -> that can prob be 75 px
+  - need to do something major with the asn/geo scope for incidents, this is not readable
 
 ## other fixes
 
