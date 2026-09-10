@@ -125,11 +125,17 @@ const IncidentCell = ({ report }: { report: Report }) => {
   );
 };
 
+// Display order is fixed here; collapse order is encoded independently by
+// `collapseStep` (the container width below which a column drops into "More
+// Info"). As the table narrows, columns collapse in this order: signal →
+// status → Incident → ASN → date; platform always stays. Thresholds are the
+// cumulative min-widths (platform 140 + actions 175 base, then each column
+// added in persistence order), rounded up to the nearest ladder step.
 export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "platform",
     header: "Platform",
-    thClassName: "w-16",
+    minWidth: 140,
     tdClassName: "whitespace-nowrap",
     spilloverLabel: "Platform",
     cell: (report) => <PlatformCell report={report} />,
@@ -137,39 +143,38 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "status",
     header: "Status",
-    thClassName: "w-24",
+    minWidth: 140,
+    collapseStep: 1120,
     cell: (report) => <StatusCell report={report} />,
   },
   {
     id: "date",
     header: "Date",
-    bucket: "md",
-    thClassName: "w-24",
+    minWidth: 200,
+    collapseStep: 560,
     tdClassName: "whitespace-nowrap text-xs",
     cell: (report) => <DateTime dateString={report.authoredAt} />,
   },
   {
     id: "source",
     header: "ASN / Network / Geo Scope",
-    bucket: "lg",
-    thClassName: "w-36",
-    tdClassName: "max-w-[9rem]",
+    minWidth: 200,
+    collapseStep: 720,
     cell: (report) => <NetworkCell report={report} />,
   },
   {
     id: "incident",
     header: "Incident",
-    bucket: "lg",
-    thClassName: "w-32",
-    tdClassName: "max-w-[11rem]",
+    minWidth: 200,
+    collapseStep: 960,
     cell: (report) => <IncidentCell report={report} />,
   },
   {
     id: "signal",
     header: "Signal",
-    bucket: "xl",
+    minWidth: 175,
+    collapseStep: 1280,
     noSpillover: true, // signal already shown by the IODA badge in the expanded detail
-    thClassName: "w-32",
     cell: (report) => <SignalCell report={report} />,
   },
 ];

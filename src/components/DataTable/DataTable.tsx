@@ -3,26 +3,57 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
 import AggieCheck from "../AggieCheck";
-import type { DataTableColumn, DataTableProps, ResponsiveBucket } from "./types";
+import type { CollapseStep, DataTableColumn, DataTableProps } from "./types";
 
-// bucket → classes for the in-table cell (hidden below the breakpoint) and the
-// "More Info" spillover block (shown only below the breakpoint). One bucket
-// drives both so they can never disagree.
-const HIDDEN_CELL: Record<ResponsiveBucket, string> = {
-  md: "hidden md:table-cell",
-  lg: "hidden lg:table-cell",
-  xl: "hidden xl:table-cell",
-  "2xl": "hidden 2xl:table-cell",
+// collapseStep → classes for the in-table cell (hidden below the threshold) and
+// the "More Info" spillover block (shown only below the threshold). One step
+// drives both so they can never disagree. Thresholds are **container queries**
+// against the `dt` container (the wrapper's `@container/dt`), so collapse tracks
+// the table's own width, not the viewport.
+//
+// The class strings are LITERAL on purpose: Tailwind's JIT only generates a
+// class it can see verbatim in the source, so a computed name such as
+// `@[${n}px]/dt:table-cell` would silently emit no CSS. Keep every step spelled
+// out here (this is also the ladder callers pick `collapseStep` values from).
+const HIDDEN_CELL: Record<CollapseStep, string> = {
+  480: "hidden @[480px]/dt:table-cell",
+  560: "hidden @[560px]/dt:table-cell",
+  640: "hidden @[640px]/dt:table-cell",
+  720: "hidden @[720px]/dt:table-cell",
+  800: "hidden @[800px]/dt:table-cell",
+  880: "hidden @[880px]/dt:table-cell",
+  960: "hidden @[960px]/dt:table-cell",
+  1040: "hidden @[1040px]/dt:table-cell",
+  1120: "hidden @[1120px]/dt:table-cell",
+  1200: "hidden @[1200px]/dt:table-cell",
+  1280: "hidden @[1280px]/dt:table-cell",
+  1360: "hidden @[1360px]/dt:table-cell",
+  1440: "hidden @[1440px]/dt:table-cell",
+  1520: "hidden @[1520px]/dt:table-cell",
+  1600: "hidden @[1600px]/dt:table-cell",
+  1680: "hidden @[1680px]/dt:table-cell",
 };
-const SPILLOVER_BLOCK: Record<ResponsiveBucket, string> = {
-  md: "md:hidden",
-  lg: "lg:hidden",
-  xl: "xl:hidden",
-  "2xl": "2xl:hidden",
+const SPILLOVER_BLOCK: Record<CollapseStep, string> = {
+  480: "@[480px]/dt:hidden",
+  560: "@[560px]/dt:hidden",
+  640: "@[640px]/dt:hidden",
+  720: "@[720px]/dt:hidden",
+  800: "@[800px]/dt:hidden",
+  880: "@[880px]/dt:hidden",
+  960: "@[960px]/dt:hidden",
+  1040: "@[1040px]/dt:hidden",
+  1120: "@[1120px]/dt:hidden",
+  1200: "@[1200px]/dt:hidden",
+  1280: "@[1280px]/dt:hidden",
+  1360: "@[1360px]/dt:hidden",
+  1440: "@[1440px]/dt:hidden",
+  1520: "@[1520px]/dt:hidden",
+  1600: "@[1600px]/dt:hidden",
+  1680: "@[1680px]/dt:hidden",
 };
 
 function spilloverColumns<T>(columns: DataTableColumn<T>[]) {
-  return columns.filter((c) => c.bucket && !c.noSpillover);
+  return columns.filter((c) => c.collapseStep && !c.noSpillover);
 }
 
 // Header cells stay pinned as the page scrolls. The offset comes from the
@@ -63,25 +94,31 @@ function DataTable<T>({
   const hasExpandable = hasSpillover || !!expandedContent;
   const showSelect = !!selection && (selection.isActive || !!selection.alwaysShow);
   const actionsCol = !!rowActions;
-  // With the toggle bar hidden, a far-right caret marks each expandable row's
-  // open/closed state (rows still toggle on row click).
-  const caretCol = hasExpandable && !!hideExpandBar;
+  // With the toggle bar hidden, a caret marks each expandable row's open/closed
+  // state (rows still toggle on row click). The caret shares the single trailing
+  // column with the row actions rather than getting its own column.
+  const caretInGroup = hasExpandable && !!hideExpandBar;
+  // One pinned trailing column holds the row actions and (when the toggle bar is
+  // hidden) the caret, side by side.
+  const trailingCol = actionsCol || caretInGroup;
 
   const totalCols =
-    (showSelect ? 1 : 0) +
-    columns.length +
-    (actionsCol ? 1 : 0) +
-    (caretCol ? 1 : 0);
+    (showSelect ? 1 : 0) + columns.length + (trailingCol ? 1 : 0);
   const isEmpty = !data || data.length === 0;
 
   return (
-    <div className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800'>
+    // `@container/dt` makes this wrapper a named query container so columns can
+    // collapse against the table's own width (see the collapseStep ladder), not
+    // the viewport. `container-type: inline-size` is not a scroll container, so
+    // it does not disturb the page-based sticky header.
+    <div className='@container/dt border border-slate-300 rounded-lg bg-white dark:bg-gray-800'>
       <table
         // `table-fixed` is the structural guarantee that the table can never be
-        // wider than its container: widths come from the `w-*` header hints
-        // (scaled to fit) rather than from content, so a column-heavy table fits
-        // the page instead of spilling off the right edge. Cells clip/truncate
-        // their content (below) rather than force the table wider.
+        // wider than its container: widths come from the per-column `minWidth`
+        // (applied as the `<th>` width basis and scaled to fit) rather than from
+        // content, so a column-heavy table fits the page instead of spilling off
+        // the right edge. Cells clip/truncate their content (below) rather than
+        // force the table wider.
         className={`w-full table-fixed text-slate-700 dark:text-gray-300 ${
           tableClassName ?? "text-sm"
         }`}
@@ -101,30 +138,25 @@ function DataTable<T>({
               <th
                 key={col.id}
                 scope='col'
-                style={stickyTop}
+                style={
+                  col.minWidth
+                    ? { ...stickyTop, width: col.minWidth, minWidth: col.minWidth }
+                    : stickyTop
+                }
                 className={`px-2 py-2 text-left font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${STICKY_TH} ${
-                  col.bucket ? HIDDEN_CELL[col.bucket] : ""
+                  col.collapseStep ? HIDDEN_CELL[col.collapseStep] : ""
                 } ${col.thClassName ?? ""}`}
               >
                 {col.header}
               </th>
             ))}
-            {actionsCol && (
+            {trailingCol && (
               <th
                 scope='col'
                 style={stickyTop}
                 className={`${actionsColClassName} px-2 py-2 text-right ${STICKY_TH}`}
               >
                 <span className='sr-only'>Actions</span>
-              </th>
-            )}
-            {caretCol && (
-              <th
-                scope='col'
-                style={stickyTop}
-                className={`w-10 px-2 py-2 ${STICKY_TH}`}
-              >
-                <span className='sr-only'>Details</span>
               </th>
             )}
           </tr>
@@ -203,42 +235,43 @@ function DataTable<T>({
                   <td
                     key={col.id}
                     className={`px-2 pt-2 align-top overflow-hidden ${
-                      col.bucket ? HIDDEN_CELL[col.bucket] : ""
+                      col.collapseStep ? HIDDEN_CELL[col.collapseStep] : ""
                     } ${col.tdClassName ?? ""}`}
                   >
                     {col.cell(row)}
                   </td>
                 ))}
 
-                {actionsCol && (
+                {trailingCol && (
                   <td
                     className={`${actionsColClassName} px-2 pt-2 align-top text-right whitespace-nowrap`}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {rowActions!(row)}
-                  </td>
-                )}
-
-                {caretCol && (
-                  <td className='px-2 pt-2 align-top text-right w-10'>
-                    <button
-                      type='button'
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleRow(key);
-                      }}
-                      aria-expanded={isExpanded}
-                      aria-controls={`detail-${key}`}
-                      aria-label={isExpanded ? "Hide details" : "View details"}
-                      className='inline-flex items-center h-4 text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-1'
-                    >
-                      <FontAwesomeIcon
-                        icon={faChevronDown}
-                        className={`transition-transform duration-150 ${
-                          isExpanded ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
+                    {/* One pinned group: row actions plus (when the toggle bar
+                        is hidden) the expand caret, side by side. */}
+                    <div className='inline-flex items-center justify-end gap-1'>
+                      {actionsCol && rowActions!(row)}
+                      {caretInGroup && (
+                        <button
+                          type='button'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleRow(key);
+                          }}
+                          aria-expanded={isExpanded}
+                          aria-controls={`detail-${key}`}
+                          aria-label={isExpanded ? "Hide details" : "View details"}
+                          className='inline-flex items-center h-4 text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-1'
+                        >
+                          <FontAwesomeIcon
+                            icon={faChevronDown}
+                            className={`transition-transform duration-150 ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>
@@ -298,7 +331,7 @@ function DataTable<T>({
                         {spilloverColumns(columns).map((col) => (
                           <div
                             key={col.id}
-                            className={`${SPILLOVER_BLOCK[col.bucket!]} mb-1 flex gap-1`}
+                            className={`${SPILLOVER_BLOCK[col.collapseStep!]} mb-1 flex gap-1`}
                           >
                             <dt className='font-semibold text-slate-700 dark:text-gray-300 shrink-0'>
                               {col.spilloverLabel ??

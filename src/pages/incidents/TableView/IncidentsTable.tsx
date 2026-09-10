@@ -102,11 +102,17 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
   const { doUpdate, doRemove } = useIncidentMutations();
   const { formatDateTime } = useFormatters();
 
+  // Display order is fixed here; collapse order is encoded independently by
+  // `collapseStep` (the container width below which a column drops into "More
+  // Info"). As the table narrows, columns collapse in this order: Assigned To →
+  // # Of Alerts → IPC → DPC → ASN → Status → Date → Title; ID# always stays.
+  // Thresholds are the cumulative min-widths (ID# 100 + actions 175 base, then
+  // each column added in persistence order), rounded up to the nearest step.
   const columns: DataTableColumn<Group>[] = [
     {
       id: "idnum",
       header: "ID#",
-      thClassName: "w-12",
+      minWidth: 100,
       tdClassName:
         "text-slate-600 dark:text-gray-400 font-medium whitespace-nowrap",
       cell: (inc) => <>#{inc.idnum}</>,
@@ -114,13 +120,15 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "title",
       header: "Incident Title",
-      // Explicit *percentage* width (not a fixed rem, not auto). Under the
-      // table's fixed layout a full-width `colSpan` cell — which the expanded
-      // detail row is — shrinks any *auto*-width column to its min-content, so a
-      // widthless `title` collapsed to a vertical single-letter stack on expand.
-      // A percentage is explicit (the span can't collapse it) yet scales with the
-      // table, so the table still never overflows at any width. Verified 375–1920.
-      thClassName: "w-[30%] pr-4",
+      // Explicit px width (via `minWidth`), not auto. Under the table's fixed
+      // layout a full-width `colSpan` cell — the expanded detail row — shrinks
+      // any *auto*-width column to its min-content (title once collapsed to a
+      // vertical single-letter stack on expand). An explicit width can't be
+      // collapsed by the span; it also scales up to absorb slack (title is the
+      // widest column, so it grows most) while the table never overflows.
+      minWidth: 300,
+      collapseStep: 640,
+      thClassName: "pr-4",
       // Word-level wrapping only — NOT `overflow-wrap: anywhere`, which would drop
       // the min-content to one character. Long titles are clamped by
       // `line-clamp-2` and clipped by the cell's `overflow-hidden`.
@@ -151,9 +159,9 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "date",
       header: "Date",
-      bucket: "md",
-      noSpillover: true,
-      thClassName: "w-24",
+      minWidth: 220,
+      collapseStep: 800,
+      noSpillover: true, // duration already shown in the expanded detail
       tdClassName: "whitespace-nowrap text-xs",
       cell: (inc) => (
         <>
@@ -168,7 +176,8 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "status",
       header: "Status",
-      thClassName: "w-32",
+      minWidth: 240,
+      collapseStep: 1040,
       tdClassName: "whitespace-nowrap",
       cell: (inc) => (
         <IncidentOverallStatus
@@ -178,11 +187,12 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       ),
     },
     {
+      // Left as-is pending a separate rework of ASN handling.
       id: "asn",
       header: "ASN / Geo Scope",
-      bucket: "lg",
-      thClassName: "w-40",
-      tdClassName: "w-40 max-w-[10rem] align-top",
+      minWidth: 160,
+      collapseStep: 1200,
+      tdClassName: "max-w-[10rem] align-top",
       cell: (inc) => {
         const scopes = inc.impactedGeoScopes ?? [];
         return (
@@ -200,9 +210,9 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "dpc",
       header: "DPC",
-      bucket: "2xl",
-      noSpillover: true,
-      thClassName: "w-20",
+      minWidth: 100,
+      collapseStep: 1360,
+      noSpillover: true, // shown in the expanded detail metadata
       tdClassName: "whitespace-nowrap",
       cell: (inc) => (
         <CoverageBadge value={inc.directPopulationCoverageScore} />
@@ -211,9 +221,9 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "ipc",
       header: "IPC",
-      bucket: "2xl",
-      noSpillover: true,
-      thClassName: "w-20",
+      minWidth: 100,
+      collapseStep: 1440,
+      noSpillover: true, // shown in the expanded detail metadata
       tdClassName: "whitespace-nowrap",
       cell: (inc) => (
         <CoverageBadge value={inc.indirectPopulationCoverageScore} />
@@ -222,17 +232,17 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "alertsReport",
       header: "# Of Alerts",
-      bucket: "xl",
-      noSpillover: true,
-      thClassName: "w-28",
+      minWidth: 100,
+      collapseStep: 1520,
+      noSpillover: true, // shown in the expanded detail metadata
       cell: (inc) => <AlertsCount count={inc._reports?.length ?? 0} />,
     },
     {
       id: "assignedTo",
       header: "Assigned To",
-      bucket: "xl",
-      noSpillover: true,
-      thClassName: "w-28",
+      minWidth: 140,
+      collapseStep: 1680,
+      noSpillover: true, // shown in the expanded detail metadata
       cell: (inc) =>
         formatAssignedTo(inc) || (
           <span className="text-slate-500 dark:text-gray-400">—</span>
@@ -251,7 +261,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         hideExpandBar
         connectedExpanded
         tableClassName="text-xs"
-        actionsColClassName="w-24"
+        actionsColClassName="w-44"
         rowActions={(inc) => (
           <div className="inline-flex items-center gap-2">
             <Link

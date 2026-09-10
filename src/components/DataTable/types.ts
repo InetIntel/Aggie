@@ -1,24 +1,41 @@
 import type React from "react";
 
 /**
- * Width below which a column is hidden in the table and instead surfaces in the
- * row's "More Info" panel. `undefined` means the column is always visible.
+ * Container width (px) at/above which a column shows in the row; below it the
+ * column is hidden and instead surfaces in the row's "More Info" panel.
+ * `undefined` means the column is always visible (never collapses).
  *
- * Maps to Tailwind v3 breakpoints (md 768 / lg 1024 / xl 1280 / 2xl 1536): a
- * `bucket` of "lg" hides the cell below 1024px (`hidden lg:table-cell`) and
- * shows its spillover block below 1024px (`lg:hidden`). One source of truth
- * drives both, so the cell and its spillover can never drift apart.
+ * These are **container-query** thresholds measured against the DataTable's own
+ * width (the `@container/dt` wrapper), not the viewport — so collapse tracks the
+ * table's actual width even when a sidebar narrows it. Pick the value from the
+ * ladder in `DataTable.tsx` nearest the cumulative min-width at which the column
+ * stops fitting (i.e. the sum of the min-widths of everything shown at/above it,
+ * including the pinned actions column). One value drives both the in-table cell
+ * (`hidden @[Npx]/dt:table-cell`) and its spillover block (`@[Npx]/dt:hidden`),
+ * so the two can never drift apart.
  */
-export type ResponsiveBucket = "md" | "lg" | "xl" | "2xl";
+export type CollapseStep =
+  | 480 | 560 | 640 | 720 | 800 | 880 | 960 | 1040
+  | 1120 | 1200 | 1280 | 1360 | 1440 | 1520 | 1600 | 1680;
 
 export interface DataTableColumn<T> {
   id: string;
   /** Header label. When a string it doubles as the spillover `<dt>` label. */
   header: React.ReactNode;
   cell: (row: T) => React.ReactNode;
-  /** Hide below this breakpoint and surface in "More Info" instead. */
-  bucket?: ResponsiveBucket;
-  /** Extra classes on the `<th>` (width hint, alignment). */
+  /**
+   * Container width (px) below which this column collapses into "More Info".
+   * Omit for an always-visible column. See {@link CollapseStep}.
+   */
+  collapseStep?: CollapseStep;
+  /**
+   * The column's minimum/target width in px. Under the table's fixed layout this
+   * is applied as the `<th>` width basis (columns scale up to fill slack, so it
+   * acts as a floor). Collapse thresholds are chosen so a column only appears
+   * when there is room for it at this width.
+   */
+  minWidth?: number;
+  /** Extra classes on the `<th>` (alignment, etc.). */
   thClassName?: string;
   /** Extra classes on the `<td>`. */
   tdClassName?: string;
