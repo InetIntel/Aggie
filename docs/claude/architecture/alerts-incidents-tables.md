@@ -32,16 +32,16 @@ The markup is:
 
 - The table is `w-full` with **fixed** layout, so it is always exactly the width of
   its container (the host's `max-w-screen-2xl`) and **can never be wider**. Column
-  widths come from the `w-*` hints on each `th`, *not* from content.
+  widths come from the `w-*` hints on each `th`, _not_ from content.
 - **Every column must have an explicit width** (`w-*` or a `%`). Do NOT leave a
   column widthless (`auto`) as a "flex" column. Under fixed layout, the expanded
-  detail row is a `colSpan`-all cell, and Chromium shrinks any *auto*-width column
+  detail row is a `colSpan`-all cell, and Chromium shrinks any _auto_-width column
   to its min-content whenever such a full-span cell is present — so a widthless
   column collapses (e.g. the incidents `title` stacked into a vertical single-letter
   column on expand). The fix is a **percentage** width on the flexible column
   (incidents `title` is `w-[30%]`): explicit, so the span can't collapse it, yet it
   scales with the table so the table still never overflows. (A fixed `rem` width
-  would overflow on narrow screens; a `min-width` does *not* prevent the collapse.)
+  would overflow on narrow screens; a `min-width` does _not_ prevent the collapse.)
   Reports needs no such column — all its columns already have `w-*` widths.
 - Because sizing ignores content, cells **clip** instead of forcing the table
   wider: data `<th>`s are `truncate` (nowrap + ellipsis) and data `<td>`s are
@@ -53,7 +53,7 @@ The markup is:
 - **There is deliberately still no `overflow-x` container** around the table — one
   isn't needed (the table can't overflow) and would re-base the sticky header to the
   wrapper (see "Sticky header"). So the table fits by **fixed layout + clipping**,
-  and the bucket system additionally *hides* low-priority columns into "More Info"
+  and the bucket system additionally _hides_ low-priority columns into "More Info"
   at smaller breakpoints.
 
 (Historical note: before `table-fixed`, the table was auto-layout with
@@ -88,7 +88,7 @@ header stick to that wrapper instead of the page — breaking the pinned header.
 tables were deliberately reworked to **flow with the page instead of an inner scroll
 box** (commit `ab168e49`), which is why no scroll wrapper exists.
 
-Note: the **expanded detail** `<td>` *does* set `overflow-x-auto` — only the detail
+Note: the **expanded detail** `<td>` _does_ set `overflow-x-auto` — only the detail
 content can scroll horizontally, not the column grid.
 
 ### Expanded rows
@@ -119,7 +119,7 @@ lazily per row. Options: `hideExpandBar` (far-right caret instead of a centered
   wide breakpoints, which is what makes the fixed-layout fit discipline matter here.
 - ASN data lives **directly on the Group**: `impactedAsns?: string[]` and
   `impactedGeoScopes?: string[]` (`src/api/groups/types.ts`), also editable via
-  `GroupEditableData`. Per-ASN metadata (org name, coverage) is *not* on the Group —
+  `GroupEditableData`. Per-ASN metadata (org name, coverage) is _not_ on the Group —
   it is fetched via `getAsnsByIds` (POST `/api/asn/bulk`, `src/api/asn/`).
 - **ASN / Geo Scope column** (`id: "asn"`, after `status`, `bucket: "lg"`) — the
   incidents-table counterpart to the Reports ASN column. Renders `AsnChips` over
@@ -135,10 +135,49 @@ lazily per row. Options: `hideExpandBar` (far-right caret instead of a centered
   the local `IncidentAlertsList` component. `IncidentAlertsList` calls
   `getGroupReports({ groupId })` and renders each report with `GroupReportListItem` →
   `SocialMediaListItem` — the same rendering (and same `["groups","reports",
-  {groupId}]` query key, so the same cache) as the incident **detail page**
+{groupId}]` query key, so the same cache) as the incident **detail page**
   (`src/pages/incidents/Incident/index.tsx`). Because `expandedContent` only mounts
   when a row is expanded, the fetch fires **lazily per incident** on expand (no
   fan-out). It's read-only here (select-mode props stubbed); report management stays
   on the detail page.
 - Incidents page shell: `src/pages/incidents/index.tsx` — list/table toggle
   (`?view=`), `getGroups`, `groups:update` socket refetch, compare mode.
+
+## Todo:
+
+- NEED TO MAKE BOTH TABLES MOBILE RESPONSIVE
+- remember: tables should never require horizontal scrolling, the columns should collapse into "more info"
+- each column will have a set minimum width
+
+### alerts table
+
+- order of columns that collapse. from 1 being the last thing to collapse to z being the first thing to collapse as the table width gets smaller:
+  1. platform
+  2. status
+  3. date
+  4. ASN / Network / Geo Scope
+  5. Incident
+  6. Other button group
+
+- ensure it includes:
+  1. platform with a minimum column width of x
+  2. status with a minimum column width of x
+  3. date with a minimum column width of x
+  4. ASN / Network / Geo Scope with a minimum column width of x
+  5. Incident with a minimum column width of x
+  6. Other button group with a minimum column width of x
+
+### incidents table
+
+- order of columns that collapse. from 1 being the last thing to collapse to z being the first thing to collapse as the table width gets smaller:
+  1. ID #
+  2. Incident title
+  3. date
+  4. status
+  5. Other button group
+- ensure it includes:
+  1. ID # with a minimum column width of x
+  2. Incident title with a minimum column width of x
+  3. date with a minimum column width of x
+  4. status with a minimum column width of x
+  5. Other button group with a minimum column width of x
