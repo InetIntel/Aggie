@@ -112,20 +112,33 @@ lazily per row. Options: `hideExpandBar` (far-right caret instead of a centered
 ## Incidents table
 
 - `src/pages/incidents/TableView/IncidentsTable.tsx`. Row type is **`Group`**
-  ("incident" is just the UI label). Columns: `idnum`, `title`, `date`, `status`,
-  `dpc` (2xl), `ipc` (2xl), `alertsReport` (xl), `assignedTo` (xl); `date` is `md`.
-  This is a **column-dense** table — several fixed-width columns show at once at wide
-  breakpoints.
+  ("incident" is just the UI label). Columns: `idnum`, `title` (`w-[30%]`, the
+  flexible column — see the Layout model on why it's a percentage), `date` (`md`),
+  `status`, `asn` (`lg`), `dpc` (2xl), `ipc` (2xl), `alertsReport` (xl), `assignedTo`
+  (xl). This is a **column-dense** table — several fixed-width columns show at once at
+  wide breakpoints, which is what makes the fixed-layout fit discipline matter here.
 - ASN data lives **directly on the Group**: `impactedAsns?: string[]` and
   `impactedGeoScopes?: string[]` (`src/api/groups/types.ts`), also editable via
   `GroupEditableData`. Per-ASN metadata (org name, coverage) is *not* on the Group —
   it is fetched via `getAsnsByIds` (POST `/api/asn/bulk`, `src/api/asn/`).
+- **ASN / Geo Scope column** (`id: "asn"`, after `status`, `bucket: "lg"`) — the
+  incidents-table counterpart to the Reports ASN column. Renders `AsnChips` over
+  `Group.impactedAsns` plus a compact muted line of `Group.impactedGeoScopes` joined
+  by `·`. Both fields live directly on the incident, so it works on every row with no
+  fetch. `bucket: "lg"` hides it below the `lg` breakpoint, where it reappears in the
+  row's "More Info" spillover.
 - `AsnChips` (`.../TableView/AsnChips.tsx`) renders a wrapped, width-bounded row of
-  teal ASN chips with a `+N` overflow — purpose-built for the multi-ASN incident case
-  (an incident spans many ASNs, unlike a single report).
-- Expanded row shows incident metadata + `ImpactedAsnTable` (a sortable table that
-  fetches ASN org/coverage). The incident **detail page**
-  (`src/pages/incidents/Incident/index.tsx`) renders an incident's alerts with
-  `getGroupReports({ groupId })` → `GroupReportListItem` → `SocialMediaListItem`.
+  teal ASN chips with a `+N` overflow (`—` when empty) — purpose-built for the
+  multi-ASN incident case (an incident spans many ASNs, unlike a single report).
+- **Expanded row** shows incident metadata + `ImpactedAsnTable` (a sortable table
+  that fetches ASN org/coverage), and below them the incident's **alerts list** via
+  the local `IncidentAlertsList` component. `IncidentAlertsList` calls
+  `getGroupReports({ groupId })` and renders each report with `GroupReportListItem` →
+  `SocialMediaListItem` — the same rendering (and same `["groups","reports",
+  {groupId}]` query key, so the same cache) as the incident **detail page**
+  (`src/pages/incidents/Incident/index.tsx`). Because `expandedContent` only mounts
+  when a row is expanded, the fetch fires **lazily per incident** on expand (no
+  fan-out). It's read-only here (select-mode props stubbed); report management stays
+  on the detail page.
 - Incidents page shell: `src/pages/incidents/index.tsx` — list/table toggle
   (`?view=`), `getGroups`, `groups:update` socket refetch, compare mode.
