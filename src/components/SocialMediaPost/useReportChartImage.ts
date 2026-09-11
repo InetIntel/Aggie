@@ -9,12 +9,15 @@ import type { Report } from "../../api/reports/types";
 // (GET /api/report/:id — no read-on-view side effect) and pull the image from there.
 // Returns the raw image value (storage key | absolute URL | legacy inline SVG), or
 // undefined while a needed fetch is in flight.
-export function useReportChartImage(report: Report): string | undefined {
+export function useReportChartImage(
+  report: Report,
+  enabled = true,
+): string | undefined {
   const present: string | undefined = report?.metadata?.rawAPIResponse?.image;
   const { data } = useQuery(
     ["report", report?._id, "chart-image"],
     () => getReport(report?._id),
-    { staleTime: 5 * 60 * 1000, enabled: !!report?._id && !present }
+    { staleTime: 5 * 60 * 1000, enabled: enabled && !!report?._id && !present }
   );
   return present ?? data?.metadata?.rawAPIResponse?.image;
 }

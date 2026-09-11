@@ -10,6 +10,8 @@
     "dev:frontend": "cross-env PORT=8000 react-scripts start",
     "dev:backend": "cross-env ENVIRONMENT=development nodemon app.js",
     "dev:all": "npm run dev",
+    "test:ooni": "node --test backend/fetching/ooniAlerts.test.js backend/fetching/ooniApi.test.js backend/fetching/channels/ooni.test.js",
+    "backtest:ooni": "node scripts/backtest-ooni-alerts.js",
     "smoke:access:seed": "node backend/scripts/access-control-smoke.js seed",
     "smoke:access:cleanup": "node backend/scripts/access-control-smoke.js cleanup",
     "migrate:team-leads": "node backend/scripts/backfill-team-leads.js",
@@ -26,7 +28,9 @@
   "nodemonConfig": {
     "ignore": [
       "test/*",
-      "docs/*"
+      "docs/*",
+      "data/*",
+      "public/*"
     ]
   },
   "browserslist": {
@@ -98,8 +102,10 @@
     "playwright": "^1.53.0",
     "qrcode": "^1.5.4",
     "rate-limiter-flexible": "^8.2.1",
+    "react": "^17.0.2",
     "react-bootstrap": "^2.2.1",
     "react-day-picker": "^9.2.1",
+    "react-dom": "^17.0.2",
     "react-router-bootstrap": "^0.26.0",
     "react-router-dom": "^6.2.1",
     "react-scripts": "^5.0.1",
