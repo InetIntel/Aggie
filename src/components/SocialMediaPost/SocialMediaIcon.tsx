@@ -48,7 +48,7 @@ const SocialMediaIcon = ({
   if (mediaKey === "ooni") {
     return (
       <img
-        src="/images/ooni-logo.svg.png"
+        src={`${process.env.PUBLIC_URL}/images/ooni-logo.svg.png`}
         alt="OONI logo"
         style={{
           boxSizing: "content-box",
