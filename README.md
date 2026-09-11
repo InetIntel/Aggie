@@ -53,6 +53,31 @@ Extensive documentation about using the application can be found in [ReadTheDocs
 
 ### Installation
 
+#### Windows bootstrap
+
+From an elevated PowerShell window in an already cloned or copied repository,
+run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\setup-windows.ps1
+```
+
+The idempotent script installs Git, fnm, Node 22.14.0, npm, and Docker Desktop;
+starts a persistent MongoDB 7 container; creates a local `.env` when absent;
+installs dependencies and Playwright Chromium; runs OONI tests; and builds the
+frontend. If Docker or WSL2 requires a reboot, reboot and run the same command
+again. Existing `.env` and MongoDB data are preserved.
+
+Use an existing database configuration with:
+
+```powershell
+.\setup-windows.ps1 -MongoMode External -EnvFile C:\Secure\aggie.env
+```
+
+Add `-StartDevelopment` to open the frontend and backend in separate PowerShell
+windows after setup.
+
 1. Clone the [aggie repo](https://github.com/TID-Lab/aggie).
 
    - you can use github-desktop, or clone using git.

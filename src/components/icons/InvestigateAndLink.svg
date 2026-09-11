@@ -1,0 +1,10 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Flag: pole + swallowtail banner (investigate = flagged) -->
+<rect x="4.3" y="2" width="1.9" height="19" rx="0.95" fill="white"/>
+<path d="M6 2.8 H17.6 L15 6.3 L17.6 9.8 H6 Z" fill="white"/>
+<!-- Whole chain badge (linked), reused from Link.svg geometry, scaled into the corner -->
+<g transform="translate(13 13) scale(0.44)" fill="none" stroke="white" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+<path d="M12.6429 4.64286L14.9286 2.35714C16.0714 1.21429 18.3571 1.21429 19.5 2.35714L20.6429 3.5C21.7857 4.64286 21.7857 6.92857 20.6429 8.07143L14.9286 13.7857C13.7857 14.9286 11.5 14.9286 10.3571 13.7857"/>
+<path d="M10.3571 18.3571L8.07143 20.6429C6.92857 21.7857 4.64286 21.7857 3.5 20.6429L2.35714 19.5C1.21429 18.3571 1.21429 16.0714 2.35714 14.9286L8.07143 9.21429C9.21429 8.07143 11.5 8.07143 12.6429 9.21429"/>
+</g>
+</svg>

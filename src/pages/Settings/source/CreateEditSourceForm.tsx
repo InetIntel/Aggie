@@ -627,6 +627,57 @@ function onSubmit(data: any) {
     </FormikWithSchema>
   );
 
+  const ooniSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source Name is required"),
+    credentials: Yup.string().required("OONI credentials are required"),
+    lists: Yup.string()
+      .required("At least one ASN is required")
+      .test(
+        "valid-asns",
+        "Enter positive ASNs separated by spaces or commas",
+        (value) => {
+          const asns = String(value || "").split(/[\s,]+/).filter(Boolean);
+          return asns.length > 0 && asns.every((asn) => /^\d+$/.test(asn) && Number(asn) > 0);
+        },
+      ),
+  });
+  type OoniSchema = Yup.InferType<typeof ooniSchema>;
+  const ooniForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "IR",
+        lists: source?.lists || "44244, 58224",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || "",
+        sourceURL: source?.url || "",
+        url: "",
+        ...sourceAccessInitialValues,
+      }}
+      schema={ooniSchema}
+      onSubmit={(values: OoniSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <CredentialPickerField
+        label='OONI Credentials'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
+      <FormikInput
+        name='lists'
+        label='Network ASNs'
+        placeholder='44244, 58224'
+      />
+      <SourceAccessPolicyFields teams={teams} />
+    </FormikWithSchema>
+  );
+
   const mastodonSchema = Yup.object().shape({
     nickname: Yup.string().required("Feed name is required"),
     credentials: Yup.string().required(
@@ -853,6 +904,7 @@ function onSubmit(data: any) {
       {/*credentialType === "twitter" && TwitterForm*/}
       {credentialType === "ioda" && iodaForm}
       {credentialType === "cloudflare" && cloudflareForm}
+      {credentialType === "ooni" && ooniForm}
     </>
   );
 };

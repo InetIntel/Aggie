@@ -170,6 +170,7 @@ const BatchReportList = ({}: IProps) => {
                 report={report}
                 isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
+                multiSelection={multiSelect.selection}
                 onCheckChange={() => multiSelect.addRemove(report)}
               />
             </div>

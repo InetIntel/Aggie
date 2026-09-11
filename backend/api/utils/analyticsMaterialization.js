@@ -1,0 +1,279 @@
+'use strict';
+
+const NotableActivity = require('../../models/notableActivity');
+const AnalyticsAggregationCache = require('../../models/analyticsAggregationCache');
+const {
+  aggregateNotableActivities,
+  compareNotableActivities,
+} = require('./analyticsAggregation');
+const {
+  DEFAULT_REFRESH_SNAP_MINUTES,
+  resolveAnalyticsTimeWindow,
+} = require('./analyticsTime');
+
+const DEFAULT_CACHE_TTL_MINUTES = DEFAULT_REFRESH_SNAP_MINUTES;
+const DEFAULT_SNAPSHOT_TTL_MINUTES = DEFAULT_CACHE_TTL_MINUTES + 1;
+
+async function getMaterializedNotableActivities(options = {}) {
+  const timeWindow = options.timeWindow || resolveAnalyticsTimeWindow(options);
+  const filters = normalizeFilters(options.filters);
+  const cacheKey = options.cacheKey || buildAnalyticsCacheKey(timeWindow, filters);
+  const now = normalizeDate(options.now || new Date(), 'now');
+  const forceRefresh = options.forceRefresh === true;
+  // `limit` is a presentation concern, not a storage one: the cache always holds the full
+  // result set for a (timeWindow + filters) key, and the limit is applied on the way out.
+  // Keeping it out of the cache key means a `?limit=N` request can neither collide with nor
+  // truncate the cached set that unlimited callers (and the socket refresh) read back.
+  const limit = normalizeLimit(options.limit);
+
+  const cachedWindow = forceRefresh
+    ? null
+    : await findFreshAnalyticsCache(cacheKey, now);
+
+  if (cachedWindow) {
+    const cachedActivities = await findCachedNotableActivities(cacheKey, now);
+    if (cachedActivities.length === cachedWindow.resultCount) {
+      return buildMaterializedResponse({
+        timeWindow,
+        cacheKey,
+        notableActivities: applyLimit(cachedActivities, limit),
+        computedAt: cachedWindow.computedAt,
+        expiresAt: cachedWindow.expiresAt,
+        cacheStatus: 'hit',
+      });
+    }
+  }
+
+  const notableActivities = await aggregateNotableActivities({
+    ...options,
+    limit: undefined,
+    timeWindow,
+  });
+  const computedAt = now;
+  const cacheExpiresAt = getExpiresAt(computedAt, options.cacheTtlMinutes);
+  const snapshotExpiresAt = getExpiresAt(computedAt, options.snapshotTtlMinutes, {
+    defaultTtlMinutes: DEFAULT_SNAPSHOT_TTL_MINUTES,
+  });
+
+  await replaceCachedNotableActivities({
+    cacheKey,
+    timeWindow,
+    notableActivities,
+    computedAt,
+    expiresAt: snapshotExpiresAt,
+  });
+
+  await upsertAnalyticsCacheWindow({
+    cacheKey,
+    timeWindow,
+    filters,
+    resultCount: notableActivities.length,
+    computedAt,
+    expiresAt: cacheExpiresAt,
+  });
+
+  return buildMaterializedResponse({
+    timeWindow,
+    cacheKey,
+    notableActivities: applyLimit(notableActivities, limit),
+    computedAt,
+    expiresAt: cacheExpiresAt,
+    cacheStatus: 'miss',
+  });
+}
+
+async function findCachedNotableActivities(cacheKey, now = new Date()) {
+  const rows = await NotableActivity.find({
+    cacheKey,
+    expiresAt: { $gt: now },
+  }).lean().exec();
+
+  return rows.sort(compareNotableActivities);
+}
+
+async function replaceCachedNotableActivities({
+  cacheKey,
+  timeWindow,
+  notableActivities,
+  computedAt,
+  expiresAt,
+}) {
+  const docs = buildCachedNotableActivityDocs({
+    notableActivities,
+    cacheKey,
+    timeWindow,
+    computedAt,
+    expiresAt,
+  });
+
+  if (!docs.length) {
+    await NotableActivity.deleteMany({ cacheKey }).exec();
+    return;
+  }
+
+  await NotableActivity.bulkWrite(
+    docs.map((doc) => ({
+      updateOne: {
+        filter: {
+          cacheKey: doc.cacheKey,
+          eventAggKey: doc.eventAggKey,
+        },
+        update: { $set: doc },
+        upsert: true,
+      },
+    })),
+    { ordered: false }
+  );
+
+  const currentEventAggKeys = docs.map(function (doc) {
+    return doc.eventAggKey;
+  });
+  await NotableActivity.deleteMany({
+    cacheKey,
+    eventAggKey: { $nin: currentEventAggKeys },
+  }).exec();
+}
+
+async function findFreshAnalyticsCache(cacheKey, now) {
+  return AnalyticsAggregationCache.findOne({
+    cacheKey,
+    expiresAt: { $gt: now },
+  }).lean().exec();
+}
+
+async function upsertAnalyticsCacheWindow({
+  cacheKey,
+  timeWindow,
+  filters,
+  resultCount,
+  computedAt,
+  expiresAt,
+}) {
+  return AnalyticsAggregationCache.findOneAndUpdate(
+    { cacheKey },
+    {
+      $set: {
+        cacheKey,
+        rangePreset: timeWindow.rangePreset,
+        rangeStart: timeWindow.rangeStartUtc,
+        rangeEnd: timeWindow.rangeEndUtc,
+        bucketSizeMinutes: timeWindow.bucketSizeMinutes,
+        filters,
+        resultCount,
+        computedAt,
+        expiresAt,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).exec();
+}
+
+function buildCachedNotableActivityDocs({
+  notableActivities,
+  cacheKey,
+  timeWindow,
+  computedAt,
+  expiresAt,
+}) {
+  return notableActivities.map(function (activity) {
+    return {
+      ...activity,
+      cacheKey,
+      rangePreset: timeWindow.rangePreset,
+      rangeStart: timeWindow.rangeStartUtc,
+      rangeEnd: timeWindow.rangeEndUtc,
+      computedAt,
+      expiresAt,
+    };
+  });
+}
+
+function buildMaterializedResponse({
+  timeWindow,
+  cacheKey,
+  notableActivities,
+  computedAt,
+  expiresAt,
+  cacheStatus,
+}) {
+  return {
+    cacheKey,
+    cacheStatus,
+    computedAt,
+    expiresAt,
+    rangePreset: timeWindow.rangePreset,
+    bucketPreset: timeWindow.bucketPreset,
+    bucketSizeMinutes: timeWindow.bucketSizeMinutes,
+    rangeStartUtc: timeWindow.rangeStartUtc,
+    rangeEndUtc: timeWindow.rangeEndUtc,
+    notableActivities,
+    highConfidenceActivities: notableActivities.filter(
+      (activity) => activity.isHighConfidence
+    ),
+  };
+}
+
+function normalizeLimit(limit) {
+  if (typeof limit !== 'number' || !Number.isFinite(limit) || limit < 0) return null;
+  return limit;
+}
+
+function applyLimit(notableActivities, limit) {
+  if (limit === null) return notableActivities;
+  return notableActivities.slice(0, limit);
+}
+
+function buildAnalyticsCacheKey(timeWindow, filters = {}) {
+  return JSON.stringify({
+    rangePreset: timeWindow.rangePreset,
+    rangeStartUtc: timeWindow.rangeStartUtc.toISOString(),
+    rangeEndUtc: timeWindow.rangeEndUtc.toISOString(),
+    bucketSizeMinutes: timeWindow.bucketSizeMinutes,
+    filters: normalizeFilters(filters),
+  });
+}
+
+function getExpiresAt(computedAt, ttlMinutes, options = {}) {
+  const defaultTtlMinutes =
+    typeof options.defaultTtlMinutes === 'number'
+      ? options.defaultTtlMinutes
+      : DEFAULT_CACHE_TTL_MINUTES;
+  const normalizedTtlMinutes = Number(ttlMinutes || defaultTtlMinutes);
+  if (!Number.isFinite(normalizedTtlMinutes) || normalizedTtlMinutes <= 0) {
+    throw new Error('cache ttl must be a positive number');
+  }
+  return new Date(computedAt.getTime() + normalizedTtlMinutes * 60 * 1000);
+}
+
+function normalizeFilters(filters) {
+  if (!filters || typeof filters !== 'object') return {};
+
+  return Object.keys(filters)
+    .sort()
+    .reduce(function (normalized, key) {
+      const value = filters[key];
+      if (typeof value === 'undefined' || value === null || value === '') {
+        return normalized;
+      }
+      normalized[key] = value;
+      return normalized;
+    }, {});
+}
+
+function normalizeDate(value, fieldName) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`${fieldName} must be a valid date`);
+  }
+  return date;
+}
+
+module.exports = {
+  DEFAULT_CACHE_TTL_MINUTES,
+  DEFAULT_SNAPSHOT_TTL_MINUTES,
+  buildAnalyticsCacheKey,
+  getMaterializedNotableActivities,
+  findCachedNotableActivities,
+  replaceCachedNotableActivities,
+  findFreshAnalyticsCache,
+};

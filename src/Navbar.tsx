@@ -32,6 +32,7 @@ const mainLinks: Record<string, LinkOptions> = {
 
   divider1: { type: "divider", to: "" },
   Incidents: { to: "/incidents" },
+  Dashboard: { to: "/dashboard" },
 };
 
 const helpfulLinks = [
