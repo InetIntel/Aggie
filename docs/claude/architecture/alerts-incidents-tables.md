@@ -169,10 +169,11 @@ still escape it.
   `report.asn` + `report.metadata.rawAPIResponse.entityName/entityScope`. A single
   report has one ASN / one scope, so the cell is a short stacked ASN / network /
   scope; `minWidth: 200`, `collapsePriority: 4`.
-- Columns (display order, `minWidth` / `collapsePriority`): `platform` (140, always
-  on), `status` (140 / 2), `date` (200 / 5), `source`/ASN (200 / 4, the `grow` column),
+- Columns (display order, `minWidth` / `collapsePriority`): `platform` (100, always
+  on), `status` (140 / 2), `date` (200 / 4), `source`/ASN (200 / 5, the `grow` column),
   `incident` (200 / 3), `signal` (200 / 1). Collapse order as the table narrows: signal
-  → status → Incident → ASN → date; platform always stays.
+  → status → Incident → date → ASN; platform always stays. (ASN is kept more persistent
+  than date — see "other fixes" — so date drops into "More Info" first.)
 - The **Signal** tag (`SignalCell`) is `whitespace-nowrap` so a label like "Active
   Probing" stays on one line rather than wrapping; the signal column is sized wide
   enough (200) to hold it.
@@ -272,9 +273,9 @@ The original spec is preserved below for reference.
   7. Other button group with a minimum column width of 175 px
 
 - other fixes:
-- rearrange the order of the tagging for the alert buttons, make add to incident the far left button so the rest of the buttons still align when scrolling
-- platform can take up less space than it's alloted
-- asn / network / geoscope should remain - let date disspear before that
+  - [x] rearrange the order of the tagging for the alert buttons, make add to incident the far left button so the rest of the buttons still align when scrolling — Add-to-incident is now the left-most action button (`ReportRowActions` in `ReportsTable.tsx`); the always-present read/ignore/investigate buttons stay right-aligned via `justify-end`.
+  - [x] platform column can take up less space than it's alloted (prob closer to 100px) — platform `minWidth` is now 100.
+  - [x] asn / network / geoscope should remain - let date disspear before that — ASN `collapsePriority` 5, date 4, so date collapses first.
 
 ### incidents table
 

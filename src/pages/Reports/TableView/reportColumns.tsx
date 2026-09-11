@@ -129,13 +129,13 @@ const IncidentCell = ({ report }: { report: Report }) => {
 
 // Display order is fixed here; collapse order is encoded independently by
 // `collapsePriority` (higher = more persistent). As the table narrows, columns
-// collapse in this order: signal → status → Incident → ASN → date; platform has
+// collapse in this order: signal → status → Incident → date → ASN; platform has
 // no priority so it always stays. Widths are the per-column minimums.
 export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "platform",
     header: "Platform",
-    minWidth: 140,
+    minWidth: 100,
     tdClassName: "whitespace-nowrap",
     spilloverLabel: "Platform",
     cell: (report) => <PlatformCell report={report} />,
@@ -151,7 +151,7 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
     id: "date",
     header: "Date",
     minWidth: 200,
-    collapsePriority: 5,
+    collapsePriority: 4,
     tdClassName: "whitespace-nowrap text-xs",
     cell: (report) => <DateTime dateString={report.authoredAt} />,
   },
@@ -159,7 +159,7 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
     id: "source",
     header: "ASN / Network / Geo Scope",
     minWidth: 200,
-    collapsePriority: 4,
+    collapsePriority: 5,
     grow: true,
     cell: (report) => <NetworkCell report={report} />,
   },
