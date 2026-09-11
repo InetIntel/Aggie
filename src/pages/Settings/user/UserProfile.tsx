@@ -25,7 +25,7 @@ import {
   faUserShield,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { UserRoles } from "../../../api/users/types";
+import { UserRoles, UserTeam } from "../../../api/users/types";
 import SecuritySection from "./components/SecuritySection";
 import PermissionEditor from "./components/PermissionEditor";
 import DisplayPreferencesSection from "./components/DisplayPreferencesSection";
@@ -115,10 +115,14 @@ const UserProfile = ({ session }: IProps) => {
     (team) => team.active !== false && !currentTeamIds.has(team._id)
   );
   const teamRoleById = new Map(
-    (data?.teamMemberships || []).map((membership) => [
-      typeof membership.team === "string" ? membership.team : membership.team._id,
-      membership.role,
-    ])
+    (data?.teamMemberships || [])
+      .filter((membership) => membership.team != null)
+      .map((membership) => [
+        typeof membership.team === "string"
+          ? membership.team
+          : (membership.team as UserTeam)._id,
+        membership.role,
+      ])
   );
   const fallbackTeamRole: TeamRole = targetRole === "monitor"
     ? "monitor"
