@@ -4,11 +4,16 @@ import { isNil } from "lodash";
 interface IncidentStatusProps extends React.ComponentProps<"p"> {
   group: Group,
   className: string,
+  // When true, render a neutral pill (no status color). Used by the incidents
+  // table, where the colliding status colors weren't carrying specific meaning;
+  // the list view keeps the colored badge (default).
+  colorless?: boolean,
 }
 
 export function IncidentOverallStatus({
   group,
   className = "",
+  colorless = false,
   ...props
 }: IncidentStatusProps) {
   const {
@@ -16,59 +21,39 @@ export function IncidentOverallStatus({
     confirmation_status,
     publication_status,
   } = group;
+
+  // Derive the single overall-status label + its color, then render once so the
+  // colorless variant only swaps the background.
+  let label: string;
+  let colorCSS: string;
   if (publication_status.includes("Shared with Networks")) {
-    return (
-      <p className={`bg-lime-200 text-slate-600 dark:text-gray-600 dark:bg-lime-200 dark:saturate-[0.7] ${className}`} {...props}>
-        Shared with Networks
-      </p>
-    );
+    label = "Shared with Networks";
+    colorCSS = "bg-lime-200 text-slate-600 dark:text-gray-600 dark:bg-lime-200 dark:saturate-[0.7]";
   } else if (publication_status.includes("Published")) {
-    return (
-      <p className={`bg-green-200 text-slate-600 dark:text-gray-600 dark:bg-green-200 dark:saturate-[0.7] ${className}`} {...props}>
-        Published
-      </p>
-    );
+    label = "Published";
+    colorCSS = "bg-green-200 text-slate-600 dark:text-gray-600 dark:bg-green-200 dark:saturate-[0.7]";
+  } else if (confirmation_status === true || confirmation_status === "true") {
+    label = "Confirmed";
+    colorCSS = "bg-green-200 text-slate-600 dark:text-gray-600 dark:bg-green-200 dark:saturate-[0.7]";
+  } else if (confirmation_status === false || confirmation_status === "false") {
+    label = "Unable to Confirm";
+    colorCSS = "bg-red-200 text-slate-600 dark:text-gray-600 dark:bg-red-200 dark:saturate-[0.7]";
+  } else if (verification_status === true || verification_status === "true") {
+    label = "Confirming";
+    colorCSS = "bg-amber-200 text-slate-600 dark:text-gray-600 dark:bg-amber-200 dark:saturate-[0.7]";
+  } else if (verification_status === false || verification_status === "false") {
+    label = "Unable to Verify";
+    colorCSS = "bg-red-200 text-slate-600 dark:text-gray-600 dark:bg-red-200 dark:saturate-[0.7]";
+  } else {
+    label = "Verifying Measurement";
+    colorCSS = "bg-amber-200 text-slate-600 dark:text-gray-600 dark:bg-amber-200 dark:saturate-[0.7]";
   }
 
-  switch (confirmation_status) {
-    case true:
-    case "true":
-      return (
-        <p className={`bg-green-200 text-slate-600 dark:text-gray-600 dark:bg-green-200 dark:saturate-[0.7] ${className}`} {...props}>
-          Confirmed
-        </p>
-      );
-    case false:
-    case "false":
-      return (
-        <p className={`bg-red-200 text-slate-600 dark:text-gray-600 dark:bg-red-200 dark:saturate-[0.7] ${className}`} {...props}>
-          Unable to Confirm
-        </p>
-      );
-    default:
-  }
-
-  switch (verification_status) {
-    case true:
-    case "true":
-      return (
-        <p className={`bg-amber-200 text-slate-600 dark:text-gray-600 dark:bg-amber-200 dark:saturate-[0.7] ${className}`} {...props}>
-          Confirming
-        </p>
-      );
-    case false:
-    case "false":
-      return (
-        <p className={`bg-red-200 text-slate-600 dark:text-gray-600 dark:bg-red-200 dark:saturate-[0.7] ${className}`} {...props}>
-          Unable to Verify
-        </p>
-      );
-    default:
-  }
+  const neutralCSS = "bg-slate-100 dark:bg-gray-700";
 
   return (
-    <p className={`bg-amber-200 text-slate-600 dark:text-gray-600 dark:bg-amber-200 dark:saturate-[0.7] ${className}`} {...props}>
-      Verifying Measurement
+    <p className={`${colorless ? neutralCSS : colorCSS} ${className}`} {...props}>
+      {label}
     </p>
   );
 }

@@ -26,6 +26,7 @@ import type {
   DataTableColumn,
   DataTableSelection,
 } from "../../../components/DataTable/types";
+import AggieButton from "../../../components/AggieButton";
 import AggieDialog from "../../../components/AggieDialog";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
 import CreateEditIncidentForm from "../CreateEditIncidentForm";
@@ -111,7 +112,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "idnum",
       header: "ID#",
-      minWidth: 100,
+      minWidth: 75,
       tdClassName:
         "text-slate-600 dark:text-gray-400 font-medium whitespace-nowrap",
       cell: (inc) => <>#{inc.idnum}</>,
@@ -182,6 +183,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       cell: (inc) => (
         <IncidentOverallStatus
           group={inc}
+          colorless
           className="px-1.5 py-0.5 rounded-full font-medium text-xs text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit"
         />
       ),
@@ -262,35 +264,45 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         connectedExpanded
         tableClassName="text-xs"
         actionsColWidth={176}
-        rowActions={(inc) => (
-          <div className="inline-flex items-center gap-2">
-            <Link
-              to={`/incidents/${inc._id}`}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={`View incident #${inc.idnum}`}
-              title={`View incident #${inc.idnum}`}
-              className="text-slate-600 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-300 transition-colors p-1"
-            >
-              <FontAwesomeIcon icon={faUpRightFromSquare} />
-            </Link>
-            <button
-              type="button"
-              aria-label={`Edit incident ${inc.idnum}`}
-              onClick={() => setEditTarget(inc)}
-              className="text-green-800 hover:text-green-700 dark:text-green-300 dark:hover:text-green-200 transition-colors p-1"
-            >
-              <FontAwesomeIcon icon={faPencil} />
-            </button>
-            <button
-              type="button"
-              aria-label={`Delete incident ${inc.idnum}`}
-              onClick={() => setDeleteTarget(inc)}
-              className="text-slate-600 hover:text-red-700 dark:text-gray-400 dark:hover:text-red-300 transition-colors p-1"
-            >
-              <FontAwesomeIcon icon={faTrash} />
-            </button>
-          </div>
-        )}
+        rowActions={(inc) => {
+          // Match the alerts table's action buttons (read/investigate/ignore):
+          // shared AggieButton styling, right-aligned so they line up across rows.
+          const btnSize = "text-[10px] md:text-xs xl:text-sm";
+          const btnPadding = "px-1 py-0.5 xl:px-1.5 xl:py-1";
+          return (
+            <div className="flex items-center justify-end gap-0.5 xl:gap-1">
+              {/* Open-external stays a Link (preserves middle-click / open-in-new-tab)
+                  but is styled to match the AggieButtons beside it. */}
+              <Link
+                to={`/incidents/${inc._id}`}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`View incident #${inc.idnum}`}
+                title={`View incident #${inc.idnum}`}
+                className={`inline-flex items-center rounded-lg border border-slate-300 ${btnSize} ${btnPadding} hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-600 dark:text-gray-400`}
+              >
+                <FontAwesomeIcon icon={faUpRightFromSquare} />
+              </Link>
+              <AggieButton
+                variant="light:green"
+                className={`rounded-lg border border-slate-300 ${btnSize}`}
+                padding={btnPadding}
+                icon={faPencil}
+                title="Edit incident"
+                aria-label={`Edit incident ${inc.idnum}`}
+                onClick={() => setEditTarget(inc)}
+              />
+              <AggieButton
+                variant="light:rose"
+                className={`rounded-lg border border-slate-300 ${btnSize}`}
+                padding={btnPadding}
+                icon={faTrash}
+                title="Delete incident"
+                aria-label={`Delete incident ${inc.idnum}`}
+                onClick={() => setDeleteTarget(inc)}
+              />
+            </div>
+          );
+        }}
         expandedContent={(inc) => (
           <div className="flex flex-col gap-4 text-xs">
           <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8">

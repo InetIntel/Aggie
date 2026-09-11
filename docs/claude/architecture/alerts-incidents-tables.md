@@ -182,7 +182,7 @@ still escape it.
 
 - `src/pages/incidents/TableView/IncidentsTable.tsx`. Row type is **`Group`**
   ("incident" is just the UI label). Columns (display order, `minWidth` /
-  `collapsePriority`): `idnum` (100, always on), `title` (300 / 8, the flex column —
+  `collapsePriority`): `idnum` (75, always on), `title` (300 / 8, the flex column —
   largest width, absorbs slack), `date` (220 / 7), `status` (240 / 6), `asn` (160 / 5),
   `dpc` (100 / 4), `ipc` (100 / 3), `alertsReport` (100 / 2), `assignedTo`
   (140 / 1). Collapse order as the table narrows: assignedTo → alertsReport → ipc →
@@ -313,11 +313,11 @@ The original spec is preserved below for reference.
   9. Other button group with a minimum column width of 175 px
 
 - other fixes:
-  - make the other button groups (open external, edit, delete) look and feel more like the alerts other buttons (read/unread, investigate, ignore)
-  - do something with the status column of incidents, i don't think we really need color there? or the color should mean something more specific
+  - [x] make the other button groups (open external, edit, delete) look and feel more like the alerts other buttons (read/unread, investigate, ignore) — restyled to use the shared `AggieButton` (bordered/rounded/padded, `flex justify-end`) with the same `btnSize`/`btnPadding` as `ReportRowActions`: edit `light:green`, delete `light:rose`, open-external a `Link` styled to match. See `IncidentsTable.tsx` `rowActions`.
+  - [x] do something with the status column of incidents, i don't think we really need color there? or the color should mean something more specific — the table now renders a **neutral pill** (no status color); `IncidentOverallStatus` gained a `colorless` prop. The color was dropped rather than made meaningful (the old backgrounds collided — green = Published & Confirmed, red = both failure states, amber = both in-progress). The incidents **list view** keeps the colored badge.
   - asn/geo scope column should remain with the title, let status collapse first and then date
-  - make ID column smaller -> that can prob be 75 px
-  - need to do something major with the asn/geo scope for incidents, this is not readable
+  - [x] make ID column smaller -> that can prob be 75 px — `idnum` `minWidth` is now 75.
+  - TBD: need to do something major with the asn/geo scope for incidents, this is not readable
 
 ## other fixes
 
