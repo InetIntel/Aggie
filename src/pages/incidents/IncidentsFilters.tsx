@@ -23,6 +23,7 @@ import {
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import { getSession } from "../../api/session";
+import IncidentTagFilter from "./IncidentTagFilter";
 
 // Lifecycle-stage filter options. The display label lowercases exactly to the
 // query key sent to the backend (verification/confirmation/published).
@@ -204,6 +205,12 @@ const IncidentsFilters = ({
               { key: "none", value: "Not Assigned" },
               { key: session?._id || "", value: "Assigned to Me" },
             ]}
+          />
+          <IncidentTagFilter
+            selectedIds={get("tags").split(",").filter(Boolean)}
+            onChange={(tagIds) =>
+              setParams({ tags: tagIds.length ? tagIds.join(",") : undefined })
+            }
           />
           <FilterListbox
             label='Sort By'

@@ -93,6 +93,7 @@ export interface GroupQueryState {
   after?: string;
   before?: string;
   idnum?: string | number;
+  tags?: string;
   locationName?: string;
   page?: string | number;
   sortBy?: GroupSortBy;

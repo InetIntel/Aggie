@@ -353,7 +353,7 @@ Group.queryGroups = function (query, page, options, callback) {
 
   // Checking for multiple tags in group
   if (filter.tags) {
-    filter.smtcTags = { $all: filter.tags };
+    filter.smtcTags = { $in: filter.tags };
     delete filter.tags;
   }
   // Re-set search timestamp
