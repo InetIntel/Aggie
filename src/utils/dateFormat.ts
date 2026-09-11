@@ -9,7 +9,7 @@ export type { UserPreferences };
 export const DEFAULT_PREFS: UserPreferences = {
   timeFormat: "24h",
   dateFormat: "DMY",
-  timeZone: "local",
+  timeZone: "utc",
 };
 
 export const EMPTY_DATE = "—";

@@ -100,7 +100,7 @@ var userSchema = new Schema({
   preferences: {
     timeFormat: { type: String, enum: ['12h', '24h'], default: '24h' },
     dateFormat: { type: String, enum: ['MDY', 'DMY'], default: 'DMY' },
-    timeZone:   { type: String, enum: ['local', 'utc'], default: 'local' },
+    timeZone:   { type: String, enum: ['local', 'utc'], default: 'utc' },
   },
   mfa: {
     totp: {
