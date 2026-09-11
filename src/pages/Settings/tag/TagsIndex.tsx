@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSession } from "../../../api/session";
@@ -26,11 +26,21 @@ interface IProps {}
 const TagsIndex = (props: IProps) => {
   const [editOpen, setEditOpen] = useState("");
   const [deleteOpen, setDeleteOpen] = useState("");
+  const [search, setSearch] = useState("");
 
   const queryClient = useQueryClient();
   const { data, isSuccess, refetch } = useQuery(["tags"], getTags);
   const { data: session } = useQuery(["session"], getSession);
   const canEditTags = session?.permissions?.includes("edit tags") === true;
+
+  const visibleTags = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return data || [];
+
+    return (data || []).filter((tag) =>
+      `${tag.name} ${tag.description || ""}`.toLowerCase().includes(query)
+    );
+  }, [data, search]);
 
   const doDeleteTag = useMutation(deleteTag, {
     onSuccess: () => {
@@ -66,9 +76,20 @@ const TagsIndex = (props: IProps) => {
           </AggieButton>
         }
       </div>
+      <input
+        type='search'
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder='Search tags'
+        className='focus-theme mb-3 px-3 py-2 border border-slate-300 rounded w-full bg-white dark:bg-gray-800'
+      />
       <section className='divide-y divide-slate-300 bg-white dark:bg-gray-800 rounded-lg border border-slate-300'>
-        {data &&
-          data.map((tag) => (
+        {isSuccess && visibleTags.length === 0 && (
+          <p className='py-3 px-3 italic text-slate-500'>
+            {search ? "No tags match your search." : "No tags have been created."}
+          </p>
+        )}
+        {visibleTags.map((tag) => (
             <article key={tag._id} className='py-2 px-3 grid grid-cols-5'>
               <header className='col-span-2'>
                 <div className='flex items-center gap-2'>
