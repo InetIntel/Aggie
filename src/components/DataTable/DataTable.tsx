@@ -1,10 +1,239 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState, memo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
 import AggieCheck from "../AggieCheck";
 import { useMeasuredWidth } from "../../hooks/useMeasuredWidth";
 import type { DataTableColumn, DataTableProps } from "./types";
+
+interface DataTableRowProps<T> {
+  row: T;
+  rowKey: string;
+  striped: boolean;
+  isExpanded: boolean;
+  columns: DataTableColumn<T>[];
+  hiddenIds: Set<string>;
+  spilledColumns: DataTableColumn<T>[];
+  totalCols: number;
+  showSelect: boolean;
+  selection?: DataTableProps<T>["selection"];
+  trailingCol: boolean;
+  actionsCol: boolean;
+  caretInGroup: boolean;
+  hasExpandable: boolean;
+  hideExpandBar?: boolean;
+  connectedExpanded?: boolean;
+  rowActions?: DataTableProps<T>["rowActions"];
+  expandedContent?: DataTableProps<T>["expandedContent"];
+  onRowClick?: DataTableProps<T>["onRowClick"];
+  rowClassName?: DataTableProps<T>["rowClassName"];
+  toggleRow: (key: string) => void;
+}
+
+// One logical row (data row + optional action bar + expanded detail), wrapped in
+// `memo`. Expand/collapse is DataTable-internal state, so the parent (and thus the
+// `columns`/`rowActions`/etc. prop references) stays stable across a toggle — only
+// the toggled row's `isExpanded` flips, so only that row re-renders instead of the
+// whole table body re-invoking every `col.cell(row)`.
+function DataTableRowInner<T>({
+  row,
+  rowKey: key,
+  striped,
+  isExpanded,
+  columns,
+  hiddenIds,
+  spilledColumns,
+  totalCols,
+  showSelect,
+  selection,
+  trailingCol,
+  actionsCol,
+  caretInGroup,
+  hasExpandable,
+  hideExpandBar,
+  connectedExpanded,
+  rowActions,
+  expandedContent,
+  onRowClick,
+  rowClassName,
+  toggleRow,
+}: DataTableRowProps<T>) {
+  // Opt-in "connected card": the expanded row + its detail share one background
+  // and a left accent, with no divider between them.
+  const connected = !!connectedExpanded && isExpanded;
+  // Clicking anywhere on the data row toggles the inline detail (same as the
+  // "View details" button); onRowClick is still forwarded for any future hook.
+  const clickable = hasExpandable || !!onRowClick;
+
+  // Each logical row is its own <tbody> so the data row, the action bar, and the
+  // expanded detail group together and hover as a unit.
+  return (
+    <tbody
+      className={`group border-b border-slate-200 dark:border-gray-700 transition-colors ${
+        connected
+          ? "bg-aggie-teal-10 dark:bg-aggie-teal-10/10 shadow-[inset_4px_0_0_0_#14b8a6] dark:shadow-[inset_4px_0_0_0_#2dd4bf]"
+          : `${
+              striped ? "bg-slate-100 dark:bg-gray-700/40" : ""
+            } hover:bg-aggie-teal-10 dark:hover:bg-aggie-teal-10/10`
+      } ${rowClassName?.(row) ?? ""}`}
+    >
+      <tr
+        className={clickable ? "cursor-pointer" : undefined}
+        onClick={
+          clickable
+            ? () => {
+                if (hasExpandable) toggleRow(key);
+                onRowClick?.(row);
+              }
+            : undefined
+        }
+      >
+        {showSelect && (
+          <td
+            className='px-2 pt-2 align-top'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className={
+                selection!.isActive || selection!.isChecked(row)
+                  ? ""
+                  : "opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+              }
+            >
+              <AggieCheck
+                active={selection!.isChecked(row)}
+                onClick={() => selection!.onToggle(row)}
+              />
+            </div>
+          </td>
+        )}
+
+        {columns.map((col) => (
+          <td
+            key={col.id}
+            className={`px-2 pt-2 align-top overflow-hidden ${
+              hiddenIds.has(col.id) ? "hidden" : ""
+            } ${col.tdClassName ?? ""}`}
+          >
+            {col.cell(row)}
+          </td>
+        ))}
+
+        {trailingCol && (
+          <td
+            className='px-2 pt-2 align-top text-right whitespace-nowrap'
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* One pinned group: row actions plus (when the toggle bar
+                is hidden) the expand caret, side by side. A block `flex`
+                (not `inline-flex`) fills the cell and right-aligns the
+                group, so if the buttons are ever wider than the column
+                they overflow LEFT (into the clipped neighbor) and the
+                caret stays pinned at the cell's right edge — never
+                spilling past the table's right border. */}
+            <div className='flex items-center justify-end gap-1'>
+              {actionsCol && rowActions!(row)}
+              {caretInGroup && (
+                <button
+                  type='button'
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRow(key);
+                  }}
+                  aria-expanded={isExpanded}
+                  aria-controls={`detail-${key}`}
+                  aria-label={isExpanded ? "Hide details" : "View details"}
+                  className='inline-flex items-center h-4 text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-1'
+                >
+                  <FontAwesomeIcon
+                    icon={faChevronDown}
+                    className={`transition-transform duration-150 ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+              )}
+            </div>
+          </td>
+        )}
+      </tr>
+
+      {hasExpandable && !hideExpandBar && (
+        <tr>
+          <td colSpan={totalCols} className='px-2 py-0.5'>
+
+            {/* Full-width bar: the whole band toggles the detail; the
+                centered button is just the visible affordance. */}
+            <div
+              className='flex items-center justify-center cursor-pointer'
+              onClick={() => toggleRow(key)}
+            >
+              <button
+                type='button'
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleRow(key);
+                }}
+                aria-expanded={isExpanded}
+                aria-controls={`detail-${key}`}
+                className='text-blue-700 hover:underline text-xs inline-flex items-center gap-1 font-medium dark:text-blue-300'
+              >
+                {isExpanded ? "Hide details" : "View details"}
+                <FontAwesomeIcon
+                  icon={faChevronDown}
+                  size='sm'
+                  className={`transition-transform duration-150 ${
+                    isExpanded ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            </div>
+          </td>
+        </tr>
+      )}
+
+      {isExpanded && hasExpandable && (
+        <tr id={`detail-${key}`}>
+          <td
+            colSpan={totalCols}
+            className={`px-4 py-2 text-sm text-slate-700 dark:text-gray-200 overflow-x-auto ${
+              connected
+                ? // Keep the shared card background + accent, but mark
+                  // the boundary between the row body and its detail.
+                  "border-t border-slate-300 dark:border-gray-600"
+                : "bg-slate-50 dark:bg-gray-900/40 border-t border-slate-200 dark:border-gray-700"
+            }`}
+          >
+            {/* Auto-generated spillover: exactly the columns currently
+                hidden by the fit calculation render here as "Label:
+                value" lines. When the table is wide enough to show
+                everything, this list is empty. */}
+            {spilledColumns.length > 0 && (
+              <dl className='flex flex-col'>
+                {spilledColumns.map((col) => (
+                  <div key={col.id} className='mb-1 flex gap-1'>
+                    <dt className='font-semibold text-slate-700 dark:text-gray-300 shrink-0'>
+                      {col.spilloverLabel ??
+                        (typeof col.header === "string"
+                          ? col.header
+                          : col.id)}
+                      :
+                    </dt>
+                    <dd>{col.cell(row)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {expandedContent?.(row)}
+          </td>
+        </tr>
+      )}
+    </tbody>
+  );
+}
+
+// `memo` keeps the generic signature via the cast (React.memo widens generics).
+const DataTableRow = memo(DataTableRowInner) as typeof DataTableRowInner;
 
 // The checkbox column's on-screen width (w-8 + px-2 both sides). Reserved by the
 // column-fit math so data columns collapse before crowding it.
@@ -127,12 +356,17 @@ function DataTable<T>({
   tableClassName,
 }: DataTableProps<T>) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const toggleRow = (key: string) =>
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
+  // Stable identity (functional update ⇒ no deps) so the memoized rows below
+  // don't re-render just because the callback was recreated.
+  const toggleRow = useCallback(
+    (key: string) =>
+      setExpandedRows((prev) => {
+        const next = new Set(prev);
+        next.has(key) ? next.delete(key) : next.add(key);
+        return next;
+      }),
+    []
+  );
 
   // Any column that can drop into "More Info" (has a priority and isn't excluded
   // from the panel). Static — governs whether rows are expandable at all.
@@ -153,19 +387,27 @@ function DataTable<T>({
   // Measure the table's own width and decide which columns fit (see computeFit).
   const { ref: wrapperRef, width: containerWidth } =
     useMeasuredWidth<HTMLDivElement>();
+  // Memoized so the sort/filter/Map/Set rebuild only runs when the width or the
+  // column set actually changes — not on every expand/collapse toggle. Keeping a
+  // stable `hiddenIds`/`widths` identity is also what lets the memoized rows hold.
   const {
     hidden: hiddenIds,
     widths,
     selectWidth,
     actionsWidth,
-  } = computeFit(
-    columns,
-    containerWidth,
-    showSelect ? SELECT_COL_W : 0,
-    trailingCol ? actionsColWidth : 0
+  } = useMemo(
+    () =>
+      computeFit(
+        columns,
+        containerWidth,
+        showSelect ? SELECT_COL_W : 0,
+        trailingCol ? actionsColWidth : 0
+      ),
+    [columns, containerWidth, showSelect, trailingCol, actionsColWidth]
   );
-  const spilledColumns = columns.filter(
-    (c) => hiddenIds.has(c.id) && !c.noSpillover
+  const spilledColumns = useMemo(
+    () => columns.filter((c) => hiddenIds.has(c.id) && !c.noSpillover),
+    [columns, hiddenIds]
   );
 
   // colSpan for the full-width rows (expanded detail, empty state) must count only
@@ -244,181 +486,31 @@ function DataTable<T>({
 
         {data.map((row, i) => {
           const key = getRowKey(row);
-          const isExpanded = expandedRows.has(key);
-          const striped = i % 2 === 1;
-          // Opt-in "connected card": the expanded row + its detail share one
-          // background and a left accent, with no divider between them.
-          const connected = !!connectedExpanded && isExpanded;
-          // Clicking anywhere on the data row toggles the inline detail (same as
-          // the "View details" button); onRowClick is still forwarded for any
-          // future hook (e.g. a compare modal).
-          const clickable = hasExpandable || !!onRowClick;
-
-          // Each logical row is its own <tbody> so the data row, the action bar,
-          // and the expanded detail group together and hover as a unit.
           return (
-            <tbody
+            <DataTableRow
               key={key}
-              className={`group border-b border-slate-200 dark:border-gray-700 transition-colors ${
-                connected
-                  ? "bg-aggie-teal-10 dark:bg-aggie-teal-10/10 shadow-[inset_4px_0_0_0_#14b8a6] dark:shadow-[inset_4px_0_0_0_#2dd4bf]"
-                  : `${
-                      striped ? "bg-slate-100 dark:bg-gray-700/40" : ""
-                    } hover:bg-aggie-teal-10 dark:hover:bg-aggie-teal-10/10`
-              } ${rowClassName?.(row) ?? ""}`}
-            >
-              <tr
-                className={clickable ? "cursor-pointer" : undefined}
-                onClick={
-                  clickable
-                    ? () => {
-                        if (hasExpandable) toggleRow(key);
-                        onRowClick?.(row);
-                      }
-                    : undefined
-                }
-              >
-                {showSelect && (
-                  <td
-                    className='px-2 pt-2 align-top'
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div
-                      className={
-                        selection!.isActive || selection!.isChecked(row)
-                          ? ""
-                          : "opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
-                      }
-                    >
-                      <AggieCheck
-                        active={selection!.isChecked(row)}
-                        onClick={() => selection!.onToggle(row)}
-                      />
-                    </div>
-                  </td>
-                )}
-
-                {columns.map((col) => (
-                  <td
-                    key={col.id}
-                    className={`px-2 pt-2 align-top overflow-hidden ${
-                      hiddenIds.has(col.id) ? "hidden" : ""
-                    } ${col.tdClassName ?? ""}`}
-                  >
-                    {col.cell(row)}
-                  </td>
-                ))}
-
-                {trailingCol && (
-                  <td
-                    className='px-2 pt-2 align-top text-right whitespace-nowrap'
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* One pinned group: row actions plus (when the toggle bar
-                        is hidden) the expand caret, side by side. A block `flex`
-                        (not `inline-flex`) fills the cell and right-aligns the
-                        group, so if the buttons are ever wider than the column
-                        they overflow LEFT (into the clipped neighbor) and the
-                        caret stays pinned at the cell's right edge — never
-                        spilling past the table's right border. */}
-                    <div className='flex items-center justify-end gap-1'>
-                      {actionsCol && rowActions!(row)}
-                      {caretInGroup && (
-                        <button
-                          type='button'
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleRow(key);
-                          }}
-                          aria-expanded={isExpanded}
-                          aria-controls={`detail-${key}`}
-                          aria-label={isExpanded ? "Hide details" : "View details"}
-                          className='inline-flex items-center h-4 text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-1'
-                        >
-                          <FontAwesomeIcon
-                            icon={faChevronDown}
-                            className={`transition-transform duration-150 ${
-                              isExpanded ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                )}
-              </tr>
-
-              {hasExpandable && !hideExpandBar && (
-                <tr>
-                  <td colSpan={totalCols} className='px-2 py-0.5'>
-
-                    {/* Full-width bar: the whole band toggles the detail; the
-                        centered button is just the visible affordance. */}
-                    <div
-                      className='flex items-center justify-center cursor-pointer'
-                      onClick={() => toggleRow(key)}
-                    >
-                      <button
-                        type='button'
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleRow(key);
-                        }}
-                        aria-expanded={isExpanded}
-                        aria-controls={`detail-${key}`}
-                        className='text-blue-700 hover:underline text-xs inline-flex items-center gap-1 font-medium dark:text-blue-300'
-                      >
-                        {isExpanded ? "Hide details" : "View details"}
-                        <FontAwesomeIcon
-                          icon={faChevronDown}
-                          size='sm'
-                          className={`transition-transform duration-150 ${
-                            isExpanded ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-
-              {isExpanded && hasExpandable && (
-                <tr id={`detail-${key}`}>
-                  <td
-                    colSpan={totalCols}
-                    className={`px-4 py-2 text-sm text-slate-700 dark:text-gray-200 overflow-x-auto ${
-                      connected
-                        ? // Keep the shared card background + accent, but mark
-                          // the boundary between the row body and its detail.
-                          "border-t border-slate-300 dark:border-gray-600"
-                        : "bg-slate-50 dark:bg-gray-900/40 border-t border-slate-200 dark:border-gray-700"
-                    }`}
-                  >
-                    {/* Auto-generated spillover: exactly the columns currently
-                        hidden by the fit calculation render here as "Label:
-                        value" lines. When the table is wide enough to show
-                        everything, this list is empty. */}
-                    {spilledColumns.length > 0 && (
-                      <dl className='flex flex-col'>
-                        {spilledColumns.map((col) => (
-                          <div key={col.id} className='mb-1 flex gap-1'>
-                            <dt className='font-semibold text-slate-700 dark:text-gray-300 shrink-0'>
-                              {col.spilloverLabel ??
-                                (typeof col.header === "string"
-                                  ? col.header
-                                  : col.id)}
-                              :
-                            </dt>
-                            <dd>{col.cell(row)}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    )}
-                    {expandedContent?.(row)}
-                  </td>
-                </tr>
-              )}
-            </tbody>
+              row={row}
+              rowKey={key}
+              striped={i % 2 === 1}
+              isExpanded={expandedRows.has(key)}
+              columns={columns}
+              hiddenIds={hiddenIds}
+              spilledColumns={spilledColumns}
+              totalCols={totalCols}
+              showSelect={showSelect}
+              selection={selection}
+              trailingCol={trailingCol}
+              actionsCol={actionsCol}
+              caretInGroup={caretInGroup}
+              hasExpandable={hasExpandable}
+              hideExpandBar={hideExpandBar}
+              connectedExpanded={connectedExpanded}
+              rowActions={rowActions}
+              expandedContent={expandedContent}
+              onRowClick={onRowClick}
+              rowClassName={rowClassName}
+              toggleRow={toggleRow}
+            />
           );
         })}
       </table>
