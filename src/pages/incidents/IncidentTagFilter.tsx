@@ -12,10 +12,19 @@ import FilterDropdown from "../../components/filters/FilterDropdown";
 
 interface IProps {
   selectedIds: string[];
+  matchMode: "any" | "all";
   onChange: (tagIds: string[]) => void;
+  onMatchModeChange: (mode: "any" | "all") => void;
+  onReset: () => void;
 }
 
-const IncidentTagFilter = ({ selectedIds, onChange }: IProps) => {
+const IncidentTagFilter = ({
+  selectedIds,
+  matchMode,
+  onChange,
+  onMatchModeChange,
+  onReset,
+}: IProps) => {
   const [search, setSearch] = useState("");
   const { data: tags, isLoading } = useQuery(["tags"], getTags, {
     staleTime: 40000,
@@ -44,16 +53,42 @@ const IncidentTagFilter = ({ selectedIds, onChange }: IProps) => {
     <FilterDropdown
       label='Tags'
       value={selectedIds.length ? `Tags: ${selectedIds.length}` : undefined}
-      onReset={() => onChange([])}
+      onReset={onReset}
       panelClassName='w-72'
       headerChild={
-        <input
-          type='search'
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder='Search tags'
-          className='focus-theme py-1 px-2 border border-slate-200 rounded w-full'
-        />
+        <div>
+          <input
+            type='search'
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder='Search tags'
+            className='focus-theme py-1 px-2 border border-slate-200 rounded w-full'
+          />
+          <div className='grid grid-cols-2 gap-1 mt-2'>
+            <button
+              type='button'
+              onClick={() => onMatchModeChange("any")}
+              className={`px-2 py-1 rounded border ${
+                matchMode === "any"
+                  ? "bg-slate-200 dark:bg-gray-600 border-slate-400"
+                  : "border-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              Match any
+            </button>
+            <button
+              type='button'
+              onClick={() => onMatchModeChange("all")}
+              className={`px-2 py-1 rounded border ${
+                matchMode === "all"
+                  ? "bg-slate-200 dark:bg-gray-600 border-slate-400"
+                  : "border-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              Match all
+            </button>
+          </div>
+        </div>
       }
     >
       {() => (

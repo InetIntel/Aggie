@@ -353,9 +353,11 @@ Group.queryGroups = function (query, page, options, callback) {
 
   // Checking for multiple tags in group
   if (filter.tags) {
-    filter.smtcTags = { $in: filter.tags };
+    const tagOperator = filter.tagMatch === 'all' ? '$all' : '$in';
+    filter.smtcTags = { [tagOperator]: filter.tags };
     delete filter.tags;
   }
+  delete filter.tagMatch;
   // Re-set search timestamp
   query.since = new Date();
   console.log(JSON.stringify(filter))
