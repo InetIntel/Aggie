@@ -3,6 +3,7 @@ import { hasId } from "../common";
 export const TAG_CATEGORIES = [
   "general",
   "protocol",
+  "signal",
   "cause",
   "circumvention_solution",
 ] as const;
@@ -12,6 +13,7 @@ export type TagCategory = (typeof TAG_CATEGORIES)[number];
 export const TAG_CATEGORY_LABELS: Record<TagCategory, string> = {
   general: "General",
   protocol: "Protocol",
+  signal: "Signal",
   cause: "Cause",
   circumvention_solution: "Circumvention Solution",
 };

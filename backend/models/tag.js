@@ -10,7 +10,7 @@ var tagSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   category: {
     type: String,
-    enum: ['general', 'protocol', 'cause', 'circumvention_solution'],
+    enum: ['general', 'protocol', 'signal', 'cause', 'circumvention_solution'],
     default: 'general',
   },
   color: String,
