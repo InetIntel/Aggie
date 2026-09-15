@@ -8,6 +8,7 @@ import {
 } from "@fortawesome/free-brands-svg-icons";
 import { faQuestionCircle } from "@fortawesome/free-regular-svg-icons";
 import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import ooniLogo from "./ooni-logo.png";
 
 const mediaIcons: Record<string, IconDefinition | BrandsDef> = {
   // tiktok: faTiktok,
@@ -48,7 +49,7 @@ const SocialMediaIcon = ({
   if (mediaKey === "ooni") {
     return (
       <img
-        src={`${process.env.PUBLIC_URL}/images/ooni-logo.svg.png`}
+        src={ooniLogo}
         alt="OONI logo"
         style={{
           boxSizing: "content-box",
