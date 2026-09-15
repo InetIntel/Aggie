@@ -7,22 +7,24 @@ import type { ReportQueryState } from "../../../api/reports/types";
 
 import FilterComboBox from "../../../components/filters/FilterComboBox";
 import FilterListbox from "../../../components/filters/FilterListBox";
-import { Field, Form, Formik } from "formik";
+import { Field, Form, Formik, FormikProps } from "formik";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faExclamationTriangle,
   faMinusCircle,
   faRefresh,
   faSearch,
+  faXmark,
   faXmarkSquare,
 } from "@fortawesome/free-solid-svg-icons";
 import AggieButton from "../../../components/AggieButton";
 import Pagination from "../../../components/Pagination";
 import { getAllGroups } from "../../../api/groups";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import FilterRadioGroup from "../../../components/filters/FilterRadioGroup";
 import { Link, useNavigate } from "react-router-dom";
 import FilterDateTime from "../../../components/filters/FilterDateTime";
+import { useFormatters } from "../../../utils/useFormatters";
 
 interface IReportFilters {
   reportCount?: number;
@@ -40,6 +42,27 @@ interface IReportFilters {
   autoEnableDedup?: boolean;
   defaultEntityLevelSelection?: string[];
 }
+
+// A single removable "chip" showing one active filter. Clicking it clears just
+// that filter (issue #138: users should see what's applied without opening
+// each dropdown, and be able to clear one at a time).
+const FilterChip = ({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) => (
+  <button
+    type='button'
+    onClick={onRemove}
+    title={`Remove filter: ${label}`}
+    className='flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs bg-slate-100 hover:bg-slate-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-slate-700 dark:text-gray-200 border border-slate-200 dark:border-gray-600'
+  >
+    <span>{label}</span>
+    <FontAwesomeIcon icon={faXmark} className='text-slate-400 dark:text-gray-400' />
+  </button>
+);
 
 const ReportFilters = ({
   reportCount,
@@ -64,6 +87,8 @@ const ReportFilters = ({
     clearAllParams,
   } = useQueryParams<ReportQueryState>();
   const navigate = useNavigate();
+  const { formatDateTime } = useFormatters();
+  const formikRef = useRef<FormikProps<{ keywords: string }>>(null);
   const { data: sources } = useQuery(["sources"], getSources);
   function sourcesRemapComboBox(query: typeof sources) {
     if (!query) return [];
@@ -179,11 +204,6 @@ const ReportFilters = ({
     setParamsQuery(formattedValues);
   }
 
-  // const dataSourceParam = getParam("dataSources");
-  // console.log('debugging- dataSrouceParam: (mid)', dataSourceParam,"(mid).");
-  // if (!dataSourceParam) {
-  //   console.log('debugging-empty dataSourceParam');
-  // }
   const groupsList = useCallback(groupsRemapComboBox, [groups]);
 
   // The `view` param is the list/table UI toggle, not a filter — exclude it so
@@ -194,11 +214,91 @@ const ReportFilters = ({
     (key) => key !== "view"
   );
 
+  // --- Active filter chips (issue #138): summarize what's currently applied so
+  // users don't have to open every dropdown to see it, and let them clear one
+  // filter at a time.
+  const keywordsValue = getParam("keywords");
+  const irrelevantValue = getParam("irrelevant");
+  const afterValue = getParam("after");
+  const beforeValue = getParam("before");
+  const mediaValue = getParam("media");
+  const dataSourcesValue = getParam("dataSources")
+    ? getParam("dataSources").split(",").filter(Boolean)
+    : [];
+  const entityLevelIsDefault =
+    currentEntityLevel.length === entityLevelDefaults.length &&
+    currentEntityLevel.every((v) => entityLevelDefaults.includes(v));
+
+  const activeFilters: { id: string; label: string; onRemove: () => void }[] = [];
+
+  if (keywordsValue) {
+    activeFilters.push({
+      id: "keywords",
+      label: `Search: "${keywordsValue}"`,
+      onRemove: () => {
+        setParams({ keywords: undefined });
+        formikRef.current?.setFieldValue("keywords", "");
+      },
+    });
+  }
+  if (irrelevantValue === "false" || irrelevantValue === "true") {
+    activeFilters.push({
+      id: "irrelevant",
+      label: irrelevantValue === "false" ? "Investigate" : "Ignore",
+      onRemove: () => setParams({ irrelevant: undefined }),
+    });
+  }
+  if (afterValue || beforeValue) {
+    const afterStr = afterValue ? formatDateTime(afterValue) : null;
+    const beforeStr = beforeValue ? formatDateTime(beforeValue) : null;
+    const range =
+      afterStr && beforeStr
+        ? `${afterStr} – ${beforeStr}`
+        : afterStr
+          ? `After ${afterStr}`
+          : `Before ${beforeStr}`;
+    activeFilters.push({
+      id: "outageStart",
+      label: `Outage start: ${range}`,
+      onRemove: () => setParams({ before: undefined, after: undefined }),
+    });
+  }
+  if (mediaValue) {
+    activeFilters.push({
+      id: "media",
+      label: `Platform: ${mediaValue}`,
+      onRemove: () => setParams({ media: undefined }),
+    });
+  }
+  if (showOngoingFilter && currentOutageStatus !== "All") {
+    activeFilters.push({
+      id: "ongoing",
+      label: `Status: ${currentOutageStatus}`,
+      onRemove: () => setParams({ ongoing: undefined }),
+    });
+  }
+  if (showEntityLevelFilter && !entityLevelIsDefault) {
+    activeFilters.push({
+      id: "entityLevel",
+      label: `Entity Level: ${currentEntityLevel.join(", ") || "None"}`,
+      // Empty array resets to the default (all levels) via setParams above.
+      onRemove: () => setParams({ entityLevel: [] }),
+    });
+  }
+  if (showSignalSourcesFilter && dataSourcesValue.length > 0) {
+    activeFilters.push({
+      id: "dataSources",
+      label: `Signal Sources: ${dataSourcesValue.join(", ")}`,
+      onRemove: () => setParams({ dataSources: undefined }),
+    });
+  }
+
   return (
     <>
       <div className='flex justify-between items-center gap-2 mb-2'>
         <div className='flex items-center gap-2 min-w-0'>
           <Formik
+            innerRef={formikRef}
             initialValues={{ keywords: getParam("keywords") }}
             onSubmit={(e) => {
               setParams(e);
@@ -256,6 +356,13 @@ const ReportFilters = ({
           />
         </div>
       </div>
+      {activeFilters.length > 0 && (
+        <div className='flex flex-wrap items-center gap-1.5 mb-2 -mt-1'>
+          {activeFilters.map((filter) => (
+            <FilterChip key={filter.id} label={filter.label} onRemove={filter.onRemove} />
+          ))}
+        </div>
+      )}
       <div className='flex flex-wrap justify-between gap-y-2 text-sm'>
         <div className='flex gap-3 items-center'>
           {headerElement && (
