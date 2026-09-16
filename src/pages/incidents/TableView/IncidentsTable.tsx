@@ -163,7 +163,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "date",
       header: "Date",
-      minWidth: 300,
+      minWidth: 275,
       collapsePriority: 7,
       noSpillover: true, // duration already shown in the expanded detail
       tdClassName: "whitespace-nowrap text-xs",
@@ -211,9 +211,12 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       header: "ASN(s)",
       minWidth: 160,
       collapsePriority: 6,
-      tdClassName: "max-w-[10rem] align-top",
+      // Absorbs the table's leftover width so the ASN chips get more room than
+      // their 160px minimum (others stay at `minWidth`). One `grow` per table.
+      grow: true,
+      tdClassName: "align-top",
       cell: (inc) => (
-        <div className="flex flex-col items-start gap-0.5 leading-tight max-w-[10rem]">
+        <div className="flex flex-col items-start gap-0.5 leading-tight w-full">
           <AsnChips asns={inc.impactedAsns} max={9} />
         </div>
       ),

@@ -158,9 +158,8 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "source",
     header: "ASN / Network / Geo Scope",
-    minWidth: 200,
+    minWidth: 325,
     collapsePriority: 5,
-    grow: true,
     cell: (report) => <NetworkCell report={report} />,
   },
   {
@@ -168,6 +167,7 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
     header: "Incident",
     minWidth: 200,
     collapsePriority: 3,
+    grow: true,
     cell: (report) => <IncidentCell report={report} />,
   },
   {
