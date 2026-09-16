@@ -187,7 +187,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
                 )}
               </span>
             </div>
-            <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
+            <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-1">
               End:
             </span>
             <div className="flex items-baseline gap-x-2">
@@ -245,7 +245,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
             DPC:
           </span>
           <span>{coveragePercent(inc.directPopulationCoverageScore)}</span>
-          <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
+          <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-1">
             IPC:
           </span>
           <span>{coveragePercent(inc.indirectPopulationCoverageScore)}</span>

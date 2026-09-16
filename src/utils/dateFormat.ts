@@ -37,7 +37,8 @@ function timeOptions(prefs: UserPreferences): Intl.DateTimeFormatOptions {
   return {
     hour: "2-digit",
     minute: "2-digit",
-    hour12: prefs.timeFormat === "12h",
+    // UTC always uses 24-hour time (no AM/PM), regardless of the clock preference.
+    hour12: prefs.timeFormat === "12h" && prefs.timeZone !== "utc",
     timeZone: prefs.timeZone === "utc" ? "UTC" : undefined,
   };
 }

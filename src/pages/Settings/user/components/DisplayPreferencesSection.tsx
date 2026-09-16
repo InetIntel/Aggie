@@ -18,29 +18,38 @@ function Segmented<T extends string>({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   legend: string;
   value: T;
   options: Option<T>[];
   onChange: (value: T) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="grid grid-cols-4 py-1 items-center">
       <p className="col-span-1">{legend}</p>
-      <div className="col-span-3 inline-flex rounded-lg border border-slate-300 dark:border-gray-600 overflow-hidden w-fit">
+      <div
+        className={`col-span-3 inline-flex rounded-lg border border-slate-300 dark:border-gray-600 overflow-hidden w-fit ${
+          disabled ? "opacity-50" : ""
+        }`}
+      >
         {options.map((opt, i) => {
           const selected = opt.value === value;
           return (
             <button
               key={opt.value}
               type="button"
-              onClick={() => onChange(opt.value)}
+              disabled={disabled}
+              onClick={() => !disabled && onChange(opt.value)}
               className={`px-3 py-1 text-sm ${
                 i > 0 ? "border-l border-slate-300 dark:border-gray-600" : ""
-              } ${
+              } ${disabled ? "cursor-not-allowed" : ""} ${
                 selected
                   ? "bg-green-700 text-white dark:saturate-[0.7]"
-                  : "bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900"
+                  : `bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 ${
+                      disabled ? "" : "hover:bg-slate-50 dark:hover:bg-gray-900"
+                    }`
               }`}
             >
               {opt.label}
@@ -77,6 +86,9 @@ const DisplayPreferencesSection = ({ user }: IProps) => {
     prefs.dateFormat !== saved.dateFormat ||
     prefs.timeZone !== saved.timeZone;
 
+  // UTC always renders 24-hour time, so the clock choice is moot under UTC.
+  const utc = prefs.timeZone === "utc";
+
   const example = formatDateTime(new Date(Date.UTC(2026, 6, 20, 15, 45)), prefs);
 
   return (
@@ -85,13 +97,21 @@ const DisplayPreferencesSection = ({ user }: IProps) => {
 
       <Segmented
         legend="Clock"
-        value={prefs.timeFormat}
+        value={utc ? "24h" : prefs.timeFormat}
+        disabled={utc}
         onChange={(timeFormat) => setPrefs((p) => ({ ...p, timeFormat }))}
         options={[
           { value: "12h", label: "12-hour" },
           { value: "24h", label: "24-hour" },
         ]}
       />
+      {utc && (
+        <div className="grid grid-cols-4">
+          <p className="col-span-3 col-start-2 text-xs text-slate-500 dark:text-gray-400 -mt-1">
+            UTC always uses 24-hour time.
+          </p>
+        </div>
+      )}
       <Segmented
         legend="Date format"
         value={prefs.dateFormat}
