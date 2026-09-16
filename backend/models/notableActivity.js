@@ -27,6 +27,18 @@ const notableActivitySchema = new Schema({
     type: [{ type: SchemaTypes.ObjectId, ref: 'Report' }],
     default: [],
   },
+  // Report counts per bucket of each report's own outageStartedAt. Differs from
+  // bucketStart/totalReports only when OONI reports were merged in from another bucket.
+  reportBuckets: {
+    type: [{
+      _id: false,
+      bucketStart: { type: Date, required: true },
+      totalReports: { type: Number, required: true },
+      // { <media>: count }, summing to totalReports — the chart's per-source lines.
+      sourceCounts: { type: SchemaTypes.Mixed, default: {} },
+    }],
+    default: [],
+  },
   isHighConfidence: { type: Boolean, required: true, default: false, index: true },
 
   asn: { type: String },
