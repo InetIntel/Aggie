@@ -60,7 +60,7 @@ const AlertsCount = ({ count }: { count: number }) => (
     </span>
     {count > 0 && (
       <span className="ml-1 text-xs text-slate-500 dark:text-gray-400">
-        alerts
+        reports
       </span>
     )}
   </>
@@ -77,12 +77,12 @@ const IncidentAlertsList = ({ groupId }: { groupId: string }) => {
   );
   if (isLoading)
     return (
-      <span className="text-slate-500 dark:text-gray-400">Loading alerts…</span>
+      <span className="text-slate-500 dark:text-gray-400">Loading reports…</span>
     );
   const results = data?.results ?? [];
   if (results.length === 0)
     return (
-      <span className="text-slate-500 dark:text-gray-400">No alerts.</span>
+      <span className="text-slate-500 dark:text-gray-400">No reports.</span>
     );
   return (
     <div className="flex flex-col rounded-lg bg-slate-50 dark:bg-gray-900 border border-slate-300 dark:border-gray-600 divide-y divide-slate-200 dark:divide-gray-700">
@@ -93,6 +93,7 @@ const IncidentAlertsList = ({ groupId }: { groupId: string }) => {
           isChecked={false}
           isSelectMode={false}
           onCheckChange={() => {}}
+          hideCheckbox
         />
       ))}
     </div>
@@ -108,7 +109,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
 
   // Display order is fixed here; collapse order is encoded independently by
   // `collapsePriority` (higher = more persistent). As the table narrows, columns
-  // collapse in this order: Assigned To → # Of Alerts → DPC / IPC → Status →
+  // collapse in this order: Assigned To → # Of Reports → DPC / IPC → Status →
   // ASN → Date → Title; ID# has no priority so it always stays. Widths are the
   // per-column minimums.
   const columns: DataTableColumn<Group>[] = [
@@ -253,7 +254,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     },
     {
       id: "alertsReport",
-      header: "# Of Alerts",
+      header: "# Of Reports",
       minWidth: 100,
       collapsePriority: 2,
       noSpillover: true, // shown in the expanded detail metadata
@@ -350,7 +351,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
                 </div>
                 <div className="flex gap-1 items-center">
                   <strong className="text-teal-900 dark:text-teal-200 shrink-0">
-                    # of Alerts:
+                    # of Reports:
                   </strong>
                   <span
                     className={`font-semibold ${
@@ -411,7 +412,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
               Lazy-fetched per incident (only mounts when the row is expanded). */}
             <div className="w-full">
               <strong className="text-teal-900 dark:text-teal-200">
-                Alerts ({inc._reports?.length ?? 0}):
+                Reports ({inc._reports?.length ?? 0}):
               </strong>
               <div className="mt-1">
                 <IncidentAlertsList groupId={inc._id} />

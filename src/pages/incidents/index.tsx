@@ -158,9 +158,7 @@ const Incidents = () => {
   return (
     <section
       style={{ ["--dt-sticky-top" as any]: `${stickyHeight}px` }}
-      className={`${
-        view === "table" ? "max-w-screen-2xl" : "max-w-screen-xl"
-      } mx-auto px-4 pb-10`}
+      className='max-w-screen-2xl mx-auto px-4 pb-10'
     >
       <header className='my-4 flex flex-wrap justify-between items-center gap-2'>
         <div className='flex gap-2 items-baseline'>
