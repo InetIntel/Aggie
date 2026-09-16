@@ -20,12 +20,13 @@ const fallbackTimeSeries = [
   highConfidenceActivityCount: 0,
 }));
 
-const trendColor = "#F4C44E";
+const trendColor = "var(--trend-total)";
 
 const sourceSeriesStyle =
-  "[--trend-ioda:#2a78d6] dark:[--trend-ioda:#3987e5] " +
-  "[--trend-cloudflare:#eb6834] dark:[--trend-cloudflare:#d95926] " +
-  "[--trend-ooni:#1baf7a] dark:[--trend-ooni:#199e70] " +
+  "[--trend-total:#16a34a] dark:[--trend-total:#22a155] " +
+  "[--trend-ioda:#e3992b] dark:[--trend-ioda:#bd8a26] " +
+  "[--trend-cloudflare:#d2451e] dark:[--trend-cloudflare:#d4362f] " +
+  "[--trend-ooni:#2f7fc1] dark:[--trend-ooni:#438bc9] " +
   "[--trend-other:#6b7280] dark:[--trend-other:#9ca3af]";
 
 const sourceSeriesMeta: Record<string, { label: string; color: string }> = {
