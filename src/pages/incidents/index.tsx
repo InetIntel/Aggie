@@ -189,7 +189,7 @@ const Incidents = () => {
           table, not behind it. */}
       <div
         ref={stickyRef}
-        className='sticky top-0 z-20 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm py-2'
+        className='sticky top-0 z-20 bg-white dark:bg-gray-800 backdrop-blur-sm py-2'
       >
         <div className='relative z-20'>
           <IncidentsFilters

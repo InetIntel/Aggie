@@ -423,7 +423,11 @@ function DataTable<T>({
   return (
     <div
       ref={wrapperRef}
-      className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800'
+      // `overflow-clip` (not `overflow-hidden`) so the rounded corners clip the
+      // sticky header cells' square backgrounds without establishing a scroll
+      // container — `overflow-hidden` would make this the sticky header's scroll
+      // ancestor and break its pinning against the page scroller.
+      className='border border-slate-300 rounded-lg bg-white dark:bg-gray-800 overflow-clip'
     >
       <table
         // `table-fixed` is the structural guarantee that the table can never be
@@ -484,14 +488,14 @@ function DataTable<T>({
           </tbody>
         )}
 
-        {data.map((row, i) => {
+        {data.map((row) => {
           const key = getRowKey(row);
           return (
             <DataTableRow
               key={key}
               row={row}
               rowKey={key}
-              striped={i % 2 === 1}
+              striped={false}
               isExpanded={expandedRows.has(key)}
               columns={columns}
               hiddenIds={hiddenIds}

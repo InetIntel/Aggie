@@ -108,8 +108,8 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
 
   // Display order is fixed here; collapse order is encoded independently by
   // `collapsePriority` (higher = more persistent). As the table narrows, columns
-  // collapse in this order: Assigned To → # Of Alerts → DPC / IPC → ASN →
-  // Status → Date → Title; ID# has no priority so it always stays. Widths are the
+  // collapse in this order: Assigned To → # Of Alerts → DPC / IPC → Status →
+  // ASN → Date → Title; ID# has no priority so it always stays. Widths are the
   // per-column minimums.
   const columns: DataTableColumn<Group>[] = [
     {
@@ -206,10 +206,22 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       },
     },
     {
+      id: "asn",
+      header: "ASN(s)",
+      minWidth: 160,
+      collapsePriority: 6,
+      tdClassName: "max-w-[10rem] align-top",
+      cell: (inc) => (
+        <div className="flex flex-col items-start gap-0.5 leading-tight max-w-[10rem]">
+          <AsnChips asns={inc.impactedAsns} max={9} />
+        </div>
+      ),
+    },
+    {
       id: "status",
       header: "Status",
       minWidth: 240,
-      collapsePriority: 6,
+      collapsePriority: 5,
       tdClassName: "whitespace-nowrap",
       cell: (inc) => (
         <IncidentOverallStatus
@@ -217,18 +229,6 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
           colorless
           className="px-1.5 py-0.5 rounded-full font-medium text-xs text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit"
         />
-      ),
-    },
-    {
-      id: "asn",
-      header: "ASN(s)",
-      minWidth: 160,
-      collapsePriority: 5,
-      tdClassName: "max-w-[10rem] align-top",
-      cell: (inc) => (
-        <div className="flex flex-col items-start gap-0.5 leading-tight max-w-[10rem]">
-          <AsnChips asns={inc.impactedAsns} max={9} />
-        </div>
       ),
     },
     {

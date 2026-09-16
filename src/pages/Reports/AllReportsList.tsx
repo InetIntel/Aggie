@@ -325,7 +325,7 @@ const AllReportsList = ({ alerts }: IProps) => {
 
       <div
         ref={filtersRef}
-        className='px-1 py-2 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm sticky top-0 z-20 '
+        className='px-1 py-2 bg-white dark:bg-gray-800 backdrop-blur-sm sticky top-0 z-20 '
       >
         <ReportsFilters
           reportCount={reports && reports.total}
@@ -383,7 +383,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           </div>
         )}
         {alerts && (
-          <div className='px-1 flex flex-wrap items-center gap-2 mt-2 text-xs font-medium'>
+          <div className='flex flex-wrap items-center gap-2 mt-2 text-xs font-medium'>
             {viewToggle}
             {compareMode && multiSelect.selection.length === 0 && (
               <p className='text-slate-600 dark:text-gray-400'>
