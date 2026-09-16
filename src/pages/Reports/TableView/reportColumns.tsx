@@ -88,7 +88,7 @@ const SignalCell = ({ report }: { report: Report }) => {
   if (!signal) return dash;
   return (
     <AggieToken
-      className={`${bgColor} ${SIGNAL_BADGE_BASE} text-sm whitespace-nowrap`}
+      className={`${bgColor} ${SIGNAL_BADGE_BASE} text-xs px-1.5 py-0.5 whitespace-nowrap`}
     >
       {signal}
     </AggieToken>
