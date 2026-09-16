@@ -12,7 +12,7 @@ const AsnChips = ({ asns, max = 6 }: IProps) => {
   const overflow = asns.length - visible.length;
 
   return (
-    <div className='flex flex-wrap gap-0.5 max-w-[160px]'>
+    <div className='grid grid-cols-2 gap-0.5 max-w-[160px] justify-items-start'>
       {visible.map((asn) => (
         <span
           key={asn}

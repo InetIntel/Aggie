@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faArrowDown,
   faLock,
   faPencil,
   faTrash,
@@ -14,7 +13,7 @@ import type { Group } from "../../../api/groups/types";
 import { getGroupReports } from "../../../api/groups";
 import { useIncidentMutations } from "../useIncidentMutations";
 import { IncidentOverallStatus } from "../IncidentStatuses";
-import { CoverageBadge } from "../IncidentCoverage";
+import { CoverageBadge, coveragePercent } from "../IncidentCoverage";
 import ImpactedAsnTable from "../Incident/ImpactedAsnTable";
 import GroupReportListItem from "../Incident/GroupReportListItem";
 import AsnChips from "./AsnChips";
@@ -40,7 +39,10 @@ interface IProps {
 const formatAssignedTo = (group: Group) => {
   if (!group.assignedTo || group.assignedTo.length === 0) return null;
   return group.assignedTo
-    .map((u) => ("username" in u && u.username) || "")
+    .map(
+      (u) =>
+        (u && typeof u === "object" && "username" in u && u.username) || "",
+    )
     .filter(Boolean)
     .join(", ");
 };
@@ -70,9 +72,8 @@ const AlertsCount = ({ count }: { count: number }) => (
 // per-incident fetch fires lazily on expand. Read-only here: select-mode props are
 // stubbed since report management lives on the detail page.
 const IncidentAlertsList = ({ groupId }: { groupId: string }) => {
-  const { data, isLoading } = useQuery(
-    ["groups", "reports", { groupId }],
-    () => getGroupReports({ groupId })
+  const { data, isLoading } = useQuery(["groups", "reports", { groupId }], () =>
+    getGroupReports({ groupId }),
   );
   if (isLoading)
     return (
@@ -80,7 +81,9 @@ const IncidentAlertsList = ({ groupId }: { groupId: string }) => {
     );
   const results = data?.results ?? [];
   if (results.length === 0)
-    return <span className="text-slate-500 dark:text-gray-400">No alerts.</span>;
+    return (
+      <span className="text-slate-500 dark:text-gray-400">No alerts.</span>
+    );
   return (
     <div className="flex flex-col rounded-lg bg-slate-50 dark:bg-gray-900 border border-slate-300 dark:border-gray-600 divide-y divide-slate-200 dark:divide-gray-700">
       {results.map((report) => (
@@ -101,11 +104,11 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
   const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
 
   const { doUpdate, doRemove } = useIncidentMutations();
-  const { formatDateTime } = useFormatters();
+  const { formatDate, formatTime, formatTimeZone } = useFormatters();
 
   // Display order is fixed here; collapse order is encoded independently by
   // `collapsePriority` (higher = more persistent). As the table narrows, columns
-  // collapse in this order: Assigned To → # Of Alerts → IPC → DPC → ASN →
+  // collapse in this order: Assigned To → # Of Alerts → DPC / IPC → ASN →
   // Status → Date → Title; ID# has no priority so it always stays. Widths are the
   // per-column minimums.
   const columns: DataTableColumn<Group>[] = [
@@ -124,15 +127,14 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       // layout a full-width `colSpan` cell — the expanded detail row — shrinks
       // any *auto*-width column to its min-content (title once collapsed to a
       // vertical single-letter stack on expand). An explicit width can't be
-      // collapsed by the span; it also scales up to absorb slack (title is the
-      // widest column, so it grows most) while the table never overflows.
+      // collapsed by the span. No `grow` here: the title stays fixed at this
+      // width and long titles wrap onto additional lines instead of widening
+      // the column (which leaves leftover table width unfilled on wide screens).
       minWidth: 300,
       collapsePriority: 8,
-      grow: true,
       thClassName: "pr-4",
       // Word-level wrapping only — NOT `overflow-wrap: anywhere`, which would drop
-      // the min-content to one character. Long titles are clamped by
-      // `line-clamp-2` and clipped by the cell's `overflow-hidden`.
+      // the min-content to one character. Titles wrap to as many lines as needed.
       tdClassName: "pr-4",
       cell: (inc) => {
         const reportCount = inc._reports?.length ?? 0;
@@ -140,7 +142,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
           <>
             <Link
               to={`/incidents/${inc._id}`}
-              className="text-blue-700 hover:underline font-medium dark:text-blue-300 leading-snug break-words line-clamp-2"
+              className="text-blue-700 hover:underline font-medium dark:text-blue-300 leading-snug break-words"
               onClick={(e) => e.stopPropagation()}
             >
               {inc.title}
@@ -160,19 +162,48 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "date",
       header: "Date",
-      minWidth: 220,
+      minWidth: 300,
       collapsePriority: 7,
       noSpillover: true, // duration already shown in the expanded detail
       tdClassName: "whitespace-nowrap text-xs",
-      cell: (inc) => (
-        <>
-          <div>{formatDateTime(inc.incidentStartedAt)}</div>
-          <div className="text-slate-400 dark:text-gray-500 my-0.5">
-            <FontAwesomeIcon icon={faArrowDown} size="xs" />
+      cell: (inc) => {
+        const tzStart = formatTimeZone(inc.incidentStartedAt);
+        const tzEnd = formatTimeZone(inc.incidentEndedAt);
+        return (
+          <div className="flex flex-col text-left leading-tight">
+            <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400">
+              Start:
+            </span>
+            <div className="flex items-baseline gap-x-2">
+              <span>{formatDate(inc.incidentStartedAt)}</span>
+              <span>
+                {formatTime(inc.incidentStartedAt)}
+                {tzStart && (
+                  <span className="text-slate-400 dark:text-gray-500">
+                    {" "}
+                    {tzStart}
+                  </span>
+                )}
+              </span>
+            </div>
+            <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
+              End:
+            </span>
+            <div className="flex items-baseline gap-x-2">
+              <span>{formatDate(inc.incidentEndedAt)}</span>
+              <span>
+                {formatTime(inc.incidentEndedAt)}
+                {tzEnd && (
+                  <span className="text-slate-400 dark:text-gray-500">
+                    {" "}
+                    {tzEnd}
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
-          <div>{formatDateTime(inc.incidentEndedAt)}</div>
-        </>
-      ),
+        );
+      },
     },
     {
       id: "status",
@@ -189,46 +220,35 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       ),
     },
     {
-      // Left as-is pending a separate rework of ASN handling.
       id: "asn",
-      header: "ASN / Geo Scope",
+      header: "ASN(s)",
       minWidth: 160,
       collapsePriority: 5,
       tdClassName: "max-w-[10rem] align-top",
-      cell: (inc) => {
-        const scopes = inc.impactedGeoScopes ?? [];
-        return (
-          <div className="flex flex-col items-start gap-0.5 leading-tight max-w-[10rem]">
-            <AsnChips asns={inc.impactedAsns} />
-            {scopes.length > 0 && (
-              <span className="text-xs text-slate-400 dark:text-gray-500 break-words">
-                {scopes.join(" · ")}
-              </span>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "dpc",
-      header: "DPC",
-      minWidth: 100,
-      collapsePriority: 4,
-      noSpillover: true, // shown in the expanded detail metadata
-      tdClassName: "whitespace-nowrap",
       cell: (inc) => (
-        <CoverageBadge value={inc.directPopulationCoverageScore} />
+        <div className="flex flex-col items-start gap-0.5 leading-tight max-w-[10rem]">
+          <AsnChips asns={inc.impactedAsns} max={9} />
+        </div>
       ),
     },
     {
-      id: "ipc",
-      header: "IPC",
-      minWidth: 100,
-      collapsePriority: 3,
+      id: "coverage",
+      header: "DPC / IPC",
+      minWidth: 125,
+      collapsePriority: 4,
       noSpillover: true, // shown in the expanded detail metadata
-      tdClassName: "whitespace-nowrap",
+      tdClassName: "whitespace-nowrap text-xs align-top",
       cell: (inc) => (
-        <CoverageBadge value={inc.indirectPopulationCoverageScore} />
+        <div className="flex flex-col text-left leading-tight">
+          <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400">
+            DPC:
+          </span>
+          <span>{coveragePercent(inc.directPopulationCoverageScore)}</span>
+          <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
+            IPC:
+          </span>
+          <span>{coveragePercent(inc.indirectPopulationCoverageScore)}</span>
+        </div>
       ),
     },
     {
@@ -305,98 +325,98 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
         }}
         expandedContent={(inc) => (
           <div className="flex flex-col gap-4 text-xs">
-          <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8">
-            {/* Left: incident metadata as inline "Label: value" rows */}
-            <div className="min-[1456px]:flex-1 min-[1456px]:min-w-0 flex flex-col gap-1">
-              <div className="flex gap-1">
-                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
-                  Assigned To:
-                </strong>
-                {formatAssignedTo(inc) || (
-                  <span className="text-slate-500 dark:text-gray-400">—</span>
-                )}
-              </div>
-              <div className="flex gap-1 items-center">
-                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
-                  Direct Population Coverage:
-                </strong>
-                <CoverageBadge value={inc.directPopulationCoverageScore} />
-              </div>
-              <div className="flex gap-1 items-center">
-                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
-                  Indirect Population Coverage:
-                </strong>
-                <CoverageBadge value={inc.indirectPopulationCoverageScore} />
-              </div>
-              <div className="flex gap-1 items-center">
-                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
-                  # of Alerts:
-                </strong>
-                <span
-                  className={`font-semibold ${
-                    (inc._reports?.length ?? 0) > 0
-                      ? "text-red-700 dark:text-red-300"
-                      : "text-slate-500 dark:text-gray-400"
-                  }`}
-                >
-                  {inc._reports?.length ?? 0}
-                </span>
-              </div>
-              <div className="flex gap-1">
-                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
-                  Incident duration:
-                </strong>
-                {formatDurationFromSeconds(inc.incidentDurationSeconds)}
-              </div>
-              <div className="flex gap-1">
-                <strong className="text-teal-900 dark:text-teal-200 shrink-0">
-                  Notes:
-                </strong>
-                {inc.notes ? (
-                  <span className="whitespace-pre-line">{inc.notes}</span>
-                ) : (
-                  <span className="italic text-slate-500 dark:text-gray-400">
-                    No notes recorded.
-                  </span>
-                )}
-              </div>
-              {inc.locationName && (
-                <div className="flex gap-1 text-slate-600 dark:text-gray-300">
+            <div className="flex flex-col min-[1456px]:flex-row gap-y-4 gap-x-8">
+              {/* Left: incident metadata as inline "Label: value" rows */}
+              <div className="min-[1456px]:flex-1 min-[1456px]:min-w-0 flex flex-col gap-1">
+                <div className="flex gap-1">
                   <strong className="text-teal-900 dark:text-teal-200 shrink-0">
-                    Location:
+                    Assigned To:
                   </strong>
-                  {inc.locationName}
+                  {formatAssignedTo(inc) || (
+                    <span className="text-slate-500 dark:text-gray-400">—</span>
+                  )}
                 </div>
-              )}
-            </div>
+                <div className="flex gap-1 items-center">
+                  <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                    Direct Population Coverage:
+                  </strong>
+                  <CoverageBadge value={inc.directPopulationCoverageScore} />
+                </div>
+                <div className="flex gap-1 items-center">
+                  <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                    Indirect Population Coverage:
+                  </strong>
+                  <CoverageBadge value={inc.indirectPopulationCoverageScore} />
+                </div>
+                <div className="flex gap-1 items-center">
+                  <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                    # of Alerts:
+                  </strong>
+                  <span
+                    className={`font-semibold ${
+                      (inc._reports?.length ?? 0) > 0
+                        ? "text-red-700 dark:text-red-300"
+                        : "text-slate-500 dark:text-gray-400"
+                    }`}
+                  >
+                    {inc._reports?.length ?? 0}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                    Incident duration:
+                  </strong>
+                  {formatDurationFromSeconds(inc.incidentDurationSeconds)}
+                </div>
+                <div className="flex gap-1">
+                  <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                    Notes:
+                  </strong>
+                  {inc.notes ? (
+                    <span className="whitespace-pre-line">{inc.notes}</span>
+                  ) : (
+                    <span className="italic text-slate-500 dark:text-gray-400">
+                      No notes recorded.
+                    </span>
+                  )}
+                </div>
+                {inc.locationName && (
+                  <div className="flex gap-1 text-slate-600 dark:text-gray-300">
+                    <strong className="text-teal-900 dark:text-teal-200 shrink-0">
+                      Location:
+                    </strong>
+                    {inc.locationName}
+                  </div>
+                )}
+              </div>
 
-            {/* Divider: a vertical bar between the columns when side-by-side,
+              {/* Divider: a vertical bar between the columns when side-by-side,
                 a thin horizontal line once the ASN table wraps underneath. */}
-            <div className="border-t min-[1456px]:border-t-0 min-[1456px]:border-l border-slate-300 dark:border-gray-600" />
+              <div className="border-t min-[1456px]:border-t-0 min-[1456px]:border-l border-slate-300 dark:border-gray-600" />
 
-            {/* Right (drops to the bottom when narrow): impacted ASN table.
+              {/* Right (drops to the bottom when narrow): impacted ASN table.
                 Equal flex-1 with the left column so the divider stays centered
                 and the empty "No ASN Set" state keeps the same placement. */}
-            <div className="min-[1456px]:flex-1 min-[1456px]:min-w-0">
-              <strong className="text-teal-900 dark:text-teal-200">
-                Impacted ASNs:
-              </strong>
-              <div className="mt-1">
-                <ImpactedAsnTable asns={inc.impactedAsns ?? []} />
+              <div className="min-[1456px]:flex-1 min-[1456px]:min-w-0">
+                <strong className="text-teal-900 dark:text-teal-200">
+                  Impacted ASNs:
+                </strong>
+                <div className="mt-1">
+                  <ImpactedAsnTable asns={inc.impactedAsns ?? []} />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Full-width alerts list, rendered like the incident detail page.
+            {/* Full-width alerts list, rendered like the incident detail page.
               Lazy-fetched per incident (only mounts when the row is expanded). */}
-          <div className="w-full">
-            <strong className="text-teal-900 dark:text-teal-200">
-              Alerts ({inc._reports?.length ?? 0}):
-            </strong>
-            <div className="mt-1">
-              <IncidentAlertsList groupId={inc._id} />
+            <div className="w-full">
+              <strong className="text-teal-900 dark:text-teal-200">
+                Alerts ({inc._reports?.length ?? 0}):
+              </strong>
+              <div className="mt-1">
+                <IncidentAlertsList groupId={inc._id} />
+              </div>
             </div>
-          </div>
           </div>
         )}
       />

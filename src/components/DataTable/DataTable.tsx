@@ -90,7 +90,7 @@ function DataTableRowInner<T>({
       >
         {showSelect && (
           <td
-            className='px-2 pt-2 align-top'
+            className='px-2 py-2 align-top'
             onClick={(e) => e.stopPropagation()}
           >
             <div
@@ -111,7 +111,7 @@ function DataTableRowInner<T>({
         {columns.map((col) => (
           <td
             key={col.id}
-            className={`px-2 pt-2 align-top overflow-hidden ${
+            className={`px-2 py-2 align-top overflow-hidden ${
               hiddenIds.has(col.id) ? "hidden" : ""
             } ${col.tdClassName ?? ""}`}
           >
@@ -121,7 +121,7 @@ function DataTableRowInner<T>({
 
         {trailingCol && (
           <td
-            className='px-2 pt-2 align-top text-right whitespace-nowrap'
+            className='px-2 py-2 align-top text-right whitespace-nowrap'
             onClick={(e) => e.stopPropagation()}
           >
             {/* One pinned group: row actions plus (when the toggle bar

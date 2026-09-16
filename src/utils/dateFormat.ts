@@ -69,6 +69,25 @@ export function formatTime(
   return new Intl.DateTimeFormat(dateLocale(prefs), timeOptions(prefs)).format(date);
 }
 
+/**
+ * Timezone abbreviation (e.g. "UTC", "EDT") for a given instant + prefs.
+ * DST-correct, so it needs the actual date. Returns `empty` for null/invalid.
+ */
+export function formatTimeZone(
+  d: DateInput,
+  prefs: UserPreferences = DEFAULT_PREFS,
+  empty: string = ""
+): string {
+  const date = toDate(d);
+  if (!date) return empty;
+  const parts = new Intl.DateTimeFormat(dateLocale(prefs), {
+    hour: "2-digit",
+    timeZone: prefs.timeZone === "utc" ? "UTC" : undefined,
+    timeZoneName: "short",
+  }).formatToParts(date);
+  return parts.find((p) => p.type === "timeZoneName")?.value ?? empty;
+}
+
 /** Date + time, honoring all preferences. */
 export function formatDateTime(
   d: DateInput,
