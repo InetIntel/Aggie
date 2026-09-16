@@ -33,17 +33,25 @@ actions/caret column), `expandedContent`, `selection`, `hideExpandBar`,
 The markup is:
 
 ```
-<div class="border rounded-lg">        // no overflow handling
-  <table class="w-full table-fixed ..."> // table-layout: fixed
+<div class="border rounded-lg overflow-clip"> // clip (NOT hidden/auto) — see "Anchoring"
+  <table class="w-full table-fixed ...">       // table-layout: fixed
 ```
 
 - The table is `w-full` with **fixed** layout, so it is always exactly the width of
-  its container (the host's `max-w-screen-2xl`) and **can never be wider**. Column
-  widths are **computed in JS** from the measured width (see "Measured collapse") and
-  applied inline as the `<th>` `width` (never a CSS `min-width`) — _not_ derived from
-  content. The visible columns sit at their `minWidth`, the `grow` column absorbs the
-  leftover so they fill the table exactly, and on a too-narrow container every width is
-  scaled down so the table still never overflows.
+  its container (the host's `max-w-screen-2xl` — both the list and table views of each
+  surface use that same max width, so the two views line up) and **can never be
+  wider**. Column widths are **computed in JS** from the measured width (see "Measured
+  collapse") and applied inline as the `<th>` `width` (never a CSS `min-width`) — _not_
+  derived from content. The visible columns sit at their `minWidth`; if one column is
+  marked `grow` it absorbs the leftover so they fill the table exactly, and on a
+  too-narrow container every width is scaled down so the table still never overflows.
+- **Width scaling, precisely:** with slack, only the `grow` column widens (all others
+  stay at `minWidth`); with a `grow`-less table (see "how each surface scales" below)
+  the columns stay at `minWidth` and any leftover is simply unfilled space to the right;
+  when even the retained set is too wide, _every_ width (data + select + actions) is
+  multiplied by one shared scale factor. So a column's rendered width is one of:
+  `minWidth`, `minWidth × scale` (too-narrow), or (for the `grow` column only)
+  `minWidth + leftover`.
 - **Every column must have an explicit width** (`minWidth`). Do NOT leave a column
   widthless (`auto`). Under fixed layout, the expanded detail row is a `colSpan`-all
   cell, and Chromium shrinks any _auto_-width column to its min-content whenever such
@@ -59,15 +67,36 @@ The markup is:
   buttons plus the caret and reserved by the fit calculation. The expand **caret** now
   shares this one trailing column with the row actions rather than getting its own
   (see below).
-- **There is deliberately still no `overflow-x` container** around the table — one
-  isn't needed (the table can't overflow) and would re-base the sticky header to the
-  wrapper (see "Sticky header"). So the table fits by **fixed layout + clipping**,
-  and the measured-collapse system additionally _hides_ low-priority columns into
-  "More Info" as the table narrows.
+- **No `overflow-x-auto`/`scroll` container** around the table — one isn't needed (the
+  table can't overflow) and a _scrolling_ overflow would re-base the sticky header to
+  the wrapper (see "Sticky header"). The wrapper does carry **`overflow-clip`**, which
+  clips the rounded corners (see "Anchoring") but — unlike `overflow-hidden`/`auto` —
+  does **not** establish a scroll container, so the sticky header still anchors to the
+  page. So the table fits by **fixed layout + clipping**, and the measured-collapse
+  system additionally _hides_ low-priority columns into "More Info" as the table
+  narrows.
 
 (Historical note: before `table-fixed`, the table was auto-layout with
 `whitespace-nowrap` headers and no guard, so a column-heavy table spilled off the
 right edge of the page. That was the "overflow bug" — now fixed structurally.)
+
+### Anchoring (card, rounded corners, width, no striping)
+
+- The table lives in a single **card wrapper**: `border border-slate-300 rounded-lg
+  bg-white dark:bg-gray-800 overflow-clip`. The `overflow-clip` is what makes the
+  rounded top corners actually round: the sticky header cells have their own opaque
+  background and would otherwise paint square corners over the wrapper's radius (the
+  "corners look cut off" bug). `overflow-clip` clips them to the radius **without**
+  turning the wrapper into a scroll container, so the sticky header keeps anchoring to
+  the page scroller (a plain `overflow-hidden` would fix the corners but break the
+  sticky header — do not use it here).
+- **Rows are not striped.** The `striped` prop is always `false`; rows are plain
+  white/dark with a teal hover and the `connectedExpanded` accent on the open row.
+  (Alternating grey striping was removed as visual noise.)
+- **Width anchor:** each host page centers the surface at `max-w-screen-2xl mx-auto`,
+  and both the **list** and **table** views use that same max width, so switching views
+  never changes the content width. (The incidents list view previously used the
+  narrower `max-w-screen-xl` and has been aligned to `2xl`.)
 
 ### Measured collapse + the "More Info" spillover
 
@@ -93,11 +122,14 @@ the table's real width even when a sidebar narrows it — not the viewport.
 - Hidden columns get the `hidden` (display:none) class on their `<th>`/`<td>`, so they
   drop out of layout entirely (no width, no overflow).
 - It returns an explicit px width for every visible column: columns sit at their
-  `minWidth` and the `grow` column (incidents `title`, alerts `source`) absorbs the
-  leftover so the widths sum to exactly the available width. Computing the widths
-  (rather than leaving it to the browser) is what makes the columns fill reliably in
-  both collapsed and expanded states — a full-width `colSpan` detail row otherwise
-  disrupts how fixed layout distributes slack.
+  `minWidth` and the `grow` column — alerts `incident`, incidents `asn` (the ASN chips,
+  so they get more than their 160px min) — absorbs the leftover so the widths sum to
+  exactly the available width. Computing the widths (rather than leaving it to the
+  browser) is what makes the columns fill reliably in both collapsed and expanded
+  states — a full-width `colSpan` detail row otherwise disrupts how fixed layout
+  distributes slack. A table may also have **no** `grow` column, in which case the
+  visible columns just sit at their `minWidth` and any slack is left as empty space on
+  the right (the incidents `title` is deliberately fixed and wraps rather than growing).
 - The fit is computed against the measured width minus a small `FIT_SAFETY` margin
   (6px), so borders and sub-pixel rounding can never tip the last column (the
   actions/caret group) past the container's right edge.
@@ -120,11 +152,14 @@ publishes its own sticky-chrome height into `--dt-sticky-top` (e.g. the incident
 page measures its filters bar with `useMeasuredHeight` and sets the var so the table
 header parks just beneath it).
 
-Because sticky positioning re-bases to the nearest scrolling ancestor, wrapping the
-table in an `overflow-x-auto` (or any `overflow != visible`) container would make the
+Because sticky positioning re-bases to the nearest **scrolling** ancestor, wrapping the
+table in an `overflow-x-auto`/`scroll` (or `overflow-hidden`) container would make the
 header stick to that wrapper instead of the page — breaking the pinned header. The
 tables were deliberately reworked to **flow with the page instead of an inner scroll
-box** (commit `ab168e49`), which is why no scroll wrapper exists.
+box** (commit `ab168e49`), which is why no scroll wrapper exists. The one overflow the
+wrapper _does_ set is **`overflow-clip`** (to round the corners, see "Anchoring"):
+`clip` clips without creating a scroll container, so it is the exception that leaves the
+sticky header anchored to the page.
 
 Note: the **expanded detail** `<td>` _does_ set `overflow-x-auto` — only the detail
 content can scroll horizontally, not the column grid.
@@ -168,50 +203,65 @@ still escape it.
   by `reportNetwork()` in `src/components/SocialMediaPost/reportParser.ts` from
   `report.asn` + `report.metadata.rawAPIResponse.entityName/entityScope`. A single
   report has one ASN / one scope, so the cell is a short stacked ASN / network /
-  scope; `minWidth: 200`, `collapsePriority: 4`.
+  scope; `id: "source"`, `minWidth: 325`, `collapsePriority: 5`.
 - Columns (display order, `minWidth` / `collapsePriority`): `platform` (100, always
-  on), `status` (140 / 2), `date` (200 / 4), `source`/ASN (200 / 5, the `grow` column),
-  `incident` (200 / 3), `signal` (200 / 1). Collapse order as the table narrows: signal
-  → status → Incident → date → ASN; platform always stays. (ASN is kept more persistent
-  than date — see "other fixes" — so date drops into "More Info" first.)
-- The **Signal** tag (`SignalCell`) is `whitespace-nowrap` so a label like "Active
-  Probing" stays on one line rather than wrapping; the signal column is sized wide
-  enough (200) to hold it.
+  on), `status` (140 / 2), `date` (200 / 4), `source`/ASN (325 / 5), `incident`
+  (200 / 3, the `grow` column), `signal` (200 / 1). Collapse order as the table narrows
+  (lowest priority first): signal → status → Incident → date → ASN; platform always
+  stays. (ASN is kept more persistent than date — see "other fixes" — so date drops
+  into "More Info" first.)
+- The **Signal** tag (`SignalCell`) is sized to match the row text (`text-xs`, was the
+  larger `text-sm`) with `px-1.5 py-0.5` padding, and is `whitespace-nowrap` so a label
+  like "Active Probing" stays on one line rather than wrapping. Scoped to the alerts
+  `SignalCell` — the shared `SIGNAL_BADGE_BASE` (social posts / IODA events) is
+  unchanged.
 
 ## Incidents table
 
 - `src/pages/incidents/TableView/IncidentsTable.tsx`. Row type is **`Group`**
   ("incident" is just the UI label). Columns (display order, `minWidth` /
-  `collapsePriority`): `idnum` (75, always on), `title` (300 / 8, the flex column —
-  largest width, absorbs slack), `date` (220 / 7), `status` (240 / 6), `asn` (160 / 5),
-  `dpc` (100 / 4), `ipc` (100 / 3), `alertsReport` (100 / 2), `assignedTo`
-  (140 / 1). Collapse order as the table narrows: assignedTo → alertsReport → ipc →
-  dpc → asn → status → date → title; idnum always stays. This is a **column-dense**
+  `collapsePriority`): `idnum` (75, always on), `title` (300 / 8, **fixed — no `grow`**,
+  long titles wrap), `date` (275 / 7), `asn` (160 / 6, the **`grow`** column),
+  `status` (240 / 5), `coverage` = "DPC / IPC" (125 / 4), `alertsReport` = "# Of Reports"
+  (100 / 2), `assignedTo` (140 / 1). Collapse order as the table narrows (lowest
+  priority first): assignedTo → # Of Reports → DPC / IPC → status → asn → date → title;
+  idnum always stays. Note **ASN sits to the left of status and outlives it** (asn 6 >
+  status 5), so status collapses into "More Info" before ASN. This is a **column-dense**
   table — several columns show at once when wide, which is what makes the fit
   discipline matter here.
+- The **date** cell is a labeled two-block layout: an uppercase grey **START:** block
+  (date on one line, time + timezone on the next) above an **END:** block, via
+  `useFormatters()` (`formatDate` / `formatTime` / `formatTimeZone`) so it honors the
+  user's date-order / clock / timezone prefs. **DPC / IPC** were merged into one column
+  that stacks a labeled `DPC:` and `IPC:` percentage (`coveragePercent`); the bordered
+  `CoverageBadge` pill is no longer used in the table cell (still used in the expanded
+  detail). "# Of Reports" is labeled *reports* (not *alerts*) because the count spans
+  alerts **and** social-media posts.
 - ASN data lives **directly on the Group**: `impactedAsns?: string[]` and
   `impactedGeoScopes?: string[]` (`src/api/groups/types.ts`), also editable via
   `GroupEditableData`. Per-ASN metadata (org name, coverage) is _not_ on the Group —
   it is fetched via `getAsnsByIds` (POST `/api/asn/bulk`, `src/api/asn/`).
-- **ASN / Geo Scope column** (`id: "asn"`, after `status`, `collapsePriority: 5`) — the
-  incidents-table counterpart to the Reports ASN column. Renders `AsnChips` over
-  `Group.impactedAsns` plus a compact muted line of `Group.impactedGeoScopes` joined
-  by `·`. Both fields live directly on the incident, so it works on every row with no
-  fetch. **Left as-is pending a separate rework of ASN handling** — its `minWidth` /
-  `collapsePriority` are provisional.
-- `AsnChips` (`.../TableView/AsnChips.tsx`) renders a wrapped, width-bounded row of
-  teal ASN chips with a `+N` overflow (`—` when empty) — purpose-built for the
-  multi-ASN incident case (an incident spans many ASNs, unlike a single report).
+- **ASN(s) column** (`id: "asn"`, header **"ASN(s)"**, **before** `status`,
+  `collapsePriority: 6`, `grow: true`) — the incidents-table counterpart to the Reports
+  ASN column. Renders **only** `AsnChips` over `Group.impactedAsns` (the geo-scope line
+  was dropped — this column is now ASNs only). It's the table's `grow` column, so it
+  absorbs leftover width and the chips get more room than the 160px minimum. `impactedAsns`
+  lives directly on the incident, so it works on every row with no fetch.
+- `AsnChips` (`.../TableView/AsnChips.tsx`) renders a **2-column grid** of teal ASN
+  chips (`grid-cols-2`, `w-fit`) showing up to **9** (`max={9}`) with a `+N` overflow
+  chip for the rest (`—` when empty) — purpose-built for the multi-ASN incident case (an
+  incident spans many ASNs, unlike a single report).
 - **Expanded row** shows incident metadata + `ImpactedAsnTable` (a sortable table
-  that fetches ASN org/coverage), and below them the incident's **alerts list** via
+  that fetches ASN org/coverage), and below them the incident's **reports list** via
   the local `IncidentAlertsList` component. `IncidentAlertsList` calls
   `getGroupReports({ groupId })` and renders each report with `GroupReportListItem` →
   `SocialMediaListItem` — the same rendering (and same `["groups","reports",
 {groupId}]` query key, so the same cache) as the incident **detail page**
   (`src/pages/incidents/Incident/index.tsx`). Because `expandedContent` only mounts
   when a row is expanded, the fetch fires **lazily per incident** on expand (no
-  fan-out). It's read-only here (select-mode props stubbed); report management stays
-  on the detail page.
+  fan-out). It's read-only here — rows pass **`hideCheckbox`** (a new
+  `MultiSelectListItem`/`GroupReportListItem` prop) so no select checkbox renders and
+  the reserved left gutter is dropped; report management stays on the detail page.
 - Incidents page shell: `src/pages/incidents/index.tsx` — list/table toggle
   (`?view=`), `getGroups`, `groups:update` socket refetch, compare mode.
 
@@ -221,16 +271,24 @@ still escape it.
       measures the wrapper and `computeFit()` drops columns into "More Info" instead of
       ever scrolling horizontally (see "Measured collapse").
 - [x] Each column has a `minWidth` (applied as its width basis).
-- [x] Column display order + collapse order + min-widths per the spec below.
+- [x] Column display order + collapse order + min-widths (the current wiring, above,
+      supersedes the per-column numbers in the original spec below).
 - [x] Actions + caret merged into one pinned trailing column.
+- [x] Rounded table corners no longer clipped by the sticky header (wrapper
+      `overflow-clip`); alternating row striping removed.
+- [x] Incidents list and table views share `max-w-screen-2xl` (same width).
 
-Two deviations from the literal spec, agreed with the maintainer:
+Deviations from the literal spec, agreed with the maintainer:
 
 - **"Other button group" stays pinned** (always visible), so it does not appear in the
   collapse order — its listed collapse position is treated as "never collapses".
-- **Incidents ASN / Geo Scope column** is kept as-is (provisional `minWidth` /
-  `collapsePriority`) pending a separate rework; the spec's incidents column list omits
-  it.
+- **Incidents ASN column** was reworked (no longer provisional): renamed to "ASN(s)",
+  moved to the left of status and made more persistent than it (asn 6 > status 5), made
+  the `grow` column, and reduced to ASNs-only (the geo-scope line was removed). The
+  spec's incidents column list still omits it.
+- **Date / DPC-IPC / count** differ from the spec's plain columns: date is a labeled
+  START/END block, DPC and IPC are merged into one "DPC / IPC" column, and the count
+  column is "# Of Reports" (spec said "number of alerts").
 
 (Implementation note: the first cut used CSS container queries; it was replaced with
 the measured approach because pure-CSS thresholds could not budget the dynamic select
@@ -321,4 +379,4 @@ The original spec is preserved below for reference.
 
 ## other fixes
 
-- the edges of the table on both alerts and incidents are cut off (should be round? not certain) fix that
+- [x] the edges of the table on both alerts and incidents are cut off (should be round? not certain) fix that — fixed: the wrapper card is `rounded-lg` with `overflow-clip`, which clips the sticky header cells' square backgrounds to the radius without breaking the sticky header (see "Anchoring").
