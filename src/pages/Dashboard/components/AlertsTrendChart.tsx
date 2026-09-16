@@ -41,6 +41,9 @@ const viewModes = [
 ] as const;
 type ViewMode = (typeof viewModes)[number]["key"];
 
+const legendItemClass =
+  "flex items-center gap-2 rounded-full border px-2.5 py-1";
+
 const chartFrame = {
   left: 30,
   top: 8,
@@ -54,6 +57,9 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("combined");
+  // Sources toggled off in the "by source" view. Tracking the hidden ones (rather than
+  // the shown ones) keeps a source that first appears after a range change visible.
+  const [hiddenSources, setHiddenSources] = useState<string[]>([]);
 
   useEffect(() => {
     setPinnedPointIndex(null);
@@ -72,7 +78,28 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
     ? overview.timeSeries
     : fallbackTimeSeries;
 
-  const series = buildSeries(timeSeries, viewMode);
+  const allSeries = buildSeries(timeSeries, viewMode);
+  const isSourceView = allSeries.some((line) => line.key !== "total");
+  const shownSeries = isSourceView
+    ? allSeries.filter((line) => !hiddenSources.includes(line.key))
+    : allSeries;
+  // If every source present in this range was hidden earlier, show them all again
+  // rather than an empty chart.
+  const series = shownSeries.length ? shownSeries : allSeries;
+  const isSourceFiltered = isSourceView && series.length < allSeries.length;
+
+  const toggleSource = (source: string) => {
+    const isHidden = series.every((line) => line.key !== source);
+    // Keep at least one line on the chart.
+    if (!isHidden && series.length === 1) return;
+    setPinnedPointIndex(null);
+    setHiddenSources((current) =>
+      isHidden
+        ? current.filter((key) => key !== source)
+        : [...current.filter((key) => allSeries.some((line) => line.key === key)), source]
+    );
+  };
+
   const chartMax = Math.max(
     ...series.flatMap((line) => line.values),
     1
@@ -273,9 +300,14 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
                 series,
                 activePointIndex as number
               )}
-              hasReports={activeItem.totalReports > 0}
+              hasReports={
+                sumSeriesAt(series, activePointIndex as number) > 0
+              }
               isPinned={isActivePointPinned}
-              reportsTo={buildBucketReportsTo(activeItem)}
+              reportsTo={buildBucketReportsTo(
+                activeItem,
+                isSourceFiltered ? series.map((line) => line.key) : undefined
+              )}
               onClose={() => setPinnedPointIndex(null)}
             />
           )}
@@ -307,15 +339,54 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
       </div>
 
       <div className='mt-2 flex flex-wrap gap-3 text-xs font-medium text-slate-800 dark:text-gray-200'>
-        {series.map((line) => (
-          <div key={line.key} className='flex items-center gap-2'>
-            <span
-              className='h-3 w-3 rounded-full'
-              style={{ backgroundColor: line.color }}
-            />
-            <span>{overview || viewMode === "bySource" ? line.label : " "}</span>
-          </div>
-        ))}
+        {isSourceView
+          ? allSeries.map((line) => {
+              const isShown = series.some((shown) => shown.key === line.key);
+              const isLastShown = isShown && series.length === 1;
+              return (
+                <button
+                  key={line.key}
+                  type='button'
+                  aria-pressed={isShown}
+                  disabled={isLastShown}
+                  title={
+                    isLastShown
+                      ? "At least one source stays selected"
+                      : `${isShown ? "Hide" : "Show"} ${line.label}`
+                  }
+                  onClick={() => toggleSource(line.key)}
+                  className={[
+                    `${legendItemClass} transition disabled:cursor-default`,
+                    isShown
+                      ? "border-slate-300 dark:border-gray-500"
+                      : "border-dashed border-slate-200 text-slate-400 dark:border-gray-700 dark:text-gray-500",
+                  ].join(" ")}
+                >
+                  <span
+                    className='h-3 w-3 rounded-full border-2'
+                    style={{
+                      borderColor: line.color,
+                      backgroundColor: isShown ? line.color : "transparent",
+                    }}
+                  />
+                  <span>{line.label}</span>
+                </button>
+              );
+            })
+          : series.map((line) => (
+              // Same box as the source chips (invisible border), so the card keeps its
+              // height when switching views.
+              <div
+                key={line.key}
+                className={`${legendItemClass} border-transparent`}
+              >
+                <span
+                  className='h-3 w-3 rounded-full'
+                  style={{ backgroundColor: line.color }}
+                />
+                <span>{overview ? line.label : " "}</span>
+              </div>
+            ))}
         {/* <div className='inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 dark:border-gray-600 dark:text-gray-200'>
           <span>{bucketLabels[bucket]}</span>
           <FontAwesomeIcon icon={faArrowTrendUp} className='text-slate-500' />
@@ -365,34 +436,46 @@ function buildSeries(
   }));
 }
 
+function sumSeriesAt(series: ChartSeries[], index: number) {
+  return series.reduce((total, line) => total + (line.values[index] || 0), 0);
+}
+
+// Counts only the lines on the chart, so with sources toggled off the total matches
+// the filtered "View Reports" link.
 function buildTooltipLines(
   item: TimeSeriesBucket,
   series: ChartSeries[],
   index: number
 ) {
   const window = formatActivityWindow(item.bucketStart, item.bucketEnd);
+  const total = sumSeriesAt(series, index);
+  const reportsLabel = `report${total === 1 ? "" : "s"}`;
+
   if (series.length === 1) {
+    const [line] = series;
     return [
-      `${item.totalReports} report${item.totalReports === 1 ? "" : "s"}`,
+      line.key === "total"
+        ? `${total} ${reportsLabel}`
+        : `${total} ${line.label} ${reportsLabel}`,
       window,
     ];
   }
   return [
-    `${item.totalReports} report${item.totalReports === 1 ? "" : "s"}`,
+    `${total} ${reportsLabel}`,
     ...series.map((line) => `${line.label}: ${line.values[index]}`),
     window,
   ];
 }
 
 // The alerts list filters outage reports on `outageStartedAt`, which is the same
-// field the analytics buckets are built from — so this window reproduces exactly
-// the reports counted by one point on the trend chart.
-function buildBucketReportsTo(item: AnalyticsOverview["timeSeries"][number]) {
+// field the analytics buckets are built from.
+function buildBucketReportsTo(item: TimeSeriesBucket, media?: string[]) {
   const params = new URLSearchParams({
     outageAfter: new Date(item.bucketStart).toISOString(),
     outageBefore: new Date(item.bucketEnd).toISOString(),
     alerts: "true",
   });
+  if (media?.length) params.set("media", media.join(","));
   return `/alerts?${params.toString()}`;
 }
 

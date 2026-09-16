@@ -58,7 +58,7 @@ ReportQuery.prototype.normalize = function () {
 ReportQuery.prototype.toMongooseFilter = function () {
   var filter = {
     _sources: this.sourceId,
-    _media: this.media,
+    _media: toMediaFilter(this.media),
     _group: this.groupId,
     read: this.read,
     commentTo: this.commentTo,
@@ -177,6 +177,17 @@ ReportQuery.prototype.toMongooseFilter = function () {
   }
   return filter;
 };
+
+// `media` arrives as one platform, a comma-separated list from the URL, or an array (e.g.
+// the dashboard's "by source" link). Parsed here rather than in the controller so socket
+// queries, which construct ReportQuery directly, filter the same way.
+function toMediaFilter(media) {
+  const list = (Array.isArray(media) ? media : String(media || '').split(','))
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+  if (list.length === 0) return undefined;
+  return list.length === 1 ? list[0] : { $in: list };
+}
 
 ReportQuery.prototype._parseStatus = function (status) {
   switch (status) {
