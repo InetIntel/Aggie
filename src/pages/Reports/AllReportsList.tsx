@@ -65,7 +65,13 @@ const AllReportsList = ({ alerts }: IProps) => {
   const entityLevelParam = getParam("entityLevel");
   const dataSourcesParam = getParam("dataSources");
   const hideDuplicateASNsParam = getParam("hideDuplicateASNs");
-  const shouldClearMedia = !!currentMedia && !platformOptions.includes(currentMedia);
+
+  const shouldClearMedia =
+    !!currentMedia &&
+    currentMedia
+      .split(",")
+      .filter(Boolean)
+      .some((media) => !platformOptions.includes(media));
   const shouldResetSocialFilters =
     !alerts &&
     (shouldClearMedia ||

@@ -10,14 +10,14 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import type { NotableActivity } from "../../../api/analytics/types";
-import { DATA_SOURCE_OPTIONS } from "../../../api/common";
+import { ALERT_MEDIA_OPTIONS, DATA_SOURCE_OPTIONS } from "../../../api/common";
 import { formatActivityWindow } from "../dashboardHelpers";
 import NotableActivityTitle from "./NotableActivityTitle";
 
-const notableActivitySourceOptions = ["ioda", "cloudflare"];
 const sourceLabels: Record<string, string> = {
   ioda: "IODA",
   cloudflare: "Cloudflare",
+  ooni: "OONI",
 };
 // Every notable activity card action shares this box so the row of incident
 // buttons stays exactly as tall as the full-width actions above and below it.
@@ -102,7 +102,7 @@ function NotableActivityCard({
         <NotableActivityIndicatorRow
           title='Sources'
           values={activity.sources}
-          options={notableActivitySourceOptions}
+          options={[...ALERT_MEDIA_OPTIONS]}
           renderLabel={(source) => sourceLabels[source] || source}
         />
       </div>

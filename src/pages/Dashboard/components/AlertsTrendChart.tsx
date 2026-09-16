@@ -20,7 +20,30 @@ const fallbackTimeSeries = [
   highConfidenceActivityCount: 0,
 }));
 
-const trendColor = "#F4C44E";
+const trendColor = "var(--trend-total)";
+
+const sourceSeriesStyle =
+  "[--trend-total:#16a34a] dark:[--trend-total:#22a155] " +
+  "[--trend-ioda:#e3992b] dark:[--trend-ioda:#bd8a26] " +
+  "[--trend-cloudflare:#d2451e] dark:[--trend-cloudflare:#d4362f] " +
+  "[--trend-ooni:#2f7fc1] dark:[--trend-ooni:#438bc9] " +
+  "[--trend-other:#6b7280] dark:[--trend-other:#9ca3af]";
+
+const sourceSeriesMeta: Record<string, { label: string; color: string }> = {
+  ioda: { label: "IODA", color: "var(--trend-ioda)" },
+  cloudflare: { label: "Cloudflare", color: "var(--trend-cloudflare)" },
+  ooni: { label: "OONI", color: "var(--trend-ooni)" },
+};
+const otherSourceColor = "var(--trend-other)";
+
+const viewModes = [
+  { key: "combined", label: "Combined" },
+  { key: "bySource", label: "By source" },
+] as const;
+type ViewMode = (typeof viewModes)[number]["key"];
+
+const legendItemClass =
+  "flex items-center gap-2 rounded-full border px-2.5 py-1";
 
 const chartFrame = {
   left: 30,
@@ -34,6 +57,10 @@ const chartTooltipFontSize = 14;
 const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("combined");
+  // Sources toggled off in the "by source" view. Tracking the hidden ones (rather than
+  // the shown ones) keeps a source that first appears after a range change visible.
+  const [hiddenSources, setHiddenSources] = useState<string[]>([]);
 
   useEffect(() => {
     setPinnedPointIndex(null);
@@ -52,29 +79,65 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
     ? overview.timeSeries
     : fallbackTimeSeries;
 
-  const chartMax = Math.max(...timeSeries.map((item) => item.totalReports), 1);
+  const allSeries = buildSeries(timeSeries, viewMode);
+  const isSourceView = allSeries.some((line) => line.key !== "total");
+  const shownSeries = isSourceView
+    ? allSeries.filter((line) => !hiddenSources.includes(line.key))
+    : allSeries;
+  // If every source present in this range was hidden earlier, show them all again
+  // rather than an empty chart.
+  const series = shownSeries.length ? shownSeries : allSeries;
+  const isSourceFiltered = isSourceView && series.length < allSeries.length;
+
+  const toggleSource = (source: string) => {
+    const isHidden = series.every((line) => line.key !== source);
+    // Keep at least one line on the chart.
+    if (!isHidden && series.length === 1) return;
+    setPinnedPointIndex(null);
+    setHiddenSources((current) =>
+      isHidden
+        ? current.filter((key) => key !== source)
+        : [...current.filter((key) => allSeries.some((line) => line.key === key)), source]
+    );
+  };
+
+  const chartMax = Math.max(
+    ...series.flatMap((line) => line.values),
+    1
+  );
   const yAxisTicks = getNiceYAxisTicks(chartMax);
   const yAxisMax = yAxisTicks[yAxisTicks.length - 1] || 1;
-  const chartPointCoords = timeSeries.map((item, index) => ({
-    item,
-    x: getChartX(index, timeSeries.length),
-    y: getChartY(item.totalReports, yAxisMax),
-  }));
-  const chartPoints = chartPointCoords.map(({ x, y }) => `${x},${y}`).join(" ");
   const xAxisLabelIndexes = getXAxisLabelIndexes(timeSeries.length);
+  const seriesCoords = series.map((line) => ({
+    ...line,
+    coords: line.values.map((value, index) => ({
+      x: getChartX(index, timeSeries.length),
+      y: getChartY(value, yAxisMax),
+    })),
+  }));
 
   const activePointIndex =
-    pinnedPointIndex !== null && pinnedPointIndex < chartPointCoords.length
+    pinnedPointIndex !== null && pinnedPointIndex < timeSeries.length
       ? pinnedPointIndex
       : hoveredPointIndex;
-  const activePoint =
-    activePointIndex === null ? null : chartPointCoords[activePointIndex] || null;
+  const activeItem =
+    activePointIndex === null ? null : timeSeries[activePointIndex] || null;
+  const activePoint = activeItem
+    ? {
+        x: getChartX(activePointIndex as number, timeSeries.length),
+        y: Math.min(
+          ...seriesCoords.map((line) => line.coords[activePointIndex as number].y)
+        ),
+      }
+    : null;
   const isActivePointPinned =
     activePointIndex !== null && activePointIndex === pinnedPointIndex;
 
   return (
-    <div className='mt-4 rounded-[1.5rem] border border-slate-200 px-2 py-4 dark:border-gray-700 sm:px-3'>
-      <div className='mb-3 flex items-center justify-between gap-3'>
+    <div
+      className={`mt-4 rounded-[1.5rem] border border-slate-200 px-2 py-4 dark:border-gray-700 sm:px-3 ${sourceSeriesStyle}`}
+    >
+      <div className='mb-3 flex items-start justify-between gap-3'>
         <div>
           <h3 className='text-2xl font-medium text-sky-700'>Alert</h3>
           <p className='text-xs text-slate-500 dark:text-gray-400'>
@@ -83,6 +146,28 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
           {/* <p className='text-sm text-slate-500 dark:text-gray-400'>
             {overview ? "Reports per time bucket" : "Static dashboard placeholder"}
           </p> */}
+        </div>
+        <div
+          className='inline-flex shrink-0 rounded-full border border-slate-200 p-0.5 dark:border-gray-600'
+          role='group'
+          aria-label='Trend line grouping'
+        >
+          {viewModes.map((mode) => (
+            <button
+              key={mode.key}
+              type='button'
+              aria-pressed={viewMode === mode.key}
+              onClick={() => setViewMode(mode.key)}
+              className={[
+                "rounded-full px-3 py-1 text-xs font-medium transition",
+                viewMode === mode.key
+                  ? "bg-slate-700 text-white dark:bg-gray-600"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-gray-300 dark:hover:bg-gray-700",
+              ].join(" ")}
+            >
+              {mode.label}
+            </button>
+          ))}
         </div>
         {/* <div className='rounded-full bg-slate-50 p-2 text-slate-500 shadow-sm dark:bg-gray-700'>
           <FontAwesomeIcon icon={faBell} />
@@ -140,12 +225,15 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
           ))}
 
           <g>
-            <polyline
-              fill='none'
-              stroke={trendColor}
-              strokeWidth='2.5'
-              points={chartPoints}
-            />
+            {seriesCoords.map((line) => (
+              <polyline
+                key={line.key}
+                fill='none'
+                stroke={line.color}
+                strokeWidth='2.5'
+                points={line.coords.map(({ x, y }) => `${x},${y}`).join(" ")}
+              />
+            ))}
             {activePoint && (
               <line
                 x1={activePoint.x}
@@ -156,54 +244,71 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
                 strokeDasharray='3 3'
               />
             )}
-            {chartPointCoords.map(({ item, x, y }, index) => (
-              <circle
-                key={item.bucketStart || index}
-                cx={x}
-                cy={y}
-                r={activePointIndex === index ? 6 : 4}
-                fill={trendColor}
-                stroke={activePointIndex === index ? "#FFFFFF" : "none"}
-                strokeWidth={activePointIndex === index ? 2 : 0}
-              />
-            ))}
-            {chartPointCoords.map(({ item, x, y }, index) => (
-              <circle
-                key={`hit-${item.bucketStart || index}`}
-                cx={x}
-                cy={y}
-                r={Math.max(
-                  8,
-                  Math.min(16, chartFrame.width / Math.max(timeSeries.length - 1, 1))
-                )}
-                fill='transparent'
-                className='cursor-pointer'
-                onMouseEnter={() => setHoveredPointIndex(index)}
-                onMouseLeave={() =>
-                  setHoveredPointIndex((current) =>
-                    current === index ? null : current
-                  )
-                }
-                onClick={() =>
-                  setPinnedPointIndex((current) =>
-                    current === index ? null : index
-                  )
-                }
-              >
-                <title>
-                  {`${formatActivityWindow(item.bucketStart, item.bucketEnd)}: ${
-                    item.totalReports
-                  } report${item.totalReports === 1 ? "" : "s"}`}
-                </title>
-              </circle>
-            ))}
+            {seriesCoords.map((line) =>
+              line.coords.map(({ x, y }, index) => (
+                <circle
+                  key={`${line.key}-${timeSeries[index].bucketStart || index}`}
+                  cx={x}
+                  cy={y}
+                  r={activePointIndex === index ? 6 : 4}
+                  fill={line.color}
+                  stroke={activePointIndex === index ? "#FFFFFF" : "none"}
+                  strokeWidth={activePointIndex === index ? 2 : 0}
+                />
+              ))
+            )}
+            {/* One hit band per bucket, so every line in that bucket is reachable. */}
+            {timeSeries.map((item, index) => {
+              const x = getChartX(index, timeSeries.length);
+              const bandWidth = Math.max(
+                16,
+                chartFrame.width / Math.max(timeSeries.length - 1, 1)
+              );
+              return (
+                <rect
+                  key={`hit-${item.bucketStart || index}`}
+                  x={Math.max(x - bandWidth / 2, chartFrame.left)}
+                  y={chartFrame.top}
+                  width={bandWidth}
+                  height={chartFrame.height}
+                  fill='transparent'
+                  className='cursor-pointer'
+                  onMouseEnter={() => setHoveredPointIndex(index)}
+                  onMouseLeave={() =>
+                    setHoveredPointIndex((current) =>
+                      current === index ? null : current
+                    )
+                  }
+                  onClick={() =>
+                    setPinnedPointIndex((current) =>
+                      current === index ? null : index
+                    )
+                  }
+                >
+                  <title>
+                    {buildTooltipLines(item, series, index).join(" — ")}
+                  </title>
+                </rect>
+              );
+            })}
           </g>
 
-          {activePoint && (
+          {activePoint && activeItem && (
             <ChartTooltip
               point={activePoint}
+              lines={buildTooltipLines(
+                activeItem,
+                series,
+                activePointIndex as number
+              )}
+              hasReports={
+                sumSeriesAt(series, activePointIndex as number) > 0
+              }
               isPinned={isActivePointPinned}
-              reportsTo={buildBucketReportsTo(activePoint.item)}
+              reportsTo={buildBucketReportsTo(
+                activeItem,
+                isSourceFiltered ? series.map((line) => line.key) : undefined
+              )}
               onClose={() => setPinnedPointIndex(null)}
             />
           )}
@@ -235,13 +340,54 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
       </div>
 
       <div className='mt-2 flex flex-wrap gap-3 text-xs font-medium text-slate-800 dark:text-gray-200'>
-        <div className='flex items-center gap-2'>
-          <span
-            className='h-3 w-3 rounded-full'
-            style={{ backgroundColor: trendColor }}
-          />
-          <span>{overview ? "Total reports" : " "}</span>
-        </div>
+        {isSourceView
+          ? allSeries.map((line) => {
+              const isShown = series.some((shown) => shown.key === line.key);
+              const isLastShown = isShown && series.length === 1;
+              return (
+                <button
+                  key={line.key}
+                  type='button'
+                  aria-pressed={isShown}
+                  disabled={isLastShown}
+                  title={
+                    isLastShown
+                      ? "At least one source stays selected"
+                      : `${isShown ? "Hide" : "Show"} ${line.label}`
+                  }
+                  onClick={() => toggleSource(line.key)}
+                  className={[
+                    `${legendItemClass} transition disabled:cursor-default`,
+                    isShown
+                      ? "border-slate-300 dark:border-gray-500"
+                      : "border-dashed border-slate-200 text-slate-400 dark:border-gray-700 dark:text-gray-500",
+                  ].join(" ")}
+                >
+                  <span
+                    className='h-3 w-3 rounded-full border-2'
+                    style={{
+                      borderColor: line.color,
+                      backgroundColor: isShown ? line.color : "transparent",
+                    }}
+                  />
+                  <span>{line.label}</span>
+                </button>
+              );
+            })
+          : series.map((line) => (
+              // Same box as the source chips (invisible border), so the card keeps its
+              // height when switching views.
+              <div
+                key={line.key}
+                className={`${legendItemClass} border-transparent`}
+              >
+                <span
+                  className='h-3 w-3 rounded-full'
+                  style={{ backgroundColor: line.color }}
+                />
+                <span>{overview ? line.label : " "}</span>
+              </div>
+            ))}
         {/* <div className='inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 dark:border-gray-600 dark:text-gray-200'>
           <span>{bucketLabels[bucket]}</span>
           <FontAwesomeIcon icon={faArrowTrendUp} className='text-slate-500' />
@@ -251,38 +397,109 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
   );
 };
 
+type TimeSeriesBucket = AnalyticsOverview["timeSeries"][number];
+type ChartSeries = { key: string; label: string; color: string; values: number[] };
+
+function buildSeries(
+  timeSeries: TimeSeriesBucket[],
+  viewMode: ViewMode
+): ChartSeries[] {
+  if (viewMode === "combined") {
+    return [
+      {
+        key: "total",
+        label: "Total reports",
+        color: trendColor,
+        values: timeSeries.map((item) => item.totalReports),
+      },
+    ];
+  }
+
+  const presentSources = new Set<string>();
+  timeSeries.forEach((item) => {
+    Object.entries(item.reportsBySource || {}).forEach(([source, count]) => {
+      if (count > 0) presentSources.add(source);
+    });
+  });
+
+  const orderedSources = [
+    ...Object.keys(sourceSeriesMeta).filter((source) => presentSources.has(source)),
+    ...[...presentSources].filter((source) => !sourceSeriesMeta[source]).sort(),
+  ];
+
+  if (orderedSources.length === 0) return buildSeries(timeSeries, "combined");
+
+  return orderedSources.map((source) => ({
+    key: source,
+    label: sourceSeriesMeta[source]?.label || source,
+    color: sourceSeriesMeta[source]?.color || otherSourceColor,
+    values: timeSeries.map((item) => (item.reportsBySource || {})[source] || 0),
+  }));
+}
+
+function sumSeriesAt(series: ChartSeries[], index: number) {
+  return series.reduce((total, line) => total + (line.values[index] || 0), 0);
+}
+
+// Counts only the lines on the chart, so with sources toggled off the total matches
+// the filtered "View Reports" link.
+function buildTooltipLines(
+  item: TimeSeriesBucket,
+  series: ChartSeries[],
+  index: number
+) {
+  const window = formatActivityWindow(item.bucketStart, item.bucketEnd);
+  const total = sumSeriesAt(series, index);
+  const reportsLabel = `report${total === 1 ? "" : "s"}`;
+
+  if (series.length === 1) {
+    const [line] = series;
+    return [
+      line.key === "total"
+        ? `${total} ${reportsLabel}`
+        : `${total} ${line.label} ${reportsLabel}`,
+      window,
+    ];
+  }
+  return [
+    `${total} ${reportsLabel}`,
+    ...series.map((line) => `${line.label}: ${line.values[index]}`),
+    window,
+  ];
+}
+
 // The alerts list filters outage reports on `outageStartedAt`, which is the same
-// field the analytics buckets are built from — so this window reproduces exactly
-// the reports counted by one point on the trend chart.
-function buildBucketReportsTo(item: AnalyticsOverview["timeSeries"][number]) {
+// field the analytics buckets are built from.
+function buildBucketReportsTo(item: TimeSeriesBucket, media?: string[]) {
   const params = new URLSearchParams({
     outageAfter: new Date(item.bucketStart).toISOString(),
     outageBefore: new Date(item.bucketEnd).toISOString(),
     alerts: "true",
   });
+  if (media?.length) params.set("media", media.join(","));
   return `/alerts?${params.toString()}`;
 }
 
 function ChartTooltip({
   point,
+  lines,
+  hasReports,
   isPinned,
   reportsTo,
   onClose,
 }: {
-  point: { item: AnalyticsOverview["timeSeries"][number]; x: number; y: number };
+  point: { x: number; y: number };
+  lines: string[];
+  hasReports: boolean;
   isPinned: boolean;
   reportsTo: string;
   onClose: () => void;
 }) {
   // Router-resolved so the link honours the PUBLIC_URL basename, like <Link> does.
   const reportsHref = useHref(reportsTo);
-  const { item, x, y } = point;
-  const lines = [
-    `${item.totalReports} report${item.totalReports === 1 ? "" : "s"}`,
-    formatActivityWindow(item.bucketStart, item.bucketEnd),
-  ];
+  const { x, y } = point;
   const actionLabel = "View Reports";
-  const showAction = isPinned && item.totalReports > 0;
+  const showAction = isPinned && hasReports;
 
   // All geometry is a multiple of the base font size so the box, the padding and
   // the action button grow together when `chartTooltipFontSize` changes.
