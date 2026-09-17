@@ -13,7 +13,7 @@ import { getGroup } from "../../../api/groups";
 import {
   signalToNameColor,
   reportNetwork,
-  SIGNAL_BADGE_CLASS,
+  SIGNAL_BADGE_BASE,
 } from "../../../components/SocialMediaPost/reportParser";
 
 import type { DataTableColumn } from "../../../components/DataTable/types";
@@ -87,7 +87,9 @@ const SignalCell = ({ report }: { report: Report }) => {
   const [signal, bgColor] = reportSignal(report);
   if (!signal) return dash;
   return (
-    <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
+    <AggieToken
+      className={`${bgColor} ${SIGNAL_BADGE_BASE} text-xs px-1.5 py-0.5 whitespace-nowrap`}
+    >
       {signal}
     </AggieToken>
   );
@@ -125,11 +127,15 @@ const IncidentCell = ({ report }: { report: Report }) => {
   );
 };
 
+// Display order is fixed here; collapse order is encoded independently by
+// `collapsePriority` (higher = more persistent). As the table narrows, columns
+// collapse in this order: signal → status → Incident → date → ASN; platform has
+// no priority so it always stays. Widths are the per-column minimums.
 export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "platform",
     header: "Platform",
-    thClassName: "w-16",
+    minWidth: 100,
     tdClassName: "whitespace-nowrap",
     spilloverLabel: "Platform",
     cell: (report) => <PlatformCell report={report} />,
@@ -137,39 +143,39 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "status",
     header: "Status",
-    thClassName: "w-24",
+    minWidth: 140,
+    collapsePriority: 2,
     cell: (report) => <StatusCell report={report} />,
   },
   {
     id: "date",
     header: "Date",
-    bucket: "md",
-    thClassName: "w-24",
+    minWidth: 200,
+    collapsePriority: 4,
     tdClassName: "whitespace-nowrap text-xs",
     cell: (report) => <DateTime dateString={report.authoredAt} />,
   },
   {
     id: "source",
     header: "ASN / Network / Geo Scope",
-    bucket: "lg",
-    thClassName: "w-36",
-    tdClassName: "max-w-[9rem]",
+    minWidth: 325,
+    collapsePriority: 5,
     cell: (report) => <NetworkCell report={report} />,
   },
   {
     id: "incident",
     header: "Incident",
-    bucket: "lg",
-    thClassName: "w-32",
-    tdClassName: "max-w-[11rem]",
+    minWidth: 200,
+    collapsePriority: 3,
+    grow: true,
     cell: (report) => <IncidentCell report={report} />,
   },
   {
     id: "signal",
     header: "Signal",
-    bucket: "xl",
+    minWidth: 200,
+    collapsePriority: 1,
     noSpillover: true, // signal already shown by the IODA badge in the expanded detail
-    thClassName: "w-32",
     cell: (report) => <SignalCell report={report} />,
   },
 ];

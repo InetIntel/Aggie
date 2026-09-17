@@ -260,7 +260,7 @@ exports.session = async (req, res, next) => {
       mfa,
       mfa_enrolled: enrolled,
       mfa_enforced: enforced,
-      preferences: user.preferences || { timeFormat: '24h', dateFormat: 'DMY', timeZone: 'local' },
+      preferences: user.preferences || { timeFormat: '24h', dateFormat: 'DMY', timeZone: 'utc' },
     }
     return res.status(200).json(userStripped); 
   } catch (err) {

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 
 import { getSources } from "../../../api/sources";
-import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS, OUTAGE_STATUS_OPTIONS } from "../../../api/common";
+import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS, OUTAGE_STATUS_OPTIONS, providerLabel } from "../../../api/common";
 import type { ReportQueryState } from "../../../api/reports/types";
 
 import FilterComboBox from "../../../components/filters/FilterComboBox";
@@ -130,27 +130,39 @@ const ReportFilters = ({
 
     const formattedValues: ReportQueryState = { ...values };
 
+    // Only normalize entity-level / dedup when the caller is actually changing
+    // one of them. Running this on every filter change (a date/platform/status
+    // tweak, or just opening and closing a dropdown) would materialize the
+    // entity-level defaults into the URL, making the bar think a filter is
+    // active and wrongly surface the "Reset filters" button.
+    const touchingEntityLevel =
+      "entityLevel" in values || "hideDuplicateASNs" in values;
+
     if (showEntityLevelFilter) {
-      const requestedEntityLevel =
-        values.entityLevel && Array.isArray(values.entityLevel)
-          ? values.entityLevel
-          : getParam("entityLevel")
-            ? getParam("entityLevel").split(",").filter(Boolean)
-            : entityLevelDefaults;
+      if (touchingEntityLevel) {
+        const requestedEntityLevel =
+          values.entityLevel && Array.isArray(values.entityLevel)
+            ? values.entityLevel
+            : getParam("entityLevel")
+              ? getParam("entityLevel").split(",").filter(Boolean)
+              : entityLevelDefaults;
 
-      const autoHideDuplicate =
-        autoEnableDedup &&
-        requestedEntityLevel.includes("AS") &&
-        requestedEntityLevel.includes("AS - Country");
+        const autoHideDuplicate =
+          autoEnableDedup &&
+          requestedEntityLevel.includes("AS") &&
+          requestedEntityLevel.includes("AS - Country");
 
-      let dedupValue = values.hideDuplicateASNs;
-      if (!dedupValue) {
-        dedupValue = autoHideDuplicate ? "true" : "false";
+        let dedupValue = values.hideDuplicateASNs;
+        if (!dedupValue) {
+          dedupValue = autoHideDuplicate ? "true" : "false";
+        }
+
+        formattedValues.entityLevel =
+          requestedEntityLevel.length > 0 ? requestedEntityLevel : undefined;
+        formattedValues.hideDuplicateASNs = dedupValue;
       }
-
-      formattedValues.entityLevel =
-        requestedEntityLevel.length > 0 ? requestedEntityLevel : undefined;
-      formattedValues.hideDuplicateASNs = dedupValue;
+      // else: leave entityLevel / hideDuplicateASNs as they are in the URL —
+      // an unrelated filter change must not write their defaults.
     } else {
       formattedValues.entityLevel = undefined;
       formattedValues.hideDuplicateASNs = undefined;
@@ -173,6 +185,14 @@ const ReportFilters = ({
   //   console.log('debugging-empty dataSourceParam');
   // }
   const groupsList = useCallback(groupsRemapComboBox, [groups]);
+
+  // The `view` param is the list/table UI toggle, not a filter — exclude it so
+  // switching to the table view doesn't make the bar think a query is active and
+  // surface the "Reset filters" button. Mirrors the Incidents guard
+  // (src/pages/incidents/index.tsx).
+  const hasActiveFilter = Array.from(searchParams.keys()).some(
+    (key) => key !== "view"
+  );
 
   return (
     <>
@@ -208,7 +228,7 @@ const ReportFilters = ({
                 >
                   Refresh
                 </AggieButton>
-                {!!searchParams.size && (
+                {hasActiveFilter && (
                   <AggieButton
                     type='button'
                     variant='secondary'
@@ -274,6 +294,7 @@ const ReportFilters = ({
             }
             onChange={(e) => setParams({ media: e as string[] })}
             isMultiSelect={true}
+            getOptionLabel={providerLabel}
           />
           {showOngoingFilter && (
             <FilterListbox

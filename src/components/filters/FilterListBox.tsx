@@ -10,6 +10,7 @@ interface IProps<T> {
   value: T | T[];
   onChange: (item: T | T[]) => void;
   isMultiSelect?: boolean;
+  getOptionLabel?: (item: T) => string;
   toggleLabel?: string;
   toggleDescription?: string;
   toggleValue?: boolean;
@@ -22,6 +23,7 @@ const FilterListBox = <T extends string>({
   value,
   onChange,
   isMultiSelect = false,
+  getOptionLabel = (item) => item as string,
   toggleLabel,
   toggleDescription,
   toggleValue = false,
@@ -36,8 +38,8 @@ const FilterListBox = <T extends string>({
 
   const displayValue = () => {
     return isMultiSelect
-      ? (selected.length > 0 ? selected.join(","): undefined)
-      : (value as string);
+      ? (selected.length > 0 ? selected.map(getOptionLabel).join(","): undefined)
+      : (value ? getOptionLabel(value as T) : (value as string));
   }
 
 
@@ -71,7 +73,7 @@ const FilterListBox = <T extends string>({
                     )}
                   </div>
                 )}
-                {item}
+                {getOptionLabel(item)}
               </Listbox.Option>
             ))}
             {toggleLabel && onToggleChange && (
