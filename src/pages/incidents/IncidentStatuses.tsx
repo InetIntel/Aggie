@@ -4,11 +4,33 @@ import { isNil } from "lodash";
 interface IncidentStatusProps extends React.ComponentProps<"p"> {
   group: Group,
   className: string,
+  // When true, render a neutral pill (no status color). Used by the incidents
+  // table, where the colliding status colors weren't carrying specific meaning;
+  // the list view keeps the colored badge (default).
+  colorless?: boolean,
 }
+
+const CHIP_COLORS = {
+  amber: "bg-amber-200 dark:bg-amber-200",
+  green: "bg-green-200 dark:bg-green-200",
+  red: "bg-red-200 dark:bg-red-200",
+  lime: "bg-lime-200 dark:bg-lime-200",
+} as const;
+type ChipColor = keyof typeof CHIP_COLORS;
+
+function chipClass(color: ChipColor, className: string) {
+  return `${CHIP_COLORS[color]} text-slate-600 dark:text-gray-600 dark:saturate-[0.7] ${className}`;
+}
+
+type TernaryStatus = Group["verification_status"];
+const isTrue = (status: TernaryStatus) => status === true || status === "true";
+const isFalse = (status: TernaryStatus) => status === false || status === "false";
+const isPending = (status: TernaryStatus) => status === "maybe" || isNil(status);
 
 export function IncidentOverallStatus({
   group,
   className = "",
+  colorless = false,
   ...props
 }: IncidentStatusProps) {
   const {
@@ -16,59 +38,37 @@ export function IncidentOverallStatus({
     confirmation_status,
     publication_status,
   } = group;
+
+  // First match wins: the pill names the furthest stage the incident reached.
+  let color: ChipColor = "amber";
+  let label = "Verifying Measurement";
   if (publication_status.includes("Shared with Networks")) {
-    return (
-      <p className={`bg-lime-200 text-slate-600 dark:text-gray-600 dark:bg-lime-200 dark:saturate-[0.7] ${className}`} {...props}>
-        Shared with Networks
-      </p>
-    );
+    color = "lime";
+    label = "Shared with Networks";
   } else if (publication_status.includes("Published")) {
-    return (
-      <p className={`bg-green-200 text-slate-600 dark:text-gray-600 dark:bg-green-200 dark:saturate-[0.7] ${className}`} {...props}>
-        Published
-      </p>
-    );
+    color = "green";
+    label = "Published";
+  } else if (isTrue(confirmation_status)) {
+    color = "green";
+    label = "Confirmed";
+  } else if (isFalse(confirmation_status)) {
+    color = "red";
+    label = "Unable to Confirm";
+  } else if (isTrue(verification_status)) {
+    color = "amber";
+    label = "Confirming";
+  } else if (isFalse(verification_status)) {
+    color = "red";
+    label = "Unable to Verify";
   }
 
-  switch (confirmation_status) {
-    case true:
-    case "true":
-      return (
-        <p className={`bg-green-200 text-slate-600 dark:text-gray-600 dark:bg-green-200 dark:saturate-[0.7] ${className}`} {...props}>
-          Confirmed
-        </p>
-      );
-    case false:
-    case "false":
-      return (
-        <p className={`bg-red-200 text-slate-600 dark:text-gray-600 dark:bg-red-200 dark:saturate-[0.7] ${className}`} {...props}>
-          Unable to Confirm
-        </p>
-      );
-    default:
-  }
-
-  switch (verification_status) {
-    case true:
-    case "true":
-      return (
-        <p className={`bg-amber-200 text-slate-600 dark:text-gray-600 dark:bg-amber-200 dark:saturate-[0.7] ${className}`} {...props}>
-          Confirming
-        </p>
-      );
-    case false:
-    case "false":
-      return (
-        <p className={`bg-red-200 text-slate-600 dark:text-gray-600 dark:bg-red-200 dark:saturate-[0.7] ${className}`} {...props}>
-          Unable to Verify
-        </p>
-      );
-    default:
-  }
+  // The incidents table renders a neutral pill (no status color); the list view
+  // keeps the colored badge (default).
+  const neutralCSS = "bg-slate-100 dark:bg-gray-700";
 
   return (
-    <p className={`bg-amber-200 text-slate-600 dark:text-gray-600 dark:bg-amber-200 dark:saturate-[0.7] ${className}`} {...props}>
-      Verifying Measurement
+    <p className={colorless ? `${neutralCSS} ${className}` : chipClass(color, className)} {...props}>
+      {label}
     </p>
   );
 }
@@ -84,33 +84,33 @@ export function IncidentStatuses({
     publication_status,
   } = group;
   const verified = (
-    verification_status === "maybe" || isNil(verification_status)
-    ? <span className={`bg-amber-200 dark:bg-amber-200 dark:saturate-[0.7] ${className}`} {...props}>Verifying</span>
-    : verification_status === "true" || verification_status === true
-      ? <span className={`bg-green-200 dark:bg-green-200 dark:saturate-[0.7] ${className}`} {...props}>Verified</span>
-      : verification_status === "false" || verification_status === false
-        ? <span className={`bg-red-200 dark:bg-red-200 dark:saturate-[0.7] ${className}`} {...props}>Unable to Verify</span>
+    isPending(verification_status)
+    ? <span className={chipClass("amber", className)} {...props}>Verifying</span>
+    : isTrue(verification_status)
+      ? <span className={chipClass("green", className)} {...props}>Verified</span>
+      : isFalse(verification_status)
+        ? <span className={chipClass("red", className)} {...props}>Unable to Verify</span>
         : null
   );
   const confirmed = (
-    confirmation_status === "maybe" || isNil(confirmation_status)
-    ? <span className={`bg-amber-200 dark:bg-amber-200 dark:saturate-[0.7] ${className}`} {...props}>Confirming</span>
-    : confirmation_status === "true" || confirmation_status === true
-      ? <span className={`bg-green-200 dark:bg-green-200 dark:saturate-[0.7] ${className}`} {...props}>Confirmed</span>
-      : confirmation_status === "false" || confirmation_status === false
-        ? <span className={`bg-red-200 dark:bg-red-200 dark:saturate-[0.7] ${className}`} {...props}>Unable to Confirm</span>
+    isPending(confirmation_status)
+    ? <span className={chipClass("amber", className)} {...props}>Confirming</span>
+    : isTrue(confirmation_status)
+      ? <span className={chipClass("green", className)} {...props}>Confirmed</span>
+      : isFalse(confirmation_status)
+        ? <span className={chipClass("red", className)} {...props}>Unable to Confirm</span>
         : null
   );
   const published = (
     publication_status.includes("Published")
-    ? <span className={`bg-green-200 dark:bg-green-200 dark:saturate-[0.7] ${className}`} {...props}>Published</span>
-    : <span className={`bg-red-200 dark:bg-red-200 dark:saturate-[0.7] ${className}`} {...props}>Not Published</span>
+    ? <span className={chipClass("green", className)} {...props}>Published</span>
+    : <span className={chipClass("red", className)} {...props}>Not Published</span>
   );
   const shared = (
     publication_status.includes("Shared with Networks")
-    && <span className={`bg-lime-200 ${className}`} {...props}>Shared with Networks</span>
+    && <span className={chipClass("lime", className)} {...props}>Shared with Networks</span>
   );
-  return (<div className='flex gap-2'>
+  return (<div className='flex flex-wrap gap-2'>
     {verified}{confirmed}{published}{shared}
   </div>);
 }

@@ -176,6 +176,15 @@ export const reportNetwork = (
     const asn = report.asn ? report.asn.toUpperCase() : ""; // "as15169" -> "AS15169"
     return { asn, network, scope };
   }
+  if (media === "ooni") {
+    const raw = report.metadata?.rawAPIResponse;
+    const asn = raw?.probeASN
+      ? `AS${raw.probeASN}`
+      : report.asn
+      ? report.asn.toUpperCase()
+      : "";
+    return { asn, network: raw?.networkName ?? report.author ?? "", scope: "" };
+  }
   return {
     asn: "",
     network: report._sourceNicknames?.[0] || report.author || "",

@@ -27,6 +27,8 @@ const teamMembershipPopulate = {
 const normalizeUserTeams = (user) => ({
   ...user,
   teams: user.teams || [],
+  // Drop memberships whose populated team ref is null (team was deleted).
+  teamMemberships: (user.teamMemberships || []).filter((m) => m.team != null),
 });
 
 const normalizeIds = (ids) => [

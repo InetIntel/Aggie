@@ -8,6 +8,7 @@ interface IProps {
   isChecked: boolean;
   isSelectMode: boolean;
   onCheckChange: () => void;
+  hideCheckbox?: boolean;
 }
 
 const GroupReportListItem = ({
@@ -15,12 +16,14 @@ const GroupReportListItem = ({
   isChecked,
   isSelectMode,
   onCheckChange,
+  hideCheckbox,
 }: IProps) => {
   return (
     <MultiSelectListItem
       isChecked={isChecked}
       isSelectMode={isSelectMode}
       onCheckChange={onCheckChange}
+      hideCheckbox={hideCheckbox}
     >
       <div className='text-sm '>
         <SocialMediaListItem report={report} />

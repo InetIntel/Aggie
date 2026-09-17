@@ -65,7 +65,13 @@ const AllReportsList = ({ alerts }: IProps) => {
   const entityLevelParam = getParam("entityLevel");
   const dataSourcesParam = getParam("dataSources");
   const hideDuplicateASNsParam = getParam("hideDuplicateASNs");
-  const shouldClearMedia = !!currentMedia && !platformOptions.includes(currentMedia);
+
+  const shouldClearMedia =
+    !!currentMedia &&
+    currentMedia
+      .split(",")
+      .filter(Boolean)
+      .some((media) => !platformOptions.includes(media));
   const shouldResetSocialFilters =
     !alerts &&
     (shouldClearMedia ||
@@ -107,6 +113,7 @@ const AllReportsList = ({ alerts }: IProps) => {
     document.title = alerts ? "Alerts - Aggie" : "Social Media Posts - Aggie";
     multiSelect.set([]);
     setCompareMode(false);
+    setImplicitCompare(false);
     setCompareOpen(false);
     document.getElementById("main_view")?.scrollTo({
       top: 0,
@@ -123,10 +130,14 @@ const AllReportsList = ({ alerts }: IProps) => {
   // alerts, then opens a side-by-side comparison modal.
   const [compareMode, setCompareMode] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  //  MAX_COMPARE cap must not block what the user experiences as plain bulk selection (see
+  // onReportCheck); an explicit compare keeps the cap.
+  const [implicitCompare, setImplicitCompare] = useState(false);
 
   function toggleCompareMode() {
     const next = !compareMode;
     setCompareMode(next);
+    setImplicitCompare(false);
     multiSelect.set([]);
     multiSelect.setActive(next);
     if (!next) setCompareOpen(false);
@@ -164,9 +175,26 @@ const AllReportsList = ({ alerts }: IProps) => {
   // The relevance bar (select all / mark read etc.) renders alongside compare in
   // both views whenever a selection is active (see its gate below).
   function onReportCheck(report: Report) {
-    if (compareMode) return toggleReportForCompare(report);
+    if (compareMode) {
+      if (
+        implicitCompare &&
+        !multiSelect.exists(report) &&
+        multiSelect.selection.length >= MAX_COMPARE
+      ) {
+        setCompareMode(false);
+        setImplicitCompare(false);
+        multiSelect.addRemove(report);
+        return;
+      }
+      return toggleReportForCompare(report);
+    }
     if (multiSelect.isActive) return multiSelect.addRemove(report);
+    if (!alerts) {
+      multiSelect.setActive(true);
+      return multiSelect.addRemove(report);
+    }
     setCompareMode(true);
+    setImplicitCompare(true);
     multiSelect.setActive(true);
     toggleReportForCompare(report);
   }
@@ -182,11 +210,15 @@ const AllReportsList = ({ alerts }: IProps) => {
       multiSelect.set([]);
       multiSelect.setActive(false);
       setCompareMode(false);
+      setImplicitCompare(false);
       return;
     }
     // Leaving compare mode also collapses the compare toolbar back to its idle
     // "Compare" button, keeping just the mark relevant/irrelevant selection.
-    if (compareMode) setCompareMode(false);
+    if (compareMode) {
+      setCompareMode(false);
+      setImplicitCompare(false);
+    }
     multiSelect.addRemoveAll(reports?.results);
   }
 
@@ -299,7 +331,7 @@ const AllReportsList = ({ alerts }: IProps) => {
 
       <div
         ref={filtersRef}
-        className='px-1 py-2 bg-gray-50 dark:bg-gray-800 backdrop-blur-sm sticky top-0 z-20 '
+        className='px-1 py-2 bg-white dark:bg-gray-800 backdrop-blur-sm sticky top-0 z-20 '
       >
         <ReportsFilters
           reportCount={reports && reports.total}
@@ -357,13 +389,21 @@ const AllReportsList = ({ alerts }: IProps) => {
           </div>
         )}
         {alerts && (
-          <div className='px-1 flex flex-wrap items-center gap-2 mt-2 text-xs font-medium'>
+          <div className='flex flex-wrap items-center gap-2 mt-2 text-xs font-medium'>
             {viewToggle}
             {compareMode && multiSelect.selection.length === 0 && (
               <p className='text-slate-600 dark:text-gray-400'>
                 Select up to {MAX_COMPARE} alerts to compare.
               </p>
             )}
+            {compareMode &&
+              !implicitCompare &&
+              multiSelect.selection.length >= MAX_COMPARE && (
+                <p className='text-amber-700 dark:text-amber-300'>
+                  Maximum of {MAX_COMPARE} alerts selected - deselect one to pick
+                  another.
+                </p>
+              )}
           </div>
         )}
       </div>
@@ -374,6 +414,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           isLoading={isLoading}
           queryKey={reportsQueryKey}
           currentPageId={currentPageId}
+          multiSelection={multiSelect.selection}
           selection={{
             isActive: multiSelect.isActive,
             alwaysShow: true,
@@ -401,6 +442,7 @@ const AllReportsList = ({ alerts }: IProps) => {
                 queryKey={reportsQueryKey}
                 isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
+                multiSelection={multiSelect.selection}
                 onCheckChange={() => onReportCheck(report)}
               />
             </div>

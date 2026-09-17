@@ -22,7 +22,7 @@ import PlaceholderDiv from "../../../components/PlaceholderDiv";
 import TagsList from "../../../components/Tags/TagsList";
 import UserToken from "../../../components/UserToken";
 //import VeracityToken from "../../../components/VeracityToken";
-import { IncidentOverallStatus, IncidentStatuses } from "../IncidentStatuses";
+import { IncidentStatuses } from "../IncidentStatuses";
 import { getAsnsByIds } from "../../../api/asn";
 import type { AsnInfoMap } from "../../../api/asn/types";
 import { formatDurationFromSeconds } from "../../../utils/format";
@@ -37,8 +37,6 @@ interface IProps {
 }
 const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
   const { formatDateTime } = useFormatters();
-  const [isStatusClicked, setIsStatusClicked] = useState(false);
-  const [isStatusHovered, setIsStatusHovered] = useState(false);
   const [asnSort, setAsnSort] = useState<{
     key: "asn" | "direct" | "indirect";
     direction: "asc" | "desc";
@@ -246,23 +244,9 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
           </PlaceholderDiv>
         </div>
       </div>
-      <div className='flex flex-wrap gap-2'>
-        {
-          group && (
-            <IncidentOverallStatus
-              group={group}
-              className='px-2 py-1 rounded-full hover:cursor-pointer'
-              onClick={() => setIsStatusClicked(!isStatusClicked)}
-              onMouseEnter={() => setIsStatusHovered(true)}
-              onMouseLeave={() => setIsStatusHovered(false || isStatusClicked)}
-            />
-          )
-        }
-        {
-          (isStatusHovered && group)
-          && <IncidentStatuses group={group} className='px-2 py-1 rounded-full'/>
-        }
-      </div>
+      {group && (
+        <IncidentStatuses group={group} className='px-2 py-1 rounded-full' />
+      )}
       <div className='flex gap-12 my-2'>
         <PlaceholderDiv as='p' width='7em' loading={isLoading}>
           <FontAwesomeIcon icon={faFileLines} size='sm' />{" "}

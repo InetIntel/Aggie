@@ -43,12 +43,14 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   const { formatDateTime } = useFormatters();
   const media = report._media?.[0];
   const raw = report?.metadata?.rawAPIResponse;
-  const platformLabel = media === "cloudflare" ? "Cloudflare" : "IODA";
+  const isOoni = media === "ooni";
+  const platformLabel = media === "cloudflare" ? "Cloudflare" : isOoni ? "OONI" : "IODA";
 
   // The reports LIST endpoint strips the chart (image key for legacy/Cloudflare, or the
   // IODA signal series) to keep payloads small, so both are absent on the report objects
-  // fed into the compare modal. The hooks lazily fetch the full report per card.
-  const image = useReportChartImage(report);
+  // fed into the compare modal. The hooks lazily fetch the full report per card. OONI has
+  // no image/series of its own, so skip that fetch entirely for it.
+  const image = useReportChartImage(report, !isOoni);
   const chartSeries = useReportChartSeries(report);
 
   const start = formatDateTime(report?.authoredAt);
@@ -58,7 +60,12 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   let signal: string;
   let bgColor: string;
 
-  if (media === "cloudflare") {
+  if (isOoni) {
+    end = formatDateTime(raw?.windowEnd);
+    duration = "Rolling 24 hours";
+    signal = "Zero Measurements";
+    bgColor = "bg-red-600";
+  } else if (media === "cloudflare") {
     const endRaw: string | undefined = raw?.rawEvent?.endDate;
     end = endRaw ? formatDateTime(endRaw) : "—";
     duration = endRaw ? formatDuration(report?.authoredAt, endRaw) || "—" : "—";
@@ -87,7 +94,31 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
   const hasChart = !!image || (isIoda && !!chartSeries?.series?.length);
 
   let chart: JSX.Element;
-  if (isIoda && chartSeries?.series?.length) {
+  if (isOoni) {
+    const trigger = raw?.triggers?.[0];
+    chart = (
+      <dl className='grid w-full grid-cols-2 gap-3 text-sm'>
+        <div>
+          <dt className='text-slate-500 dark:text-gray-400'>Network</dt>
+          <dd className='font-semibold'>{raw?.networkName || report.author}</dd>
+        </div>
+        <div>
+          <dt className='text-slate-500 dark:text-gray-400'>ASN</dt>
+          <dd className='font-semibold'>{raw?.probeASN ? `AS${raw.probeASN}` : "—"}</dd>
+        </div>
+        <div>
+          <dt className='text-slate-500 dark:text-gray-400'>Window start</dt>
+          <dd className='font-semibold'>{formatDateTime(raw?.windowStart || trigger?.windowStart)}</dd>
+        </div>
+        <div>
+          <dt className='text-slate-500 dark:text-gray-400'>Zero domains</dt>
+          <dd className='font-semibold'>
+            {raw?.domainMode === "selected" ? raw?.zeroDomains?.length || 0 : "All domains"}
+          </dd>
+        </div>
+      </dl>
+    );
+  } else if (isIoda && chartSeries?.series?.length) {
     chart = (
       <IodaChart
         chart={chartSeries}
@@ -189,7 +220,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
         }`}
       >
         {chart}
-        {!fillWidth && hasChart && (
+        {!isOoni && !fillWidth && hasChart && (
           <button
             type='button'
             title='Enlarge chart'
@@ -213,7 +244,7 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
 
       {/* Enlarged view: the chart fills the whole card (full width) over the
           metadata bands so it's readable in a cramped grid; ✕ collapses it. */}
-      {zoomed && hasChart && (
+      {!isOoni && zoomed && hasChart && (
         <div
           className='absolute inset-0 z-20 bg-white dark:bg-gray-800 flex items-center justify-center p-2'
           onClick={(e) => e.stopPropagation()}
