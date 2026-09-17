@@ -7,8 +7,14 @@ const {
   evaluateRollingDomainAlerts,
 } = require('../ooniAlerts');
 const defaultDomainConfig = require('../config/ooni.json');
+const { buildEventAggKeyBase } = require('../utils/iodaUtils');
+const { DATA_SOURCES } = require('../../config/fetching/externalApis');
+const countries = require('i18n-iso-countries');
+
+countries.registerLocale(require('i18n-iso-countries/langs/en.json'));
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const PROBE_CC = 'IR';
 const NETWORK_NAMES = {
   44244: 'IranCell',
   58224: 'MCCI',
@@ -38,6 +44,24 @@ function alertContent(asn, alerts) {
     return `OONI domain alert for ${network} (AS${asn}): no measurements were recorded for ${domains.length} watched domain(s) for the past 24 hours`;
   }
   return `OONI volume alert for ${network} (AS${asn}): no web connectivity measurements were recorded for the past 24 hours`;
+}
+
+// Outage fields that put an OONI alert into the notable-activity aggregation.
+//
+// outageStartedAt is the detection time (windowEnd). The aggregation
+// matches against IODA/Cloudflare using windowStart instead (see analyticsAggregation).
+//
+// No eventIdentifier on purpose: the guid already dedupes one alert per ASN/mode/day,
+// and a shared identifier would collapse distinct alerts in the deduped alerts list.
+function outageFields({ asn, probeCC = PROBE_CC, windowEnd }) {
+  const normalizedAsn = `as${asn}`;
+  const geoScope = countries.getName(probeCC, 'en') || probeCC;
+  return {
+    asn: normalizedAsn,
+    geoScope,
+    outageStartedAt: new Date(windowEnd),
+    eventAggKeyBase: buildEventAggKeyBase({ asn: normalizedAsn, geoScope }),
+  };
 }
 
 class OONIChannel extends PollChannel {
@@ -114,7 +138,7 @@ class OONIChannel extends PollChannel {
     const { asn, alerts, guid, fetchedAt } = rawMessage;
     const alertDate = alerts[0].alertDate;
     const searchParams = new URLSearchParams({
-      probe_cc: 'IR',
+      probe_cc: PROBE_CC,
       probe_asn: `AS${asn}`,
       test_name: 'web_connectivity',
       since: alerts[0].windowStart,
@@ -130,10 +154,11 @@ class OONIChannel extends PollChannel {
       platform: 'ooni',
       platformID: guid,
       raw: {
-        probeCC: 'IR',
+        probeCC: PROBE_CC,
         probeASN: asn,
         networkName: NETWORK_NAMES[asn] || null,
         testName: 'web_connectivity',
+        dataSource: DATA_SOURCES.OONI,
         entityLevel: 'AS',
         alertDate,
         windowStart: alerts[0].windowStart,
@@ -150,7 +175,7 @@ class OONIChannel extends PollChannel {
 
     post.isOutageEvent = true;
     post.isAsnScoped = true;
-    post.asn = `as${asn}`;
+    Object.assign(post, outageFields({ asn, windowEnd: alerts[0].windowEnd }));
     return post;
   }
 }
@@ -160,3 +185,5 @@ module.exports = OONIChannel;
 // stored content for existing reports using the exact same text this channel
 // generates for new ones, instead of a separately maintained copy.
 module.exports.alertContent = alertContent;
+module.exports.outageFields = outageFields;
+module.exports.DATA_SOURCE = DATA_SOURCES.OONI;

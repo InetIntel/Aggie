@@ -287,8 +287,13 @@ const ReportFilters = ({
           <FilterListbox
             label='Platforms'
             options={platformOptions}
-            value={getParam("media") as string}
-            onChange={(e) => setParams({ media: e as string})}
+            value={
+              getParam("media")
+                ? (getParam("media").split(",").filter(Boolean) as string[])
+                : []
+            }
+            onChange={(e) => setParams({ media: e as string[] })}
+            isMultiSelect={true}
             getOptionLabel={providerLabel}
           />
           {showOngoingFilter && (

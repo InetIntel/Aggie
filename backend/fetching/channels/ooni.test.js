@@ -35,6 +35,12 @@ test('creates one deduplicated report from a zero-measurement rolling window', a
   assert.equal(posts[0].raw.entityLevel, 'AS');
   assert.equal(posts[0].raw.windowStart, '2026-08-11T14:30:00.000Z');
   assert.equal(posts[0].raw.windowEnd, '2026-08-12T14:30:00.000Z');
+  // Aggregation fields: stamped at detection time, keyed like IODA/Cloudflare AS events.
+  assert.equal(posts[0].outageStartedAt.toISOString(), '2026-08-12T14:30:00.000Z');
+  assert.equal(posts[0].geoScope, 'Islamic Republic of Iran');
+  assert.equal(posts[0].eventAggKeyBase, 'as44244|islamic republic of iran');
+  assert.equal(posts[0].eventIdentifier, undefined);
+  assert.equal(posts[0].raw.dataSource, 'OONI Web Connectivity');
 });
 
 test('skips later rolling checks when the UTC end-date already has a report', async () => {

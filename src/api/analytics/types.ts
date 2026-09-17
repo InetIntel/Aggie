@@ -57,6 +57,8 @@ export interface AnalyticsTimeSeriesBucket {
   bucketStart: string;
   bucketEnd: string;
   totalReports: number;
+  // { <media>: count }, summing to totalReports — the chart's per-source lines.
+  reportsBySource?: Record<string, number>;
   notableActivityCount: number;
   highConfidenceActivityCount: number;
 }
@@ -114,6 +116,13 @@ export interface NotableActivity {
   signals: string[];
   totalReports: number;
   reportIds: string[];
+  // Per-bucket report counts by each report's own outageStartedAt, so the chart
+  // counts a merged OONI report where the alerts list's filter finds it.
+  reportBuckets?: {
+    bucketStart: string;
+    totalReports: number;
+    sourceCounts?: Record<string, number>;
+  }[];
   isHighConfidence: boolean;
   asn?: string;
   geoScope?: string;

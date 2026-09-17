@@ -50,7 +50,7 @@ export interface ReportQueryState {
   author?: string;
   groupId?: string;
   status?: string; // 'Read' or 'Unread'
-  media?: string;
+  media?: string | string[]; // one platform, or several (serialized comma-separated)
   dataSources?: string[];
   entityLevel?: string[];
   hideDuplicateASNs?: string; // 'true' or 'false'

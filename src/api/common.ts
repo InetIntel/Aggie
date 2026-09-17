@@ -50,6 +50,7 @@ export const DATA_SOURCE_OPTIONS = [
   "BGP",
   "Telescope",
   "Cloudflare Traffic",
+  "OONI Web Connectivity",
 ] as const;
 export type DataSourceOptions = (typeof DATA_SOURCE_OPTIONS)[number];
 
