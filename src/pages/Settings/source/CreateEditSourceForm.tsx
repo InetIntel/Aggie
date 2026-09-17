@@ -12,6 +12,7 @@ import { Listbox } from "@headlessui/react";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
 import FormikWithSchema from "../../../components/FormikWithSchema";
+import AxiosErrorCard from "../../../components/AxiosErrorCard";
 import type { Credential } from "../../../api/credentials/types";
 
 import {
@@ -382,18 +383,27 @@ function onSubmit(data: any) {
 }
 
   const doCreateSource = useMutation(newSource, {
-    onSuccess: () => {
-      onClose();
-      queryClient.invalidateQueries(["sources"]);
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(["sources"]);
     },
   });
   const doEditSource = useMutation(editSource, {
-    onSuccess: () => {
-      onClose();
-      queryClient.invalidateQueries(["sources"]);
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries(["sources"]),
+        queryClient.invalidateQueries(["source", source?._id]),
+      ]);
     },
   });
   const isLoading = doCreateSource.isLoading || doEditSource.isLoading;
+  const saveError = doCreateSource.error || doEditSource.error;
+  const saveSuccess = doCreateSource.isSuccess || doEditSource.isSuccess;
+
+  useEffect(() => {
+    if (!saveSuccess) return;
+    const timer = setTimeout(onClose, 1500);
+    return () => clearTimeout(timer);
+  }, [saveSuccess, onClose]);
 
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
@@ -503,9 +513,11 @@ function onSubmit(data: any) {
     credentials: Yup.string().required(
       "A connection is required to create a feed"
     ),
-    lists: Yup.string().required(
-      "At least one Telegram chat, channel, or user is required"
-    ),
+    lists: source
+      ? Yup.string()
+      : Yup.string().required(
+          "At least one Telegram chat, channel, or user is required"
+        ),
   });
   type ITelegramUserSchema = Yup.InferType<typeof telegramUserSchema>;
 
@@ -917,6 +929,12 @@ function onSubmit(data: any) {
       {credentialType === "ioda" && iodaForm}
       {credentialType === "cloudflare" && cloudflareForm}
       {credentialType === "ooni" && ooniForm}
+      {saveError && <AxiosErrorCard error={saveError} />}
+      {saveSuccess && (
+        <p className='mt-3 text-sm text-green-700' role='status'>
+          {source ? "Feed updated successfully." : "Feed created successfully."}
+        </p>
+      )}
     </>
   );
 };
