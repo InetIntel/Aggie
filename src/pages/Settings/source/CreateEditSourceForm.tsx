@@ -372,19 +372,27 @@ function onSubmit(data: any) {
 }
 
   const doCreateSource = useMutation(newSource, {
-    onSuccess: () => {
-      onClose();
-      queryClient.invalidateQueries(["sources"]);
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(["sources"]);
     },
   });
   const doEditSource = useMutation(editSource, {
-    onSuccess: () => {
-      onClose();
-      queryClient.invalidateQueries(["sources"]);
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries(["sources"]),
+        queryClient.invalidateQueries(["source", source?._id]),
+      ]);
     },
   });
   const isLoading = doCreateSource.isLoading || doEditSource.isLoading;
   const saveError = doCreateSource.error || doEditSource.error;
+  const saveSuccess = doCreateSource.isSuccess || doEditSource.isSuccess;
+
+  useEffect(() => {
+    if (!saveSuccess) return;
+    const timer = setTimeout(onClose, 1500);
+    return () => clearTimeout(timer);
+  }, [saveSuccess, onClose]);
 
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
@@ -535,7 +543,6 @@ function onSubmit(data: any) {
         hint='Enter the Telegram entities this account can access, such as public usernames like @channel_one or private chat/channel IDs like -1001234567890. Separate multiple entries with commas.'
       />
       <SourceAccessPolicyFields teams={teams} />
-      {saveError && <AxiosErrorCard error={saveError} />}
     </FormikWithSchema>
   );
 
@@ -910,6 +917,12 @@ function onSubmit(data: any) {
       {credentialType === "ioda" && iodaForm}
       {credentialType === "cloudflare" && cloudflareForm}
       {credentialType === "ooni" && ooniForm}
+      {saveError && <AxiosErrorCard error={saveError} />}
+      {saveSuccess && (
+        <p className='mt-3 text-sm text-green-700' role='status'>
+          {source ? "Feed updated successfully." : "Feed created successfully."}
+        </p>
+      )}
     </>
   );
 };
