@@ -319,6 +319,17 @@ const CreateEditSourceForm = ({
       (source?.media as CredentialOption) || defaultType || "ioda"
     );
 
+  // When editing, `source` can arrive asynchronously (e.g. the details panel's
+  // ["source", id] query resolves after this form mounts). `credentialType` is
+  // seeded only at mount, so without this it stays on the default and the wrong
+  // sub-form renders — the provider-specific fields (like the Telegram
+  // Chats / Channels / Users list) then never appear. Re-sync it whenever the
+  // resolved source's media changes. New feeds have no `source`, so the user's
+  // manual provider choice is untouched.
+  useEffect(() => {
+    if (source?.media) setCredentialType(source.media as CredentialOption);
+  }, [source?.media]);
+
   // The provider is fixed whenever it's known upfront — editing an existing feed
   // or adding one from a provider-scoped section. Only a bare "new feed" form
   // (no source, no defaultType) lets the user pick the provider.
@@ -527,6 +538,7 @@ function onSubmit(data: any) {
       <FormikInput
         name='lists'
         label='Chats / Channels / Users'
+        multiline
         placeholder='Comma-separated Telegram entities, e.g. @channel_one, -1001234567890'
         hint='Enter the Telegram entities this account can access, such as public usernames like @channel_one or private chat/channel IDs like -1001234567890. Separate multiple entries with commas.'
       />
