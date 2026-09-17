@@ -479,7 +479,12 @@ if (!canCreateOrDeleteTeams(req.user)) {
 
     await User.updateMany(
       { teams: req.params._id },
-      { $pull: { teams: req.params._id } }
+      {
+        $pull: {
+          teams: req.params._id,
+          teamMemberships: { team: req.params._id },
+        },
+      }
     );
 
     await Team.findByIdAndDelete(req.params._id);
