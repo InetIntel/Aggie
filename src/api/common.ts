@@ -50,6 +50,7 @@ export const DATA_SOURCE_OPTIONS = [
   "BGP",
   "Telescope",
   "Cloudflare Traffic",
+  "OONI Web Connectivity",
 ] as const;
 export type DataSourceOptions = (typeof DATA_SOURCE_OPTIONS)[number];
 
@@ -110,8 +111,10 @@ export const PROVIDER_LABELS: Record<string, string> = {
   telegramBot: "Telegram Bot",
   telegramUser: "Telegram",
   mastodon: "Mastodon",
+  twitter: "Twitter",
   ioda: "IODA",
   cloudflare: "Cloudflare",
+  ooni: "OONI",
 };
 
 // Fall back to the raw value if we don't have a friendly label for it.

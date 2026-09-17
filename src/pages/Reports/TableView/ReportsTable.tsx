@@ -64,6 +64,19 @@ const ReportRowActions = ({
 
   return (
     <div className='flex items-center justify-end gap-0.5 xl:gap-1'>
+      {/* Add-to-incident is conditional, so keep it left-most: the always-present
+          buttons below stay pinned right (justify-end) and align across rows. */}
+      {!report._group && (
+        <AggieButton
+          variant='transparent'
+          className={`rounded-lg border border-dashed border-slate-300 ${btnSize}`}
+          padding={btnPadding}
+          icon={faPlus}
+          title={attachLabel}
+          aria-label={attachLabel}
+          onClick={() => setAttachSelection(groupSelection ?? [report])}
+        />
+      )}
       <AggieButton
         variant={report.read ? "light:lime" : "light:amber"}
         className={`rounded-lg border border-slate-300 ${btnSize}`}
@@ -115,17 +128,6 @@ const ReportRowActions = ({
           })
         }
       />
-      {!report._group && (
-        <AggieButton
-          variant='transparent'
-          className={`rounded-lg border border-dashed border-slate-300 ${btnSize}`}
-          padding={btnPadding}
-          icon={faPlus}
-          title={attachLabel}
-          aria-label={attachLabel}
-          onClick={() => setAttachSelection(groupSelection ?? [report])}
-        />
-      )}
       <AddReportsToIncidents
         selection={attachSelection ?? []}
         isOpen={!!attachSelection}
@@ -164,6 +166,7 @@ const ReportsTable = ({
       hideExpandBar
       connectedExpanded
       tableClassName='text-xs'
+      actionsColWidth={216}
       rowActions={(report) => (
         <ReportRowActions
           report={report}

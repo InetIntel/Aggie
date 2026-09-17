@@ -280,33 +280,47 @@ function buildActivityTimeSeries(data) {
   let cursor = getBucketStartUtc(data.rangeStartUtc, data.bucketSizeMinutes);
   const rangeEnd = new Date(data.rangeEndUtc);
 
+  const getBucket = (bucketStart) => {
+    const bucketKey = new Date(bucketStart).toISOString();
+    if (!buckets.has(bucketKey)) {
+      buckets.set(bucketKey, {
+        bucketStart: new Date(bucketStart),
+        bucketEnd: getBucketEndUtc(new Date(bucketStart), data.bucketSizeMinutes),
+        totalReports: 0,
+        // { <media>: count } for the chart's per-source lines; sums to totalReports.
+        reportsBySource: {},
+        notableActivityCount: 0,
+        highConfidenceActivityCount: 0,
+      });
+    }
+    return buckets.get(bucketKey);
+  };
+
+  // Seed every bucket in the range so the chart draws a continuous line through the
+  // empty ones. Shares getBucket so seeded and on-demand buckets have the same shape.
   while (cursor < rangeEnd) {
-    const bucketStart = cursor;
-    const bucketEnd = getBucketEndUtc(bucketStart, data.bucketSizeMinutes);
-    buckets.set(bucketStart.toISOString(), {
-      bucketStart,
-      bucketEnd,
-      totalReports: 0,
-      notableActivityCount: 0,
-      highConfidenceActivityCount: 0,
-    });
-    cursor = bucketEnd;
+    getBucket(cursor);
+    cursor = getBucketEndUtc(cursor, data.bucketSizeMinutes);
   }
 
   for (const activity of notableActivities) {
-    const bucketKey = new Date(activity.bucketStart).toISOString();
-    const current = buckets.get(bucketKey) || {
-      bucketStart: activity.bucketStart,
-      bucketEnd: activity.bucketEnd,
-      totalReports: 0,
-      notableActivityCount: 0,
-      highConfidenceActivityCount: 0,
-    };
-
-    current.totalReports += activity.totalReports || 0;
+    const current = getBucket(activity.bucketStart);
     current.notableActivityCount += 1;
     if (activity.isHighConfidence) current.highConfidenceActivityCount += 1;
-    buckets.set(bucketKey, current);
+
+    // Reports are counted in the bucket of their own outageStartedAt, which the chart's
+    // "View Reports" link filters on. That differs from the activity bucket only for
+    // merged OONI reports. Snapshots cached before reportBuckets existed fall back.
+    const reportBuckets = activity.reportBuckets && activity.reportBuckets.length
+      ? activity.reportBuckets
+      : [{ bucketStart: activity.bucketStart, totalReports: activity.totalReports }];
+    for (const reportBucket of reportBuckets) {
+      const current = getBucket(reportBucket.bucketStart);
+      current.totalReports += reportBucket.totalReports || 0;
+      for (const [source, count] of Object.entries(reportBucket.sourceCounts || {})) {
+        current.reportsBySource[source] = (current.reportsBySource[source] || 0) + count;
+      }
+    }
   }
 
   return [...buckets.values()].sort(

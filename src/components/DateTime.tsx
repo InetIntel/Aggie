@@ -16,7 +16,7 @@ interface IPropsDate {
 }
 type IProps = IPropsDate | IPropsDateString;
 const DateTime = (props: IProps) => {
-  const { formatTime } = useFormatters();
+  const { formatDate, formatTime } = useFormatters();
   const date =
     "date" in props && !!props.date
       ? props.date
@@ -27,7 +27,7 @@ const DateTime = (props: IProps) => {
     const today = new Date();
     if (d.getDate() === today.getDate() && d.getMonth() === today.getMonth())
       return `ago (${formatTime(d)})`;
-    return d.toLocaleDateString([], { year: "numeric" });
+    return formatDate(d);
   }
 
   return (
