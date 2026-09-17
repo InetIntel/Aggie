@@ -95,7 +95,7 @@ const TagsIndex = (props: IProps) => {
                 <div className='flex items-center gap-2'>
                   <h2 className='text-lg font-medium'>{tag.name}</h2>
                   <span className='rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:bg-gray-700 dark:text-gray-200'>
-                    {TAG_CATEGORY_LABELS[tag.category || "general"]}
+                    {TAG_CATEGORY_LABELS[tag.category]}
                   </span>
                 </div>
                 <p className='text-sm'>

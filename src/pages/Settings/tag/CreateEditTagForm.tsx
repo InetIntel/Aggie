@@ -21,7 +21,7 @@ const tagEditSchema = Yup.object().shape({
   category: Yup.mixed()
     .oneOf([...TAG_CATEGORIES])
     .required("Category required")
-    .default("general"),
+    .default("measurement"),
   description: Yup.string(),
   isCommentTag: Yup.boolean().default(false),
   color: Yup.string().required("Required").default("#fff"),
@@ -42,7 +42,7 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
     ? (defaultTagEditValues as editSchema)
     : ({
         name: tag.name,
-        category: tag.category || "general",
+        category: tag.category,
         description: tag.description,
         isCommentTag: tag.isCommentTag,
         color: tag.color,

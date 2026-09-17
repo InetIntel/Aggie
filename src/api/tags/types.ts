@@ -1,9 +1,8 @@
 import { hasId } from "../common";
 
 export const TAG_CATEGORIES = [
-  "general",
-  "protocol",
-  "signal",
+  "measurement",
+  "protocol_affected",
   "cause",
   "circumvention_solution",
 ] as const;
@@ -11,9 +10,8 @@ export const TAG_CATEGORIES = [
 export type TagCategory = (typeof TAG_CATEGORIES)[number];
 
 export const TAG_CATEGORY_LABELS: Record<TagCategory, string> = {
-  general: "General",
-  protocol: "Protocol",
-  signal: "Signal",
+  measurement: "Measurements",
+  protocol_affected: "Protocols Affected",
   cause: "Cause",
   circumvention_solution: "Circumvention Solution",
 };
@@ -21,7 +19,7 @@ export const TAG_CATEGORY_LABELS: Record<TagCategory, string> = {
 export interface Tag extends hasId {
   isCommentTag: boolean;
   name: string;
-  category?: TagCategory;
+  category: TagCategory;
   color: string;
   description: string;
   user: {

@@ -91,7 +91,7 @@ const IncidentTagsDialog = ({
 
           {TAG_CATEGORIES.map((category) => {
             const categoryTags = visibleTags.filter(
-              (tag) => (tag.category || "general") === category
+              (tag) => tag.category === category
             );
             if (!categoryTags.length) return null;
 
