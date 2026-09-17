@@ -12,6 +12,7 @@ import { Listbox } from "@headlessui/react";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
 import FormikWithSchema from "../../../components/FormikWithSchema";
+import AxiosErrorCard from "../../../components/AxiosErrorCard";
 import type { Credential } from "../../../api/credentials/types";
 
 import {
@@ -383,6 +384,7 @@ function onSubmit(data: any) {
     },
   });
   const isLoading = doCreateSource.isLoading || doEditSource.isLoading;
+  const saveError = doCreateSource.error || doEditSource.error;
 
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
@@ -492,9 +494,11 @@ function onSubmit(data: any) {
     credentials: Yup.string().required(
       "A connection is required to create a feed"
     ),
-    lists: Yup.string().required(
-      "At least one Telegram chat, channel, or user is required"
-    ),
+    lists: source
+      ? Yup.string()
+      : Yup.string().required(
+          "At least one Telegram chat, channel, or user is required"
+        ),
   });
   type ITelegramUserSchema = Yup.InferType<typeof telegramUserSchema>;
 
@@ -531,6 +535,7 @@ function onSubmit(data: any) {
         hint='Enter the Telegram entities this account can access, such as public usernames like @channel_one or private chat/channel IDs like -1001234567890. Separate multiple entries with commas.'
       />
       <SourceAccessPolicyFields teams={teams} />
+      {saveError && <AxiosErrorCard error={saveError} />}
     </FormikWithSchema>
   );
 
