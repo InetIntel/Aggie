@@ -41,18 +41,14 @@ function NotableActivityCard({
   onAddToIncident: () => void;
   isCreatingIncident: boolean;
 }) {
-  // One "asn / geoScope" title per impacted ASN. Today the backend returns a
-  // single `asn`, so this is a one-element list; when `asn` becomes an array
-  // (many impacted ASNs) this yields one title per ASN and NotableActivityTitle
-  // concatenates them into the reserved two lines with a "+N more" popover.
-  const asns = Array.isArray(activity.asn)
-    ? activity.asn
-    : activity.asn
-    ? [activity.asn]
-    : [];
-  const titles = (asns.length > 0 ? asns : [undefined]).map((asn) =>
-    [asn, activity.geoScope].filter(Boolean).join(" / ")
-  );
+  // One "asn / region" title per impacted location. Start-time grouping does not key on
+  // asn|geoScope, so an activity routinely spans several; NotableActivityTitle
+  // concatenates them into the reserved two lines and reveals the rest in a popover.
+  // `locations` is absent on snapshots cached before it existed, hence the fallback.
+  const titles =
+    activity.locations && activity.locations.length > 0
+      ? activity.locations
+      : [[activity.asn, activity.geoScope].filter(Boolean).join(" / ")];
 
   return (
     <article className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800'>

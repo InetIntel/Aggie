@@ -9,6 +9,13 @@ export function getAnalyticsRoom(cacheKey: string) {
 }
 
 export function getActivityLocationSummary(activity: NotableActivity) {
+  const locations = activity.locations || [];
+
+  if (locations.length > 1) {
+    return `${locations[0]} +${locations.length - 1} more`;
+  }
+  if (locations.length === 1) return locations[0];
+
   return [activity.asn, activity.geoScope].filter(Boolean).join(" / ");
 }
 
@@ -59,6 +66,10 @@ export function formatXAxisLabel(value: string) {
 export function formatActivityWindow(start: string, end: string) {
   const [startDate, startTime] = formatXAxisLabel(start);
   const [endDate, endTime] = formatXAxisLabel(end);
+
+  // Start-time grouping can produce a single-report activity, whose window is one
+  // instant.
+  if (start === end) return `${startDate}, ${startTime} UTC`;
 
   return startDate === endDate
     ? `${startDate}, ${startTime} - ${endTime} UTC`

@@ -13,10 +13,9 @@ import {
 
 interface NotableActivityTitleProps {
   /**
-   * The ASN / location titles for this activity. Today the backend returns a
-   * single `asn / geoScope` summary, so this is usually a one-element list, but
-   * the component is built to concatenate many titles (multiple impacted ASNs)
-   * into the reserved two lines. See `NotableActivity` in api/analytics/types.ts.
+   * The "asn / region" titles for this activity — one per impacted location. Start-time
+   * grouping does not key on asn|geoScope, so this is routinely a multi-element list.
+   * See `NotableActivity.locations` in api/analytics/types.ts.
    */
   titles: string[];
   fallback?: string;
@@ -31,8 +30,8 @@ const TWO_LINE_MIN_HEIGHT = "2.75rem";
 /**
  * Renders the notable-activity card title clamped to two lines with a reserved
  * two-line height (so cards stay aligned regardless of title length). The
- * "Show all ASNs" button stays disabled unless the concatenated titles overflow
- * the two lines, in which case it opens a scrollable popover listing every title.
+ * "Show all ASNs" button opens a scrollable popover listing every title; it is disabled
+ * only when there is genuinely nothing more to reveal — a single title that already fits.
  */
 export default function NotableActivityTitle({
   titles,
@@ -44,6 +43,8 @@ export default function NotableActivityTitle({
 
   const clampRef = useRef<HTMLParagraphElement>(null);
   const [isTruncated, setIsTruncated] = useState(false);
+
+  const canShowAll = isTruncated || items.length > 1;
 
   const [isOpen, setIsOpen] = useState(false);
   const { refs, floatingStyles, context } = useFloating({
@@ -94,11 +95,11 @@ export default function NotableActivityTitle({
         <button
           type='button'
           ref={refs.setReference}
-          disabled={!isTruncated}
+          disabled={!canShowAll}
           {...getReferenceProps()}
           className='rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-slate-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:disabled:hover:bg-gray-700'
         >
-          Show all ASNs
+          {items.length > 1 ? `Show all ${items.length} ASNs` : "Show all ASNs"}
         </button>
       </div>
 
