@@ -7,6 +7,7 @@ import { getTags } from "../../api/tags";
 import {
   TAG_CATEGORIES,
   TAG_CATEGORY_LABELS,
+  type TagCategory,
 } from "../../api/tags/types";
 import FilterDropdown from "../../components/filters/FilterDropdown";
 
@@ -26,6 +27,7 @@ const IncidentTagFilter = ({
   onReset,
 }: IProps) => {
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<"all" | TagCategory>("all");
   const { data: tags, isLoading } = useQuery(["tags"], getTags, {
     staleTime: 40000,
   });
@@ -33,13 +35,16 @@ const IncidentTagFilter = ({
   const visibleTags = useMemo(() => {
     const query = search.trim().toLowerCase();
     return (tags || [])
+      .filter((tag) => category === "all" || tag.category === category)
       .filter((tag) =>
-        !query || `${tag.name} ${tag.description || ""}`
+        !query || `${tag.name} ${tag.description || ""} ${TAG_CATEGORY_LABELS[tag.category]}`
           .toLowerCase()
           .includes(query)
       )
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [search, tags]);
+  }, [category, search, tags]);
+
+  const visibleCategories = category === "all" ? TAG_CATEGORIES : [category];
 
   const toggleTag = (tagId: string) => {
     if (selectedIds.includes(tagId)) {
@@ -49,24 +54,48 @@ const IncidentTagFilter = ({
     onChange([...selectedIds, tagId]);
   };
 
+  const resetFilter = () => {
+    setSearch("");
+    setCategory("all");
+    onReset();
+  };
+
   return (
     <FilterDropdown
       label='Tags'
       value={selectedIds.length ? `Tags: ${selectedIds.length}` : undefined}
-      onReset={onReset}
-      panelClassName='w-72'
+      onReset={resetFilter}
+      panelClassName='w-80'
       headerChild={
-        <div>
+        <div className='space-y-2'>
           <input
             type='search'
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder='Search tags'
-            className='focus-theme py-1 px-2 border border-slate-200 rounded w-full'
+            className='focus-theme w-full rounded border border-slate-300 bg-white px-2 py-1.5 dark:bg-gray-800'
           />
-          <div className='grid grid-cols-2 gap-1 mt-2'>
+          <select
+            value={category}
+            onChange={(event) =>
+              setCategory(event.target.value as "all" | TagCategory)
+            }
+            aria-label='Tag category'
+            className='focus-theme w-full rounded border border-slate-300 bg-white px-2 py-1.5 dark:bg-gray-800'
+          >
+            <option value='all'>All categories ({tags?.length || 0})</option>
+            {TAG_CATEGORIES.map((tagCategory) => (
+              <option key={tagCategory} value={tagCategory}>
+                {TAG_CATEGORY_LABELS[tagCategory]} ({
+                  (tags || []).filter((tag) => tag.category === tagCategory).length
+                })
+              </option>
+            ))}
+          </select>
+          <div className='grid grid-cols-2 gap-1'>
             <button
               type='button'
+              aria-pressed={matchMode === "any"}
               onClick={() => onMatchModeChange("any")}
               className={`px-2 py-1 rounded border ${
                 matchMode === "any"
@@ -78,6 +107,7 @@ const IncidentTagFilter = ({
             </button>
             <button
               type='button'
+              aria-pressed={matchMode === "all"}
               onClick={() => onMatchModeChange("all")}
               className={`px-2 py-1 rounded border ${
                 matchMode === "all"
@@ -88,6 +118,11 @@ const IncidentTagFilter = ({
               Match all
             </button>
           </div>
+          <p className='px-1 text-xs text-slate-500 dark:text-gray-400'>
+            {matchMode === "all"
+              ? "Show incidents with every selected tag."
+              : "Show incidents with at least one selected tag."}
+          </p>
         </div>
       }
     >
@@ -99,16 +134,16 @@ const IncidentTagFilter = ({
               {search ? "No tags match your search." : "No tags available."}
             </p>
           )}
-          {TAG_CATEGORIES.map((category) => {
+          {visibleCategories.map((tagCategory) => {
             const categoryTags = visibleTags.filter(
-              (tag) => tag.category === category
+              (tag) => tag.category === tagCategory
             );
             if (!categoryTags.length) return null;
 
             return (
-              <section key={category} className='border-b border-slate-200 last:border-0'>
+              <section key={tagCategory} className='border-b border-slate-200 last:border-0'>
                 <h3 className='px-3 pt-2 text-xs font-medium text-slate-500 dark:text-gray-400'>
-                  {TAG_CATEGORY_LABELS[category]}
+                  {TAG_CATEGORY_LABELS[tagCategory]}
                 </h3>
                 {categoryTags.map((tag) => {
                   const isSelected = selectedIds.includes(tag._id);
@@ -116,10 +151,20 @@ const IncidentTagFilter = ({
                     <button
                       key={tag._id}
                       type='button'
+                      aria-pressed={isSelected}
                       onClick={() => toggleTag(tag._id)}
-                      className='px-3 py-2 w-full flex items-center gap-2 text-left hover:bg-slate-100 dark:hover:bg-gray-700'
+                      title={tag.description}
+                      className={`flex w-full items-center gap-2 px-3 py-2 text-left ${
+                        isSelected
+                          ? "bg-sky-50 dark:bg-gray-700"
+                          : "hover:bg-slate-100 dark:hover:bg-gray-700"
+                      }`}
                     >
-                      <span className='w-4 h-4 border border-slate-400 rounded grid place-items-center shrink-0'>
+                      <span className={`grid h-4 w-4 shrink-0 place-items-center rounded border ${
+                        isSelected
+                          ? "border-sky-600 bg-sky-600 text-white"
+                          : "border-slate-400"
+                      }`}>
                         {isSelected && (
                           <FontAwesomeIcon icon={faCheck} className='text-xs' />
                         )}
