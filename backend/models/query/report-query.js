@@ -19,6 +19,10 @@ function ReportQuery(options) {
   this.tags = options.tags;
   this.after = options.after;
   this.before = options.before;
+  this.outageAfter = options.outageAfter;
+  this.outageBefore = options.outageBefore;
+  this.eventAggKeyBase = options.eventAggKeyBase;
+  this.reportIds = options.reportIds;
   this.sourceId = options.sourceId;
   this.media = options.media;
   this.dataSources = options.dataSources;
@@ -54,7 +58,7 @@ ReportQuery.prototype.normalize = function () {
 ReportQuery.prototype.toMongooseFilter = function () {
   var filter = {
     _sources: this.sourceId,
-    _media: this.media,
+    _media: toMediaFilter(this.media),
     _group: this.groupId,
     read: this.read,
     commentTo: this.commentTo,
@@ -62,8 +66,11 @@ ReportQuery.prototype.toMongooseFilter = function () {
     veracity: this.veracity,
     aitagnames: this.aitagnames,
     isOutageEvent: this.isOutageEvent,
+    eventAggKeyBase: this.eventAggKeyBase,
   }
-  if (this.groupId === "none") filter._group = { $eq: null }
+  if (this.reportIds && this.reportIds.length > 0) {
+    filter._id = { $in: this.reportIds };
+  }
   if (this.escalated === 'unescalated') filter.escalated = false;
   if (this.escalated === 'escalated') filter.escalated = true;
 
@@ -82,6 +89,14 @@ ReportQuery.prototype.toMongooseFilter = function () {
   if (this.after) {
     const d = new Date(this.after);
     if (!isNaN(d.getTime())) filter.authoredAt = Object.assign({}, filter.authoredAt, { $gte: d });
+  }
+  if (this.outageBefore) {
+    const d = new Date(this.outageBefore);
+    if (!isNaN(d.getTime())) filter.outageStartedAt = { $lt: d };
+  }
+  if (this.outageAfter) {
+    const d = new Date(this.outageAfter);
+    if (!isNaN(d.getTime())) filter.outageStartedAt = Object.assign({}, filter.outageStartedAt, { $gte: d });
   }
   //Two step search for content/author. First search for any terms in content or author using the indexed $text search.
   //Second step is to match exact phrase using regex in the returned superset of the documents from first step.
@@ -124,10 +139,13 @@ ReportQuery.prototype.toMongooseFilter = function () {
     //filter.$and.push(res)
   }
 
-  // default filter open
+  // Triage flag is a ternary: "true" = Ignore, "false" = Investigate, "maybe" =
+  // untriaged (default). The default filter (no param) shows everything-not-ignored;
+  // "all" removes it; "true"/"false" match that exact state.
   filter.irrelevant = { $ne: "true" };
   if (this.irrelevant === 'all') delete filter.irrelevant
   if (this.irrelevant === 'true') filter.irrelevant = "true";
+  if (this.irrelevant === 'false') filter.irrelevant = "false";
 
   if (this.tags) {
     filter.smtcTags = { $all: this.tags };
@@ -160,6 +178,17 @@ ReportQuery.prototype.toMongooseFilter = function () {
   return filter;
 };
 
+// `media` arrives as one platform, a comma-separated list from the URL, or an array (e.g.
+// the dashboard's "by source" link). Parsed here rather than in the controller so socket
+// queries, which construct ReportQuery directly, filter the same way.
+function toMediaFilter(media) {
+  const list = (Array.isArray(media) ? media : String(media || '').split(','))
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+  if (list.length === 0) return undefined;
+  return list.length === 1 ? list[0] : { $in: list };
+}
+
 ReportQuery.prototype._parseStatus = function (status) {
   switch (status) {
     case 'Read':
@@ -172,10 +201,13 @@ ReportQuery.prototype._parseStatus = function (status) {
 };
 
 ReportQuery.prototype._parseGroupId = function (groupId) {
+  // `_group` is an ObjectId path, so an empty string can't be cast — use null-only
+  // predicates ($eq/$ne null, which also match missing fields). Both are objects, so
+  // they survive the _.omitBy(nil) in toMongooseFilter.
   if (groupId === 'any') {
-    this.groupId = { $nin: [null, ''] };
+    this.groupId = { $ne: null };
   } else if (groupId === 'none') {
-    this.groupId = { $in: [null, ''] };
+    this.groupId = { $eq: null };
   } else {
     this.groupId = groupId;
   }

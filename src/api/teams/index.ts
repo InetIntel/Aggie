@@ -98,6 +98,22 @@ export const updateTeamStatus = async (params: {
   return data;
 };
 
+export const updateTeamDetails = async (params: {
+  teamId: string;
+  name: string;
+  description: string;
+}) => {
+  const { data } = await axios.put<TeamDetailResponse>(
+    "/api/team/" + params.teamId,
+    {
+      name: params.name,
+      description: params.description,
+    }
+  );
+
+  return data;
+};
+
 export const getIncidentAccessTeams = async () => {
   const { data } = await axios.get<Team[]>('/api/team/incident-access');
   return data;

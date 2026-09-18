@@ -23,6 +23,7 @@ import {
   faFileEdit,
   faMinus,
   faMinusCircle,
+  faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -108,12 +109,17 @@ const AddReportsToIncidents = ({
       <div className='fixed inset-0 bg-black/30 dark:bg-white/20' aria-hidden='true' />
       <div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
         <Dialog.Panel className='bg-gray-50 dark:bg-gray-800 rounded-xl border border-slate-200 shadow-xl min-w-24 h-[90vh] min-h-12 p-3 grid grid-cols-4 gap-y-1 gap-x-4 w-full	grid-rows-[auto_1fr]'>
-          <div className='col-span-full flex items-center justify-center'>
-            <AggieButton variant='secondary' onClick={onClose} className='absolute left-7'>
-              Cancel
-            </AggieButton>
-
+          <div className='col-span-full relative flex items-center justify-center'>
             <p className='font-medium text-xl'>Select an Incident Below:</p>
+
+            <AggieButton
+              variant='transparent'
+              className='absolute right-0'
+              onClick={onClose}
+              icon={faXmark}
+              title='Close'
+              aria-label='Close'
+            />
           </div>
 
           <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-1 border-2 border-dashed border-slate-300 bg-slate-50 dark:bg-gray-900 rounded-lg p-3'>

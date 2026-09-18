@@ -8,6 +8,7 @@ import {
   removeTeamMember,
   updateTeamMemberPermissions,
   updateTeamPermissionLimits,
+  updateTeamDetails,
   updateTeamStatus,
 } from "../../../api/teams";
 import type {
@@ -92,6 +93,9 @@ const TeamDetails = ({ session }: IProps) => {
   const [pendingPermission, setPendingPermission] = useState("");
   const [createUserOpen, setCreateUserOpen] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [teamName, setTeamName] = useState("");
+  const [teamDescription, setTeamDescription] = useState("");
 
   const requestedTab = searchParams.get("tab");
   const activeTab: TeamTab = requestedTab === "members" || requestedTab === "advanced"
@@ -237,6 +241,19 @@ const TeamDetails = ({ session }: IProps) => {
     ),
   });
 
+  const doUpdateDetails = useMutation(updateTeamDetails, {
+    onMutate: () => setActionError(""),
+    onSuccess: (updatedTeam) => {
+      saveTeam(updatedTeam);
+      setEditingDetails(false);
+      queryClient.invalidateQueries(["teams"]);
+      queryClient.invalidateQueries(["teams", "manageable"]);
+    },
+    onError: (error) => setActionError(
+      getErrorMessage(error, "Unable to update the team details.")
+    ),
+  });
+
   const members = data?.members || [];
   const adminMembers = members.filter((member) => member.accountRole === "admin");
   const permissionMembers = members.filter((member) => member.accountRole !== "admin");
@@ -258,7 +275,15 @@ const TeamDetails = ({ session }: IProps) => {
     doRemoveMember.isLoading ||
     doUpdateMemberPermissions.isLoading ||
     doUpdateTeamLimits.isLoading ||
+    doUpdateDetails.isLoading ||
     doUpdateStatus.isLoading;
+
+  const startEditingDetails = () => {
+    setTeamName(data?.team.name || "");
+    setTeamDescription(data?.team.description || "");
+    setEditingDetails(true);
+    setActionError("");
+  };
 
   const setTab = (tab: TeamTab) => {
     setSearchParams(tab === "overview" ? {} : { tab });
@@ -295,33 +320,96 @@ const TeamDetails = ({ session }: IProps) => {
       <PlaceholderDiv loading={isLoading}>
         <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 p-4 mt-3'>
           <div className='flex justify-between items-start gap-3'>
-            <div>
-              <h2 className='text-3xl font-medium'>{data?.team.name || "Team"}</h2>
-              <p className='text-sm text-slate-600 dark:text-gray-300 mt-1'>
-                {data?.team.description || "No description"}
-              </p>
-            </div>
-            {isAdmin ? (
-              <div className='flex items-center gap-2 text-sm px-2 py-1 bg-slate-100 dark:bg-gray-700 rounded border border-slate-300'>
-                <span>{data?.team.active === false ? "Inactive" : "Active"}</span>
-                <AggieSwitch
-                  checked={data?.team.active !== false}
-                  disabled={!data || doUpdateStatus.isLoading}
-                  label='Change team status'
-                  onChange={() => {
-                    if (!params.id || !data) return;
-                    doUpdateStatus.mutate({
-                      teamId: params.id,
-                      active: data.team.active === false,
-                    });
-                  }}
-                />
-              </div>
+            {editingDetails ? (
+              <form
+                className='flex-1 max-w-xl flex flex-col gap-3'
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!params.id || !teamName.trim()) return;
+                  doUpdateDetails.mutate({
+                    teamId: params.id,
+                    name: teamName.trim(),
+                    description: teamDescription.trim(),
+                  });
+                }}
+              >
+                <label className='flex flex-col gap-1 text-sm'>
+                  Team name
+                  <input
+                    value={teamName}
+                    onChange={(event) => setTeamName(event.target.value)}
+                    className='px-3 py-2 rounded border border-slate-300 bg-white dark:bg-gray-900'
+                  />
+                </label>
+                <label className='flex flex-col gap-1 text-sm'>
+                  Description
+                  <textarea
+                    value={teamDescription}
+                    onChange={(event) => setTeamDescription(event.target.value)}
+                    className='px-3 py-2 rounded border border-slate-300 bg-white dark:bg-gray-900'
+                    rows={3}
+                  />
+                </label>
+                <div className='flex gap-2'>
+                  <AggieButton
+                    type='button'
+                    variant='secondary'
+                    disabled={doUpdateDetails.isLoading}
+                    onClick={() => setEditingDetails(false)}
+                  >
+                    Cancel
+                  </AggieButton>
+                  <AggieButton
+                    type='submit'
+                    variant='primary'
+                    disabled={!teamName.trim() || doUpdateDetails.isLoading}
+                    loading={doUpdateDetails.isLoading}
+                  >
+                    Save
+                  </AggieButton>
+                </div>
+              </form>
             ) : (
-              <span className='text-sm px-2 py-1 bg-slate-100 dark:bg-gray-700 rounded border border-slate-300'>
-                {data?.team.active === false ? "Inactive" : "Active"}
-              </span>
+              <div>
+                <h2 className='text-3xl font-medium'>{data?.team.name || "Team"}</h2>
+                <p className='text-sm text-slate-600 dark:text-gray-300 mt-1'>
+                  {data?.team.description || "No description"}
+                </p>
+              </div>
             )}
+            <div className='flex items-center gap-2'>
+              {!editingDetails && (
+                <AggieButton
+                  type='button'
+                  variant='secondary'
+                  padding='px-3 py-1'
+                  onClick={startEditingDetails}
+                >
+                  Edit details
+                </AggieButton>
+              )}
+              {isAdmin ? (
+                <div className='flex items-center gap-2 text-sm px-2 py-1 bg-slate-100 dark:bg-gray-700 rounded border border-slate-300'>
+                  <span>{data?.team.active === false ? "Inactive" : "Active"}</span>
+                  <AggieSwitch
+                    checked={data?.team.active !== false}
+                    disabled={!data || doUpdateStatus.isLoading}
+                    label='Change team status'
+                    onChange={() => {
+                      if (!params.id || !data) return;
+                      doUpdateStatus.mutate({
+                        teamId: params.id,
+                        active: data.team.active === false,
+                      });
+                    }}
+                  />
+                </div>
+              ) : (
+                <span className='text-sm px-2 py-1 bg-slate-100 dark:bg-gray-700 rounded border border-slate-300'>
+                  {data?.team.active === false ? "Inactive" : "Active"}
+                </span>
+              )}
+            </div>
           </div>
 
           <div aria-live='polite'>

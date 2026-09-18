@@ -6,7 +6,9 @@ import {
   faImages,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useQuery } from "@tanstack/react-query";
 import { Report } from "../../api/reports/types";
+import { getTags } from "../../api/tags";
 import { formatText } from "../../utils/format";
 import { formatDateTime, formatTime, UserPreferences } from "../../utils/dateFormat";
 import { useFormatters } from "../../utils/useFormatters";
@@ -22,7 +24,11 @@ import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
 import { parseYoutube } from "../SocialMediaPost/YoutubePost";
 import { getReportImages } from "../SocialMediaPost/mediaAttachments";
-import TagsList from "../Tags/TagsList";
+
+// Sky blue, matching the solid signal-badge style (e.g. IODA's BGP pill) rather
+// than TagsList's neutral gray pill - tags shown here sit right beside the
+// platform name/signal badge, so they need to read as the same kind of chip.
+const TAG_BADGE_CLASS = "bg-sky-500 dark:bg-sky-500 dark:saturate-[0.7]";
 
 interface IProps {
   report: Report;
@@ -35,6 +41,10 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const contentType = parseContentType(report);
   const { imagePreview, imagesCount } = renderImage(contentType, report);
   const [signal, bgColor] = signalToNameColor(report?.metadata?.rawAPIResponse?.rawEvent?.datasource);
+  const { data: allTags } = useQuery(["tags"], getTags, { staleTime: 40000 });
+  const tagNames = (report.smtcTags || [])
+    .map((id) => allTags?.find((t) => t._id === id)?.name)
+    .filter((name): name is string => !!name);
   return (
     <>
       <header className='flex justify-between mb-2 relative '>
@@ -47,6 +57,11 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <h1 className='text-sm text-black font-medium dark:text-gray-300'>
             {renderAuthor(contentType, report)}
           </h1>
+          {tagNames.map((name) => (
+            <AggieToken key={name} className={`${TAG_BADGE_CLASS} ${SIGNAL_BADGE_CLASS}`}>
+              {name}
+            </AggieToken>
+          ))}
           {signal && (
             <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
               {signal}
@@ -115,6 +130,8 @@ function renderAuthor(
       return "IODA";
     case "cloudflare":
       return report?.metadata?.rawAPIResponse?.dataSource;
+    case "ooni":
+      return report?.metadata?.rawAPIResponse?.networkName || report.author;
     case "mastodon":
       return report.metadata.accountHandle || report.author;
     default:
@@ -283,6 +300,15 @@ function renderText(
           {endDate === "now" ? "now" : formatDateTime(endDate, prefs)}
         </p>
       );
+    case "ooni": {
+      const windowEnd = report?.metadata?.rawAPIResponse?.windowEnd;
+      return (
+        <p className='text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+          {formatText(report.content)}
+          {windowEnd && <> measured at {formatDateTime(windowEnd, prefs)}.</>}
+        </p>
+      );
+    }
     default:
       return (
         <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>

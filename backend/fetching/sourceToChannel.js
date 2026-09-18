@@ -16,6 +16,7 @@ const JunkipediaChannel = require('./channels/junkipedia');
 const TelegramBotChannel = require('./channels/telegramBot');
 const TelegramUserChannel = require('./channels/telegramUser');
 const MastodonChannel = require('./channels/mastodon');
+const OONIChannel = require('./channels/ooni');
 
 // const { TwitterPageChannel, JunkipediaChannel } = builtin;
 
@@ -228,6 +229,13 @@ function createChannel(source) {
                 sourceId: _id,
             }
             channel = new CloudflareChannel(options);
+            break;
+        case 'ooni':
+            options = {
+                ...options,
+                asns: lists,
+            };
+            channel = new OONIChannel(options);
             break;
         default:
     }

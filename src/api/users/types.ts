@@ -12,7 +12,7 @@ export interface UserTeam {
 }
 
 export interface UserTeamMembership {
-  team: UserTeam | string;
+  team: UserTeam | string | null;
   role: "viewer" | "monitor" | "team_lead";
 }
 

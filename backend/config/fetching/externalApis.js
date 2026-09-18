@@ -27,7 +27,8 @@ const DATA_SOURCES = {
         'ping-slash24': 'Active Probing',
         'bgp': 'BGP',
     },
-    CLOUDFLARE: "Cloudflare Traffic"
+    CLOUDFLARE: "Cloudflare Traffic",
+    OONI: "OONI Web Connectivity",
 }
 
 const API_LINKED_PAGE_URLS = {

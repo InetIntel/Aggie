@@ -289,6 +289,43 @@ exports.team_update_status = async (req, res) => {
   }
 };
 
+exports.team_update = async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthenticated.');
+
+  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+  const description = typeof req.body.description === 'string'
+    ? req.body.description.trim()
+    : '';
+
+  if (!name) return res.status(400).send('Team name is required.');
+
+  try {
+    const team = await Team.findById(req.params._id);
+    if (!team) return res.sendStatus(404);
+    if (!canManageTeam(req.user, team)) {
+      return res.status(403).send('Unauthorized to update this team.');
+    }
+
+    team.name = name;
+    team.description = description;
+    await team.save();
+
+    const members = await User.find({ teams: team._id })
+      .select('_id username displayName email role teamMemberships createdBy')
+      .sort({ role: 1, username: 1 })
+      .lean();
+
+    return res.status(200).send(serializeTeamDetail(team, members));
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).send('A team with this name already exists.');
+    }
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Team update failed');
+  }
+};
+
 // Create a team
 exports.team_create = (req, res) => {
   if (!req.user) return res.status(401).send('Unauthenticated.');
@@ -479,7 +516,12 @@ if (!canCreateOrDeleteTeams(req.user)) {
 
     await User.updateMany(
       { teams: req.params._id },
-      { $pull: { teams: req.params._id } }
+      {
+        $pull: {
+          teams: req.params._id,
+          teamMemberships: { team: req.params._id },
+        },
+      }
     );
 
     await Team.findByIdAndDelete(req.params._id);

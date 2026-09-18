@@ -12,6 +12,7 @@ import { Listbox } from "@headlessui/react";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
 import FormikWithSchema from "../../../components/FormikWithSchema";
+import AxiosErrorCard from "../../../components/AxiosErrorCard";
 import type { Credential } from "../../../api/credentials/types";
 
 import {
@@ -319,6 +320,17 @@ const CreateEditSourceForm = ({
       (source?.media as CredentialOption) || defaultType || "ioda"
     );
 
+  // When editing, `source` can arrive asynchronously (e.g. the details panel's
+  // ["source", id] query resolves after this form mounts). `credentialType` is
+  // seeded only at mount, so without this it stays on the default and the wrong
+  // sub-form renders — the provider-specific fields (like the Telegram
+  // Chats / Channels / Users list) then never appear. Re-sync it whenever the
+  // resolved source's media changes. New feeds have no `source`, so the user's
+  // manual provider choice is untouched.
+  useEffect(() => {
+    if (source?.media) setCredentialType(source.media as CredentialOption);
+  }, [source?.media]);
+
   // The provider is fixed whenever it's known upfront — editing an existing feed
   // or adding one from a provider-scoped section. Only a bare "new feed" form
   // (no source, no defaultType) lets the user pick the provider.
@@ -371,18 +383,27 @@ function onSubmit(data: any) {
 }
 
   const doCreateSource = useMutation(newSource, {
-    onSuccess: () => {
-      onClose();
-      queryClient.invalidateQueries(["sources"]);
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(["sources"]);
     },
   });
   const doEditSource = useMutation(editSource, {
-    onSuccess: () => {
-      onClose();
-      queryClient.invalidateQueries(["sources"]);
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries(["sources"]),
+        queryClient.invalidateQueries(["source", source?._id]),
+      ]);
     },
   });
   const isLoading = doCreateSource.isLoading || doEditSource.isLoading;
+  const saveError = doCreateSource.error || doEditSource.error;
+  const saveSuccess = doCreateSource.isSuccess || doEditSource.isSuccess;
+
+  useEffect(() => {
+    if (!saveSuccess) return;
+    const timer = setTimeout(onClose, 1500);
+    return () => clearTimeout(timer);
+  }, [saveSuccess, onClose]);
 
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
@@ -492,9 +513,11 @@ function onSubmit(data: any) {
     credentials: Yup.string().required(
       "A connection is required to create a feed"
     ),
-    lists: Yup.string().required(
-      "At least one Telegram chat, channel, or user is required"
-    ),
+    lists: source
+      ? Yup.string()
+      : Yup.string().required(
+          "At least one Telegram chat, channel, or user is required"
+        ),
   });
   type ITelegramUserSchema = Yup.InferType<typeof telegramUserSchema>;
 
@@ -527,6 +550,7 @@ function onSubmit(data: any) {
       <FormikInput
         name='lists'
         label='Chats / Channels / Users'
+        multiline
         placeholder='Comma-separated Telegram entities, e.g. @channel_one, -1001234567890'
         hint='Enter the Telegram entities this account can access, such as public usernames like @channel_one or private chat/channel IDs like -1001234567890. Separate multiple entries with commas.'
       />
@@ -622,6 +646,57 @@ function onSubmit(data: any) {
         label='Connection'
         credentialsList={credentialsList}
         allowMultiple={allowMultipleConnections}
+      />
+      <SourceAccessPolicyFields teams={teams} />
+    </FormikWithSchema>
+  );
+
+  const ooniSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source Name is required"),
+    credentials: Yup.string().required("OONI credentials are required"),
+    lists: Yup.string()
+      .required("At least one ASN is required")
+      .test(
+        "valid-asns",
+        "Enter positive ASNs separated by spaces or commas",
+        (value) => {
+          const asns = String(value || "").split(/[\s,]+/).filter(Boolean);
+          return asns.length > 0 && asns.every((asn) => /^\d+$/.test(asn) && Number(asn) > 0);
+        },
+      ),
+  });
+  type OoniSchema = Yup.InferType<typeof ooniSchema>;
+  const ooniForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "IR",
+        lists: source?.lists || "44244, 58224",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || "",
+        sourceURL: source?.url || "",
+        url: "",
+        ...sourceAccessInitialValues,
+      }}
+      schema={ooniSchema}
+      onSubmit={(values: OoniSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' />
+      <CredentialPickerField
+        label='OONI Credentials'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
+      <FormikInput
+        name='lists'
+        label='Network ASNs'
+        placeholder='44244, 58224'
       />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
@@ -853,6 +928,13 @@ function onSubmit(data: any) {
       {/*credentialType === "twitter" && TwitterForm*/}
       {credentialType === "ioda" && iodaForm}
       {credentialType === "cloudflare" && cloudflareForm}
+      {credentialType === "ooni" && ooniForm}
+      {saveError && <AxiosErrorCard error={saveError} />}
+      {saveSuccess && (
+        <p className='mt-3 text-sm text-green-700' role='status'>
+          {source ? "Feed updated successfully." : "Feed created successfully."}
+        </p>
+      )}
     </>
   );
 };

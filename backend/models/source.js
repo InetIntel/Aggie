@@ -65,6 +65,12 @@ var sourceSchema = new mongoose.Schema({
 sourceSchema.pre('save', function (next) {
   // Do not allow changing media
   if (!this.isNew && this.isModified('media')) return next(new Error.Validation('source_media_change_not_allowed'));
+
+  // The warnings view only uses the latest 50 events.
+  if (this.events && this.events.length > EVENTS_TO_RETURN) {
+    this.events = this.events.slice(-EVENTS_TO_RETURN);
+  }
+
   // Notify when changing error count
   if (!this.isNew && this.isModified('unreadErrorCount')) {
     this._sourceErrorCountUpdated = true;

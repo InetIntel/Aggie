@@ -170,7 +170,7 @@ const DetailField = ({
     {hint && (
       <p className='text-xs text-slate-500 dark:text-gray-400'>{hint}</p>
     )}
-    <div className='text-black dark:text-gray-300'>{children}</div>
+    <div className='text-black dark:text-gray-300 break-words'>{children}</div>
   </div>
 );
 
@@ -247,6 +247,16 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
             <h2 className='text-xl font-medium'>Edit feed</h2>
             {onClose && <CloseButton onClose={onClose} />}
           </div>
+          {!data ? (
+            // Don't mount the edit form until the source has loaded: the form
+            // seeds its provider (and thus which fields render) from `source` at
+            // mount, so mounting it with no data leaves it stuck on the wrong
+            // provider once data arrives.
+            <div className='flex items-center justify-center gap-2 py-8 text-slate-500 dark:text-gray-400'>
+              <FontAwesomeIcon icon={faSpinner} className='animate-spin' />
+              Loading feed…
+            </div>
+          ) : (
           <CreateEditSourceForm
             source={data}
             allowMultipleConnections={getAllowMultipleConnections()}
@@ -267,6 +277,7 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
               }
             }}
           />
+          )}
         </div>
       ) : (
         <>
