@@ -1,6 +1,6 @@
 import * as Yup from "yup";
 
-import { Formik, Form, Field } from "formik";
+import { Formik, Form } from "formik";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -67,10 +67,13 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
   });
   function showError(err: AxiosError) {
     if (err.response && err.response.status === 422) {
-      setError("Tag name must be unique!");
+      setError("A tag with this name already exists.");
+      return;
     }
+    setError("The tag could not be saved.");
   }
   function onSubmitForm(data: editSchema) {
+    setError("");
     if (isCreateMode) {
       doCreateTag.mutate(data);
     } else {
@@ -87,30 +90,38 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
       validationSchema={tagEditSchema}
       validateOnBlur={true}
     >
-      <Form className='flex flex-col gap-3'>
+      <Form className='flex flex-col gap-4'>
         {error && (
           <p className='px-3 py-2 border border-red-400 bg-red-200 dark:bg-red-200 dark:saturate-[0.7] text-red-800 font-medium'>
             {error}
           </p>
         )}
 
-        <FormikInput label='name' name='name' />
-        <FormikDropdown
-          label='Category'
-          name='category'
-          list={TAG_CATEGORIES.map((category) => ({
-            _id: category,
-            label: TAG_CATEGORY_LABELS[category],
-          }))}
+        <FormikInput
+          label='Tag name'
+          name='name'
+          placeholder='Enter a tag name'
         />
-        <label className='flex flex-col'>
-          Description
-          <Field
-            as='textarea'
-            name='description'
-            className='p-3 border border-slate-300 rounded bg-slate-50 dark:bg-gray-900'
+        <div>
+          <FormikDropdown
+            label='Category'
+            name='category'
+            list={TAG_CATEGORIES.map((category) => ({
+              _id: category,
+              label: TAG_CATEGORY_LABELS[category],
+            }))}
           />
-        </label>
+          <p className='mt-1 text-xs text-slate-500 dark:text-gray-400'>
+            This controls where the tag is grouped throughout Aggie.
+          </p>
+        </div>
+        <FormikInput
+          label='Description'
+          name='description'
+          placeholder='Optional description'
+          multiline
+          rows={3}
+        />
 
         <div className='flex justify-between'>
           <AggieButton
@@ -127,7 +138,7 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
             loading={isLoading}
             type={"submit"}
           >
-            Confirm
+            {isCreateMode ? "Create tag" : "Save changes"}
           </AggieButton>
         </div>
       </Form>

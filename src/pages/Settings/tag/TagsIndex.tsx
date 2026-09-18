@@ -3,7 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSession } from "../../../api/session";
 import { deleteTag, getTags } from "../../../api/tags";
-import { TAG_CATEGORY_LABELS } from "../../../api/tags/types";
+import {
+  TAG_CATEGORIES,
+  TAG_CATEGORY_LABELS,
+  type TagCategory,
+} from "../../../api/tags/types";
 
 import AggieButton from "../../../components/AggieButton";
 import UserToken from "../../../components/UserToken";
@@ -27,20 +31,30 @@ const TagsIndex = (props: IProps) => {
   const [editOpen, setEditOpen] = useState("");
   const [deleteOpen, setDeleteOpen] = useState("");
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<"all" | TagCategory>("all");
 
   const queryClient = useQueryClient();
-  const { data, isSuccess, refetch } = useQuery(["tags"], getTags);
+  const { data, isSuccess } = useQuery(["tags"], getTags);
   const { data: session } = useQuery(["session"], getSession);
   const canEditTags = session?.permissions?.includes("edit tags") === true;
 
   const visibleTags = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return data || [];
+    return (data || [])
+      .filter((tag) => category === "all" || tag.category === category)
+      .filter((tag) => {
+        if (!query) return true;
+        return `${tag.name} ${tag.description || ""} ${TAG_CATEGORY_LABELS[tag.category]}`
+          .toLowerCase()
+          .includes(query);
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [category, data, search]);
 
-    return (data || []).filter((tag) =>
-      `${tag.name} ${tag.description || ""}`.toLowerCase().includes(query)
-    );
-  }, [data, search]);
+  const categoryCount = (tagCategory: TagCategory) =>
+    (data || []).filter((tag) => tag.category === tagCategory).length;
+
+  const visibleCategories = category === "all" ? TAG_CATEGORIES : [category];
 
   const doDeleteTag = useMutation(deleteTag, {
     onSuccess: () => {
@@ -60,9 +74,14 @@ const TagsIndex = (props: IProps) => {
   }
 
   return (
-    <div className='my-3'>
-      <div className='flex justify-between items-center mb-3'>
-        <h3 className={"text-3xl font-medium"}>Tags</h3>
+    <div className='my-3 mb-16'>
+      <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
+        <div>
+          <h3 className={"text-3xl font-medium"}>Tags</h3>
+          <p className='text-sm text-slate-500 dark:text-gray-400'>
+            Organize the tags available for incidents.
+          </p>
+        </div>
 
         {
           canEditTags &&
@@ -76,66 +95,119 @@ const TagsIndex = (props: IProps) => {
           </AggieButton>
         }
       </div>
+      <div className='mb-3 flex flex-wrap gap-2'>
+        <button
+          type='button'
+          aria-pressed={category === "all"}
+          onClick={() => setCategory("all")}
+          className={`rounded-full border px-3 py-1.5 text-sm ${
+            category === "all"
+              ? "border-slate-500 bg-slate-200 dark:bg-gray-600"
+              : "border-slate-300 bg-white hover:bg-slate-100 dark:bg-gray-800 dark:hover:bg-gray-700"
+          }`}
+        >
+          All ({data?.length || 0})
+        </button>
+        {TAG_CATEGORIES.map((tagCategory) => (
+          <button
+            key={tagCategory}
+            type='button'
+            aria-pressed={category === tagCategory}
+            onClick={() => setCategory(tagCategory)}
+            className={`rounded-full border px-3 py-1.5 text-sm ${
+              category === tagCategory
+                ? "border-slate-500 bg-slate-200 dark:bg-gray-600"
+                : "border-slate-300 bg-white hover:bg-slate-100 dark:bg-gray-800 dark:hover:bg-gray-700"
+            }`}
+          >
+            {TAG_CATEGORY_LABELS[tagCategory]} ({categoryCount(tagCategory)})
+          </button>
+        ))}
+      </div>
+
       <input
         type='search'
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder='Search tags'
-        className='focus-theme mb-3 px-3 py-2 border border-slate-300 rounded w-full bg-white dark:bg-gray-800'
+        className='focus-theme mb-4 px-3 py-2 border border-slate-300 rounded w-full bg-white dark:bg-gray-800'
       />
-      <section className='divide-y divide-slate-300 bg-white dark:bg-gray-800 rounded-lg border border-slate-300'>
-        {isSuccess && visibleTags.length === 0 && (
-          <p className='py-3 px-3 italic text-slate-500'>
-            {search ? "No tags match your search." : "No tags have been created."}
-          </p>
-        )}
-        {visibleTags.map((tag) => (
-            <article key={tag._id} className='py-2 px-3 grid grid-cols-5'>
-              <header className='col-span-2'>
-                <div className='flex items-center gap-2'>
-                  <h2 className='text-lg font-medium'>{tag.name}</h2>
-                  <span className='rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:bg-gray-700 dark:text-gray-200'>
-                    {TAG_CATEGORY_LABELS[tag.category]}
-                  </span>
-                </div>
-                <p className='text-sm'>
-                  <span className='italic'>created by </span>
-                  <UserToken id={tag.user?._id || ""} loading={!data} />
-                  <span className='italic'> on </span>
-                  <span>
-                    <DateTime dateString={tag.storedAt} />
-                  </span>
-                </p>
-              </header>
-              <main className='col-span-2 text-sm'>{tag.description}</main>
-              <footer className='flex justify-end items-center'>
-                {canEditTags &&
-                  <DropdownMenu
-                    variant='secondary'
-                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
-                    panelClassName='overflow-hidden right-0 text-sm'
-                    buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
+
+      {isSuccess && visibleTags.length === 0 && (
+        <p className='rounded-lg border border-slate-300 bg-white px-3 py-4 italic text-slate-500 dark:bg-gray-800'>
+          {search
+            ? "No tags match your search."
+            : category === "all"
+              ? "No tags have been created."
+              : "No tags have been created in this category."}
+        </p>
+      )}
+
+      <div className='flex flex-col gap-4'>
+        {visibleCategories.map((tagCategory) => {
+          const categoryTags = visibleTags.filter(
+            (tag) => tag.category === tagCategory
+          );
+          if (!categoryTags.length) return null;
+
+          return (
+            <section key={tagCategory}>
+              <div className='mb-2 flex items-baseline gap-2'>
+                <h2 className='text-xl font-medium'>
+                  {TAG_CATEGORY_LABELS[tagCategory]}
+                </h2>
+                <span className='text-sm text-slate-500'>
+                  {categoryTags.length} {categoryTags.length === 1 ? "tag" : "tags"}
+                </span>
+              </div>
+              <div className='divide-y divide-slate-300 rounded-lg border border-slate-300 bg-white dark:bg-gray-800'>
+                {categoryTags.map((tag) => (
+                  <article
+                    key={tag._id}
+                    className='grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] md:items-center'
                   >
-                    <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-slate-600 dark:text-gray-400 w-full'
-                      onClick={() => setEditOpen(tag._id)}
-                    >
-                      <FontAwesomeIcon icon={faEdit} />
-                      Edit
-                    </AggieButton>
-                    <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-red-600'
-                      onClick={() => setDeleteOpen(tag._id)}
-                    >
-                      <FontAwesomeIcon icon={faTrashAlt} />
-                      Permanently Delete
-                    </AggieButton>
-                  </DropdownMenu>
-                }
-              </footer>
-            </article>
-          ))}
-      </section>
+                    <header>
+                      <h3 className='text-lg font-medium'>{tag.name}</h3>
+                      <p className='text-xs text-slate-500 dark:text-gray-400'>
+                        Created by <UserToken id={tag.user?._id || ""} loading={!data} /> on{" "}
+                        <DateTime dateString={tag.storedAt} />
+                      </p>
+                    </header>
+                    <p className='text-sm text-slate-600 dark:text-gray-300'>
+                      {tag.description || "No description"}
+                    </p>
+                    <footer className='flex justify-end'>
+                      {canEditTags && (
+                        <DropdownMenu
+                          variant='secondary'
+                          className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
+                          panelClassName='overflow-hidden right-0 text-sm'
+                          buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
+                        >
+                          <AggieButton
+                            className='px-3 py-2 hover:bg-slate-100 text-slate-600 dark:text-gray-400 w-full'
+                            onClick={() => setEditOpen(tag._id)}
+                          >
+                            <FontAwesomeIcon icon={faEdit} />
+                            Edit
+                          </AggieButton>
+                          <AggieButton
+                            className='px-3 py-2 hover:bg-slate-100 text-red-600'
+                            onClick={() => setDeleteOpen(tag._id)}
+                          >
+                            <FontAwesomeIcon icon={faTrashAlt} />
+                            Permanently Delete
+                          </AggieButton>
+                        </DropdownMenu>
+                      )}
+                    </footer>
+                  </article>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
       {canEditTags && <>
         <AggieDialog
           isOpen={!!editOpen}
