@@ -6,6 +6,7 @@ import {
   TAG_CATEGORIES,
   TAG_CATEGORY_LABELS,
   Tag,
+  type TagCategory,
 } from "../../../api/tags/types";
 import AggieButton from "../../../components/AggieButton";
 import AggieDialog from "../../../components/AggieDialog";
@@ -29,6 +30,7 @@ const IncidentTagsDialog = ({
 }: IProps) => {
   const [selected, setSelected] = useState<string[]>(selectedTagIds);
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<"all" | TagCategory>("all");
   const { data: tags, isLoading, isError } = useQuery(["tags"], getTags, {
     staleTime: 40000,
   });
@@ -37,19 +39,26 @@ const IncidentTagsDialog = ({
     if (!isOpen) return;
     setSelected(selectedTagIds);
     setSearch("");
+    setCategory("all");
   }, [isOpen, selectedTagIds]);
 
   const visibleTags = useMemo(() => {
     const query = search.trim().toLowerCase();
     return (tags || [])
+      .filter((tag) => category === "all" || tag.category === category)
       .filter((tag) => {
         if (!query) return true;
-        return `${tag.name} ${tag.description || ""}`
+        return `${tag.name} ${tag.description || ""} ${TAG_CATEGORY_LABELS[tag.category]}`
           .toLowerCase()
           .includes(query);
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [search, tags]);
+  }, [category, search, tags]);
+
+  const visibleCategories = category === "all" ? TAG_CATEGORIES : [category];
+
+  const categoryCount = (tagCategory: TagCategory) =>
+    (tags || []).filter((tag) => tag.category === tagCategory).length;
 
   const toggleTag = (tag: Tag) => {
     setSelected((current) =>
@@ -63,13 +72,43 @@ const IncidentTagsDialog = ({
     <AggieDialog
       isOpen={isOpen}
       onClose={onClose}
-      className='p-4 max-w-xl w-full'
+      className='p-4 max-w-2xl w-full'
       data={{
         title: "Incident tags",
         description: "Choose the tags that apply to this incident.",
       }}
     >
       <div className='flex flex-col gap-4'>
+        <div className='flex flex-wrap gap-2'>
+          <button
+            type='button'
+            aria-pressed={category === "all"}
+            onClick={() => setCategory("all")}
+            className={`rounded-full border px-3 py-1.5 text-sm ${
+              category === "all"
+                ? "border-slate-500 bg-slate-200 dark:bg-gray-600"
+                : "border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-gray-700"
+            }`}
+          >
+            All ({tags?.length || 0})
+          </button>
+          {TAG_CATEGORIES.map((tagCategory) => (
+            <button
+              key={tagCategory}
+              type='button'
+              aria-pressed={category === tagCategory}
+              onClick={() => setCategory(tagCategory)}
+              className={`rounded-full border px-3 py-1.5 text-sm ${
+                category === tagCategory
+                  ? "border-slate-500 bg-slate-200 dark:bg-gray-600"
+                  : "border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-gray-700"
+              }`}
+            >
+              {TAG_CATEGORY_LABELS[tagCategory]} ({categoryCount(tagCategory)})
+            </button>
+          ))}
+        </div>
+
         <input
           type='search'
           value={search}
@@ -89,32 +128,46 @@ const IncidentTagsDialog = ({
             </p>
           )}
 
-          {TAG_CATEGORIES.map((category) => {
+          {visibleCategories.map((tagCategory) => {
             const categoryTags = visibleTags.filter(
-              (tag) => tag.category === category
+              (tag) => tag.category === tagCategory
             );
             if (!categoryTags.length) return null;
 
             return (
-              <section key={category} className='mb-4 last:mb-0'>
-                <h3 className='font-medium mb-2'>
-                  {TAG_CATEGORY_LABELS[category]}
+              <section key={tagCategory} className='mb-4 last:mb-0'>
+                <h3 className='mb-2 font-medium'>
+                  {TAG_CATEGORY_LABELS[tagCategory]}
                 </h3>
                 <div className='grid gap-2 sm:grid-cols-2'>
-                  {categoryTags.map((tag) => (
-                    <label
-                      key={tag._id}
-                      className='flex items-center gap-2 rounded border border-slate-300 px-3 py-2 cursor-pointer hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-gray-700'
-                      title={tag.description}
-                    >
-                      <input
-                        type='checkbox'
-                        checked={selected.includes(tag._id)}
-                        onChange={() => toggleTag(tag)}
-                      />
-                      <span>{tag.name}</span>
-                    </label>
-                  ))}
+                  {categoryTags.map((tag) => {
+                    const isSelected = selected.includes(tag._id);
+                    return (
+                      <label
+                        key={tag._id}
+                        className={`flex cursor-pointer items-start gap-2 rounded border px-3 py-2 ${
+                          isSelected
+                            ? "border-sky-600 bg-sky-50 dark:bg-gray-700"
+                            : "border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        <input
+                          type='checkbox'
+                          checked={isSelected}
+                          onChange={() => toggleTag(tag)}
+                          className='mt-1'
+                        />
+                        <span>
+                          <span className='block'>{tag.name}</span>
+                          {tag.description && (
+                            <span className='block text-xs text-slate-500 dark:text-gray-400'>
+                              {tag.description}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               </section>
             );
@@ -127,7 +180,7 @@ const IncidentTagsDialog = ({
           </p>
         )}
 
-        <div className='flex justify-between items-center'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
           <p className='text-sm text-slate-500'>
             {selected.length} selected
           </p>
