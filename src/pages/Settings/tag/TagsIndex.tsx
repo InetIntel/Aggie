@@ -193,7 +193,10 @@ const TagsIndex = (props: IProps) => {
                           </AggieButton>
                           <AggieButton
                             className='px-3 py-2 hover:bg-slate-100 text-red-600'
-                            onClick={() => setDeleteOpen(tag._id)}
+                            onClick={() => {
+                              doDeleteTag.reset();
+                              setDeleteOpen(tag._id);
+                            }}
                           >
                             <FontAwesomeIcon icon={faTrashAlt} />
                             Permanently Delete
@@ -226,13 +229,20 @@ const TagsIndex = (props: IProps) => {
           isOpen={!!deleteOpen}
           variant='danger'
           disabled={doDeleteTag.isLoading}
+          loading={doDeleteTag.isLoading}
           title={`Delete Tag ${tagfromId(deleteOpen)?.name} Permanently?`}
           description={"Are you sure you want to do this?"}
           confirmText={"Delete"}
           className='text-center'
           onClose={() => setDeleteOpen("")}
           onConfirm={() => onDeleteTag(deleteOpen)}
-        ></ConfirmationDialog>
+        >
+          {doDeleteTag.isError && (
+            <p className='mx-3 mb-3 rounded border border-red-400 bg-red-100 px-3 py-2 text-red-800'>
+              The tag could not be deleted.
+            </p>
+          )}
+        </ConfirmationDialog>
       </> }
     </div>
   );
