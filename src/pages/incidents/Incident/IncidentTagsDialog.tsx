@@ -3,10 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getTags } from "../../../api/tags";
 import {
-  TAG_CATEGORIES,
-  TAG_CATEGORY_LABELS,
+  getTagCategoryGroup,
+  TAG_CATEGORY_GROUP_LABELS,
+  TAG_CATEGORY_GROUPS,
   Tag,
-  type TagCategory,
+  UNCATEGORIZED_TAG_CATEGORY,
+  type TagCategoryGroup,
 } from "../../../api/tags/types";
 import AggieButton from "../../../components/AggieButton";
 import AggieDialog from "../../../components/AggieDialog";
@@ -30,7 +32,7 @@ const IncidentTagsDialog = ({
 }: IProps) => {
   const [selected, setSelected] = useState<string[]>(selectedTagIds);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<"all" | TagCategory>("all");
+  const [category, setCategory] = useState<"all" | TagCategoryGroup>("all");
   const { data: tags, isLoading, isError } = useQuery(["tags"], getTags, {
     staleTime: 40000,
   });
@@ -45,20 +47,32 @@ const IncidentTagsDialog = ({
   const visibleTags = useMemo(() => {
     const query = search.trim().toLowerCase();
     return (tags || [])
-      .filter((tag) => category === "all" || tag.category === category)
+      .filter(
+        (tag) =>
+          category === "all" || getTagCategoryGroup(tag.category) === category
+      )
       .filter((tag) => {
         if (!query) return true;
-        return `${tag.name} ${tag.description || ""} ${TAG_CATEGORY_LABELS[tag.category]}`
+        return `${tag.name} ${tag.description || ""} ${
+          TAG_CATEGORY_GROUP_LABELS[getTagCategoryGroup(tag.category)]
+        }`
           .toLowerCase()
           .includes(query);
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [category, search, tags]);
 
-  const visibleCategories = category === "all" ? TAG_CATEGORIES : [category];
+  const categoryCount = (tagCategory: TagCategoryGroup) =>
+    (tags || []).filter(
+      (tag) => getTagCategoryGroup(tag.category) === tagCategory
+    ).length;
 
-  const categoryCount = (tagCategory: TagCategory) =>
-    (tags || []).filter((tag) => tag.category === tagCategory).length;
+  const availableCategories = TAG_CATEGORY_GROUPS.filter(
+    (tagCategory) =>
+      tagCategory !== UNCATEGORIZED_TAG_CATEGORY || categoryCount(tagCategory)
+  );
+  const visibleCategories =
+    category === "all" ? availableCategories : [category];
 
   const toggleTag = (tag: Tag) => {
     setSelected((current) =>
@@ -92,7 +106,7 @@ const IncidentTagsDialog = ({
           >
             All ({tags?.length || 0})
           </button>
-          {TAG_CATEGORIES.map((tagCategory) => (
+          {availableCategories.map((tagCategory) => (
             <button
               key={tagCategory}
               type='button'
@@ -104,7 +118,7 @@ const IncidentTagsDialog = ({
                   : "border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-gray-700"
               }`}
             >
-              {TAG_CATEGORY_LABELS[tagCategory]} ({categoryCount(tagCategory)})
+              {TAG_CATEGORY_GROUP_LABELS[tagCategory]} ({categoryCount(tagCategory)})
             </button>
           ))}
         </div>
@@ -130,14 +144,14 @@ const IncidentTagsDialog = ({
 
           {visibleCategories.map((tagCategory) => {
             const categoryTags = visibleTags.filter(
-              (tag) => tag.category === tagCategory
+              (tag) => getTagCategoryGroup(tag.category) === tagCategory
             );
             if (!categoryTags.length) return null;
 
             return (
               <section key={tagCategory} className='mb-4 last:mb-0'>
                 <h3 className='mb-2 font-medium'>
-                  {TAG_CATEGORY_LABELS[tagCategory]}
+                  {TAG_CATEGORY_GROUP_LABELS[tagCategory]}
                 </h3>
                 <div className='grid gap-2 sm:grid-cols-2'>
                   {categoryTags.map((tag) => {

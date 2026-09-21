@@ -4,9 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSession } from "../../../api/session";
 import { deleteTag, getTags } from "../../../api/tags";
 import {
-  TAG_CATEGORIES,
-  TAG_CATEGORY_LABELS,
-  type TagCategory,
+  getTagCategoryGroup,
+  TAG_CATEGORY_GROUP_LABELS,
+  TAG_CATEGORY_GROUPS,
+  UNCATEGORIZED_TAG_CATEGORY,
+  type TagCategoryGroup,
 } from "../../../api/tags/types";
 
 import AggieButton from "../../../components/AggieButton";
@@ -31,7 +33,7 @@ const TagsIndex = (props: IProps) => {
   const [editOpen, setEditOpen] = useState("");
   const [deleteOpen, setDeleteOpen] = useState("");
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<"all" | TagCategory>("all");
+  const [category, setCategory] = useState<"all" | TagCategoryGroup>("all");
 
   const queryClient = useQueryClient();
   const { data, isSuccess } = useQuery(["tags"], getTags);
@@ -41,20 +43,32 @@ const TagsIndex = (props: IProps) => {
   const visibleTags = useMemo(() => {
     const query = search.trim().toLowerCase();
     return (data || [])
-      .filter((tag) => category === "all" || tag.category === category)
+      .filter(
+        (tag) =>
+          category === "all" || getTagCategoryGroup(tag.category) === category
+      )
       .filter((tag) => {
         if (!query) return true;
-        return `${tag.name} ${tag.description || ""} ${TAG_CATEGORY_LABELS[tag.category]}`
+        return `${tag.name} ${tag.description || ""} ${
+          TAG_CATEGORY_GROUP_LABELS[getTagCategoryGroup(tag.category)]
+        }`
           .toLowerCase()
           .includes(query);
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [category, data, search]);
 
-  const categoryCount = (tagCategory: TagCategory) =>
-    (data || []).filter((tag) => tag.category === tagCategory).length;
+  const categoryCount = (tagCategory: TagCategoryGroup) =>
+    (data || []).filter(
+      (tag) => getTagCategoryGroup(tag.category) === tagCategory
+    ).length;
 
-  const visibleCategories = category === "all" ? TAG_CATEGORIES : [category];
+  const availableCategories = TAG_CATEGORY_GROUPS.filter(
+    (tagCategory) =>
+      tagCategory !== UNCATEGORIZED_TAG_CATEGORY || categoryCount(tagCategory)
+  );
+  const visibleCategories =
+    category === "all" ? availableCategories : [category];
 
   const doDeleteTag = useMutation(deleteTag, {
     onSuccess: () => {
@@ -108,7 +122,7 @@ const TagsIndex = (props: IProps) => {
         >
           All ({data?.length || 0})
         </button>
-        {TAG_CATEGORIES.map((tagCategory) => (
+        {availableCategories.map((tagCategory) => (
           <button
             key={tagCategory}
             type='button'
@@ -120,7 +134,7 @@ const TagsIndex = (props: IProps) => {
                 : "border-slate-300 bg-white hover:bg-slate-100 dark:bg-gray-800 dark:hover:bg-gray-700"
             }`}
           >
-            {TAG_CATEGORY_LABELS[tagCategory]} ({categoryCount(tagCategory)})
+            {TAG_CATEGORY_GROUP_LABELS[tagCategory]} ({categoryCount(tagCategory)})
           </button>
         ))}
       </div>
@@ -146,7 +160,7 @@ const TagsIndex = (props: IProps) => {
       <div className='flex flex-col gap-4'>
         {visibleCategories.map((tagCategory) => {
           const categoryTags = visibleTags.filter(
-            (tag) => tag.category === tagCategory
+            (tag) => getTagCategoryGroup(tag.category) === tagCategory
           );
           if (!categoryTags.length) return null;
 
@@ -154,7 +168,7 @@ const TagsIndex = (props: IProps) => {
             <section key={tagCategory}>
               <div className='mb-2 flex items-baseline gap-2'>
                 <h2 className='text-xl font-medium'>
-                  {TAG_CATEGORY_LABELS[tagCategory]}
+                  {TAG_CATEGORY_GROUP_LABELS[tagCategory]}
                 </h2>
                 <span className='text-sm text-slate-500'>
                   {categoryTags.length} {categoryTags.length === 1 ? "tag" : "tags"}

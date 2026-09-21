@@ -5,9 +5,11 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { getTags } from "../../api/tags";
 import {
-  TAG_CATEGORIES,
-  TAG_CATEGORY_LABELS,
-  type TagCategory,
+  getTagCategoryGroup,
+  TAG_CATEGORY_GROUP_LABELS,
+  TAG_CATEGORY_GROUPS,
+  UNCATEGORIZED_TAG_CATEGORY,
+  type TagCategoryGroup,
 } from "../../api/tags/types";
 import FilterDropdown from "../../components/filters/FilterDropdown";
 
@@ -27,7 +29,7 @@ const IncidentTagFilter = ({
   onReset,
 }: IProps) => {
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<"all" | TagCategory>("all");
+  const [category, setCategory] = useState<"all" | TagCategoryGroup>("all");
   const { data: tags, isLoading } = useQuery(["tags"], getTags, {
     staleTime: 40000,
   });
@@ -35,16 +37,31 @@ const IncidentTagFilter = ({
   const visibleTags = useMemo(() => {
     const query = search.trim().toLowerCase();
     return (tags || [])
-      .filter((tag) => category === "all" || tag.category === category)
+      .filter(
+        (tag) =>
+          category === "all" || getTagCategoryGroup(tag.category) === category
+      )
       .filter((tag) =>
-        !query || `${tag.name} ${tag.description || ""} ${TAG_CATEGORY_LABELS[tag.category]}`
+        !query || `${tag.name} ${tag.description || ""} ${
+          TAG_CATEGORY_GROUP_LABELS[getTagCategoryGroup(tag.category)]
+        }`
           .toLowerCase()
           .includes(query)
       )
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [category, search, tags]);
 
-  const visibleCategories = category === "all" ? TAG_CATEGORIES : [category];
+  const categoryCount = (tagCategory: TagCategoryGroup) =>
+    (tags || []).filter(
+      (tag) => getTagCategoryGroup(tag.category) === tagCategory
+    ).length;
+
+  const availableCategories = TAG_CATEGORY_GROUPS.filter(
+    (tagCategory) =>
+      tagCategory !== UNCATEGORIZED_TAG_CATEGORY || categoryCount(tagCategory)
+  );
+  const visibleCategories =
+    category === "all" ? availableCategories : [category];
 
   const toggleTag = (tagId: string) => {
     if (selectedIds.includes(tagId)) {
@@ -78,17 +95,15 @@ const IncidentTagFilter = ({
           <select
             value={category}
             onChange={(event) =>
-              setCategory(event.target.value as "all" | TagCategory)
+              setCategory(event.target.value as "all" | TagCategoryGroup)
             }
             aria-label='Tag category'
             className='focus-theme w-full rounded border border-slate-300 bg-white px-2 py-1.5 dark:bg-gray-800'
           >
             <option value='all'>All categories ({tags?.length || 0})</option>
-            {TAG_CATEGORIES.map((tagCategory) => (
+            {availableCategories.map((tagCategory) => (
               <option key={tagCategory} value={tagCategory}>
-                {TAG_CATEGORY_LABELS[tagCategory]} ({
-                  (tags || []).filter((tag) => tag.category === tagCategory).length
-                })
+                {TAG_CATEGORY_GROUP_LABELS[tagCategory]} ({categoryCount(tagCategory)})
               </option>
             ))}
           </select>
@@ -136,14 +151,14 @@ const IncidentTagFilter = ({
           )}
           {visibleCategories.map((tagCategory) => {
             const categoryTags = visibleTags.filter(
-              (tag) => tag.category === tagCategory
+              (tag) => getTagCategoryGroup(tag.category) === tagCategory
             );
             if (!categoryTags.length) return null;
 
             return (
               <section key={tagCategory} className='border-b border-slate-200 last:border-0'>
                 <h3 className='px-3 pt-2 text-xs font-medium text-slate-500 dark:text-gray-400'>
-                  {TAG_CATEGORY_LABELS[tagCategory]}
+                  {TAG_CATEGORY_GROUP_LABELS[tagCategory]}
                 </h3>
                 {categoryTags.map((tag) => {
                   const isSelected = selectedIds.includes(tag._id);
