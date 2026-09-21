@@ -2,6 +2,8 @@
 'use strict';
 
 var Group = require('../../models/group');
+const SMTCTag = require('../../models/tag');
+const mongoose = require('../../database').mongoose;
 const AsnInfo = require('../../models/asnInfo');
 const _ = require('lodash');
 var tags = require('../../shared/tags');
@@ -292,18 +294,30 @@ exports.group_tags_update = async (req, res) => {
   }
 
   try {
+    const tagIds = [...new Set(req.body.tags.map((id) => String(id)))];
+    if (tagIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+      return res.status(400).send('One or more tag ids are invalid.');
+    }
+
+    const existingTagCount = await SMTCTag.countDocuments({
+      _id: { $in: tagIds },
+    });
+    if (existingTagCount !== tagIds.length) {
+      return res.status(400).send('One or more selected tags no longer exist.');
+    }
+
     const groups = req.incidents || await Group.find({
       _id: { $in: req.body.ids },
     });
 
     await Promise.all(groups.map((group) => {
-      group.smtcTags = [...new Set(req.body.tags)];
+      group.smtcTags = tagIds;
       return group.save();
     }));
 
     await eventRouter.publish('groups:update', {
       ids: req.body.ids,
-      update: { smtcTags: req.body.tags },
+      update: { smtcTags: tagIds },
     });
 
     return res.sendStatus(200);
