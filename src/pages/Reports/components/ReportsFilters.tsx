@@ -397,7 +397,7 @@ const ReportFilters = ({
                 ? (getParam("media").split(",").filter(Boolean) as string[])
                 : []
             }
-            onChange={(e) => setParams({ media: e as string[] })}
+            onChange={(e) => setParams({ media: (e as string[]).join(",") })}
             isMultiSelect={true}
             getOptionLabel={providerLabel}
           />
@@ -407,7 +407,7 @@ const ReportFilters = ({
               options={OUTAGE_STATUS_OPTIONS.filter((status) => status !== "All")}
               value={currentOutageStatus}
               onChange={(e) =>
-                setParams({ ongoing: outageStatusToParam(e as string[]) })
+                setParams({ ongoing: outageStatusToParam(e as string[])?.join(",") })
               }
               isMultiSelect={true}
             />
