@@ -41,9 +41,8 @@ function NotableActivityCard({
   onAddToIncident: () => void;
   isCreatingIncident: boolean;
 }) {
-  // One "asn / region" title per impacted location. Start-time grouping does not key on
-  // asn|geoScope, so an activity routinely spans several; NotableActivityTitle
-  // concatenates them into the reserved two lines and reveals the rest in a popover.
+  const isStartTimeGrouped = activity.aggregationMethod === "startTime";
+
   // `locations` is absent on snapshots cached before it existed, hence the fallback.
   const titles =
     activity.locations && activity.locations.length > 0
@@ -78,9 +77,20 @@ function NotableActivityCard({
         </button>
       </div>
 
-      <p className='mt-6 text-sm font-semibold leading-tight text-slate-950 dark:text-white'>
-        {formatActivityWindow(activity.bucketStart, activity.bucketEnd)}
-      </p>
+      <div className='mt-6'>
+        {/* Under start-time grouping the window is the first and last outage start in the
+            cluster, not a grid cell — say so, or the timestamp reads like a bucket. */}
+        {isStartTimeGrouped && (
+          <p className='text-[0.625rem] font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-gray-500'>
+            {activity.bucketStart === activity.bucketEnd
+              ? "Outage start"
+              : "Outage starts"}
+          </p>
+        )}
+        <p className='text-sm font-semibold leading-tight text-slate-950 dark:text-white'>
+          {formatActivityWindow(activity.bucketStart, activity.bucketEnd)}
+        </p>
+      </div>
       <NotableActivityTitle
         className='mt-3'
         titles={titles}
