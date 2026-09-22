@@ -137,16 +137,14 @@ const ReportFilters = ({
     return shouldDefaultOn;
   })();
 
-  // 'ongoing' is a tri-state: absent = All, 'true' = still running, 'false' = ended.
-  const currentOutageStatus =
-    getParam("ongoing") === "true"
-      ? "Ongoing"
-      : getParam("ongoing") === "false"
-        ? "Ended"
-        : "All";
+  // An absent ongoing parameter means all statuses; otherwise one or both
+  // status values may be selected.
+  const currentOutageStatus = getParam("ongoing")
+    ? getParam("ongoing").split(",").filter(Boolean).map((v) => v === "true" ? "Ongoing" : "Ended")
+    : [];
 
-  const outageStatusToParam = (status: string) =>
-    status === "Ongoing" ? "true" : status === "Ended" ? "false" : undefined;
+  const outageStatusToParam = (statuses: string[]) =>
+    statuses.length ? statuses.map((status) => status === "Ongoing" ? "true" : "false") : undefined;
 
   function setParams(values: ReportQueryState) {
     if (!("page" in values)) {
@@ -270,10 +268,10 @@ const ReportFilters = ({
       onRemove: () => setParams({ media: undefined }),
     });
   }
-  if (showOngoingFilter && currentOutageStatus !== "All") {
+  if (showOngoingFilter && currentOutageStatus.length > 0) {
     activeFilters.push({
       id: "ongoing",
-      label: `Status: ${currentOutageStatus}`,
+      label: `Status: ${currentOutageStatus.join(", ")}`,
       onRemove: () => setParams({ ongoing: undefined }),
     });
   }
@@ -406,11 +404,12 @@ const ReportFilters = ({
           {showOngoingFilter && (
             <FilterListbox
               label='Status'
-              options={[...OUTAGE_STATUS_OPTIONS]}
-              value={currentOutageStatus === "All" ? "" : currentOutageStatus}
+              options={OUTAGE_STATUS_OPTIONS.filter((status) => status !== "All")}
+              value={currentOutageStatus}
               onChange={(e) =>
-                setParams({ ongoing: outageStatusToParam(e as string) })
+                setParams({ ongoing: outageStatusToParam(e as string[]) })
               }
+              isMultiSelect={true}
             />
           )}
           {showEntityLevelFilter && (
