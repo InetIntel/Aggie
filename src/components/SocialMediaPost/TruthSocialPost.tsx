@@ -1,5 +1,6 @@
 import { Report } from "../../api/reports/types";
 import MediaPreview from "./MediaPreview";
+import { detectTextDirection } from "../../utils/textDirection";
 
 interface IProps {
   report: Report;
@@ -7,7 +8,10 @@ interface IProps {
 const TruthSocialPost = ({ report }: IProps) => {
   return (
     <>
-      <div dir='auto' className='whitespace-pre-line mb-1 post-text'>
+      <div
+        dir={detectTextDirection(report.content)}
+        className='whitespace-pre-line mb-1 post-text'
+      >
         <p
           className='truthsocial'
           dangerouslySetInnerHTML={{

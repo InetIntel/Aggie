@@ -20,27 +20,10 @@
 @layer utilities {
  /*
   * Apply to any element rendering user-generated post text (report content,
-  * author names, notes). Source posts arrive in any script, and a lot of ours
-  * are Farsi.
-  *
-  * `unicode-bidi: plaintext` resolves the base direction PER bidi paragraph
-  * from its first strong character, instead of inheriting LTR from <html>.
-  * Without it an RTL sentence keeps an LTR base direction, so neutrals --
-  * `.` `!` `?` `:` `,` quotes, digits -- get pushed to the wrong visual end
-  * and the line reads as though the word order were reversed.
-  *
-  * Pair it with `dir="auto"` on the same element: `dir` is what makes
-  * `text-align: start` and truncation pick the right edge, and it is the
-  * attribute assistive tech reads. `plaintext` then refines it per line, which
-  * matters for multi-line posts that mix an RTL and an LTR line, and for posts
-  * whose first strong character is Latin (a brand name or URL) but whose body
-  * is RTL -- `dir="auto"` alone resolves those to LTR.
-  *
-  * Never use `break-all` here: it breaks lines mid-word, which severs the
-  * joined letterforms of Arabic-script text.
+  * author names, notes), together with `dir={detectTextDirection(text)}` from
+  * `src/utils/textDirection.ts`.
   */
  .post-text {
-   unicode-bidi: plaintext;
    text-align: start;
    overflow-wrap: break-word;
    word-break: normal;
