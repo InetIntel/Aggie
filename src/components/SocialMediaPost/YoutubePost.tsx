@@ -15,7 +15,7 @@ const YoutubePost = ({ report }: IProps) => {
       <p className='font-medium mb-2'>{title}</p>
 
       <p
-        className={`text-slate-900 whitespace-pre-line break-all mb-2 ${
+        className={`text-slate-900 whitespace-pre-line mb-2 post-text ${
           expand ? "" : "line-clamp-5"
         }`}
       >

@@ -180,7 +180,7 @@ function renderText(
           </div>
           <div className=' max-h-[10em] text-black dark:text-gray-300'>
             <p className='font-medium text-sm'>{data.author?.name}</p>
-            <p className='text-black line-clamp-2 mb-1 dark:text-gray-300'>
+            <p dir='auto' className='text-black line-clamp-2 mb-1 post-text dark:text-gray-300'>
               {formatText(data.content)}
             </p>
 
@@ -188,7 +188,7 @@ function renderText(
               <p className='font-medium text-sm'>
                 {data.innerPost.author?.name}
               </p>
-              <p className='line-clamp-2'>
+              <p dir='auto' className='line-clamp-2 post-text'>
                 {formatText(data.innerPost.content)}
               </p>
             </div>
@@ -204,7 +204,7 @@ function renderText(
           <div className='grid place-items-center text-slate-600 dark:text-gray-400'>
             <FontAwesomeIcon icon={faRetweet} />
           </div>
-          <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+          <p dir='auto' className=' text-black max-h-[10em] line-clamp-4 post-text dark:text-gray-300'>
             {formatText(report.content)}
           </p>
         </>
@@ -215,13 +215,13 @@ function renderText(
       return (
         <>
           <div className=' max-h-[10em] text-black dark:text-gray-300'>
-            <p className='text-black line-clamp-2 mb-1 dark:text-gray-300'>
+            <p dir='auto' className='text-black line-clamp-2 mb-1 post-text dark:text-gray-300'>
               {formatText(report.content)}
             </p>
 
             <div className='border border-slate-300 rounded-lg py-2 px-3 '>
               <p className='font-medium text-sm'>{data.author?.name}</p>
-              <p className='line-clamp-2'>{formatText(data.content)}</p>
+              <p dir='auto' className='line-clamp-2 post-text'>{formatText(data.content)}</p>
             </div>
           </div>
         </>
@@ -230,7 +230,7 @@ function renderText(
     case "twitter":
       twitterParsing(report);
       return (
-        <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+        <p dir='auto' className=' text-black max-h-[10em] line-clamp-4 post-text dark:text-gray-300'>
           {formatText(report.content)}
         </p>
       );
@@ -303,7 +303,7 @@ function renderText(
     case "ooni": {
       const windowEnd = report?.metadata?.rawAPIResponse?.windowEnd;
       return (
-        <p className='text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+        <p dir='auto' className='text-black max-h-[10em] line-clamp-4 post-text dark:text-gray-300'>
           {formatText(report.content)}
           {windowEnd && <> measured at {formatDateTime(windowEnd, prefs)}.</>}
         </p>
@@ -311,7 +311,7 @@ function renderText(
     }
     default:
       return (
-        <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+        <p dir='auto' className=' text-black max-h-[10em] line-clamp-4 post-text dark:text-gray-300'>
           {formatText(report.content)}
         </p>
       );

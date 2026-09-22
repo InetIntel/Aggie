@@ -90,7 +90,7 @@ const SocialMediaPost = ({ report, showMedia, compact }: IProps) => {
       default:
         return (
           <>
-            <div className='whitespace-pre-wrap mb-1 break-all '>
+            <div dir='auto' className='whitespace-pre-wrap mb-1 post-text'>
               <Linkify
                 options={{
                   target: "_blank",

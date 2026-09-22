@@ -7,7 +7,7 @@ interface IProps {
 const TruthSocialPost = ({ report }: IProps) => {
   return (
     <>
-      <div className='whitespace-pre-line break-all mb-1'>
+      <div dir='auto' className='whitespace-pre-line mb-1 post-text'>
         <p
           className='truthsocial'
           dangerouslySetInnerHTML={{
