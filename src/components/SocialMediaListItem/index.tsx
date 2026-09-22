@@ -176,10 +176,10 @@ function renderText(
 
       return (
         <>
-          <div className='grid place-items-center text-slate-600 dark:text-gray-400'>
+          <div className='grid place-items-center shrink-0 text-slate-600 dark:text-gray-400'>
             <FontAwesomeIcon icon={faRetweet} />
           </div>
-          <div className=' max-h-[10em] text-black dark:text-gray-300'>
+          <div className=' max-h-[10em] grow min-w-0 text-black dark:text-gray-300'>
             <p className='font-medium text-sm'>{data.author?.name}</p>
             <p
               dir={detectTextDirection(data.content)}
@@ -208,12 +208,12 @@ function renderText(
 
       return (
         <>
-          <div className='grid place-items-center text-slate-600 dark:text-gray-400'>
+          <div className='grid place-items-center shrink-0 text-slate-600 dark:text-gray-400'>
             <FontAwesomeIcon icon={faRetweet} />
           </div>
           <p
             dir={detectTextDirection(report.content)}
-            className=' text-black max-h-[10em] line-clamp-4 post-text dark:text-gray-300'
+            className=' text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
           >
             {formatText(report.content)}
           </p>
@@ -224,7 +224,7 @@ function renderText(
 
       return (
         <>
-          <div className=' max-h-[10em] text-black dark:text-gray-300'>
+          <div className=' max-h-[10em] grow min-w-0 text-black dark:text-gray-300'>
             <p
               dir={detectTextDirection(report.content)}
               className='text-black line-clamp-2 mb-1 post-text dark:text-gray-300'
@@ -247,7 +247,7 @@ function renderText(
       return (
         <p
             dir={detectTextDirection(report.content)}
-            className=' text-black max-h-[10em] line-clamp-4 post-text dark:text-gray-300'
+            className=' text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
           >
           {formatText(report.content)}
         </p>
@@ -323,7 +323,7 @@ function renderText(
       return (
         <p
           dir={detectTextDirection(report.content)}
-          className='text-black max-h-[10em] line-clamp-4 post-text dark:text-gray-300'
+          className='text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
         >
           {formatText(report.content)}
           {windowEnd && <> measured at {formatDateTime(windowEnd, prefs)}.</>}
@@ -334,7 +334,7 @@ function renderText(
       return (
         <p
             dir={detectTextDirection(report.content)}
-            className=' text-black max-h-[10em] line-clamp-4 post-text dark:text-gray-300'
+            className=' text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
           >
           {formatText(report.content)}
         </p>
