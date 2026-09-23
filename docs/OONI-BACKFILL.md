@@ -55,7 +55,8 @@ which is expected and safe.
 ## 3. Add the 14-day chart to the imported alerts
 
 Imported alerts have no chart data. Run this once on each database, dry run first.
-It makes a few large requests to OONI rather than one per alert:
+It asks OONI for whole date ranges in 7-day windows rather than once per alert
+(roughly 40 requests per network for 290 days):
 
 ```
 node scripts/backfill/backfill-ooni-chart-series.js --dry-run

@@ -1,7 +1,7 @@
 const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { hasMeasurements } = require('../ooniApi');
-const { fetchSeries, chartEndDay } = require('../ooniSeries');
+const { fetchSeries, chartAnchor } = require('../ooniSeries');
 const {
   normalizeDomainConfig,
   evaluateRollingAlert,
@@ -137,7 +137,7 @@ class OONIChannel extends PollChannel {
     return posts;
   }
 
-  // The 14 days of per-domain counts shown on the alert. Fetched once, here,
+  // The 14 blocks of 24 hours of per-domain counts shown on the alert. Fetched once, here,
   // and stored with the alert so opening it never calls OONI (whose API is rate
   // limited per IP). A failure must not stop the alert from being created; the
   // chart can be added later with scripts/backfill/backfill-ooni-chart-series.js.
@@ -146,7 +146,7 @@ class OONIChannel extends PollChannel {
     try {
       return await this.fetchSeries({
         asn,
-        endDay: chartEndDay(windowEnd),
+        anchor: chartAnchor(windowEnd),
         domains: this.domainConfig.domains,
       });
     } catch (error) {

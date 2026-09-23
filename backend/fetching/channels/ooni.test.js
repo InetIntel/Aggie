@@ -108,12 +108,12 @@ const selectedChannel = (overrides = {}) =>
     ...overrides,
   });
 
-test('stores the 14-day series on a new alert, ending on the alert day', async () => {
+test('stores the series on a new alert, anchored on the hour the alert window ends', async () => {
   const calls = [];
   const channel = selectedChannel({
     fetchSeries: async (request) => {
       calls.push(request);
-      return { source: 'ooni-aggregation', from: '2026-07-30', until: '2026-08-12', days: [], domains: {} };
+      return { source: 'ooni-aggregation', granularity: 'hour', blockHours: 24, until: request.anchor.toISOString(), starts: [], domains: {} };
     },
   });
   channel.enqueue = () => {};
@@ -122,26 +122,26 @@ test('stores the 14-day series on a new alert, ending on the alert day', async (
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].asn, 44244);
-  assert.equal(calls[0].endDay, '2026-08-12');
+  assert.equal(calls[0].anchor.toISOString(), '2026-08-12T14:00:00.000Z');
   assert.deepEqual(calls[0].domains, ['measured.example', 'missing.example']);
-  assert.equal(post.raw.chart.until, '2026-08-12');
+  assert.equal(post.raw.chart.until, '2026-08-12T14:00:00.000Z');
   assert.equal(post.raw.chart.fetchedAt, post.fetchedAt.toISOString());
 });
 
-test('a window ending at midnight charts the day before it', async () => {
+test('a window ending at midnight is anchored at midnight, so its blocks are whole days', async () => {
   const calls = [];
   const channel = selectedChannel({
     now: () => new Date('2026-08-12T00:00:00.000Z'),
     fetchSeries: async (request) => {
       calls.push(request);
-      return { until: request.endDay, days: [], domains: {} };
+      return { until: request.anchor.toISOString(), starts: [], domains: {} };
     },
   });
   channel.enqueue = () => {};
 
   await channel.fetch();
 
-  assert.equal(calls[0].endDay, '2026-08-11');
+  assert.equal(calls[0].anchor.toISOString(), '2026-08-12T00:00:00.000Z');
 });
 
 test('still creates the alert, without a chart, when the series cannot be fetched', async () => {
