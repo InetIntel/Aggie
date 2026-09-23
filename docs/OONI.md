@@ -54,6 +54,41 @@ media type `ooni` and entity level `AS`. List, detail, table, and comparison
 views show the network, ASN, rolling window, and zero-domain details. The
 report URL opens the matching OONI Explorer query.
 
+## 14-day chart on the alert
+
+The alert detail view shows a bar chart of measurements per day for the 14 days
+ending on the alert's day, with a domain picker that starts on the domains that
+had zero measurements. The numbers are stored on the alert itself, at
+`metadata.rawAPIResponse.chart`, and the chart reads them from there. Viewing an
+alert never calls OONI, so browsing alerts cannot use up OONI's per-IP quota.
+
+- The channel fetches the series once, when it creates an alert, with one
+  aggregation request per ASN (`axis_y=domain`) and keeps the watched domains.
+  If OONI refuses the request, the alert is still created, without a chart.
+- The shape is `{ source, from, until, days: [...], domains: { <domain>: [14 counts] }, fetchedAt }`,
+  about 3 KB per alert. Like IODA's chart, it is left out of list responses and
+  returned by the single-report endpoint (`GET /api/report/:id`).
+- The last day is the day the alert's window covers. A window that ends at
+  midnight covers the day before; a live hourly window covers the current
+  (still partial) day.
+- Alerts created before this, and alerts loaded from a generated backfill file,
+  have no series. Add it with `scripts/backfill/backfill-ooni-chart-series.js`,
+  which asks OONI for a whole date range in a few large windows and cuts each
+  alert's 14 days out of that (about 20 requests for 290 days and two networks).
+  Alerts without one show "The last 14 days were not stored for this alert."
+- Only selected-domain mode stores a series. In all-domains mode there is no
+  watchlist to chart.
+
+```
+node scripts/backfill/backfill-ooni-chart-series.js --dry-run
+node scripts/backfill/backfill-ooni-chart-series.js
+```
+
+Options: `--asn=44244` for one network, `--chunk-days=30` for the window size, and
+`--max-requests=40` as a cap. It is safe to re-run: only alerts without a chart
+are touched, each alert is written as soon as its 14 days have arrived, and a
+stop (for example a rate limit) keeps its progress.
+
 ## Historical backtest
 
 Run the same evaluator used by the production channel:

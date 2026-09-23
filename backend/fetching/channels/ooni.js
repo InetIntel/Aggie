@@ -1,6 +1,7 @@
 const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { hasMeasurements } = require('../ooniApi');
+const { fetchSeries, chartEndDay } = require('../ooniSeries');
 const {
   normalizeDomainConfig,
   evaluateRollingAlert,
@@ -83,6 +84,7 @@ class OONIChannel extends PollChannel {
     this.asns = asns;
     this.interval = options.interval || OONIChannel.INTERVAL;
     this.hasMeasurements = options.hasMeasurements || hasMeasurements;
+    this.fetchSeries = options.fetchSeries || fetchSeries;
     this.domainConfig = normalizeDomainConfig(options.domainConfig || defaultDomainConfig);
     this.reportExists = options.reportExists
       || ((query) => require('../../models/report').exists(query));
@@ -126,7 +128,8 @@ class OONIChannel extends PollChannel {
       }
       if (alerts.length === 0) continue;
 
-      const post = this.parse({ asn, alerts, guid, fetchedAt: this.now() });
+      const chart = await this.loadChart(asn, alerts[0].windowEnd);
+      const post = this.parse({ asn, alerts, guid, fetchedAt: this.now(), chart });
       posts.push(post);
       this.enqueue(post);
     }
@@ -134,8 +137,26 @@ class OONIChannel extends PollChannel {
     return posts;
   }
 
+  // The 14 days of per-domain counts shown on the alert. Fetched once, here,
+  // and stored with the alert so opening it never calls OONI (whose API is rate
+  // limited per IP). A failure must not stop the alert from being created; the
+  // chart can be added later with scripts/backfill/backfill-ooni-chart-series.js.
+  async loadChart(asn, windowEnd) {
+    if (this.domainConfig.useAllDomains) return null;
+    try {
+      return await this.fetchSeries({
+        asn,
+        endDay: chartEndDay(windowEnd),
+        domains: this.domainConfig.domains,
+      });
+    } catch (error) {
+      console.warn(`OONI chart series unavailable for AS${asn}: ${error.message}`);
+      return null;
+    }
+  }
+
   parse(rawMessage) {
-    const { asn, alerts, guid, fetchedAt } = rawMessage;
+    const { asn, alerts, guid, fetchedAt, chart } = rawMessage;
     const alertDate = alerts[0].alertDate;
     const searchParams = new URLSearchParams({
       probe_cc: PROBE_CC,
@@ -170,6 +191,7 @@ class OONIChannel extends PollChannel {
           .filter((alert) => alert.type === 'zero_domain_measurements')
           .map((alert) => alert.domain),
         triggers: alerts,
+        ...(chart ? { chart: { ...chart, fetchedAt: fetchedAt.toISOString() } } : {}),
       },
     });
 

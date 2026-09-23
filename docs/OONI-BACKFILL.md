@@ -52,6 +52,19 @@ directly. It logs `Inserted: X, skipped: Y` when done — skipped means
 those guids already existed (e.g. the live channel already created them),
 which is expected and safe.
 
+## 3. Add the 14-day chart to the imported alerts
+
+Imported alerts have no chart data. Run this once on each database, dry run first.
+It makes a few large requests to OONI rather than one per alert:
+
+```
+node scripts/backfill/backfill-ooni-chart-series.js --dry-run
+node scripts/backfill/backfill-ooni-chart-series.js
+```
+
+If OONI's rate limit stops it, wait and run it again; alerts already done are
+skipped. See docs/OONI.md, "14-day chart on the alert".
+
 ## Notes
 
 - Guids are deterministic (`ooni:<asn>:<mode>:<date>`), matching what the

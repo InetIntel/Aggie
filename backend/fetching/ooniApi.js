@@ -29,6 +29,7 @@ async function fetchDailyMeasurements({
   since,
   until,
   axisX = 'measurement_start_day',
+  axisY,
   fetchImpl = fetch,
 }) {
   const params = new URLSearchParams({
@@ -39,6 +40,7 @@ async function fetchDailyMeasurements({
     since,
     until,
   });
+  if (axisY) params.set('axis_y', axisY);
   const url = `${AGGREGATION_URL}?${params}`;
   const response = await fetchImpl(url, {
     headers: { accept: 'application/json' },

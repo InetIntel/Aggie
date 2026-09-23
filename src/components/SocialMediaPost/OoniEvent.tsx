@@ -4,6 +4,7 @@ import { getTags } from "../../api/tags";
 import { useFormatters } from "../../utils/useFormatters";
 import { SIGNAL_BADGE_CLASS } from "./reportParser";
 import AggieToken from "../AggieToken";
+import OoniChart from "./OoniChart";
 
 // Matches the sky-blue tag badge style used in the Alerts list header.
 const TAG_BADGE_CLASS = "bg-sky-500 dark:bg-sky-500 dark:saturate-[0.7]";
@@ -60,6 +61,11 @@ const OoniEvent = ({ report }: { report: Report }) => {
           <dd className='font-medium'>{trigger?.measurementCount ?? 0}</dd>
         </div>
       </dl>
+      {raw?.domainMode === "selected" && (
+        <div className='border-t border-slate-200 pt-3 dark:border-gray-700'>
+          <OoniChart report={report} alertDomains={zeroDomains} />
+        </div>
+      )}
       {raw?.domainMode === "selected" && (
         <div className='border-t border-slate-200 pt-3 text-sm dark:border-gray-700'>
           <p className='text-slate-500 dark:text-gray-400'>Domains with zero measurements at alert time</p>

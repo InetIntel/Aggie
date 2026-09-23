@@ -104,6 +104,17 @@ export interface IodaChartSeries {
   points: IodaChartPoint[];
 }
 
+// OONI alerts store the 14 days of per-domain measurement counts they were raised
+// against at metadata.rawAPIResponse.chart, so viewing one never calls OONI.
+export interface OoniChartData {
+  source: string;
+  from: string; // first day, YYYY-MM-DD (UTC)
+  until: string; // last day, YYYY-MM-DD (UTC)
+  days: string[];
+  domains: Record<string, number[]>; // watched domain -> count per day
+  fetchedAt?: string;
+}
+
 export interface IodaChartData {
   from: number; // window fetched (unix seconds)
   until: number;
