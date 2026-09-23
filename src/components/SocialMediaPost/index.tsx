@@ -1,7 +1,7 @@
 import Linkify from "linkify-react";
 import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
-import { detectTextDirection } from "../../utils/textDirection";
+import { detectTextDirection } from "../../utils/format";
 import PostReactions from "./PostReactions";
 import MediaPreview from "./MediaPreview";
 

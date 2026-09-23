@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Report } from "../../api/reports/types";
 import { getTags } from "../../api/tags";
 import { formatText } from "../../utils/format";
-import { detectTextDirection } from "../../utils/textDirection";
+import { detectTextDirection } from "../../utils/format";
 import { formatDateTime, formatTime, UserPreferences } from "../../utils/dateFormat";
 import { useFormatters } from "../../utils/useFormatters";
 import AggieToken from "../AggieToken";

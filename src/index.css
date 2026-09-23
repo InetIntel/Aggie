@@ -21,7 +21,7 @@
  /*
   * Apply to any element rendering user-generated post text (report content,
   * author names, notes), together with `dir={detectTextDirection(text)}` from
-  * `src/utils/textDirection.ts`.
+  * `src/utils/format.tsx`.
   */
  .post-text {
    text-align: start;

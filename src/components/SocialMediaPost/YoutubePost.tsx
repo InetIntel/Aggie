@@ -3,7 +3,7 @@ import YouTube, { YouTubeProps } from "react-youtube";
 import Linkify from "linkify-react";
 import { useState } from "react";
 import AggieButton from "../AggieButton";
-import { detectTextDirection } from "../../utils/textDirection";
+import { detectTextDirection } from "../../utils/format";
 
 interface IProps {
   report: Report;

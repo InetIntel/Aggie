@@ -2,7 +2,7 @@ import { faExternalLink } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import DateTime from "../DateTime";
-import { detectTextDirection } from "../../utils/textDirection";
+import { detectTextDirection } from "../../utils/format";
 
 interface IProps {
   name?: string;

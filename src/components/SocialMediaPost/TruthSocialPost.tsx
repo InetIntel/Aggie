@@ -1,6 +1,6 @@
 import { Report } from "../../api/reports/types";
 import MediaPreview from "./MediaPreview";
-import { detectTextDirection } from "../../utils/textDirection";
+import { detectTextDirection } from "../../utils/format";
 
 interface IProps {
   report: Report;
