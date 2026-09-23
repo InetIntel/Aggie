@@ -22,6 +22,10 @@ interface IProps {
   // values (e.g. comma/newline-separated lists) wrap instead of overflowing.
   multiline?: boolean;
   rows?: number;
+  // Cap the input length. When set, the field enforces the limit (HTML
+  // maxLength) and shows a live "used/max" counter next to the label so the
+  // character limitation is visible up front, not just on a validation error.
+  maxLength?: number;
 }
 const FormikInput = ({
   name,
@@ -34,13 +38,21 @@ const FormikInput = ({
   hint,
   multiline,
   rows,
+  maxLength,
 }: IProps) => {
   const [field, meta, helpers] = useField(name);
   const { value } = meta;
   const { setValue } = helpers;
   return (
     <label className='flex flex-col gap-1 min-w-0 text-slate-600 dark:text-gray-400'>
-      <span>{icon && <FontAwesomeIcon icon={icon} />} {label ? label : name}</span>
+      <span className='flex items-baseline justify-between gap-2'>
+        <span>{icon && <FontAwesomeIcon icon={icon} />} {label ? label : name}</span>
+        {maxLength !== undefined && (
+          <span className='text-xs text-slate-400 dark:text-gray-500 shrink-0'>
+            {String(value || "").length}/{maxLength}
+          </span>
+        )}
+      </span>
       {hint && (
         <p className='text-xs text-slate-500 dark:text-gray-400'>{hint}</p>
       )}
@@ -53,6 +65,7 @@ const FormikInput = ({
           onChange={(e) => setValue(e.target.value)}
           disabled={disabled}
           aria-disabled={disabled ? true : undefined}
+          maxLength={maxLength}
           rows={rows || 3}
           className={
             'w-full min-w-0 resize-y px-3 py-2 focus-theme rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 text-black dark:text-gray-300 ' +
@@ -69,6 +82,7 @@ const FormikInput = ({
           onChange={(e) => setValue(e.target.value)}
           disabled={disabled}
           aria-disabled={disabled ? true : undefined}
+          maxLength={maxLength}
           className={
             'w-full min-w-0 px-3 py-2 focus-theme rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 text-black dark:text-gray-300 ' +
             (disabled ? 'opacity-60 cursor-not-allowed' : '')

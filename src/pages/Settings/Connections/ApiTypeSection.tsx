@@ -477,7 +477,7 @@ const renameConnectionSchema = Yup.object().shape({
   name: Yup.string()
     .trim()
     .required("Connection name required")
-    .max(20, "Max 20 characters"),
+    .max(50, "Max 50 characters"),
 });
 
 const RenameConnectionForm = ({
@@ -513,7 +513,7 @@ const RenameConnectionForm = ({
         onSubmitText="Save"
         onClose={onClose}
       >
-        <FormikInput name="name" label="Connection name" />
+        <FormikInput name="name" label="Connection name" maxLength={50} />
       </FormikWithSchema>
       <div className="mt-3 pt-3 border-t border-slate-200 dark:border-gray-700">
         <AggieButton
