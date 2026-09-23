@@ -11,7 +11,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import type { NotableActivity } from "../../../api/analytics/types";
 import { ALERT_MEDIA_OPTIONS, DATA_SOURCE_OPTIONS } from "../../../api/common";
-import { formatActivityWindow } from "../dashboardHelpers";
+import { useDashboardFormatters } from "../dashboardHelpers";
 import NotableActivityTitle from "./NotableActivityTitle";
 
 const sourceLabels: Record<string, string> = {
@@ -41,6 +41,7 @@ function NotableActivityCard({
   onAddToIncident: () => void;
   isCreatingIncident: boolean;
 }) {
+  const { formatActivityWindow } = useDashboardFormatters();
   const isStartTimeGrouped = activity.aggregationMethod === "startTime";
 
   // `locations` is absent on snapshots cached before it existed, hence the fallback.

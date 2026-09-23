@@ -33,13 +33,9 @@ import DashboardAddToIncident from "./components/DashboardAddToIncident";
 import NotableActivityCard from "./components/NotableActivityCard";
 import MetricsList from "./components/MetricsList";
 import {
-  buildIncidentInitialValues,
-  buildIncidentTitle,
-  formatActivityWindow,
-  formatCompactDateTime,
-  formatRangeLabel,
   getActivityLocationSummary,
   getAnalyticsRoom,
+  useDashboardFormatters,
 } from "./dashboardHelpers";
 import type { GroupEditableData } from "../../api/groups/types";
 
@@ -97,6 +93,13 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { socket } = useContext(SocketContext);
+  const {
+    buildIncidentInitialValues,
+    buildIncidentTitle,
+    formatActivityWindow,
+    formatCompactDateTime,
+    formatRangeLabel,
+  } = useDashboardFormatters();
   const [range, setRange] = useState<AnalyticsRangePreset>("today");
   const [bucket, setBucket] = useState<AnalyticsBucketPreset>("1h");
   const [aggregation, setAggregation] = useState<AnalyticsAggregationMethod>("bucket");
