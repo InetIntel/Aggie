@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import {
   faCog,
   faUsersCog,
+  faShieldHalved,
   faTags,
   faCloudArrowDown,
 
@@ -17,14 +18,14 @@ export function menuLinks(role: string | undefined, isTeamLead = false) {
     case "admin":
       return {
         "Manage Users": { to: "users", icon: faUsersCog },
-        "Teams": { to: "teams", icon: faUsersCog },
+        "Teams": { to: "teams", icon: faShieldHalved },
         // "Manage Tags": { to: "tags", icon: faTags },
         "Providers and Feeds": { to: "connections", icon: faCloudArrowDown },
       };
     case "team_lead":
       return {
         "Manage Users": { to: "users", icon: faUsersCog },
-        "Teams": { to: "teams", icon: faUsersCog },
+        "Teams": { to: "teams", icon: faShieldHalved },
         // "Manage Tags": { to: "tags", icon: faTags },
         "Providers and Feeds": { to: "connections", icon: faCloudArrowDown },
       };
@@ -32,7 +33,7 @@ export function menuLinks(role: string | undefined, isTeamLead = false) {
     case "viewer":
       if (isTeamLead) {
         return {
-          "Teams": { to: "teams", icon: faUsersCog },
+          "Teams": { to: "teams", icon: faShieldHalved },
           "Tags": { to: "tags", icon: faTags },
           "Sources": { to: "sources", icon: faCloudArrowDown },
         };
