@@ -17,6 +17,7 @@ import DropdownMenu from "../../../components/DropdownMenu";
 import AggieButton from "../../../components/AggieButton";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
 import CreateEditSourceForm from "./CreateEditSourceForm";
+import { getSourceConfigRows } from "./sourceDisplay";
 
 import {
   faChevronDown,
@@ -40,105 +41,10 @@ interface IProps {
   initialEditing?: boolean;
 }
 
-// Splits the `lists` field (a comma/space-separated string) into hashtags,
-// mirroring how the edit form's MastodonHashtagField parses them.
-const parseHashtags = (raw?: string) =>
-  (raw || "")
-    .split(/[\s,]+/)
-    .map((tag) => tag.trim().replace(/^#+/, ""))
-    .filter(Boolean);
-
-const MASTODON_MODE_LABELS: Record<string, string> = {
-  public: "Public timeline",
-  home: "Home timeline",
-  hashtag: "Hashtag",
-  keyword: "Keyword search",
-};
-
-const MASTODON_SCOPE_LABELS: Record<string, string> = {
-  local: "Local public timeline",
-  public: "Federated public timeline",
-};
-
 const ACCESS_MODE_LABELS: Record<string, string> = {
   public: "Public",
   restricted: "Restricted to teams",
   public_until: "Public until cutoff date",
-};
-
-// Read-only rows describing a feed's provider-specific configuration — the same
-// fields the edit form exposes as inputs. Empty values are omitted so a feed
-// with no extra config simply shows no rows.
-const getSourceConfigRows = (
-  source?: Source
-): { label: string; value: ReactNode; hint?: ReactNode }[] => {
-  if (!source) return [];
-  const rows: { label: string; value: ReactNode; hint?: ReactNode }[] = [];
-
-  switch (source.media) {
-    case "mastodon": {
-      const mode = source.keywords || "";
-      if (mode)
-        rows.push({ label: "Mode", value: MASTODON_MODE_LABELS[mode] || mode });
-      if (mode === "hashtag") {
-        const tags = parseHashtags(source.lists);
-        if (tags.length)
-          rows.push({
-            label: tags.length === 1 ? "Hashtag" : "Hashtags",
-            value: (
-              <div className='flex flex-wrap gap-2'>
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className='inline-flex items-center rounded-full bg-slate-200 dark:bg-gray-600 px-2 py-1 text-sm font-medium'
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            ),
-            hint:
-              tags.length === 1
-                ? "We pull in posts that use this hashtag."
-                : "We pull in posts that use any of these hashtags, without repeating a post that has more than one.",
-          });
-      } else if (mode === "keyword") {
-        if (source.lists) rows.push({ label: "Keyword", value: source.lists });
-      } else if (mode === "public") {
-        if (source.regex)
-          rows.push({
-            label: "Public timeline scope",
-            value: MASTODON_SCOPE_LABELS[source.regex] || source.regex,
-          });
-      }
-      break;
-    }
-    case "junkipedia":
-      if (source.lists)
-        rows.push({
-          label: "Lists",
-          value: source.lists,
-          hint: "Junkipedia List IDs. Each one points to a monitoring list (a saved set of accounts, channels, hashtags, or search terms). Aggie collects the posts from these lists as Alerts.",
-        });
-      break;
-    case "telegramUser":
-      if (source.lists)
-        rows.push({
-          label: "Chats / Channels / Users",
-          value: source.lists,
-          hint: "The Telegram entities this feed pulls from, such as public usernames like @channel_one or private chat/channel IDs like -1001234567890.",
-        });
-      break;
-    case "ioda":
-    case "cloudflare":
-      if (source.keywords)
-        rows.push({ label: "Country code", value: source.keywords });
-      break;
-    default:
-      break;
-  }
-
-  return rows;
 };
 
 // Normalizes accessPolicy.teams (which may be ids or populated Team objects)
@@ -245,7 +151,38 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
         <div className='flex flex-col'>
           <div className='flex justify-between items-center mb-3 gap-4'>
             <h2 className='text-xl font-medium'>Edit feed</h2>
-            {onClose && <CloseButton onClose={onClose} />}
+            <div className='flex items-center gap-4'>
+              {isManager && (
+                <PlaceholderDiv
+                  className='flex justify-end items-center gap-2'
+                  loading={!data}
+                >
+                  <p className='text-xs font-medium text-slate-600 dark:text-gray-400'>
+                    {data?.enabled ? "Enabled" : "Disabled"}
+                  </p>
+                  <div className='flex items-center gap-1'>
+                    {doEditSource.isLoading && (
+                      <FontAwesomeIcon
+                        icon={faSpinner}
+                        className={"animate-spin"}
+                      />
+                    )}
+                    <AggieSwitch
+                      checked={data?.enabled || false}
+                      onChange={() => {
+                        doEditSource.mutate({
+                          ...data,
+                          enabled: !data?.enabled,
+                        });
+                      }}
+                      label='Enable Feed'
+                      disabled={isLoading}
+                    />
+                  </div>
+                </PlaceholderDiv>
+              )}
+              {onClose && <CloseButton onClose={onClose} />}
+            </div>
           </div>
           {!data ? (
             // Don't mount the edit form until the source has loaded: the form
