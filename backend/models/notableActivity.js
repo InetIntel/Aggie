@@ -13,10 +13,18 @@ const notableActivitySchema = new Schema({
   rangeEnd: { type: Date, required: true, index: true },
 
   eventAggKey: { type: String, required: true, index: true },
+  // Under `startTime` this is the '*' sentinel: such activities span many keys, listed in
+  // eventAggKeyBases, because grouping is on outage start alone.
   eventAggKeyBase: { type: String, required: true, index: true },
+  eventAggKeyBases: { type: [String], default: [] },
   bucketStart: { type: Date, required: true, index: true },
   bucketEnd: { type: Date, required: true, index: true },
   bucketSizeMinutes: { type: Number, required: true, index: true },
+
+  // Which grouping produced this snapshot — 'bucket' (fixed grid) or 'startTime'
+  // (clustered outage starts). Part of cacheKey too, so the two never mix in one result set.
+  aggregationMethod: { type: String, default: 'bucket', index: true },
+  startTimeToleranceMinutes: { type: Number },
 
   sourceCnt: { type: Number, required: true, default: 0 },
   sources: { type: [String], default: [] },
@@ -43,6 +51,10 @@ const notableActivitySchema = new Schema({
 
   asn: { type: String },
   geoScope: { type: String },
+  // Full lists behind the single-valued asn/geoScope above, which are only set when the
+  // activity covers exactly one. `locations` holds "asn / region" labels, paired per report.
+  asns: { type: [String], default: [] },
+  locations: { type: [String], default: [] },
 
   incidentId: { type: SchemaTypes.ObjectId, ref: 'Group', default: null, index: true },
 

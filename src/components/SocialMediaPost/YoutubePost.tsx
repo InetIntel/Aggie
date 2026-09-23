@@ -3,6 +3,7 @@ import YouTube, { YouTubeProps } from "react-youtube";
 import Linkify from "linkify-react";
 import { useState } from "react";
 import AggieButton from "../AggieButton";
+import { detectTextDirection } from "../../utils/format";
 
 interface IProps {
   report: Report;
@@ -12,10 +13,13 @@ const YoutubePost = ({ report }: IProps) => {
   const [expand, setExpand] = useState(false);
   return (
     <>
-      <p className='font-medium mb-2'>{title}</p>
+      <p dir={detectTextDirection(title)} className='font-medium mb-2 post-text'>
+        {title}
+      </p>
 
       <p
-        className={`text-slate-900 whitespace-pre-line break-all mb-2 ${
+        dir={detectTextDirection(description)}
+        className={`text-slate-900 whitespace-pre-line mb-2 post-text ${
           expand ? "" : "line-clamp-5"
         }`}
       >

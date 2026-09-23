@@ -7,7 +7,9 @@ const {
   compareNotableActivities,
 } = require('./analyticsAggregation');
 const {
+  DEFAULT_AGGREGATION_METHOD,
   DEFAULT_REFRESH_SNAP_MINUTES,
+  isStartTimeAggregation,
   resolveAnalyticsTimeWindow,
 } = require('./analyticsTime');
 
@@ -182,6 +184,10 @@ function buildCachedNotableActivityDocs({
       rangePreset: timeWindow.rangePreset,
       rangeStart: timeWindow.rangeStartUtc,
       rangeEnd: timeWindow.rangeEndUtc,
+      aggregationMethod: timeWindow.aggregationMethod || DEFAULT_AGGREGATION_METHOD,
+      startTimeToleranceMinutes: isStartTimeAggregation(timeWindow)
+        ? timeWindow.startTimeToleranceMinutes
+        : undefined,
       computedAt,
       expiresAt,
     };
@@ -204,6 +210,8 @@ function buildMaterializedResponse({
     rangePreset: timeWindow.rangePreset,
     bucketPreset: timeWindow.bucketPreset,
     bucketSizeMinutes: timeWindow.bucketSizeMinutes,
+    aggregationMethod: timeWindow.aggregationMethod || DEFAULT_AGGREGATION_METHOD,
+    startTimeToleranceMinutes: timeWindow.startTimeToleranceMinutes,
     rangeStartUtc: timeWindow.rangeStartUtc,
     rangeEndUtc: timeWindow.rangeEndUtc,
     notableActivities,
@@ -229,6 +237,10 @@ function buildAnalyticsCacheKey(timeWindow, filters = {}) {
     rangeStartUtc: timeWindow.rangeStartUtc.toISOString(),
     rangeEndUtc: timeWindow.rangeEndUtc.toISOString(),
     bucketSizeMinutes: timeWindow.bucketSizeMinutes,
+    aggregationMethod: timeWindow.aggregationMethod || DEFAULT_AGGREGATION_METHOD,
+    startTimeToleranceMinutes: isStartTimeAggregation(timeWindow)
+      ? timeWindow.startTimeToleranceMinutes
+      : undefined,
     filters: normalizeFilters(filters),
   });
 }

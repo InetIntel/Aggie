@@ -14,11 +14,16 @@ import {
   getReportMetrics,
 } from "../../api/analytics";
 import type {
+  AnalyticsAggregationMethod,
   AnalyticsSocketQuery,
   AnalyticsUpdateEvent,
   AnalyticsBucketPreset,
   AnalyticsRangePreset,
   NotableActivity,
+} from "../../api/analytics/types";
+import {
+  DEFAULT_START_TIME_TOLERANCE_MINUTES,
+  START_TIME_TOLERANCE_OPTIONS,
 } from "../../api/analytics/types";
 import { SocketContext, SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
 import AggieDialog from "../../components/AggieDialog";
@@ -28,13 +33,9 @@ import DashboardAddToIncident from "./components/DashboardAddToIncident";
 import NotableActivityCard from "./components/NotableActivityCard";
 import MetricsList from "./components/MetricsList";
 import {
-  buildIncidentInitialValues,
-  buildIncidentTitle,
-  formatActivityWindow,
-  formatCompactDateTime,
-  formatRangeLabel,
   getActivityLocationSummary,
   getAnalyticsRoom,
+  useDashboardFormatters,
 } from "./dashboardHelpers";
 import type { GroupEditableData } from "../../api/groups/types";
 
@@ -58,6 +59,33 @@ const bucketLabels: Record<AnalyticsBucketPreset, string> = {
   "24h": "24h",
 };
 
+const aggregationOptions: {
+  label: string;
+  value: AnalyticsAggregationMethod;
+  hint: string;
+}[] = [
+  {
+    label: "Time bucket",
+    value: "bucket",
+    hint: "Groups reports by the fixed bucket their outage start falls into.",
+  },
+  {
+    label: "Start time",
+    value: "startTime",
+    hint: "Groups reports whose outages started within the tolerance of each other, ignoring bucket edges.",
+  },
+];
+
+// Start-time grouping runs on one fixed window instead, used
+// by both the trend chart and the activity cards.
+const START_TIME_RANGE: AnalyticsRangePreset = "last7d";
+const START_TIME_BUCKET: AnalyticsBucketPreset = "24h";
+
+function formatToleranceLabel(minutes: number) {
+  if (minutes === 0) return "exact";
+  return minutes >= 60 ? `${minutes / 60}h` : `${minutes}m`;
+}
+
 // const maxNotableCards = 6;
 const notableCardsPerPage = 12;
 
@@ -65,8 +93,19 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { socket } = useContext(SocketContext);
+  const {
+    buildIncidentInitialValues,
+    buildIncidentTitle,
+    formatActivityWindow,
+    formatCompactDateTime,
+    formatRangeLabel,
+  } = useDashboardFormatters();
   const [range, setRange] = useState<AnalyticsRangePreset>("today");
   const [bucket, setBucket] = useState<AnalyticsBucketPreset>("1h");
+  const [aggregation, setAggregation] = useState<AnalyticsAggregationMethod>("bucket");
+  const [tolerance, setTolerance] = useState<number>(
+    DEFAULT_START_TIME_TOLERANCE_MINUTES
+  );
   const [dismissedActivityKeys, setDismissedActivityKeys] = useState<string[]>([]);
   const [notablePage, setNotablePage] = useState(0);
   const [activityToPromote, setActivityToPromote] = useState<NotableActivity | null>(
@@ -95,23 +134,62 @@ const Dashboard = () => {
 
   useEffect(() => {
     setNotablePage(0);
-  }, [range, bucket]);
+  }, [range, bucket, aggregation, tolerance]);
+
+  // The bucket-mode reconciliation below only concerns the user's own range/bucket pair.
+
+  const isStartTime = aggregation === "startTime";
+
+  // `range`/`bucket` stay as the user left them so switching back to bucket mode restores
+  // their selection; these are what actually gets queried.
+  const activeRange = isStartTime ? START_TIME_RANGE : range;
+  const activeBucket = isStartTime ? START_TIME_BUCKET : bucket;
+  // Only the startTime method reads the tolerance. Dropping it otherwise keeps the
+  // request (and the cache key behind it) identical to the original bucket behaviour.
+  const activeTolerance = isStartTime ? tolerance : undefined;
 
   const overviewQuery = useQuery({
-    queryKey: ["analytics", "overview", range, bucket],
-    queryFn: () => getAnalyticsOverview({ range, bucket }),
+    queryKey: [
+      "analytics",
+      "overview",
+      activeRange,
+      activeBucket,
+      aggregation,
+      activeTolerance,
+    ],
+    queryFn: () =>
+      getAnalyticsOverview({
+        range: activeRange,
+        bucket: activeBucket,
+        aggregation,
+        tolerance: activeTolerance,
+      }),
     keepPreviousData: true,
   });
 
   const notableActivitiesQuery = useQuery({
-    queryKey: ["analytics", "notable-activities", range, bucket],
-    queryFn: () => getNotableActivities({ range, bucket }),
+    queryKey: [
+      "analytics",
+      "notable-activities",
+      activeRange,
+      activeBucket,
+      aggregation,
+      activeTolerance,
+    ],
+    queryFn: () =>
+      getNotableActivities({
+        range: activeRange,
+        bucket: activeBucket,
+        aggregation,
+        tolerance: activeTolerance,
+      }),
     keepPreviousData: true,
   });
 
+  // Metrics follow the same window the rest of the dashboard is showing.
   const reportMetricsQuery = useQuery({
-    queryKey: ["analytics", "report-metrics", range],
-    queryFn: () => getReportMetrics({ range }),
+    queryKey: ["analytics", "report-metrics", activeRange],
+    queryFn: () => getReportMetrics({ range: activeRange }),
     keepPreviousData: true,
   });
 
@@ -133,15 +211,38 @@ const Dashboard = () => {
       if (!payload?.cacheKey) return;
       if (payload.cacheKey !== notableActivitiesQuery.data?.cacheKey) return;
 
-      queryClient.invalidateQueries({ queryKey: ["analytics", "overview", range, bucket] });
       queryClient.invalidateQueries({
-        queryKey: ["analytics", "notable-activities", range, bucket],
+        queryKey: [
+          "analytics",
+          "overview",
+          activeRange,
+          activeBucket,
+          aggregation,
+          activeTolerance,
+        ],
       });
       queryClient.invalidateQueries({
-        queryKey: ["analytics", "report-metrics", range],
+        queryKey: [
+          "analytics",
+          "notable-activities",
+          activeRange,
+          activeBucket,
+          aggregation,
+          activeTolerance,
+        ],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["analytics", "report-metrics", activeRange],
       });
     },
-    [bucket, notableActivitiesQuery.data?.cacheKey, queryClient, range]
+    [
+      activeBucket,
+      activeRange,
+      activeTolerance,
+      aggregation,
+      notableActivitiesQuery.data?.cacheKey,
+      queryClient,
+    ]
   );
 
   useSocketSubscribe("analytics:update", handleAnalyticsUpdate);
@@ -156,6 +257,8 @@ const Dashboard = () => {
       rangePreset: data.rangePreset,
       bucketPreset: data.bucketPreset,
       bucketSizeMinutes: data.bucketSizeMinutes,
+      aggregationMethod: data.aggregationMethod,
+      startTimeToleranceMinutes: data.startTimeToleranceMinutes,
       rangeStartUtc: data.rangeStartUtc,
       rangeEndUtc: data.rangeEndUtc,
     };
@@ -220,22 +323,25 @@ const Dashboard = () => {
 
   return (
     <section className='mx-auto max-w-[1400px] px-4 py-6'>
-      <div className='mb-5 flex flex-wrap items-center justify-center gap-3'>
+      {/* Grouping is the top-level choice: it decides whether the range/bucket grid is
+          even meaningful, so the controls below it change with the mode. */}
+      <div className='mb-5 flex flex-col items-center gap-3'>
         <div
           role='group'
-          aria-label='Time range'
+          aria-label='Activity grouping'
           className='inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800'
         >
-          {rangeOptions.map((option) => (
+          {aggregationOptions.map((option) => (
             <button
               key={option.value}
               type='button'
-              onClick={() => setRange(option.value)}
-              aria-pressed={range === option.value}
+              onClick={() => setAggregation(option.value)}
+              aria-pressed={aggregation === option.value}
+              title={option.hint}
               className={[
-                "rounded-full px-4 py-1.5 text-sm font-medium transition",
-                range === option.value
-                  ? "bg-[#166534] text-white"
+                "rounded-full px-5 py-1.5 text-sm font-semibold transition",
+                aggregation === option.value
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
                   : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
               ].join(" ")}
             >
@@ -243,27 +349,81 @@ const Dashboard = () => {
             </button>
           ))}
         </div>
-        <div
-          role='group'
-          aria-label='Bucket size'
-          className='inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800'
-        >
-          {selectedRange.buckets.map((bucketOption) => (
-            <button
-              key={bucketOption}
-              type='button'
-              onClick={() => setBucket(bucketOption)}
-              aria-pressed={bucket === bucketOption}
-              className={[
-                "rounded-full px-4 py-1.5 text-sm font-medium transition",
-                bucket === bucketOption
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                  : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
-              ].join(" ")}
-            >
-              {bucketLabels[bucketOption]}
-            </button>
-          ))}
+
+        <div className='flex flex-wrap items-center justify-center gap-3'>
+          {isStartTime ? (
+            <>
+              <label className='inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800'>
+                <span className='font-medium text-slate-700 dark:text-gray-200'>
+                  Tolerance
+                </span>
+                <select
+                  value={tolerance}
+                  onChange={(event) => setTolerance(Number(event.target.value))}
+                  title='Largest gap between consecutive outage starts that still counts as one activity'
+                  className='cursor-pointer rounded-md border border-slate-200 bg-white px-2 py-0.5 text-sm text-slate-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
+                >
+                  {START_TIME_TOLERANCE_OPTIONS.map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {formatToleranceLabel(minutes)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {/* Stated rather than offered: start-time grouping ignores the bucket grid,
+                  so this window is fixed for both the chart and the cards. */}
+              <span className='text-xs text-slate-500 dark:text-gray-400'>
+                Last 7 days · {bucketLabels[START_TIME_BUCKET]} chart buckets
+              </span>
+            </>
+          ) : (
+            <>
+              <div
+                role='group'
+                aria-label='Time range'
+                className='inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800'
+              >
+                {rangeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type='button'
+                    onClick={() => setRange(option.value)}
+                    aria-pressed={range === option.value}
+                    className={[
+                      "rounded-full px-4 py-1.5 text-sm font-medium transition",
+                      range === option.value
+                        ? "bg-[#166534] text-white"
+                        : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
+                    ].join(" ")}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <div
+                role='group'
+                aria-label='Bucket size'
+                className='inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800'
+              >
+                {selectedRange.buckets.map((bucketOption) => (
+                  <button
+                    key={bucketOption}
+                    type='button'
+                    onClick={() => setBucket(bucketOption)}
+                    aria-pressed={bucket === bucketOption}
+                    className={[
+                      "rounded-full px-4 py-1.5 text-sm font-medium transition",
+                      bucket === bucketOption
+                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                        : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
+                    ].join(" ")}
+                  >
+                    {bucketLabels[bucketOption]}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -326,7 +486,10 @@ const Dashboard = () => {
             </button>
             <p className='text-xs text-slate-500 dark:text-gray-400'>
               {notableActivitiesQuery.data
-                ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} activities`
+                ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} activities` +
+                  (isStartTime
+                    ? ` · grouped by start time (${formatToleranceLabel(tolerance)})`
+                    : ` · grouped by ${bucketLabels[activeBucket]} bucket`)
                 : "Loading activities"}
             </p>
           </div>

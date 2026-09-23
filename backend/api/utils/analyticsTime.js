@@ -38,6 +38,21 @@ const VALID_BUCKETS_BY_RANGE = Object.freeze({
   ],
 });
 
+// How reports are grouped into a notable activity. `bucket` floors each report's
+// outageStartedAt onto a fixed grid of bucketSizeMinutes. `startTime` ignores the grid
+// and clusters reports whose outages started within START_TIME tolerance of each other,
+// on the premise that alerts sharing a start time describe the same incident. Both are
+// selectable so the two can be compared side by side.
+const AGGREGATION_METHODS = Object.freeze({
+  TIME_BUCKET: 'bucket',
+  START_TIME: 'startTime',
+});
+
+const DEFAULT_AGGREGATION_METHOD = AGGREGATION_METHODS.TIME_BUCKET;
+
+const DEFAULT_START_TIME_TOLERANCE_MINUTES = 60;
+const MAX_START_TIME_TOLERANCE_MINUTES = 24 * 60;
+
 const DEFAULT_RANGE_PRESET = RANGE_PRESETS.TODAY;
 const DEFAULT_BUCKET_PRESET = BUCKET_PRESETS.ONE_HOUR;
 const DEFAULT_REFRESH_SNAP_MINUTES = 5;
@@ -84,6 +99,44 @@ function getBucketSizeMinutes(bucketPreset) {
   return bucketSizeMinutes;
 }
 
+function isStartTimeAggregation(timeWindow) {
+  return Boolean(
+    timeWindow &&
+    timeWindow.aggregationMethod === AGGREGATION_METHODS.START_TIME
+  );
+}
+
+function normalizeAggregationMethod(value) {
+  if (typeof value === 'undefined' || value === null || value === '') {
+    return DEFAULT_AGGREGATION_METHOD;
+  }
+  const isSupported = Object.keys(AGGREGATION_METHODS).some(
+    (key) => AGGREGATION_METHODS[key] === value
+  );
+  if (!isSupported) {
+    throw new Error(`Unsupported analytics aggregation method: ${value}`);
+  }
+  return value;
+}
+
+function normalizeStartTimeToleranceMinutes(value) {
+  if (typeof value === 'undefined' || value === null || value === '') {
+    return DEFAULT_START_TIME_TOLERANCE_MINUTES;
+  }
+  const minutes = Number(value);
+  if (
+    !Number.isFinite(minutes) ||
+    minutes < 0 ||
+    minutes > MAX_START_TIME_TOLERANCE_MINUTES
+  ) {
+    throw new Error(
+      `Unsupported analytics start-time tolerance: ${value} ` +
+      `(expected 0-${MAX_START_TIME_TOLERANCE_MINUTES} minutes)`
+    );
+  }
+  return minutes;
+}
+
 function isSupportedRangeBucket(rangePreset, bucketPreset) {
   return Boolean(
     VALID_BUCKETS_BY_RANGE[rangePreset] &&
@@ -108,6 +161,10 @@ function resolveAnalyticsTimeWindow(options = {}) {
   }
 
   const bucketSizeMinutes = getBucketSizeMinutes(bucketPreset);
+  const aggregationMethod = normalizeAggregationMethod(options.aggregationMethod);
+  const startTimeToleranceMinutes = normalizeStartTimeToleranceMinutes(
+    options.startTimeToleranceMinutes
+  );
   const rangeEndUtc = floorDateToMinutes(now, refreshSnapMinutes);
   let rangeStartUtc;
 
@@ -123,6 +180,8 @@ function resolveAnalyticsTimeWindow(options = {}) {
     rangePreset,
     bucketPreset,
     bucketSizeMinutes,
+    aggregationMethod,
+    startTimeToleranceMinutes,
     rangeStartUtc,
     rangeEndUtc,
     refreshSnapMinutes,
@@ -140,6 +199,13 @@ function normalizeDate(value, fieldName) {
 module.exports = {
   RANGE_PRESETS,
   BUCKET_PRESETS,
+  AGGREGATION_METHODS,
+  DEFAULT_AGGREGATION_METHOD,
+  DEFAULT_START_TIME_TOLERANCE_MINUTES,
+  MAX_START_TIME_TOLERANCE_MINUTES,
+  isStartTimeAggregation,
+  normalizeAggregationMethod,
+  normalizeStartTimeToleranceMinutes,
   BUCKET_SIZE_MINUTES,
   VALID_BUCKETS_BY_RANGE,
   DEFAULT_RANGE_PRESET,

@@ -1,11 +1,18 @@
 'use strict';
 
 const {
+  AGGREGATION_METHODS,
   getBucketEndUtc,
+  isStartTimeAggregation,
   resolveAnalyticsTimeWindow,
 } = require('./analyticsTime');
 
 const HIGH_CONFIDENCE_MIN_COUNT = 2;
+
+// Start-time activities are not tied to one asn|geoScope, so they have no single
+// eventAggKeyBase. This stands in for one in the eventAggKey, which still has to be
+// unique per cache key (the cluster's start time makes it so).
+const START_TIME_KEY_BASE = '*';
 
 // OONI rows are grouped separately and then merged into the nearest same-key 
 // activity whose outage started within this window of the OONI windowStart 
@@ -30,10 +37,19 @@ function buildOutageReportMatch(timeWindow) {
 async function aggregateNotableActivities(options = {}) {
   const timeWindow = options.timeWindow || resolveAnalyticsTimeWindow(options);
   const match = buildOutageReportMatch(timeWindow);
-  const pipeline = buildAggregationPipeline(match, timeWindow.bucketSizeMinutes);
+  const pipeline = buildAggregationPipeline(match, timeWindow);
 
   const Report = require('../../models/report');
-  const rows = mergeOoniRows(await Report.aggregate(pipeline).exec());
+  // Under `startTime` the pipeline emits one row per distinct outage start, which the
+  // clustering pass then chains into activities. Under `bucket` the pipeline already
+  // emits one row per grid bucket and the pass is skipped.
+  const pipelineRows = await Report.aggregate(pipeline).exec();
+  const rows = isStartTimeAggregation(timeWindow)
+    ? clusterRowsByStartTime(
+        pipelineRows,
+        timeWindow.startTimeToleranceMinutes * 60 * 1000
+      )
+    : mergeOoniRows(pipelineRows);
   const notableActivities = rows.map(function (row) {
     return formatNotableActivity(row, timeWindow);
   });
@@ -47,8 +63,20 @@ async function aggregateNotableActivities(options = {}) {
   return notableActivities;
 }
 
-function buildAggregationPipeline(match, bucketSizeMinutes) {
-  const bucketMs = bucketSizeMinutes * 60 * 1000;
+function buildAggregationPipeline(match, timeWindow) {
+  const bucketMs = timeWindow.bucketSizeMinutes * 60 * 1000;
+  // `startTime` groups on the raw outage start so each distinct timestamp is its own
+  // row; clusterRowsByStartTime then chains rows that fall within the tolerance.
+  const groupKeyMs = isStartTimeAggregation(timeWindow)
+    ? '$outageStartedAtMs'
+    : {
+        $subtract: [
+          '$outageStartedAtMs',
+          { $mod: ['$outageStartedAtMs', bucketMs] },
+        ],
+      };
+
+  const isStartTime = isStartTimeAggregation(timeWindow);
 
   return [
     { $match: match },
@@ -59,35 +87,43 @@ function buildAggregationPipeline(match, bucketSizeMinutes) {
     },
     {
       $addFields: {
-        bucketStartMs: {
-          $subtract: [
-            '$outageStartedAtMs',
-            { $mod: ['$outageStartedAtMs', bucketMs] },
-          ],
-        },
+        bucketStartMs: groupKeyMs,
       },
     },
     {
       $group: {
         _id: {
-          eventAggKeyBase: '$eventAggKeyBase',
+          eventAggKeyBase: isStartTime
+            ? { $literal: null }
+            : '$eventAggKeyBase',
           bucketStartMs: '$bucketStartMs',
-          isOoni: {
-            $cond: [
-              { $isArray: '$_media' },
-              { $in: ['ooni', '$_media'] },
-              { $eq: ['$_media', 'ooni'] },
-            ],
-          },
+          isOoni: isStartTime
+            ? { $literal: false }
+            : {
+                $cond: [
+                  { $isArray: '$_media' },
+                  { $in: ['ooni', '$_media'] },
+                  { $eq: ['$_media', 'ooni'] },
+                ],
+              },
         },
         totalReports: { $sum: 1 },
         reportIds: { $push: '$_id' },
         mediaValues: { $addToSet: '$_media' },
         // Per report (not deduped), so the trend chart can split a bucket by source.
         mediaPerReport: { $push: '$_media' },
+        // Parallel to mediaPerReport. Lets the trend chart place each report in the grid
+        // bucket of its own outage start even when the activity itself is not grid-aligned.
+        startedAtPerReport: { $push: '$outageStartedAtMs' },
         signalSourceValues: { $addToSet: '$metadata.rawAPIResponse.dataSource' },
         asnValues: { $addToSet: '$asn' },
         geoScopeValues: { $addToSet: '$geoScope' },
+        // Paired per report so a multi-ASN activity can list real "asn / region" combos
+        // rather than a cross product of the two distinct-value lists.
+        locationValues: { $addToSet: { asn: '$asn', geoScope: '$geoScope' } },
+        // Every key folded into this activity. One value under `bucket`; potentially many
+        // under `startTime`.
+        eventAggKeyBaseValues: { $addToSet: '$eventAggKeyBase' },
         incidentValues: { $addToSet: '$_group' },
         firstOutageStartedAtMs: { $min: '$outageStartedAtMs' },
         lastOutageStartedAtMs: { $max: '$outageStartedAtMs' },
@@ -96,6 +132,83 @@ function buildAggregationPipeline(match, bucketSizeMinutes) {
       },
     },
   ];
+}
+
+// Fields the pipeline accumulates per report or per value; a cluster is their concatenation.
+const CLUSTER_CONCAT_FIELDS = [
+  'reportIds',
+  'mediaValues',
+  'mediaPerReport',
+  'startedAtPerReport',
+  'signalSourceValues',
+  'asnValues',
+  'geoScopeValues',
+  'locationValues',
+  'eventAggKeyBaseValues',
+  'incidentValues',
+];
+
+// Chain rows (one per distinct outage start) into activities: walk them in time order and
+// stay in the current activity while the gap to the previous outage start is within
+// tolerance, otherwise open a new one. Rows are chained across every eventAggKeyBase, so
+// an activity holds whatever started together regardless of which ASN or region it hit.
+function clusterRowsByStartTime(rows, toleranceMs) {
+  const ordered = [...rows].sort(
+    (a, b) => a._id.bucketStartMs - b._id.bucketStartMs
+  );
+
+  const clusters = [];
+  let current = null;
+  for (const row of ordered) {
+    if (
+      current &&
+      row._id.bucketStartMs - current.lastOutageStartedAtMs <= toleranceMs
+    ) {
+      appendRowToCluster(current, row);
+      continue;
+    }
+    current = startCluster(row);
+    clusters.push(current);
+  }
+
+  return clusters;
+}
+
+// A cluster is shaped exactly like a pipeline row, so everything downstream — the OONI
+// merge, formatting, the report-bucket split — reads both without branching.
+function startCluster(row) {
+  const cluster = {
+    _id: { ...row._id },
+    totalReports: row.totalReports || 0,
+    firstOutageStartedAtMs: row.firstOutageStartedAtMs,
+    lastOutageStartedAtMs: row.lastOutageStartedAtMs,
+    ooniWindowStart: row.ooniWindowStart,
+  };
+  for (const field of CLUSTER_CONCAT_FIELDS) {
+    cluster[field] = [...(row[field] || [])];
+  }
+  return cluster;
+}
+
+function appendRowToCluster(cluster, row) {
+  cluster.totalReports += row.totalReports || 0;
+  for (const field of CLUSTER_CONCAT_FIELDS) {
+    cluster[field] = cluster[field].concat(row[field] || []);
+  }
+  cluster.firstOutageStartedAtMs = Math.min(
+    cluster.firstOutageStartedAtMs,
+    row.firstOutageStartedAtMs
+  );
+  cluster.lastOutageStartedAtMs = Math.max(
+    cluster.lastOutageStartedAtMs,
+    row.lastOutageStartedAtMs
+  );
+  if (
+    row.ooniWindowStart &&
+    (!cluster.ooniWindowStart || row.ooniWindowStart < cluster.ooniWindowStart)
+  ) {
+    cluster.ooniWindowStart = row.ooniWindowStart;
+  }
 }
 
 // Fold each OONI row into the nearest non-OONI row with the same eventAggKeyBase whose
@@ -124,11 +237,9 @@ function mergeOoniRows(rows) {
     ]) {
       target[field] = (target[field] || []).concat(row[field] || []);
     }
-    target.extraReportBuckets = (target.extraReportBuckets || []).concat({
-      bucketStartMs: row._id.bucketStartMs,
-      totalReports: row.totalReports || 0,
-      sourceCounts: countSourcesPerReport(row),
-    });
+    // Keep the merged row intact rather than pre-bucketing it here: buildReportBuckets
+    // owns the grid, and under `startTime` a row's own key is not grid-aligned.
+    target.mergedRows = (target.mergedRows || []).concat(row);
   }
 
   return targets.concat(merged);
@@ -166,20 +277,40 @@ function findOoniMergeTarget(ooniRow, targets) {
 
 function formatNotableActivity(row, timeWindow) {
   const bucketStart = new Date(row._id.bucketStartMs);
-  const bucketEnd = getBucketEndUtc(bucketStart, timeWindow.bucketSizeMinutes);
+  // `bucket` spans the whole grid cell the activity sits in. `startTime` spans only the
+  // reports that actually clustered, so a lone report is an instant rather than an hour.
+  // Reports folded in by the OONI merge are deliberately excluded — their start can be up
+  // to OONI_MATCH_WINDOW_MS away and would stretch the window past the outage it describes.
+  const bucketEnd = isStartTimeAggregation(timeWindow)
+    ? new Date(
+        typeof row.lastOutageStartedAtMs === 'number'
+          ? row.lastOutageStartedAtMs
+          : row._id.bucketStartMs
+      )
+    : getBucketEndUtc(bucketStart, timeWindow.bucketSizeMinutes);
   const sources = getDistinctNonEmptyStrings(flattenArrayValues(row.mediaValues)).sort();
   const signals = getDistinctNonEmptyStrings(row.signalSourceValues).sort();
   const sourceCnt = sources.length;
   const signalCnt = signals.length;
   const incidentId = getSingleIncidentId(row.incidentValues);
+  // A start-time activity spans whatever started together, so it has no single key of
+  // its own; the sentinel keeps eventAggKey well-formed and unique on the cluster start.
+  const eventAggKeyBase = isStartTimeAggregation(timeWindow)
+    ? START_TIME_KEY_BASE
+    : row._id.eventAggKeyBase;
 
   return {
     eventAggKey: buildEventAggKey({
-      eventAggKeyBase: row._id.eventAggKeyBase,
+      eventAggKeyBase,
       bucketStart,
       bucketSizeMinutes: timeWindow.bucketSizeMinutes,
+      aggregationMethod: timeWindow.aggregationMethod,
+      startTimeToleranceMinutes: timeWindow.startTimeToleranceMinutes,
     }),
-    eventAggKeyBase: row._id.eventAggKeyBase,
+    eventAggKeyBase,
+    // Every key this activity actually covers — one under `bucket`, potentially many
+    // under `startTime`.
+    eventAggKeyBases: getDistinctNonEmptyStrings(row.eventAggKeyBaseValues || []).sort(),
     bucketStart,
     bucketEnd,
     bucketSizeMinutes: timeWindow.bucketSizeMinutes,
@@ -189,31 +320,81 @@ function formatNotableActivity(row, timeWindow) {
     signals,
     totalReports: row.totalReports || 0,
     reportIds: row.reportIds || [],
-    reportBuckets: buildReportBuckets(row),
+    reportBuckets: buildReportBuckets(row, timeWindow.bucketSizeMinutes),
+    aggregationMethod: timeWindow.aggregationMethod || AGGREGATION_METHODS.TIME_BUCKET,
     isHighConfidence:
       sourceCnt >= HIGH_CONFIDENCE_MIN_COUNT ||
       signalCnt >= HIGH_CONFIDENCE_MIN_COUNT,
+    // `asn`/`geoScope` stay single-valued (undefined when an activity covers several) for
+    // callers that already read them. `asns`/`locations` carry the full picture, which is
+    // the normal case once activities are no longer keyed by asn|geoScope.
     asn: getSingleDisplayValue(row.asnValues),
     geoScope: getSingleDisplayValue(row.geoScopeValues),
+    asns: getDistinctNonEmptyStrings(row.asnValues || []).sort(),
+    locations: getDistinctLocations(row.locationValues),
     incidentId,
   };
 }
 
-// Report counts per bucket of each report's own outageStartedAt, split by source. 
-function buildReportBuckets(row) {
-  const extras = row.extraReportBuckets || [];
-  const ownMedia = row.mediaPerReport || [];
-  const ownCount = ownMedia.length ||
-    (row.totalReports || 0) - extras.reduce((total, bucket) => total + bucket.totalReports, 0);
+// Distinct "asn / region" labels, built from per-report pairs so an activity covering
+// as1/regionA and as2/regionB never advertises the as1/regionB combination it never saw.
+function getDistinctLocations(values) {
+  if (!Array.isArray(values)) return [];
+
+  const labels = values
+    .map((value) => formatLocationLabel(value))
+    .filter(Boolean);
+
+  return [...new Set(labels)].sort();
+}
+
+function formatLocationLabel(value) {
+  if (!value || typeof value !== 'object') return '';
+  return getNonEmptyValues([value.asn, value.geoScope])
+    .map((part) => part.toString())
+    .join(' / ');
+}
+
+// Report counts per bucket of each report's own outageStartedAt, split by source. Always
+// on the grid, whichever way the activity itself was grouped: the trend chart draws a
+// fixed grid, and "View Reports" filters on the same bounds.
+function buildReportBuckets(row, bucketSizeMinutes) {
+  const bucketMs = bucketSizeMinutes * 60 * 1000;
+  const mergedRows = row.mergedRows || [];
 
   return sumReportBuckets([
-    {
-      bucketStartMs: row._id.bucketStartMs,
-      totalReports: ownCount,
-      sourceCounts: countSourcesPerReport(row),
-    },
-    ...extras,
+    ...ownReportBuckets(row, bucketMs, mergedRows),
+    ...mergedRows.flatMap((mergedRow) => ownReportBuckets(mergedRow, bucketMs, [])),
   ]);
+}
+
+// One entry per report, placed by its own outage start. Falls back to the row's key for
+// snapshots aggregated before startedAtPerReport existed.
+function ownReportBuckets(row, bucketMs, mergedRows) {
+  const media = row.mediaPerReport || [];
+  const startedAt = row.startedAtPerReport || [];
+
+  if (startedAt.length) {
+    return startedAt.map((startedAtMs, index) => ({
+      bucketStartMs: floorToBucketMs(startedAtMs, bucketMs),
+      totalReports: 1,
+      sourceCounts: { [normalizeSourceKey(media[index])]: 1 },
+    }));
+  }
+
+  const mergedCount = mergedRows.reduce(
+    (total, mergedRow) => total + (mergedRow.totalReports || 0),
+    0
+  );
+  return [{
+    bucketStartMs: floorToBucketMs(row._id.bucketStartMs, bucketMs),
+    totalReports: media.length || (row.totalReports || 0) - mergedCount,
+    sourceCounts: countSourcesPerReport(row),
+  }];
+}
+
+function floorToBucketMs(timestampMs, bucketMs) {
+  return timestampMs - (timestampMs % bucketMs);
 }
 
 // A report's source is its single `_media` entry; anything unexpected lands under
@@ -255,11 +436,25 @@ function sumReportBuckets(entries) {
     }));
 }
 
-function buildEventAggKey({ eventAggKeyBase, bucketStart, bucketSizeMinutes }) {
+// The third segment identifies the grouping that produced this activity, so snapshots
+// from the two methods can share a collection without ever colliding. The `bucket` form
+// is left exactly as it was so existing snapshots and in-flight keys stay valid.
+function buildEventAggKey({
+  eventAggKeyBase,
+  bucketStart,
+  bucketSizeMinutes,
+  aggregationMethod,
+  startTimeToleranceMinutes,
+}) {
+  const grouping =
+    aggregationMethod === AGGREGATION_METHODS.START_TIME
+      ? `startTime:${startTimeToleranceMinutes}`
+      : bucketSizeMinutes;
+
   return [
     eventAggKeyBase,
     bucketStart.toISOString(),
-    bucketSizeMinutes,
+    grouping,
   ].join('|');
 }
 
@@ -371,6 +566,13 @@ function projectNotableActivityToReports(activity, reports) {
     geoScope: getSingleDisplayValue(
       getDistinctNonEmptyStrings(reports.map((report) => report.geoScope))
     ),
+    asns: getDistinctNonEmptyStrings(reports.map((report) => report.asn)).sort(),
+    locations: getDistinctLocations(
+      reports.map((report) => ({ asn: report.asn, geoScope: report.geoScope }))
+    ),
+    eventAggKeyBases: getDistinctNonEmptyStrings(
+      reports.map((report) => report.eventAggKeyBase)
+    ).sort(),
     incidentId: getSingleIncidentId(
       toDistinctSet(reports.map((report) => report._group))
     ),
@@ -381,6 +583,7 @@ module.exports = {
   HIGH_CONFIDENCE_MIN_COUNT,
   OONI_MATCH_WINDOW_MS,
   buildOutageReportMatch,
+  clusterRowsByStartTime,
   mergeOoniRows,
   formatNotableActivity,
   aggregateNotableActivities,
