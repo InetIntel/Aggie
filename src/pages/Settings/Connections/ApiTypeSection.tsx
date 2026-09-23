@@ -29,11 +29,96 @@ import {
   faEye,
   faKey,
   faPlusCircle,
+  faShieldHalved,
   faSpinner,
   faTrash,
   faTrashAlt,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
+
+// Access-mode pill shown on each feed row: green when the feed is public, orange
+// when its visibility is limited (restricted to teams, or public until a cutoff).
+const ACCESS_MODE_META: Record<
+  string,
+  { label: string; classes: string; iconClass: string }
+> = {
+  public: {
+    label: "Public",
+    classes: "bg-green-100 text-green-800",
+    iconClass: "text-green-600",
+  },
+  restricted: {
+    label: "Restricted to teams",
+    classes: "bg-orange-100 text-orange-800",
+    iconClass: "text-orange-600",
+  },
+  public_until: {
+    label: "Public until cutoff date",
+    classes: "bg-orange-100 text-orange-800",
+    iconClass: "text-orange-600",
+  },
+};
+
+const AccessModePill = ({ source }: { source: Source }) => {
+  const meta =
+    ACCESS_MODE_META[source.accessPolicy?.mode || "public"] ??
+    ACCESS_MODE_META.public;
+  return (
+    <p
+      className={`flex items-center gap-1.5 rounded-full px-1.5 w-fit py-0.5 text-[14px] shrink-0 ${meta.classes}`}
+      title="Access mode"
+    >
+      <FontAwesomeIcon
+        icon={faShieldHalved}
+        size="xs"
+        className={meta.iconClass}
+      />
+      {meta.label}
+    </p>
+  );
+};
+
+// Connection pill colors: a fixed, accessible light-bg / dark-text palette keyed
+// by a connection's position WITHIN its provider, so connection 1/2/3 look the
+// same across providers, and a connection reads identically in the Connections
+// list and on every feed that uses it. The palette cycles if a provider has more
+// connections than entries.
+type ConnectionColor = { bg: string; text: string; icon: string };
+const CONNECTION_COLORS: ConnectionColor[] = [
+  { bg: "#E4EDA8", text: "#21290A", icon: "#21290A" }, // 1: chartreuse / dark
+  { bg: "#CFE9F1", text: "#153A45", icon: "#153A45" }, // 2: light teal / dark teal
+  { bg: "#F3C0CF", text: "#4A1626", icon: "#4A1626" }, // 3: rose / dark rose
+  { bg: "#F6D79A", text: "#4A3410", icon: "#4A3410" }, // 4: amber / dark amber
+  { bg: "#CBB6E6", text: "#331A4E", icon: "#331A4E" }, // 5: violet / dark violet
+];
+const getConnectionColor = (index: number): ConnectionColor =>
+  CONNECTION_COLORS[
+    index < 0 ? 0 : index % CONNECTION_COLORS.length
+  ];
+
+// The connection pill used on a feed row (colored by its connection).
+const ConnectionPill = ({
+  name,
+  color,
+}: {
+  name: string;
+  color: ConnectionColor;
+}) => (
+  <p
+    className="rounded-full px-1.5 max-w-full py-0.5 text-[14px]"
+    style={{ backgroundColor: color.bg, color: color.text }}
+  >
+    <span className="flex items-center gap-1.5 min-w-0" title="Connection">
+      <FontAwesomeIcon
+        icon={faKey}
+        size="xs"
+        className="shrink-0"
+        style={{ color: color.icon }}
+      />
+      <span className="truncate">{name}</span>
+    </span>
+  </p>
+);
 
 interface IProps {
   type: CredentialOption;
@@ -61,6 +146,15 @@ const ApiTypeSection = ({
 
   const typeSources = sources.filter((source) => source.media === type);
   const typeCredentials = credentials.filter((cred) => cred.type === type);
+
+  // Per-provider connection order (ObjectIds sort ~chronologically) so this
+  // provider's connection 1/2/3 map to palette slots 1/2/3, matching every feed
+  // that uses them. Unknown ids fall back to the first color.
+  const connectionColorOrder = [...typeCredentials]
+    .sort((a, b) => a._id.localeCompare(b._id))
+    .map((cred) => cred._id);
+  const colorForCredential = (id?: string) =>
+    getConnectionColor(id ? connectionColorOrder.indexOf(id) : -1);
 
   // When multiple connections per provider are disabled, hide the "Connect"
   // button once a connection exists (one connection per provider).
@@ -158,27 +252,32 @@ const ApiTypeSection = ({
           </p>
           <div className="flex flex-wrap items-center gap-2 mb-3">
             {typeCredentials.length > 0 ? (
-              typeCredentials.map((credential) => (
-                <span
-                  key={credential._id}
-                  className="flex items-center gap-1.5 bg-slate-200 dark:bg-gray-600 rounded-full pl-2.5 pr-1 py-0.5 text-xs font-medium"
-                >
-                  <FontAwesomeIcon
-                    icon={faKey}
-                    size="xs"
-                    className="text-slate-500 dark:text-gray-400"
-                  />
-                  {credential.name}
-                  <button
-                    type="button"
-                    onClick={() => setCredentialEdit(credential)}
-                    title="Edit connection"
-                    className="bg-[#F0F5FF] hover:bg-slate-100 dark:hover:bg-gray-500 shadow-sm rounded-full w-5 h-5 flex items-center justify-center text-slate-600 dark:text-gray-700"
+              typeCredentials.map((credential) => {
+                const color = colorForCredential(credential._id);
+                return (
+                  <span
+                    key={credential._id}
+                    style={{ backgroundColor: color.bg, color: color.text }}
+                    className="flex items-center gap-1.5 rounded-full pl-2.5 pr-1 py-0.5 text-xs font-medium"
                   >
-                    <FontAwesomeIcon icon={faEdit} size="xs" />
-                  </button>
-                </span>
-              ))
+                    <FontAwesomeIcon
+                      icon={faKey}
+                      size="xs"
+                      style={{ color: color.icon }}
+                    />
+                    {credential.name}
+                    <button
+                      type="button"
+                      onClick={() => setCredentialEdit(credential)}
+                      title="Edit connection"
+                      style={{ color: color.text }}
+                      className="bg-white/70 hover:bg-white shadow-sm rounded-full w-5 h-5 flex items-center justify-center"
+                    >
+                      <FontAwesomeIcon icon={faEdit} size="xs" />
+                    </button>
+                  </span>
+                );
+              })
             ) : (
               <p className="text-sm text-slate-500 dark:text-gray-400">
                 No {label} connections yet.
@@ -210,34 +309,24 @@ const ApiTypeSection = ({
               {/* Control line: connection, warnings, enable toggle, menu */}
               <div className="flex flex-wrap items-center gap-1">
                 {canManageSources && (
-                  <p className="bg-slate-200 dark:bg-gray-600 rounded-full px-1.5 max-w-full py-0.5 text-[14px]">
-                    <span
-                      className="flex items-center gap-1.5 min-w-0"
-                      title="Connection"
-                    >
-                      <FontAwesomeIcon
-                        icon={faKey}
-                        size="xs"
-                        className="text-slate-500 dark:text-gray-400 shrink-0"
-                      />
-                      <span className="truncate">
-                        {source.credentials.name}
-                      </span>
-                    </span>
-                  </p>
+                  <ConnectionPill
+                    name={source.credentials.name}
+                    color={colorForCredential(source.credentials._id)}
+                  />
                 )}
+                <AccessModePill source={source} />
                 {source.distinctErrorCount > 0 && (
-                  <p className="flex items-center gap-1.5 bg-orange-100 rounded-full px-1.5 w-fit py-0.5 text-[14px] shrink-0">
+                  <p className="flex items-center gap-1.5 bg-red-100 rounded-full px-1.5 w-fit py-0.5 text-[14px] shrink-0">
                     <button
                       type="button"
                       onClick={() => setWarningsSource(source)}
-                      className="hover:underline text-orange-800 flex items-center gap-1.5"
+                      className="hover:underline text-red-800 flex items-center gap-1.5"
                       title="Errors while fetching this feed"
                     >
                       <FontAwesomeIcon
                         icon={faExclamationTriangle}
                         size="xs"
-                        className="text-orange-600"
+                        className="text-red-600"
                       />
                       {source.distinctErrorCount}{" "}
                       {source.distinctErrorCount === 1 ? "Warning" : "Warnings"}
