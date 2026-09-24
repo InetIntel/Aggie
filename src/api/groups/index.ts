@@ -154,6 +154,19 @@ export const setSelectedNotes = async (groupIds: string[], notes: string) => {
   return data;
 };
 
+interface SetGroupTagsParams {
+  groupIds: string[];
+  tagIds: string[];
+}
+
+export const setGroupTags = async (params: SetGroupTagsParams) => {
+  const { data } = await axios.patch("/api/group/_tags", {
+    ids: params.groupIds,
+    tags: params.tagIds,
+  });
+  return data;
+};
+
 interface addCommentParams extends SelectedOne {
   comment: EditableGroupComment;
 }
