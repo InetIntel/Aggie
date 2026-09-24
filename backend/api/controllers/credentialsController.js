@@ -141,6 +141,30 @@ exports.credential_delete = async (req, res) => {
   }
 }
 
+  // Update a credential's name (label only). Secrets and type are immutable
+  // here — the name is a human-readable label, so this is a rename endpoint.
+exports.credential_update = async (req, res) => {
+  const { _id } = req.params;
+  try {
+    const credentials = await Credentials.findById(_id).exec();
+    if (!credentials) return res.sendStatus(404);
+
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    if (!name) return res.status(400).send('Connection name required');
+
+    credentials.name = name;
+    // Runs the schema's nameValidator (1-20 chars); throws on failure.
+    await credentials.save();
+
+    credentials.stripSecrets();
+    res.status(200).send(credentials);
+  } catch (err) {
+    // Schema validation failures (e.g. name too long) surface as ValidationError.
+    if (err.name === 'ValidationError') return res.status(400).send(err.message);
+    res.status(err.status || 500).send(err.message);
+  }
+}
+
   // Get all of the (stripped) credentials
 exports.credential_credentials = async (req, res) => {
   try {

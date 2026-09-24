@@ -219,7 +219,9 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
   const junkipediaSchema = Yup.object().shape({
-    name: Yup.string().required("Connection name required"),
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
     junkipediaAPIKey: Yup.string().required("API Token required"),
   });
   type IJunkipediaSchema = Yup.InferType<typeof junkipediaSchema>;
@@ -241,13 +243,15 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Connection name' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
       <FormikInput name='junkipediaAPIKey' label='Junkipedia API Token' />
     </FormikWithSchema>
   );
 
   const telegramBotSchema = Yup.object().shape({
-    name: Yup.string().required("Connection name required"),
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
     botAPIToken: Yup.string().required("Bot API token required"),
   });
   type ITelegramBotSchema = Yup.InferType<typeof telegramBotSchema>;
@@ -268,13 +272,15 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Connection name' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
       <FormikInput name='botAPIToken' label='Telegram Bot API Token' />
     </FormikWithSchema>
   );
 
   const telegramUserStartSchema = Yup.object().shape({
-    name: Yup.string().required("Connection name required"),
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
     apiId: Yup.string().required("Telegram API ID required"),
     apiHash: Yup.string().required("Telegram API hash required"),
     phone: Yup.string().required("Telegram phone number required"),
@@ -324,7 +330,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
           onClose={onClose}
           onSubmitText='Send Code'
         >
-          <FormikInput name='name' label='Connection name' />
+          <FormikInput name='name' label='Connection name' maxLength={50} />
           <FormikInput name='apiId' label='Telegram App API ID' />
           <FormikInput name='apiHash' label='Telegram App API Hash' />
           <FormikInput
@@ -405,7 +411,9 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
   );
 
   const iodaSchema = Yup.object().shape({
-    name: Yup.string().required("Connection name required")
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters")
   });
   type IodaSchema = Yup.InferType<typeof iodaSchema>;
 
@@ -423,12 +431,14 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Connection name' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
     </FormikWithSchema>
   );
 
   const ooniSchema = Yup.object().shape({
-    name: Yup.string().required("Credentials name required")
+    name: Yup.string()
+      .required("Credentials name required")
+      .max(50, "Max 50 characters")
   });
   type OoniSchema = Yup.InferType<typeof ooniSchema>;
 
@@ -445,12 +455,14 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
+      <FormikInput name='name' label='Credential Name' maxLength={50} />
     </FormikWithSchema>
   );
 
   const cloudflareSchema = Yup.object().shape({
-    name: Yup.string().required("Connection name required"),
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
     cloudflareApiToken: Yup.string().required("Cloudflare API Token required."),
   });
   type CloudflareSchema = Yup.InferType<typeof cloudflareSchema>;
@@ -472,13 +484,15 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Connection name' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
       <FormikInput name='cloudflareApiToken' label='Cloudflare API Token' />
     </FormikWithSchema>
   );
 
   const mastodonSchema = Yup.object().shape({
-    name: Yup.string().required("Connection name required"),
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
     serverUrl: Yup.string()
       .url("Enter a valid Mastodon server URL")
       .required("Mastodon server URL required"),
@@ -509,7 +523,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
           onClose={onClose}
           onSubmitText='Authorize Mastodon'
         >
-          <FormikInput name='name' label='Connection name' />
+          <FormikInput name='name' label='Connection name' maxLength={50} />
           <FormikInput
             name='serverUrl'
             label='Mastodon Server URL'
@@ -557,7 +571,9 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
   // rss credential
   // could be cleaner but idk how to work the type inferencing with yup
   /*const rssSchema = Yup.object().shape({
-    name: Yup.string().required("Connection name required")
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters")
   });
   type IRssSchema = Yup.InferType<typeof rssSchema>;
 
@@ -574,17 +590,21 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Connection name' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
     </FormikWithSchema>
   );
 
   const crowdTangleSchema = Yup.object().shape({
-    name: Yup.string().required("Connection name required"),
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
     dashboardAPIToken: Yup.string().required("API Token required"),
   });
 
   const twitterSchema = Yup.object().shape({
-    name: Yup.string().required("Connection name required"),
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
     consumerKey: Yup.string().required("Consumer key required."),
     consumerSecret: Yup.string().required("Consumer secret required."),
     accessToken: Yup.string().required("Access Token required."),
@@ -611,7 +631,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Connection name' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
       <FormikInput name='consumerKey' label='Twitter API Token' />
       <FormikInput name='consumerSecret' label='Twitter API Token Secret' />
       <FormikInput name='accessToken' label='Twitter Access Token' />

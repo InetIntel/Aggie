@@ -21,6 +21,14 @@ export const deleteCredential = async (credential: Credential) => {
   return data;
 };
 
+// Rename a credential (name/label only; secrets and type are unchanged).
+export const editCredential = async (credential: Credential) => {
+  const { data } = await axios.put("/api/credential/" + credential._id, {
+    name: credential.name,
+  });
+  return data;
+};
+
 export const telegramUserAuthStart = async (values: {
   apiId: string;
   apiHash: string;

@@ -131,7 +131,7 @@ function renderAuthor(
     case "cloudflare":
       return report?.metadata?.rawAPIResponse?.dataSource;
     case "ooni":
-      return report?.metadata?.rawAPIResponse?.networkName || report.author;
+      return "OONI";
     case "mastodon":
       return report.metadata.accountHandle || report.author;
     default:
