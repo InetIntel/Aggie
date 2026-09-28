@@ -95,6 +95,8 @@ exports.analytics_overview = async (req, res) => {
       rangePreset: data.rangePreset,
       bucketPreset: data.bucketPreset,
       bucketSizeMinutes: data.bucketSizeMinutes,
+      aggregationMethod: data.aggregationMethod,
+      startTimeToleranceMinutes: data.startTimeToleranceMinutes,
       rangeStartUtc: data.rangeStartUtc,
       rangeEndUtc: data.rangeEndUtc,
       metrics: {
@@ -230,9 +232,14 @@ exports.analytics_update_incident = async (req, res) => {
 };
 
 function parseAnalyticsQuery(query = {}, parseOptions = {}) {
+  // `aggregation` picks how reports are grouped into an activity ('bucket' | 'startTime');
+  // `tolerance` is the startTime gap in minutes. Both are validated in analyticsTime and
+  // surface as 400s. Omitting them keeps the original fixed-grid behaviour.
   const analyticsOptions = {
     range: query.range,
     bucket: query.bucket,
+    aggregationMethod: query.aggregation,
+    startTimeToleranceMinutes: query.tolerance,
   };
 
   if (parseOptions.allowLimit && query.limit !== undefined) {
