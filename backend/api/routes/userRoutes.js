@@ -4,6 +4,13 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const User = require('../../models/user');
 
+// Let a user edit their own record; editing anyone else still needs the permission.
+// user_update itself restricts which fields self vs. admins may change.
+const allowSelfOr = (permission) => (req, res, next) => {
+  if (req.user && String(req.params._id) === String(req.user._id)) return next();
+  return User.can(permission)(req, res, next);
+};
+
 // Get a list of all Users
 router.get('', User.can('view other users'), userController.user_users);
 
@@ -30,7 +37,7 @@ router.get('/:_id', User.can('view users'), userController.user_detail);
 router.put('/:_id/teams', userController.user_update_teams);
 
 // Update Users
-router.put('/:_id', User.can('update users'), userController.user_update);
+router.put('/:_id', allowSelfOr('update users'), userController.user_update);
 
 // Delete User
 router.delete('/:_id', User.can('delete users'), userController.user_delete);
