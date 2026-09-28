@@ -1,6 +1,7 @@
 // Handles CRUD requests for teams.
 const User = require('../../models/user');
 const Team = require('../../models/team');
+const countries = require('i18n-iso-countries');
 const {
   canCreateOrDeleteTeams,
   canManageTeam,
@@ -22,6 +23,22 @@ const assignableRoles = ['viewer', 'monitor', 'team_lead_scoped', 'team_lead'];
 const teamLimitPermissions = TEAM_PERMISSION_KEYS.filter(
   (permission) => permission !== 'view data'
 );
+
+const normalizeCountryCodes = (countryCodes) => {
+  if (!Array.isArray(countryCodes)) {
+    throw new Error('Country codes must be an array.');
+  }
+
+  const normalized = countryCodes.map((code) => (
+    typeof code === 'string' ? code.trim().toUpperCase() : ''
+  ));
+
+  if (normalized.some((code) => !countries.isValid(code))) {
+    throw new Error('Use valid two-letter country codes.');
+  }
+
+  return [...new Set(normalized)];
+};
 
 const serializeTeamDetail = (team, members) => {
   const plainTeam = typeof team.toObject === 'function' ? team.toObject() : team;
@@ -296,6 +313,15 @@ exports.team_update = async (req, res) => {
   const description = typeof req.body.description === 'string'
     ? req.body.description.trim()
     : '';
+  let countryCodes;
+
+  try {
+    countryCodes = req.body.countryCodes === undefined
+      ? undefined
+      : normalizeCountryCodes(req.body.countryCodes);
+  } catch (err) {
+    return res.status(400).send(err.message);
+  }
 
   if (!name) return res.status(400).send('Team name is required.');
 
@@ -308,6 +334,7 @@ exports.team_update = async (req, res) => {
 
     team.name = name;
     team.description = description;
+    if (countryCodes !== undefined) team.countryCodes = countryCodes;
     await team.save();
 
     const members = await User.find({ teams: team._id })
@@ -334,9 +361,17 @@ exports.team_create = (req, res) => {
     return res.status(403).send('Unauthorized to create teams.');
   }
 
+  let countryCodes;
+  try {
+    countryCodes = normalizeCountryCodes(req.body.countryCodes || []);
+  } catch (err) {
+    return res.status(400).send(err.message);
+  }
+
   const payload = {
     name: req.body.name,
     description: req.body.description || '',
+    countryCodes,
     active: typeof req.body.active === 'boolean' ? req.body.active : true,
   };
 

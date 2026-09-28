@@ -8,6 +8,7 @@ export type TeamPermission =
 export interface Team extends hasId {
   name: string;
   description?: string;
+  countryCodes?: string[];
   active?: boolean;
   leads?: Array<string | { _id: string }>;
   permissionLimits?: {
