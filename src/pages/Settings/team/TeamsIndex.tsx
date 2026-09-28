@@ -6,7 +6,7 @@ import { createTeam, deleteTeam, getTeams } from "../../../api/teams";
 import { Link } from "react-router-dom";
 import AggieButton from "../../../components/AggieButton";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
-import CountryMultiSelect from "./CountryMultiSelect";
+import CountryMultiSelect, { getCountryLabel } from "./CountryMultiSelect";
 
 
 interface IProps {
@@ -30,6 +30,18 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [countryCodes, setCountryCodes] = useState<string[]>([]);
+  const [teamSearch, setTeamSearch] = useState("");
+
+  const normalizedSearch = teamSearch.trim().toLowerCase();
+  const filteredTeams = (teams || []).filter((team) => {
+    if (!normalizedSearch) return true;
+
+    const countryText = (team.countryCodes || [])
+      .map((code) => getCountryLabel(code))
+      .join(" ");
+    return [team.name, team.description || "", countryText]
+      .some((value) => value.toLowerCase().includes(normalizedSearch));
+  });
 
   const doCreateTeam = useMutation(createTeam, {
     onSuccess: () => {
@@ -64,8 +76,16 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
 
   return (
     <section className='mt-3 pb-8'>
-      <div className='flex justify-between items-center mb-3'>
+      <div className='flex flex-wrap justify-between items-center gap-3 mb-3'>
         <h2 className='text-3xl font-medium'>Teams</h2>
+        <input
+          type='search'
+          value={teamSearch}
+          onChange={(event) => setTeamSearch(event.target.value)}
+          placeholder='Search teams or countries'
+          aria-label='Search teams'
+          className='w-full sm:w-72 px-3 py-2 rounded border border-slate-300 bg-white dark:bg-gray-800'
+        />
       </div>
 
       <div className={canCreateTeams ? "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-4" : "grid"}>
@@ -78,8 +98,8 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
           </div>
 
           <PlaceholderDiv loading={isLoading}>
-            {teams && teams.length > 0 ? (
-              teams.map((team) => (
+            {filteredTeams.length > 0 ? (
+              filteredTeams.map((team) => (
                 <article
                   key={team._id}
                   className={`grid ${teamGridColumns} min-w-[38rem] gap-3 px-3 py-3 items-center border-b border-slate-200 last:border-b-0`}
@@ -127,7 +147,7 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
               ))
             ) : (
               <div className='px-3 py-6 text-sm text-slate-600 dark:text-gray-300'>
-                No teams have been created yet.
+                {teams?.length ? "No teams match your search." : "No teams have been created yet."}
               </div>
             )}
           </PlaceholderDiv>
