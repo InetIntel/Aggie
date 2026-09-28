@@ -6,6 +6,7 @@ import { createTeam, deleteTeam, getTeams } from "../../../api/teams";
 import { Link } from "react-router-dom";
 import AggieButton from "../../../components/AggieButton";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
+import CountryMultiSelect from "./CountryMultiSelect";
 
 
 interface IProps {
@@ -25,11 +26,13 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [countryCodes, setCountryCodes] = useState<string[]>([]);
 
   const doCreateTeam = useMutation(createTeam, {
     onSuccess: () => {
       setName("");
       setDescription("");
+      setCountryCodes([]);
       queryClient.invalidateQueries(["teams"]);
       queryClient.invalidateQueries(["teams", "manageable"]);
     },
@@ -51,6 +54,7 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
     doCreateTeam.mutate({
       name: trimmedName,
       description: description.trim(),
+      countryCodes,
       active: true,
     });
   }
@@ -137,6 +141,8 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
               rows={4}
             />
           </label>
+
+          <CountryMultiSelect value={countryCodes} onChange={setCountryCodes} />
 
           <AggieButton
             variant='primary'

@@ -23,6 +23,7 @@ import AggieDialog from "../../../components/AggieDialog";
 import AggieSwitch from "../../../components/AggieSwitch";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 import CreateEditUserForm from "../user/CreateEditUserForm";
+import CountryMultiSelect, { getCountryLabel } from "./CountryMultiSelect";
 
 interface IProps {
   session?: Session;
@@ -96,6 +97,7 @@ const TeamDetails = ({ session }: IProps) => {
   const [editingDetails, setEditingDetails] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [teamDescription, setTeamDescription] = useState("");
+  const [teamCountryCodes, setTeamCountryCodes] = useState<string[]>([]);
 
   const requestedTab = searchParams.get("tab");
   const activeTab: TeamTab = requestedTab === "members" || requestedTab === "advanced"
@@ -281,6 +283,7 @@ const TeamDetails = ({ session }: IProps) => {
   const startEditingDetails = () => {
     setTeamName(data?.team.name || "");
     setTeamDescription(data?.team.description || "");
+    setTeamCountryCodes(data?.team.countryCodes || []);
     setEditingDetails(true);
     setActionError("");
   };
@@ -330,6 +333,7 @@ const TeamDetails = ({ session }: IProps) => {
                     teamId: params.id,
                     name: teamName.trim(),
                     description: teamDescription.trim(),
+                    countryCodes: teamCountryCodes,
                   });
                 }}
               >
@@ -350,6 +354,10 @@ const TeamDetails = ({ session }: IProps) => {
                     rows={3}
                   />
                 </label>
+                <CountryMultiSelect
+                  value={teamCountryCodes}
+                  onChange={setTeamCountryCodes}
+                />
                 <div className='flex gap-2'>
                   <AggieButton
                     type='button'
@@ -375,6 +383,21 @@ const TeamDetails = ({ session }: IProps) => {
                 <p className='text-sm text-slate-600 dark:text-gray-300 mt-1'>
                   {data?.team.description || "No description"}
                 </p>
+                <div className='flex flex-wrap items-center gap-1 mt-2 text-sm'>
+                  <span className='text-slate-600 dark:text-gray-300'>Countries:</span>
+                  {data?.team.countryCodes?.length ? (
+                    data.team.countryCodes.map((code) => (
+                      <span
+                        key={code}
+                        className='px-2 py-0.5 rounded bg-slate-100 dark:bg-gray-700 border border-slate-300'
+                      >
+                        {getCountryLabel(code)}
+                      </span>
+                    ))
+                  ) : (
+                    <span className='text-slate-600 dark:text-gray-300'>None assigned</span>
+                  )}
+                </div>
               </div>
             )}
             <div className='flex items-center gap-2'>
