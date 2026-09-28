@@ -21,6 +21,9 @@ const TeamsIndex = ({ session }: IProps) => {
   const isTeamLead = session?.role === "team_lead";
   const canCreateTeams = isAdmin || isTeamLead;
   const queryClient = useQueryClient();
+  const teamGridColumns = canCreateTeams
+    ? "grid-cols-[minmax(7.5rem,1.1fr)_minmax(10rem,1.6fr)_minmax(7rem,1fr)_5rem_4rem]"
+    : "grid-cols-[minmax(7.5rem,1.1fr)_minmax(10rem,1.6fr)_minmax(7rem,1fr)_5rem]";
 
 const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
 
@@ -65,11 +68,12 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
         <h2 className='text-3xl font-medium'>Teams</h2>
       </div>
 
-      <div className={canCreateTeams ? "grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4" : "grid"}>
-        <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-hidden'>
-          <div className={`grid ${canCreateTeams ? "grid-cols-4" : "grid-cols-3"} px-3 py-3 font-medium text-sm border-b border-slate-300`}>
+      <div className={canCreateTeams ? "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-4" : "grid"}>
+        <div className='bg-white dark:bg-gray-800 rounded-xl border border-slate-300 overflow-x-auto'>
+          <div className={`grid ${teamGridColumns} min-w-[38rem] gap-3 px-3 py-3 font-medium text-sm border-b border-slate-300`}>
             <p>Name</p>
             <p>Description</p>
+            <p>Countries</p>
             <p>Status</p>
           </div>
 
@@ -78,17 +82,31 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
               teams.map((team) => (
                 <article
                   key={team._id}
-                  className={`grid ${canCreateTeams ? "grid-cols-4" : "grid-cols-3"} px-3 py-3 items-center border-b border-slate-200 last:border-b-0`}
+                  className={`grid ${teamGridColumns} min-w-[38rem] gap-3 px-3 py-3 items-center border-b border-slate-200 last:border-b-0`}
                 >
                   <Link 
                     to={`/settings/team/${team._id}`}
-                    className='font-medium text-lime-800 hover:underline'
+                    className='font-medium text-lime-800 hover:underline break-words'
                   >
                     {team.name}
                   </Link>
-                  <p className='text-sm text-slate-600 dark:text-gray-300'>
+                  <p className='text-sm text-slate-600 dark:text-gray-300 break-words'>
                     {team.description || "No description"}
                   </p>
+                  <div className='flex flex-wrap gap-1 text-sm'>
+                    {team.countryCodes?.length ? (
+                      team.countryCodes.map((code) => (
+                        <span
+                          key={code}
+                          className='px-2 py-0.5 rounded bg-slate-100 dark:bg-gray-700 border border-slate-300'
+                        >
+                          {code}
+                        </span>
+                      ))
+                    ) : (
+                      <span className='text-slate-600 dark:text-gray-300'>None</span>
+                    )}
+                  </div>
                   <p className='text-sm'>
                     {team.active === false ? "Inactive" : "Active"}
                   </p>
