@@ -35,6 +35,15 @@ var sourceSchema = new mongoose.Schema({
   keywords: String,
   regex: String,
   lists: String,
+  // Structured per-media config. These sit alongside the legacy overloaded
+  // keywords/lists/regex fields (which older sources still use) and are all
+  // optional — an empty value means "current/default behavior" so existing
+  // sources are unaffected.
+  asns: { type: [Number], default: [] },   // IODA: narrow outages to these ASNs
+  region: { type: String },                // IODA: narrow outages to this region code
+  ooniTestName: { type: String },          // OONI: measurement test (default web_connectivity)
+  ooniDomains: { type: [String], default: [] }, // OONI: watched domains
+  ooniUseAllDomains: { type: Boolean, default: false }, // OONI: watch all domains instead of the list
   enabled: { type: Boolean, default: true },
   events: { type: Array, default: [] },
   unreadErrorCount: { type: Number, default: 0 },

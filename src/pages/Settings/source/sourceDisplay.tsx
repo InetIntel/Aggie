@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import type { Source } from "../../../api/sources/types";
+import { countryLabel } from "./countryOptions";
+import { ooniTestLabel } from "./ooniTests";
 
 // Shared source-domain display helpers: turn a Source's provider-specific config
 // (stored in the overloaded `keywords`/`lists`/`regex` fields) into human-readable
@@ -124,13 +126,36 @@ export const getSourceConfigRows = (
         });
       break;
     case "ioda":
+      if (source.keywords)
+        rows.push({ label: "Country", value: countryLabel(source.keywords) });
+      if (source.asns && source.asns.length)
+        rows.push({
+          label: "ASNs",
+          value: source.asns.map((asn) => `AS${asn}`).join(", "),
+          hint: "Outages are limited to these networks. Empty means the whole country.",
+        });
+      if (source.region)
+        rows.push({ label: "Region code", value: source.region });
+      break;
     case "cloudflare":
       if (source.keywords)
-        rows.push({ label: "Country code", value: source.keywords });
+        rows.push({ label: "Country", value: countryLabel(source.keywords) });
       break;
     case "ooni":
+      if (source.keywords)
+        rows.push({ label: "Country", value: countryLabel(source.keywords) });
+      if (source.ooniTestName)
+        rows.push({ label: "Test", value: ooniTestLabel(source.ooniTestName) });
       if (source.lists)
         rows.push({ label: "Network ASNs", value: source.lists });
+      rows.push({
+        label: "Domains",
+        value: source.ooniUseAllDomains
+          ? "All domains (measurement volume)"
+          : source.ooniDomains && source.ooniDomains.length
+          ? source.ooniDomains.join(", ")
+          : "Default domain list",
+      });
       break;
     default:
       break;
