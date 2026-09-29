@@ -221,7 +221,9 @@ const ReportListItem = ({
                   </span>
                 </span>
               ) : (
-                "Add to Incident"
+                <span className='whitespace-normal text-center leading-tight'>
+                  Add to Incident
+                </span>
               )}
             </AggieButton>
           )}
