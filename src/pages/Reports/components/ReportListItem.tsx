@@ -95,9 +95,9 @@ const ReportListItem = ({
         currentPageId === report._id ? "ring-2 ring-inset rounded-lg" : ""
       } border-slate-300 text-sm text-slate-600 dark:text-gray-400 relative`}
     >
-      <div className='grid grid-cols-5 gap-2 text-slate-700 dark:text-gray-300 text-sm'>
+      <div className='text-slate-700 dark:text-gray-300 text-sm'>
         <div
-          className={`col-span-4 pl-7  ${
+          className={`pl-7 ${
             report.read ? "" : " border-l-2 border-blue-600 "
           }`}
         >
@@ -168,65 +168,52 @@ const ReportListItem = ({
               </>
             }
           />
-        </div>
-
-        <div className='flex flex-col '>
-          {!!report._group && !!incident ? (
-            <Link
-              to={`/incidents/${incident._id}`}
-              className={`rounded-lg ${
-                incident?.closed
-                  ? "bg-purple-50 dark:bg-purple-50 dark:saturate-[0.7] text-purple-700 "
-                  : "bg-slate-50 dark:bg-gray-900 text-slate-700 dark:text-gray-300 dark:text-gray-300"
-              }  px-2 py-1 flex-grow border border-slate-300 hover:cursor-pointer hover:bg-white dark:hover:bg-gray-800`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className='font-medium flex justify-between'>
-                <span className='line-clamp-3'>
-                  {incident?.title}{" "}
-                  {incident?.escalated && (
-                    <FontAwesomeIcon
-                      icon={faExclamationTriangle}
-                      className='text-red-500'
-                    />
-                  )}{" "}
-                  {incident?.closed && (
-                    <FontAwesomeIcon
-                      icon={faMinusCircle}
-                      className='text-purple-500'
-                    />
-                  )}
-                </span>{" "}
-                <span>#{incident?.idnum}</span>
-              </p>
-              <p>{incident._reports.length} Reports</p>
-            </Link>
-          ) : (
-            <AggieButton
-              onClick={(e) => {
-                e.stopPropagation();
-                setAttachSelection(groupSelection ?? [report]);
-              }}
-              className='rounded-lg flex-grow flex gap-1 bg-slate-50 dark:bg-gray-900 border border-dashed hover:border-slate-300 border-slate-300 focus-theme hover:bg-white dark:hover:bg-gray-800 justify-center items-center h-full '
-              icon={groupSelection ? undefined : faPlus}
-            >
-              {groupSelection ? (
-                <span className='flex flex-col items-center leading-tight'>
-                  <span className='flex gap-1 items-center'>
-                    <FontAwesomeIcon icon={faPlus} />
-                    Add to Incident
-                  </span>
-                  <span className='text-xs font-normal text-slate-500 dark:text-gray-400'>
-                    ({groupSelection.length} selected)
-                  </span>
+          <div className='mt-2 flex'>
+            {!!report._group && !!incident ? (
+              <Link
+                to={`/incidents/${incident._id}`}
+                className={`rounded-lg flex items-center gap-1 px-2 py-1 text-xs border border-slate-300 max-w-[24em] whitespace-nowrap hover:cursor-pointer hover:bg-white dark:hover:bg-gray-800 ${
+                  incident?.closed
+                    ? "bg-purple-50 dark:bg-purple-50 dark:saturate-[0.7] text-purple-700 "
+                    : "bg-slate-50 dark:bg-gray-900 text-slate-700 dark:text-gray-300"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className='font-medium truncate min-w-0'>
+                  {incident?.title}
                 </span>
-              ) : (
-                <span className='whitespace-normal text-center leading-tight'>
-                  Add to Incident
-                </span>
-              )}
-            </AggieButton>
-          )}
+                <span className='shrink-0'>#{incident?.idnum}</span>
+                {incident?.escalated && (
+                  <FontAwesomeIcon
+                    icon={faExclamationTriangle}
+                    className='text-red-500 shrink-0'
+                  />
+                )}
+                {incident?.closed && (
+                  <FontAwesomeIcon
+                    icon={faMinusCircle}
+                    className='text-purple-500 shrink-0'
+                  />
+                )}
+              </Link>
+            ) : (
+              <AggieButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAttachSelection(groupSelection ?? [report]);
+                }}
+                className='rounded-lg flex gap-1 text-xs bg-slate-50 dark:bg-gray-900 border border-dashed hover:border-slate-300 border-slate-300 focus-theme hover:bg-white dark:hover:bg-gray-800 items-center whitespace-nowrap'
+                icon={faPlus}
+              >
+                Add to Incident
+                {groupSelection && (
+                  <span className='font-normal text-slate-500 dark:text-gray-400'>
+                    ({groupSelection.length})
+                  </span>
+                )}
+              </AggieButton>
+            )}
+          </div>
         </div>
         <AddReportsToIncidents
           selection={attachSelection ?? []}
