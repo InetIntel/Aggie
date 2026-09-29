@@ -45,6 +45,14 @@ const viewModes = [
 ] as const;
 type ViewMode = (typeof viewModes)[number]["key"];
 
+// What the OONI line counts in the "by source" view: one per alert report, or the watched
+// domains with zero measurements at alert time.
+const ooniModes = [
+  { key: "reports", label: "Reports" },
+  { key: "domains", label: "Domains" },
+] as const;
+type OoniMode = (typeof ooniModes)[number]["key"];
+
 // A compact labelled pill toggle; the chart's header controls share it so they line up.
 function ChartToggle<T extends string>({
   label,
@@ -52,23 +60,31 @@ function ChartToggle<T extends string>({
   options,
   value,
   onChange,
+  disabled = false,
 }: {
   label: string;
   hint?: string;
   options: readonly { key: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
+  disabled?: boolean;
 }) {
   return (
     <>
       <span
-        className='justify-self-end text-xs font-medium text-slate-500 dark:text-gray-400'
+        className={[
+          "justify-self-end text-xs font-medium text-slate-500 dark:text-gray-400",
+          disabled ? "opacity-50" : "",
+        ].join(" ")}
         title={hint}
       >
         {label}
       </span>
       <div
-        className='inline-flex justify-self-end rounded-full border border-slate-200 p-0.5 dark:border-gray-600'
+        className={[
+          "inline-flex justify-self-end rounded-full border border-slate-200 p-0.5 dark:border-gray-600",
+          disabled ? "opacity-50" : "",
+        ].join(" ")}
         role='group'
         aria-label={label}
         title={hint}
@@ -78,12 +94,13 @@ function ChartToggle<T extends string>({
             key={option.key}
             type='button'
             aria-pressed={value === option.key}
+            disabled={disabled}
             onClick={() => onChange(option.key)}
             className={[
-              "rounded-full px-3 py-1 text-xs font-medium transition",
+              "rounded-full px-3 py-1 text-xs font-medium transition disabled:cursor-default",
               value === option.key
                 ? "bg-slate-700 text-white dark:bg-gray-600"
-                : "text-slate-600 hover:bg-slate-100 dark:text-gray-300 dark:hover:bg-gray-700",
+                : "text-slate-600 enabled:hover:bg-slate-100 dark:text-gray-300 dark:enabled:hover:bg-gray-700",
             ].join(" ")}
           >
             {option.label}
@@ -123,6 +140,7 @@ const AlertsTrendChart = ({
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("combined");
+  const [ooniMode, setOoniMode] = useState<OoniMode>("reports");
   // Sources toggled off in the "by source" view. Tracking the hidden ones (rather than
   // the shown ones) keeps a source that first appears after a range change visible.
   const [hiddenSources, setHiddenSources] = useState<string[]>([]);
@@ -144,7 +162,7 @@ const AlertsTrendChart = ({
     ? overview.timeSeries
     : fallbackTimeSeries;
 
-  const allSeries = buildSeries(timeSeries, viewMode);
+  const allSeries = buildSeries(timeSeries, viewMode, ooniMode);
   const isSourceView = allSeries.some((line) => line.key !== "total");
   const shownSeries = isSourceView
     ? allSeries.filter((line) => !hiddenSources.includes(line.key))
@@ -226,6 +244,21 @@ const AlertsTrendChart = ({
             options={bucketOptions.map((option) => ({ key: option, label: option }))}
             value={bucket}
             onChange={onBucketChange}
+          />
+          <ChartToggle
+            label='OONI'
+            hint={
+              viewMode === "bySource"
+                ? "Count each OONI alert once, or by its watched domains with zero measurements at alert time"
+                : "Switch the view to By source to count OONI by domain"
+            }
+            options={ooniModes}
+            value={ooniMode}
+            onChange={(mode) => {
+              setPinnedPointIndex(null);
+              setOoniMode(mode);
+            }}
+            disabled={viewMode !== "bySource"}
           />
         </div>
         {/* <div className='rounded-full bg-slate-50 p-2 text-slate-500 shadow-sm dark:bg-gray-700'>
@@ -366,9 +399,7 @@ const AlertsTrendChart = ({
                 activePointIndex as number,
                 formatActivityWindow
               )}
-              hasReports={
-                sumSeriesAt(series, activePointIndex as number) > 0
-              }
+              hasReports={countReportsAt(activeItem, series) > 0}
               isPinned={isActivePointPinned}
               reportsTo={buildBucketReportsTo(
                 activeItem,
@@ -463,11 +494,19 @@ const AlertsTrendChart = ({
 };
 
 type TimeSeriesBucket = AnalyticsOverview["timeSeries"][number];
-type ChartSeries = { key: string; label: string; color: string; values: number[] };
+type ChartSeries = {
+  key: string;
+  label: string;
+  color: string;
+  values: number[];
+  // "domains" only for the OONI line when it counts zero-measurement domains.
+  unit: "reports" | "domains";
+};
 
 function buildSeries(
   timeSeries: TimeSeriesBucket[],
-  viewMode: ViewMode
+  viewMode: ViewMode,
+  ooniMode: OoniMode
 ): ChartSeries[] {
   if (viewMode === "combined") {
     return [
@@ -476,6 +515,7 @@ function buildSeries(
         label: "Total reports",
         color: trendColor,
         values: timeSeries.map((item) => item.totalReports),
+        unit: "reports",
       },
     ];
   }
@@ -492,18 +532,43 @@ function buildSeries(
     ...[...presentSources].filter((source) => !sourceSeriesMeta[source]).sort(),
   ];
 
-  if (orderedSources.length === 0) return buildSeries(timeSeries, "combined");
+  if (orderedSources.length === 0) {
+    return buildSeries(timeSeries, "combined", ooniMode);
+  }
 
-  return orderedSources.map((source) => ({
-    key: source,
-    label: sourceSeriesMeta[source]?.label || source,
-    color: sourceSeriesMeta[source]?.color || otherSourceColor,
-    values: timeSeries.map((item) => (item.reportsBySource || {})[source] || 0),
-  }));
+  return orderedSources.map((source) => {
+    const label = sourceSeriesMeta[source]?.label || source;
+    const color = sourceSeriesMeta[source]?.color || otherSourceColor;
+    if (source === "ooni" && ooniMode === "domains") {
+      return {
+        key: source,
+        label: `${label} domains`,
+        color,
+        values: timeSeries.map((item) => item.ooniZeroDomainCount || 0),
+        unit: "domains",
+      };
+    }
+    return {
+      key: source,
+      label,
+      color,
+      values: timeSeries.map((item) => (item.reportsBySource || {})[source] || 0),
+      unit: "reports",
+    };
+  });
 }
 
-function sumSeriesAt(series: ChartSeries[], index: number) {
-  return series.reduce((total, line) => total + (line.values[index] || 0), 0);
+// Reports behind the lines on the chart, read from the bucket rather than the line values
+// so an OONI line counting domains still counts its reports here.
+function countReportsAt(item: TimeSeriesBucket, series: ChartSeries[]) {
+  return series.reduce(
+    (total, line) =>
+      total +
+      (line.key === "total"
+        ? item.totalReports
+        : (item.reportsBySource || {})[line.key] || 0),
+    0
+  );
 }
 
 // Counts only the lines on the chart, so with sources toggled off the total matches
@@ -515,11 +580,19 @@ function buildTooltipLines(
   formatWindow: (start: string, end: string) => string
 ) {
   const window = formatWindow(item.bucketStart, item.bucketEnd);
-  const total = sumSeriesAt(series, index);
+  const total = countReportsAt(item, series);
   const reportsLabel = `report${total === 1 ? "" : "s"}`;
 
   if (series.length === 1) {
     const [line] = series;
+    if (line.unit === "domains") {
+      const domains = line.values[index] || 0;
+      return [
+        `${domains} zero-measurement domain${domains === 1 ? "" : "s"}`,
+        `across ${total} OONI ${reportsLabel}`,
+        window,
+      ];
+    }
     return [
       line.key === "total"
         ? `${total} ${reportsLabel}`

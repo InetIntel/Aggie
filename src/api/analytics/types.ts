@@ -88,6 +88,9 @@ export interface AnalyticsTimeSeriesBucket {
   totalReports: number;
   // { <media>: count }, summing to totalReports — the chart's per-source lines.
   reportsBySource?: Record<string, number>;
+  // Watched domains with zero measurements at alert time, summed over the bucket's
+  // OONI reports. Volume (all-domains) alerts contribute 0.
+  ooniZeroDomainCount?: number;
   notableActivityCount: number;
   highConfidenceActivityCount: number;
 }

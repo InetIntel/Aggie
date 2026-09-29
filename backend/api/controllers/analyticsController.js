@@ -1,6 +1,7 @@
 'use strict';
 
 const Group = require('../../models/group');
+const Report = require('../../models/report');
 const NotableActivity = require('../../models/notableActivity');
 const eventRouter = require('../sockets/event-router');
 const {
@@ -17,6 +18,8 @@ const {
 } = require('../utils/reportGroupActions');
 const { countReports } = require('../utils/reportCounts');
 const { filterNotableActivitiesForUser } = require('../utils/analyticsAccess');
+const { buildOutageReportMatch } = require('../utils/analyticsAggregation');
+const { combineReportFilters } = require('../utils/reportSourceAccess');
 
 // All entity levels — matches the frontend's ENTITY_LEVEL_OPTIONS (src/api/common.ts).
 // Alert metric counts carry these so their filter/dedup matches the deduped alerts list.
@@ -103,7 +106,10 @@ exports.analytics_overview = async (req, res) => {
         highConfidenceActivityCount: data.highConfidenceActivities.length,
         totalReports: sumReports(data.notableActivities),
       },
-      timeSeries: buildActivityTimeSeries(data),
+      timeSeries: buildActivityTimeSeries(
+        data,
+        await countOoniZeroDomainsByBucket(data, req.reportSourceAccessFilter)
+      ),
     });
   } catch (err) {
     return handleAnalyticsError(res, err, 'Error fetching analytics overview');
@@ -279,7 +285,40 @@ async function updateSnapshotIncident(notableActivity, incidentId) {
   await notableActivity.save();
 }
 
-function buildActivityTimeSeries(data) {
+// Watched domains with zero measurements at alert time, summed per bucket over OONI
+// reports, for the trend chart's "OONI: Domains" option. Queried live rather than read
+// from the notable-activity cache, whose reportBuckets carry only report counts. Uses the
+// aggregation's own match so it covers the same OONI reports the chart counts.
+async function countOoniZeroDomainsByBucket(data, accessFilter) {
+  const match = {
+    ...buildOutageReportMatch({
+      rangeStartUtc: new Date(data.rangeStartUtc),
+      rangeEndUtc: new Date(data.rangeEndUtc),
+    }),
+    _media: 'ooni',
+  };
+  const reports = await Report.find(combineReportFilters(match, accessFilter))
+    .select('outageStartedAt metadata.rawAPIResponse.zeroDomains')
+    .lean()
+    .exec();
+
+  const counts = new Map();
+  for (const report of reports) {
+    // Volume alerts (all-domains mode) have no per-domain list, so they add nothing.
+    const zeroDomains = report.metadata?.rawAPIResponse?.zeroDomains;
+    const count = Array.isArray(zeroDomains) ? zeroDomains.length : 0;
+    if (!count) continue;
+    const bucketKey = getBucketStartUtc(
+      report.outageStartedAt,
+      data.bucketSizeMinutes,
+      data.timeZone
+    ).toISOString();
+    counts.set(bucketKey, (counts.get(bucketKey) || 0) + count);
+  }
+  return counts;
+}
+
+function buildActivityTimeSeries(data, ooniZeroDomainCounts = new Map()) {
   const notableActivities = data.notableActivities || [];
   const buckets = new Map();
   const { bucketSizeMinutes, timeZone } = data;
@@ -295,6 +334,8 @@ function buildActivityTimeSeries(data) {
         totalReports: 0,
         // { <media>: count } for the chart's per-source lines; sums to totalReports.
         reportsBySource: {},
+        // Sum of zeroDomains across this bucket's OONI reports (see countOoniZeroDomainsByBucket).
+        ooniZeroDomainCount: 0,
         notableActivityCount: 0,
         highConfidenceActivityCount: 0,
       });
@@ -327,6 +368,10 @@ function buildActivityTimeSeries(data) {
         current.reportsBySource[source] = (current.reportsBySource[source] || 0) + count;
       }
     }
+  }
+
+  for (const [bucketStart, count] of ooniZeroDomainCounts) {
+    getBucket(bucketStart).ooniZeroDomainCount += count;
   }
 
   return [...buckets.values()].sort(
