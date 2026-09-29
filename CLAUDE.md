@@ -26,6 +26,18 @@ Node `^22.14.0` (use `fnm install` then `fnm use`; pinned in `.nvmrc`). MongoDB 
 
 The repo is **one Node project containing two largely separate apps** that share Mongoose models.
 
+### Deeper architecture docs
+
+Before working on a subsystem, examine the relevant markdown files in `docs/claude/architecture/`. They document these areas in more depth than the summary below:
+
+- `data-model-and-ui-terminology.md`: data model and the reports/incidents/groups UI vocabulary
+- `alerts-incidents-tables.md`: alerts and incidents table structure
+- `api-configuration.md`: API configuration
+- `connections-page.md`: the Connections page
+- `cloudflare-ioda-source-config.md`: Cloudflare/IODA source configuration
+- `media-image-storage.md`: media/image storage
+- `deployment-topology.md`: deployment topology
+
 ### Multi-process backend
 
 `app.js` forks two child processes via `backend/process-manager.js`:

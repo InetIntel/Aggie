@@ -225,7 +225,7 @@ const ApiTypeSection = ({
       <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400">
-            Provider
+            Source
           </p>
           <h2 className="text-xl font-bold text-green-800 dark:text-green-600">
             {label}

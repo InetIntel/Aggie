@@ -282,7 +282,7 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
             </div>
           </div>
           <div className='flex flex-col gap-3'>
-            <DetailField label='Provider'>
+            <DetailField label='Source'>
               {providerLabel(data?.media)}
             </DetailField>
 
