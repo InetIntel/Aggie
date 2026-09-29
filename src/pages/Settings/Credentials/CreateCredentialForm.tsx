@@ -230,6 +230,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
     <FormikWithSchema
       schema={junkipediaSchema}
       initialValues={{ name: defaultCredentialName, junkipediaAPIKey: "" }}
+      allowPristineSubmit
       onSubmit={(values: IJunkipediaSchema) => {
         doCreateCredential.mutate({
           credentials: {},
@@ -316,6 +317,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
             apiHash: "",
             phone: "",
           }}
+          allowPristineSubmit
           onSubmit={(values: ITelegramUserStartSchema) => {
             doTelegramUserAuthVerifyCode.reset();
             doTelegramUserAuthVerifyPassword.reset();
@@ -421,6 +423,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
     <FormikWithSchema
       schema={iodaSchema}
       initialValues={{ name: defaultCredentialName }}
+      allowPristineSubmit
       onSubmit={(values: IodaSchema) => {
         doCreateCredential.mutate({
           credentials: {},
@@ -471,6 +474,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
     <FormikWithSchema
       schema={cloudflareSchema}
       initialValues={{ name: defaultCredentialName, cloudflareApiToken: "" }}
+      allowPristineSubmit
       onSubmit={(values: CloudflareSchema) => {
         doCreateCredential.mutate({
           credentials: {},
@@ -512,6 +516,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
         <FormikWithSchema
           schema={mastodonSchema}
           initialValues={{ name: defaultCredentialName, serverUrl: "" }}
+          allowPristineSubmit
           onSubmit={(values: IMastodonSchema) => {
             setMastodonCredentialName(values.name);
             setMastodonServerUrl(values.serverUrl);
