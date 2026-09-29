@@ -340,12 +340,18 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
             )}
 
             <DetailField label='Created by'>
-              <Link
-                to={`/settings/user/${data?.user._id}`}
-                className='hover:underline text-blue-600'
-              >
-                {data?.user.username}
-              </Link>
+              {data?.user ? (
+                <Link
+                  to={`/settings/user/${data.user._id}`}
+                  className='hover:underline text-blue-600'
+                >
+                  {data.user.username}
+                </Link>
+              ) : (
+                <span className='text-slate-500 dark:text-gray-400'>
+                  Unknown
+                </span>
+              )}
             </DetailField>
 
             <DetailField label='Tags'>

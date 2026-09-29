@@ -32,7 +32,7 @@ export interface Source extends hasId {
   user: {
     _id: string;
     username: string;
-  };
+  } | null;
   keywords?: string;
   regex?: string;
   lists?: string;
