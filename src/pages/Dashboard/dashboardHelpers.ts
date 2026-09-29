@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import type {
+  AnalyticsBucketPreset,
   AnalyticsOverview,
+  AnalyticsSocketQuery,
+  NotableActivitiesResponse,
   NotableActivity,
 } from "../../api/analytics/types";
 import {
@@ -18,6 +21,83 @@ import type { IncidentFormValues } from "../incidents/CreateEditIncidentForm";
 
 export function getAnalyticsRoom(cacheKey: string) {
   return `analytics:${cacheKey}`;
+}
+
+// The live-refresh subscription for one analytics response, echoing back the exact
+// window and grouping it was computed with.
+export function buildAnalyticsSocketQuery(
+  data: AnalyticsOverview | NotableActivitiesResponse
+): AnalyticsSocketQuery {
+  return {
+    cacheKey: data.cacheKey,
+    rangePreset: data.rangePreset,
+    bucketPreset: data.bucketPreset,
+    bucketSizeMinutes: data.bucketSizeMinutes,
+    aggregationMethod: data.aggregationMethod,
+    startTimeToleranceMinutes: data.startTimeToleranceMinutes,
+    timeZone: data.timeZone,
+    rangeStartUtc: data.rangeStartUtc,
+    rangeEndUtc: data.rangeEndUtc,
+  };
+}
+
+/**
+ * The IANA zone the backend lays the bucket grid out in: UTC, or the browser's own zone
+ * under the "local" preference — the same zone every dashboard timestamp is shown in.
+ */
+export function getAnalyticsTimeZone(prefs: UserPreferences = DEFAULT_PREFS) {
+  return (
+    resolveTimeZone(prefs) ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone ??
+    "UTC"
+  );
+}
+
+/**
+ * Custom-range days are held as the browser-local noon of the picked calendar day. Noon
+ * rather than midnight so the day reads the same whether it is displayed in local time
+ * or UTC (the DateSelector formats it under the user's preference).
+ */
+export function toPickerDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12).toISOString();
+}
+
+export function addPickerDays(pickerDay: string, days: number) {
+  const date = new Date(pickerDay);
+  return toPickerDay(
+    new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
+  );
+}
+
+// Midnight at the start of a picked day, in the zone the user views times in.
+function startOfPickerDay(pickerDay: string, prefs: UserPreferences) {
+  const date = new Date(pickerDay);
+  const [year, month, day] = [date.getFullYear(), date.getMonth(), date.getDate()];
+  return prefs.timeZone === "utc"
+    ? new Date(Date.UTC(year, month, day))
+    : new Date(year, month, day);
+}
+
+// A custom range covers both picked days whole: from the first one's midnight up to the
+// midnight after the last. The backend cuts it at "now".
+export function getCustomRangeBounds(
+  fromDay: string,
+  toDay: string,
+  prefs: UserPreferences = DEFAULT_PREFS
+) {
+  return {
+    from: startOfPickerDay(fromDay, prefs).toISOString(),
+    to: startOfPickerDay(addPickerDays(toDay, 1), prefs).toISOString(),
+  };
+}
+
+// Mirrors CUSTOM_BUCKETS_BY_MAX_SPAN_DAYS in backend/api/utils/analyticsTime.js, applied
+// to the range as requested.
+export function getCustomRangeBuckets(from: string, to: string): AnalyticsBucketPreset[] {
+  const spanDays = (new Date(to).getTime() - new Date(from).getTime()) / 86400000;
+  if (spanDays <= 2) return ["30m", "1h", "6h"];
+  if (spanDays <= 14) return ["6h", "24h"];
+  return ["24h"];
 }
 
 export function getActivityLocationSummary(activity: NotableActivity) {

@@ -10,8 +10,6 @@ const {
   getBucketEndUtc,
   getBucketStartUtc,
   resolveAnalyticsTimeWindow,
-  VALID_BUCKETS_BY_RANGE,
-  DEFAULT_RANGE_PRESET,
 } = require('../utils/analyticsTime');
 const {
   attachReportsToGroup,
@@ -97,6 +95,7 @@ exports.analytics_overview = async (req, res) => {
       bucketSizeMinutes: data.bucketSizeMinutes,
       aggregationMethod: data.aggregationMethod,
       startTimeToleranceMinutes: data.startTimeToleranceMinutes,
+      timeZone: data.timeZone,
       rangeStartUtc: data.rangeStartUtc,
       rangeEndUtc: data.rangeEndUtc,
       metrics: {
@@ -113,12 +112,8 @@ exports.analytics_overview = async (req, res) => {
 
 exports.analytics_report_metrics = async (req, res) => {
   try {
-    // Metrics only need the range bounds, not a bucket. Pick any bucket valid for the
-    // range so resolveAnalyticsTimeWindow's range/bucket validation passes (its default
-    // '1h' is invalid for last7d). An unknown range still throws a 400 below.
-    const range = req.query.range || DEFAULT_RANGE_PRESET;
-    const bucket = (VALID_BUCKETS_BY_RANGE[range] || [])[0];
-    const timeWindow = resolveAnalyticsTimeWindow({ range, bucket });
+    const { range, from, to, timeZone } = parseAnalyticsQuery(req.query);
+    const timeWindow = resolveAnalyticsTimeWindow({ range, from, to, timeZone });
     const after = timeWindow.rangeStartUtc.toISOString();
     const before = timeWindow.rangeEndUtc.toISOString();
 
@@ -233,13 +228,16 @@ exports.analytics_update_incident = async (req, res) => {
 
 function parseAnalyticsQuery(query = {}, parseOptions = {}) {
   // `aggregation` picks how reports are grouped into an activity ('bucket' | 'startTime');
-  // `tolerance` is the startTime gap in minutes. Both are validated in analyticsTime and
-  // surface as 400s. Omitting them keeps the original fixed-grid behaviour.
+  // `tolerance` is the startTime gap in minutes. `from`/`to` bound a `range=custom`, and
+  // `timeZone` is the zone the bucket grid is laid out in, defaulting to UTC.
   const analyticsOptions = {
     range: query.range,
     bucket: query.bucket,
     aggregationMethod: query.aggregation,
     startTimeToleranceMinutes: query.tolerance,
+    from: query.from,
+    to: query.to,
+    timeZone: query.timeZone,
   };
 
   if (parseOptions.allowLimit && query.limit !== undefined) {
@@ -284,7 +282,8 @@ async function updateSnapshotIncident(notableActivity, incidentId) {
 function buildActivityTimeSeries(data) {
   const notableActivities = data.notableActivities || [];
   const buckets = new Map();
-  let cursor = getBucketStartUtc(data.rangeStartUtc, data.bucketSizeMinutes);
+  const { bucketSizeMinutes, timeZone } = data;
+  let cursor = getBucketStartUtc(data.rangeStartUtc, bucketSizeMinutes, timeZone);
   const rangeEnd = new Date(data.rangeEndUtc);
 
   const getBucket = (bucketStart) => {
@@ -292,7 +291,7 @@ function buildActivityTimeSeries(data) {
     if (!buckets.has(bucketKey)) {
       buckets.set(bucketKey, {
         bucketStart: new Date(bucketStart),
-        bucketEnd: getBucketEndUtc(new Date(bucketStart), data.bucketSizeMinutes),
+        bucketEnd: getBucketEndUtc(new Date(bucketStart), bucketSizeMinutes, timeZone),
         totalReports: 0,
         // { <media>: count } for the chart's per-source lines; sums to totalReports.
         reportsBySource: {},
@@ -307,7 +306,7 @@ function buildActivityTimeSeries(data) {
   // empty ones. Shares getBucket so seeded and on-demand buckets have the same shape.
   while (cursor < rangeEnd) {
     getBucket(cursor);
-    cursor = getBucketEndUtc(cursor, data.bucketSizeMinutes);
+    cursor = getBucketEndUtc(cursor, bucketSizeMinutes, timeZone);
   }
 
   for (const activity of notableActivities) {

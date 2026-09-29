@@ -14,7 +14,9 @@ const analyticsAggregationCacheSchema = new Schema({
   filters: { type: Schema.Types.Mixed, default: {} },
   resultCount: { type: Number, required: true, default: 0 },
   computedAt: { type: Date, required: true, default: Date.now, index: true },
-  expiresAt: { type: Date, required: true, index: true },
+  // No `index: true` here: it would claim the { expiresAt: 1 } key pattern before the TTL
+  // index below, which Mongo then rejects as an options conflict, so nothing expires.
+  expiresAt: { type: Date, required: true },
 });
 
 analyticsAggregationCacheSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

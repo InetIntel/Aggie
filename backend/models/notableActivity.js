@@ -25,6 +25,9 @@ const notableActivitySchema = new Schema({
   // (clustered outage starts). Part of cacheKey too, so the two never mix in one result set.
   aggregationMethod: { type: String, default: 'bucket', index: true },
   startTimeToleranceMinutes: { type: Number },
+  // IANA zone the bucket grid was laid out in, so a later re-projection of this snapshot
+  // (per-user access filtering) floors reports onto the same grid.
+  timeZone: { type: String, default: 'UTC' },
 
   sourceCnt: { type: Number, required: true, default: 0 },
   sources: { type: [String], default: [] },
@@ -59,7 +62,9 @@ const notableActivitySchema = new Schema({
   incidentId: { type: SchemaTypes.ObjectId, ref: 'Group', default: null, index: true },
 
   computedAt: { type: Date, required: true, default: Date.now, index: true },
-  expiresAt: { type: Date, required: true, index: true },
+  // No `index: true` here: it would claim the { expiresAt: 1 } key pattern before the TTL
+  // index below, which Mongo then rejects as an options conflict, so nothing expires.
+  expiresAt: { type: Date, required: true },
 });
 
 notableActivitySchema.index(
