@@ -7,19 +7,19 @@ import { useField } from "formik";
 import { getCredentials } from "../../../api/credentials";
 import { editSource, getObservedAsns, newSource } from "../../../api/sources";
 import type { Source, SourceAccessMode } from "../../../api/sources/types";
-import { getAllAsns, getAsnsByIds } from "../../../api/asn";
+import { getAsnsByIds } from "../../../api/asn";
 
 import { Listbox } from "@headlessui/react";
 import FormikCombobox from "../../../components/FormikCombobox";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
-import FormikMultiCombobox from "../../../components/FormikMultiCombobox";
 import FormikSwitch from "../../../components/FormikSwitch";
 import FormikWithSchema from "../../../components/FormikWithSchema";
 import AxiosErrorCard from "../../../components/AxiosErrorCard";
 import type { Credential } from "../../../api/credentials/types";
 import { COUNTRY_OPTIONS } from "./countryOptions";
 import { OONI_TEST_OPTIONS } from "./ooniTests";
+import AsnChipInput from "./AsnChipInput";
 
 import {
   faChevronDown,
@@ -508,17 +508,6 @@ const CreateEditSourceForm = ({
     staleTime: 50000,
   });
 
-  // ASN metadata for the IODA ASN filter's searchable picker. Only fetched when
-  // the IODA form is active (the full list is large).
-  const { data: asnData } = useQuery(["asns"], getAllAsns, {
-    enabled: credentialType === "ioda",
-    staleTime: 60000,
-  });
-  const asnComboList = (asnData || []).map((a) => ({
-    key: String(a.number),
-    value: a.name ? `AS${a.number} — ${a.name}` : `AS${a.number}`,
-  }));
-
   const credentialsList =
     credentials && credentials.filter((cred) => cred.type === credentialType);
 
@@ -769,16 +758,13 @@ function onSubmit(data: any) {
         label={"Country"}
         name={"keywords"}
       />
-      <FormikMultiCombobox
+      <AsnChipInput
         name='asns'
-        list={asnComboList}
+        format='array'
         label='ASNs (optional)'
-        unitLabel='ASN'
+        placeholder='e.g. 44244, 58224'
+        hint='Type an ASN number and press Enter to add it. Leave empty to monitor the whole country; add ASNs to narrow outages to specific networks (e.g. a provider in an upstream country).'
       />
-      <p className='text-xs text-slate-500 dark:text-gray-400 -mt-1'>
-        Leave empty to monitor the whole country. Add ASNs to narrow outages to
-        specific networks (e.g. a provider in an upstream country).
-      </p>
       <FormikInput
         name='region'
         label='Region code (optional)'
@@ -894,10 +880,12 @@ function onSubmit(data: any) {
         label={"OONI Test"}
         name={"ooniTestName"}
       />
-      <FormikInput
+      <AsnChipInput
         name='lists'
+        format='string'
         label='Network ASNs'
         placeholder='44244, 58224'
+        hint='Type an ASN number and press Enter to add it. We watch these networks for zero measurements.'
       />
       <OoniDomainFields />
       <SourceAccessPolicyFields teams={teams} />
