@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useHref } from "react-router-dom";
-import type { AnalyticsOverview } from "../../../api/analytics/types";
+import type {
+  AnalyticsBucketPreset,
+  AnalyticsOverview,
+} from "../../../api/analytics/types";
 import { useDashboardFormatters } from "../dashboardHelpers";
 
 const fallbackTimeSeries = [
@@ -42,6 +45,55 @@ const viewModes = [
 ] as const;
 type ViewMode = (typeof viewModes)[number]["key"];
 
+// A compact labelled pill toggle; the chart's header controls share it so they line up.
+function ChartToggle<T extends string>({
+  label,
+  hint,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  options: readonly { key: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <>
+      <span
+        className='justify-self-end text-xs font-medium text-slate-500 dark:text-gray-400'
+        title={hint}
+      >
+        {label}
+      </span>
+      <div
+        className='inline-flex justify-self-end rounded-full border border-slate-200 p-0.5 dark:border-gray-600'
+        role='group'
+        aria-label={label}
+        title={hint}
+      >
+        {options.map((option) => (
+          <button
+            key={option.key}
+            type='button'
+            aria-pressed={value === option.key}
+            onClick={() => onChange(option.key)}
+            className={[
+              "rounded-full px-3 py-1 text-xs font-medium transition",
+              value === option.key
+                ? "bg-slate-700 text-white dark:bg-gray-600"
+                : "text-slate-600 hover:bg-slate-100 dark:text-gray-300 dark:hover:bg-gray-700",
+            ].join(" ")}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 const legendItemClass =
   "flex items-center gap-2 rounded-full border px-2.5 py-1";
 
@@ -54,7 +106,19 @@ const chartFrame = {
 
 const chartTooltipFontSize = 14;
 
-const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
+interface IProps {
+  overview?: AnalyticsOverview;
+  bucket: AnalyticsBucketPreset;
+  bucketOptions: AnalyticsBucketPreset[];
+  onBucketChange: (bucket: AnalyticsBucketPreset) => void;
+}
+
+const AlertsTrendChart = ({
+  overview,
+  bucket,
+  bucketOptions,
+  onBucketChange,
+}: IProps) => {
   const { formatActivityWindow, formatXAxisLabel } = useDashboardFormatters();
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
@@ -138,7 +202,7 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
     <div
       className={`mt-4 rounded-[1.5rem] border border-slate-200 px-2 py-4 dark:border-gray-700 sm:px-3 ${sourceSeriesStyle}`}
     >
-      <div className='mb-3 flex items-start justify-between gap-3'>
+      <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
         <div>
           <h3 className='text-2xl font-medium text-sky-700'>Alert</h3>
           <p className='text-xs text-slate-500 dark:text-gray-400'>
@@ -148,27 +212,21 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
             {overview ? "Reports per time bucket" : "Static dashboard placeholder"}
           </p> */}
         </div>
-        <div
-          className='inline-flex shrink-0 rounded-full border border-slate-200 p-0.5 dark:border-gray-600'
-          role='group'
-          aria-label='Trend line grouping'
-        >
-          {viewModes.map((mode) => (
-            <button
-              key={mode.key}
-              type='button'
-              aria-pressed={viewMode === mode.key}
-              onClick={() => setViewMode(mode.key)}
-              className={[
-                "rounded-full px-3 py-1 text-xs font-medium transition",
-                viewMode === mode.key
-                  ? "bg-slate-700 text-white dark:bg-gray-600"
-                  : "text-slate-600 hover:bg-slate-100 dark:text-gray-300 dark:hover:bg-gray-700",
-              ].join(" ")}
-            >
-              {mode.label}
-            </button>
-          ))}
+        {/* Label | toggle rows, both columns right-aligned so the toggles share an edge. */}
+        <div className='ml-auto grid shrink-0 grid-cols-[auto_auto] items-center gap-x-2 gap-y-1.5'>
+          <ChartToggle
+            label='View'
+            options={viewModes}
+            value={viewMode}
+            onChange={setViewMode}
+          />
+          <ChartToggle
+            label='Interval'
+            hint='How much time each point on the chart covers'
+            options={bucketOptions.map((option) => ({ key: option, label: option }))}
+            value={bucket}
+            onChange={onBucketChange}
+          />
         </div>
         {/* <div className='rounded-full bg-slate-50 p-2 text-slate-500 shadow-sm dark:bg-gray-700'>
           <FontAwesomeIcon icon={faBell} />

@@ -1,11 +1,6 @@
-import { FloatingTree } from "@floating-ui/react";
-import DateSelector from "../../../components/filters/DateSelector";
-import type {
-  AnalyticsBucketPreset,
-  AnalyticsRangePreset,
-} from "../../../api/analytics/types";
+import type { AnalyticsRangePreset } from "../../../api/analytics/types";
 import { MAX_CUSTOM_RANGE_DAYS } from "../../../api/analytics/types";
-import { addPickerDays } from "../dashboardHelpers";
+import DateRangeSelector from "./DateRangeSelector";
 
 const pillGroupClass =
   "inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800";
@@ -33,8 +28,7 @@ interface IProps {
   onRangeChange: (range: AnalyticsRangePreset) => void;
   customFromDay: string;
   customToDay: string;
-  onCustomFromDayChange: (day: string) => void;
-  onCustomToDayChange: (day: string) => void;
+  onCustomRangeChange: (fromDay: string, toDay: string) => void;
   // e.g. "UTC" or "EDT": the zone the grid and every timestamp on the page are in.
   timeZoneLabel: string;
 }
@@ -44,13 +38,9 @@ const DashboardTimeControls = ({
   onRangeChange,
   customFromDay,
   customToDay,
-  onCustomFromDayChange,
-  onCustomToDayChange,
+  onCustomRangeChange,
   timeZoneLabel,
 }: IProps) => {
-  // Both days count in full, so a span of N days means the last day is N - 1 after the first.
-  const maxSpanOffset = MAX_CUSTOM_RANGE_DAYS - 1;
-
   return (
     <div className='mb-5 flex flex-wrap items-center justify-center gap-3'>
       <div role='group' aria-label='Time range' className={pillGroupClass}>
@@ -68,27 +58,12 @@ const DashboardTimeControls = ({
       </div>
 
       {range === "custom" && (
-        <FloatingTree>
-          <div className='inline-flex items-center gap-2 text-sm text-slate-700 dark:text-gray-200'>
-            <DateSelector
-              unsetLabel='From'
-              value={customFromDay}
-              onChange={onCustomFromDayChange}
-              maxDate={new Date(customToDay)}
-              minDate={new Date(addPickerDays(customToDay, -maxSpanOffset))}
-              referenceDate={new Date(customToDay)}
-            />
-            <span aria-hidden='true'>–</span>
-            <DateSelector
-              unsetLabel='To'
-              value={customToDay}
-              onChange={onCustomToDayChange}
-              minDate={new Date(customFromDay)}
-              maxDate={new Date(addPickerDays(customFromDay, maxSpanOffset))}
-              referenceDate={new Date(customFromDay)}
-            />
-          </div>
-        </FloatingTree>
+        <DateRangeSelector
+          fromDay={customFromDay}
+          toDay={customToDay}
+          onChange={onCustomRangeChange}
+          maxSpanDays={MAX_CUSTOM_RANGE_DAYS}
+        />
       )}
 
       {timeZoneLabel && (
@@ -102,34 +77,5 @@ const DashboardTimeControls = ({
     </div>
   );
 };
-
-// The trend chart's bucket size. Lives in the Trends card, the only thing it affects:
-// the notable activity cards group by start time, independent of the grid.
-export const BucketSizeToggle = ({
-  bucket,
-  bucketOptions,
-  onBucketChange,
-}: {
-  bucket: AnalyticsBucketPreset;
-  bucketOptions: AnalyticsBucketPreset[];
-  onBucketChange: (bucket: AnalyticsBucketPreset) => void;
-}) => (
-  <div role='group' aria-label='Bucket size' className={pillGroupClass}>
-    {bucketOptions.map((bucketOption) => (
-      <button
-        key={bucketOption}
-        type='button'
-        onClick={() => onBucketChange(bucketOption)}
-        aria-pressed={bucket === bucketOption}
-        className={pillClass(
-          bucket === bucketOption,
-          "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-        )}
-      >
-        {bucketOption}
-      </button>
-    ))}
-  </div>
-);
 
 export default DashboardTimeControls;

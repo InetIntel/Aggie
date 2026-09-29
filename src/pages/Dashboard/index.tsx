@@ -29,9 +29,7 @@ import AggieDialog from "../../components/AggieDialog";
 import CreateEditIncidentForm from "../incidents/CreateEditIncidentForm";
 import AlertsTrendChart from "./components/AlertsTrendChart";
 import DashboardAddToIncident from "./components/DashboardAddToIncident";
-import DashboardTimeControls, {
-  BucketSizeToggle,
-} from "./components/DashboardTimeControls";
+import DashboardTimeControls from "./components/DashboardTimeControls";
 import NotableActivityCard from "./components/NotableActivityCard";
 import MetricsList from "./components/MetricsList";
 import {
@@ -295,8 +293,10 @@ const Dashboard = () => {
         onRangeChange={setRange}
         customFromDay={customFromDay}
         customToDay={customToDay}
-        onCustomFromDayChange={(day) => setCustomFromDay(toPickerDay(new Date(day)))}
-        onCustomToDayChange={(day) => setCustomToDay(toPickerDay(new Date(day)))}
+        onCustomRangeChange={(fromDay, toDay) => {
+          setCustomFromDay(fromDay);
+          setCustomToDay(toDay);
+        }}
         timeZoneLabel={formatTimeZone(new Date(), prefs)}
       />
 
@@ -316,11 +316,6 @@ const Dashboard = () => {
             <h2 className='text-xl font-semibold text-slate-900 dark:text-white'>
               Trends
             </h2>
-            <BucketSizeToggle
-              bucket={activeBucket}
-              bucketOptions={bucketOptions}
-              onBucketChange={setBucket}
-            />
           </div>
 
           <div className='mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-gray-400'>
@@ -340,7 +335,12 @@ const Dashboard = () => {
             </span>
           </div>
 
-          <AlertsTrendChart overview={overviewQuery.data} />
+          <AlertsTrendChart
+            overview={overviewQuery.data}
+            bucket={activeBucket}
+            bucketOptions={bucketOptions}
+            onBucketChange={setBucket}
+          />
         </section>
       </div>
 
