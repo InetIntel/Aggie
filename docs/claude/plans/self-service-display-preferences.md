@@ -71,3 +71,23 @@ Accepted tradeoff (minimal scope): a self user can now also PATCH their own
    must still return `403`.
 4. Regression — admin editing others via the profile UI still works; `viewer`/`monitor`
    self edits still work.
+
+## Future considerations (recurrence risks)
+
+The route-level fix (`allowSelfOr`) closes the 403 class for `PUT /api/user/:_id`, but two
+related failure modes can recur as more self-service settings are added:
+
+1. **Hardcoded preferences whitelist silently drops new fields.** `user_update` destructures
+   `preferences` field-by-field (`timeFormat`/`dateFormat`/`timeZone`). A new preference added
+   to the schema + UI will save with a 200 but be silently dropped until it's added here,
+   harder to spot than a 403. Prefer a schema-driven merge (iterate the `preferences`
+   sub-schema paths and copy present keys, letting Mongoose `enum` validators reject bad
+   values on `save()`), so adding a preference needs no controller change. The flat
+   `allowedFields` list for top-level user fields has the same trap.
+
+2. **The permission-gate mismatch recurs on any other route.** The root cause was an
+   admin-oriented permission (`update users`) gating a self-service feature. `allowSelfOr`
+   fixes only this endpoint. Keep self-configurable settings on the user record where possible
+   so they ride this route; if a setting needs its own endpoint (e.g. notification prefs),
+   reuse the same self-bypass convention, and if it becomes common, lift `allowSelfOr` into
+   a shared middleware module rather than leaving it inline.
