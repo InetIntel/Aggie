@@ -122,6 +122,36 @@ Inter is already the global font — no font work.
 9. **Multiple hashtags (Mastodon):** create a hashtag source with several tags → reports arrive for each tag and a post carrying two tags appears once; check `aggie-fetching` logs.
 10. **No regressions:** created sources fetch end-to-end (channel registers, `populate('credentials')` resolves); `/settings/sources` and `/settings/credentials` still work during transition.
 
+## Connection pill palette
+
+Each connection renders as a colored pill. The color is assigned purely by a
+connection's **position within its provider** (connection 1, 2, 3, …), so it carries
+**no status meaning** and looks identical across providers, in both the Connections list
+and on every feed row. The palette is a fixed set of five accessible light-bg /
+dark-text pairs in
+[ApiTypeSection.tsx:96-100](../../../src/pages/Settings/Connections/ApiTypeSection.tsx#L96-L100)
+(`CONNECTION_COLORS`): **teal → sky → indigo → violet → slate** (it cycles if a provider
+has more connections than entries). No other file references these colors.
+
+**Reserved hue families — do not use for connection pills:** across the app, color
+carries meaning — **red / pink / rose = error & danger**, **orange / amber = warning**.
+A non-status decorative pill in those families reads to users like an alert, so the
+palette is deliberately kept to cool/neutral hues. (An earlier palette used a rose slot
+and an amber slot that collided with the error and warning UI; those were removed.)
+
+## Terminology: "Provider" → "Source"
+
+The settings page's user-facing labels now read **"Sources and Feeds"** (previously
+"Providers and Feeds"): the `<h1>` and `document.title` in
+[ConnectionsIndex.tsx](../../../src/pages/Settings/Connections/ConnectionsIndex.tsx) and
+the left-nav label in [Settings/index.tsx](../../../src/pages/Settings/index.tsx). Note
+this overloads the word "Source": on this page a **"Source"** means a *platform* Aggie
+pulls from (Mastodon, IODA, …), while the backend `Source` model / the separate
+"Sources" nav item represent a *feed*. Routes, folder/component names, and code
+identifiers (`providerLabel`, `PROVIDER_LABELS`, `ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER`)
+were **not** renamed — only visible copy. A few residual "Provider" strings remain in
+body/toggle copy in `ConnectionsIndex.tsx` (a known minor inconsistency, not a bug).
+
 ---
 
 > **Open follow-ups** for the Connections/Feeds page (formerly this doc's TODO list) now live in
