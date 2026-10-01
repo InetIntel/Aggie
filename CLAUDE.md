@@ -47,7 +47,7 @@ Before working on a subsystem, examine the relevant markdown files in `docs/clau
 - **API** (`backend/api.js`, process title `aggie-api`) — Express + Passport on port `3000`, serves REST under `/api/*`, hosts socket.io. In production it also serves the built React app from `/build`.
 - **FETCH** (`backend/fetching.js`, process title `aggie-fetching`) — runs the `downstream` library to poll all sources.
 
-`process-manager.js` re-spawns crashed children automatically and routes events between them via `child-process.js` + `event-proxy.js`. When you see `childProcess.setupEventProxy({ emitter, subclass, emitterModule })` in `backend/api.js`, it's hooking a Mongoose schema event in the *fetching* process and forwarding it to a listener in the *api* process. **Mongoose model events fire in whichever process saved the document; cross-process notification only works if a proxy is registered.**
+`process-manager.js` re-spawns crashed children automatically and routes events between them via `child-process.js` + `event-proxy.js`. When you see `childProcess.setupEventProxy({ emitter, subclass, emitterModule })` in `backend/api.js`, it's hooking a Mongoose schema event in the _fetching_ process and forwarding it to a listener in the _api_ process. **Mongoose model events fire in whichever process saved the document; cross-process notification only works if a proxy is registered.**
 
 ### Fetching pipeline
 
@@ -63,7 +63,7 @@ When adding a new source type: add a Channel class in `channels/`, wire it into 
 ### API layer
 
 - Routes: `backend/api/routes/apiRoutes.js` is the aggregator mounted at `/api` (after `auth.authenticate()`). Each resource has a `*Routes.js` + matching `controllers/*Controller.js`.
-- Auth: `backend/api/authentication.js` (passport-local + passport-jwt + WebAuthn via `@simplewebauthn/server`). Auth routes are mounted *before* `/api` so login/logout don't require a token. `ADMIN_PARTY=true` short-circuits auth in development.
+- Auth: `backend/api/authentication.js` (passport-local + passport-jwt + WebAuthn via `@simplewebauthn/server`). Auth routes are mounted _before_ `/api` so login/logout don't require a token. `ADMIN_PARTY=true` short-circuits auth in development.
 - Sockets: `backend/api/socket-handler.js` + `backend/api/sockets/` push live updates (new reports, source state, tag changes) to the frontend over socket.io. Mongoose schema event listeners are deferred 500ms after startup so cross-process proxies bind first.
 - Models: `backend/models/` (Mongoose schemas). `report.js`, `source.js`, `group.js`, `user.js`, `credentials.js`, `tag.js`, plus auth-session models. Reports use full-text indexing — `install.js` calls `Report.ensureIndexes`.
 
@@ -74,6 +74,7 @@ React 17 SPA built with **`react-scripts` 5** (CRA). This locks us to React 17, 
 Folder convention: **folders define scope; place files as close as possible to where they're used**. A hook used only in `pages/Reports/` belongs in `pages/Reports/`, not in the global `hooks/`.
 
 Key directories:
+
 - `src/api/<resource>/index.ts` — axios calls; `types.ts` — response/request types.
 - `src/pages/` — file structure mirrors the router (see `AppRouter.tsx`).
 - `src/components/` — only for components used in multiple pages.
@@ -109,23 +110,29 @@ When the user gives requirements and asks for a GitHub issue, turn them into iss
 - `[Task]`: small unit of product/feature work that changes what the app does, but isn't big enough to be a Feature and isn't fixing broken behavior.
 - `[Bug]`: restoring intended behavior that is currently broken.
 - `[Chore]`: maintenance with no user-facing behavior change (deps, config, tooling, refactors, docs, cleanup).
+- `[Design]`: research and design for a feature or bug.
 
 Quick test: does it change what the app does? Yes and large → Feature; yes and small → Task; no, it's upkeep → Chore; it's broken → Bug.
 
 **Body template.** Include the sections that apply to the issue type (always Summary + Acceptance criteria; add Reproduction only for bugs). For an `[Epic]`, replace Acceptance criteria with a **Child issues** task-list linking its sub-issues (`- [ ] #123 ...`):
 
 ### Summary
-One short paragraph: the problem or need, and the intended outcome. State *why* this matters, not just *what* to build.
+
+One short paragraph: the problem or need, and the intended outcome. State _why_ this matters, not just _what_ to build.
 
 ### Acceptance criteria
+
 A checklist of concrete, testable conditions that define "done":
+
 - [ ] ...
 - [ ] ...
 
 ### Technical notes / Context
+
 Relevant files (repo-relative paths), architecture pointers (e.g. which `docs/claude/architecture/*.md` applies), constraints, and links to related issues/PRs. Omit if there's nothing useful to add.
 
-### Reproduction  *(bugs only)*
+### Reproduction _(bugs only)_
+
 - **Steps:** 1. ... 2. ... 3. ...
 - **Expected:** what should happen.
 - **Actual:** what happens instead.
