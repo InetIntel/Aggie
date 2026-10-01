@@ -1,8 +1,17 @@
 import axios from "axios";
-import { Source } from "./types";
+import { ObservedAsn, Source } from "./types";
 
 export const getSources = async () => {
   const { data } = await axios.get<Source[] | undefined>("/api/source");
+  return data;
+};
+
+// Read-only summary of the ASNs a source has recently produced reports for.
+export const getObservedAsns = async (id: string | undefined) => {
+  if (!id) return [] as ObservedAsn[];
+  const { data } = await axios.get<ObservedAsn[]>(
+    "/api/source/" + id + "/observed-asns"
+  );
   return data;
 };
 

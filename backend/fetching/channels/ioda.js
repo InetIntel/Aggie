@@ -39,6 +39,14 @@ class IODAChannel extends PollChannel {
 
         this.countryCode = options.countryCode || null;
 
+        // Optional per-source narrowing. Empty = country-wide (current behavior).
+        // `asns` keeps only outages on these ASNs; `region` keeps only outages in
+        // this IODA region code.
+        this.asns = Array.isArray(options.asns)
+            ? options.asns.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+            : [];
+        this.region = options.region || null;
+
         this.sourceId = options.sourceId || null;
 
         this.regionCodes = {};
@@ -269,6 +277,14 @@ class IODAChannel extends PollChannel {
                 for (const event of events) {
 
                     const guid = this.buildGuid(queryType, event);
+
+                    // Per-source ASN/region narrowing. Skip before adding to
+                    // seenGuids so any report created under a previous, broader
+                    // filter is reconciled (closed) rather than kept alive.
+                    if (!this.passesFilters(event, queryType)) {
+                        continue;
+                    }
+
                     seenGuids.add(guid);
 
                     // Exclude irrelevant region event
@@ -681,6 +697,48 @@ class IODAChannel extends PollChannel {
             mins.toString().padStart(2, '0'),
             secs.toString().padStart(2, '0'),
         ].join(':');
+    }
+
+    /**
+     * The IODA region code an event belongs to, or null when it isn't region-scoped.
+     *   region:        location "region/<code>"
+     *   geoasn-region: location "geoasn/<asn>-<regionCode>"
+     */
+    extractRegionCode(event, queryType) {
+        if (!event || !event.location) return null;
+        if (queryType === 'region') {
+            const slashIdx = event.location.indexOf('/');
+            return slashIdx === -1 ? null : event.location.slice(slashIdx + 1);
+        }
+        if (queryType === 'geoasn-region') {
+            const match = event.location.match(/(\d+)-(\d+)/);
+            return match ? match[2] : null;
+        }
+        return null;
+    }
+
+    /**
+     * Whether an event survives the per-source ASN / region filters.
+     * Empty filters pass everything (country-wide, the default).
+     *
+     * A region-level query ("region") carries no ASN, so it is dropped when an
+     * ASN filter is set. Country-level ASN queries carry no region, so they are
+     * dropped when a region filter is set — a region filter narrows to that
+     * region's own (geo)asn/region events.
+     */
+    passesFilters(event, queryType) {
+        if (this.asns.length) {
+            const asnStr = queryType === 'region'
+                ? null
+                : this.extractAsnFromEventLocation(event.location);
+            const asnNum = asnStr ? parseInt(String(asnStr).replace(/^as/i, ''), 10) : NaN;
+            if (!Number.isInteger(asnNum) || !this.asns.includes(asnNum)) return false;
+        }
+        if (this.region) {
+            const regionCode = this.extractRegionCode(event, queryType);
+            if (String(regionCode) !== String(this.region)) return false;
+        }
+        return true;
     }
 
     extractAsnFromEventLocation(eventLocation) {

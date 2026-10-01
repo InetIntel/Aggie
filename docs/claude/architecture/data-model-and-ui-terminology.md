@@ -103,6 +103,13 @@ The model is `SMTCTag`. Documents (both `Report` and `Group`) carry **two** tag-
   the UI (`<TagsList values={item.smtcTags} />`).
 - `tags` — a separate plain array of strings, largely legacy/internal, not the on-screen tags.
 
+### "Source" is overloaded on the settings page
+
+The Sources-and-Feeds settings page (formerly "Providers and Feeds") calls a *platform*
+a **"Source"**, while the backend `Source` model / the separate "Sources" nav item mean
+a *feed*. See [`connections-page.md`](connections-page.md) → "Terminology: Provider →
+Source".
+
 ### Field name → on-screen label
 
 | Stored field | Shown in UI |

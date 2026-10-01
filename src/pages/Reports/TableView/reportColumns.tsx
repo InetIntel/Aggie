@@ -108,7 +108,7 @@ const IncidentCell = ({ report }: { report: Report }) => {
   return (
     <Link
       to={`/incidents/${incident._id}`}
-      className={`inline-flex items-center gap-1 max-w-full min-w-0 rounded-lg px-2 py-1 border border-slate-300 hover:bg-white dark:hover:bg-gray-800 ${
+      className={`inline-flex items-center gap-1 max-w-full min-w-0 rounded-lg px-1.5 py-0.5 text-sm border border-slate-300 hover:bg-white dark:hover:bg-gray-800 ${
         incident.closed
           ? "bg-purple-50 dark:bg-purple-50 dark:saturate-[0.7] text-purple-700"
           : "bg-slate-50 dark:bg-gray-900 text-slate-700 dark:text-gray-300"

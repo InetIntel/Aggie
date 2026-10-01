@@ -20,7 +20,7 @@ import ApiTypeSection from "./ApiTypeSection";
 // type's credentials and sources (grouped by `credential.type` / `source.media`).
 const ConnectionsIndex = () => {
   useEffect(() => {
-    document.title = "Providers and Feeds - Aggie";
+    document.title = "Sources and Feeds - Aggie";
   }, []);
 
   const {
@@ -58,15 +58,15 @@ const ConnectionsIndex = () => {
 
   return (
     <div className='mt-3 pb-16'>
-      <h1 className='font-medium text-3xl mb-1'>Providers and Feeds</h1>
+      <h1 className='font-medium text-3xl mb-1'>Sources and Feeds</h1>
       <p className='text-sm text-slate-500 dark:text-gray-400 mb-4 max-w-3xl'>
-        A <span className='font-medium'>Provider</span> is a platform Aggie pulls
+        A <span className='font-medium'>Source</span> is a platform Aggie pulls
         from, like Mastodon or IODA. A{" "}
         <span className='font-medium'>Connection</span> is the login or API key
-        that lets Aggie reach a Provider. A{" "}
+        that lets Aggie reach a Source. A{" "}
         <span className='font-medium'>Feed</span> then runs on top of a Connection
         to collect the posts and signals you care about, which show up as Alerts.
-        Connect a Provider first, then add Feeds to it.
+        Connect a Source first, then add Feeds to it.
       </p>
       {canManageConnections && (
         <div className='mb-6'>

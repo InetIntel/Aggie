@@ -20,14 +20,14 @@ export function menuLinks(role: string | undefined, isTeamLead = false) {
         "Manage Users": { to: "users", icon: faUsersCog },
         "Teams": { to: "teams", icon: faShieldHalved },
         "Tags": { to: "tags", icon: faTags },
-        "Providers and Feeds": { to: "connections", icon: faCloudArrowDown },
+        "Sources and Feeds": { to: "connections", icon: faCloudArrowDown },
       };
     case "team_lead":
       return {
         "Manage Users": { to: "users", icon: faUsersCog },
         "Teams": { to: "teams", icon: faShieldHalved },
         "Tags": { to: "tags", icon: faTags },
-        "Providers and Feeds": { to: "connections", icon: faCloudArrowDown },
+        "Sources and Feeds": { to: "connections", icon: faCloudArrowDown },
       };
     case "monitor":
     case "viewer":
@@ -40,7 +40,7 @@ export function menuLinks(role: string | undefined, isTeamLead = false) {
       }
       return {
         "Tags": { to: "tags", icon: faTags },
-        "Providers and Feeds": { to: "sources", icon: faCloudArrowDown },
+        "Sources and Feeds": { to: "sources", icon: faCloudArrowDown },
       };
     default:
       return {};
