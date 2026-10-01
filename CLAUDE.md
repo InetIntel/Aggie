@@ -93,3 +93,40 @@ Frontend uses TanStack Query for REST and a socket.io connection (proxied throug
 - Production deployments use PM2 (`npx pm2`); see `SCRIPTS.md` for the full Ubuntu setup runbook.
 - The frontend build path is `/build` (served by the API in production), not `/dist`.
 - `node_modules/downstream` is a local fork — don't assume the npm registry version matches.
+
+## GitHub Issues
+
+When the user gives requirements and asks for a GitHub issue, turn them into issue markdown using the convention below. The goal is consistency: same structure, same title style, every time.
+
+- **Output** the issue as a single fenced ` ```markdown ` block in chat so it can be pasted directly into GitHub. Do **not** open the issue with `gh` unless the user explicitly asks.
+- **Ask only if blocked.** If a required piece (e.g. the actual-vs-expected behavior of a bug) is missing and can't be inferred, ask; otherwise fill from the requirements and sensible defaults, and note any assumptions below the block.
+- Follow the repo's writing rules: no em dashes; reference code with repo-relative paths like `backend/api/controllers/sourceController.js`; link related issues/PRs with `#123`. Do not force line breaks in markdown code; let prose wrap naturally.
+
+**Title:** concise and imperative, prefixed with the type in brackets. Example: `[Bug] Report count drifts after incident merge`. Pick the prefix by what the issue is:
+
+- `[Epic]`: a parent issue that groups related issues under one goal.
+- `[Feature]`: substantial new user-facing capability.
+- `[Task]`: small unit of product/feature work that changes what the app does, but isn't big enough to be a Feature and isn't fixing broken behavior.
+- `[Bug]`: restoring intended behavior that is currently broken.
+- `[Chore]`: maintenance with no user-facing behavior change (deps, config, tooling, refactors, docs, cleanup).
+
+Quick test: does it change what the app does? Yes and large → Feature; yes and small → Task; no, it's upkeep → Chore; it's broken → Bug.
+
+**Body template.** Include the sections that apply to the issue type (always Summary + Acceptance criteria; add Reproduction only for bugs). For an `[Epic]`, replace Acceptance criteria with a **Child issues** task-list linking its sub-issues (`- [ ] #123 ...`):
+
+### Summary
+One short paragraph: the problem or need, and the intended outcome. State *why* this matters, not just *what* to build.
+
+### Acceptance criteria
+A checklist of concrete, testable conditions that define "done":
+- [ ] ...
+- [ ] ...
+
+### Technical notes / Context
+Relevant files (repo-relative paths), architecture pointers (e.g. which `docs/claude/architecture/*.md` applies), constraints, and links to related issues/PRs. Omit if there's nothing useful to add.
+
+### Reproduction  *(bugs only)*
+- **Steps:** 1. ... 2. ... 3. ...
+- **Expected:** what should happen.
+- **Actual:** what happens instead.
+- **Environment:** branch, local vs staging/prod, browser/OS if relevant.
