@@ -44,6 +44,7 @@ const SourceNameField = () => (
   <FormikInput
     name='nickname'
     label='Feed name'
+    maxLength={80}
     placeholder="A label for this feed, e.g. 'Elections, Mastodon #wildfire'"
     hint="A name to identify this feed in your lists; the items it collects appear as Alerts. It's only a label and doesn't change what gets fetched. Pick something recognizable, like the topic plus the account or hashtag."
   />
@@ -687,7 +688,7 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <FormikInput name='nickname' label='Source Name' maxLength={80} />
       <CredentialPickerField
         label='OONI Credentials'
         credentialsList={credentialsList}

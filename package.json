@@ -14,6 +14,7 @@
     "backtest:ooni": "node scripts/backtest-ooni-alerts.js",
     "smoke:access:seed": "node backend/scripts/access-control-smoke.js seed",
     "smoke:access:cleanup": "node backend/scripts/access-control-smoke.js cleanup",
+    "seed:standard-tags": "node backend/scripts/seed-standard-tags.js",
     "migrate:team-leads": "node backend/scripts/backfill-team-leads.js",
     "migrate:team-memberships": "node backend/scripts/backfill-team-memberships.js",
     "build": "cross-env CI=false react-scripts build",
