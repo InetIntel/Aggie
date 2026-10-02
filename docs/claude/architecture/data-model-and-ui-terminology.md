@@ -107,8 +107,7 @@ The model is `SMTCTag`. Documents (both `Report` and `Group`) carry **two** tag-
 
 The Sources-and-Feeds settings page (formerly "Providers and Feeds") calls a *platform*
 a **"Source"**, while the backend `Source` model / the separate "Sources" nav item mean
-a *feed*. See [`connections-page.md`](connections-page.md) → "Terminology: Provider →
-Source".
+a *feed*. See [`sources-and-feeds.md`](sources-and-feeds.md) → "Terminology".
 
 ### Field name → on-screen label
 

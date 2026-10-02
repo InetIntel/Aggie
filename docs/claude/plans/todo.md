@@ -90,7 +90,7 @@ File: [src/pages/incidents/TableView/IncidentsTable.tsx](../../../src/pages/inci
 
 ### Connections / Feeds ("Providers and Feeds") polish
 
-**Status:** Not done (migrated from the shipped `connections-page.md` design doc). Follow-ups on the
+**Status:** Not done (migrated from the shipped Connections page design doc, now `architecture/sources-and-feeds.md`). Follow-ups on the
 consolidated Connections page ([src/pages/Settings/Connections/](../../../src/pages/Settings/Connections/)):
 
 - In add/edit feed — if "only allow 1 connection" is toggled on, default to that connection and don't let the user change it.
