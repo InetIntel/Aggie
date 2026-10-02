@@ -8,7 +8,11 @@ interface SourceEvent {
   message: string;
 }
 
-export type SourceAccessMode = "public" | "restricted" | "public_until";
+export type SourceAccessMode =
+  | "public"
+  | "restricted"
+  | "public_until"
+  | "country_restricted";
 
 export interface SourceAccessPolicy {
   mode: SourceAccessMode;
@@ -24,6 +28,7 @@ export interface Source extends hasId {
   // which is an unbounded cumulative tally. Matches the popup's list count.
   distinctErrorCount: number;
   tags?: string[];
+  countryCodes?: string[];
   url: string;
   media: string;
   nickname: string;
@@ -48,5 +53,6 @@ export interface EditableSource extends hasId {
   url: string;
   keywords?: string;
   lists?: string;
+  countryCodes?: string[];
   accessPolicy?: SourceAccessPolicy;
 }

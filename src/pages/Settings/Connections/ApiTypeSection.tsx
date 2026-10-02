@@ -57,6 +57,11 @@ const ACCESS_MODE_META: Record<
     classes: "bg-orange-100 text-orange-800",
     iconClass: "text-orange-600",
   },
+  country_restricted: {
+    label: "Restricted by country",
+    classes: "bg-orange-100 text-orange-800",
+    iconClass: "text-orange-600",
+  },
 };
 
 const AccessModePill = ({ source }: { source: Source }) => {

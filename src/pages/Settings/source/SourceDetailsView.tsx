@@ -18,6 +18,7 @@ import AggieButton from "../../../components/AggieButton";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
 import CreateEditSourceForm from "./CreateEditSourceForm";
 import { getSourceConfigRows } from "./sourceDisplay";
+import { getCountryLabel } from "../../../components/CountryMultiSelect";
 
 import {
   faChevronDown,
@@ -45,6 +46,7 @@ const ACCESS_MODE_LABELS: Record<string, string> = {
   public: "Public",
   restricted: "Restricted to teams",
   public_until: "Public until cutoff date",
+  country_restricted: "Restricted by country",
 };
 
 // Normalizes accessPolicy.teams (which may be ids or populated Team objects)
@@ -307,6 +309,14 @@ const SourceDetailsView = ({ id, onClose, initialEditing = false }: IProps) => {
                 {row.value}
               </DetailField>
             ))}
+
+            <DetailField label='Source countries'>
+              {data?.countryCodes?.length ? (
+                data.countryCodes.map(getCountryLabel).join(", ")
+              ) : (
+                <span className='text-slate-500 dark:text-gray-400'>None</span>
+              )}
+            </DetailField>
 
             {isManager && (
               <>

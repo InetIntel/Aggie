@@ -103,7 +103,7 @@ export const updateTeamDetails = async (params: {
   teamId: string;
   name: string;
   description: string;
-  countryCodes: string[];
+  countryCodes?: string[];
 }) => {
   const { data } = await axios.put<TeamDetailResponse>(
     "/api/team/" + params.teamId,

@@ -6,7 +6,7 @@ import { createTeam, deleteTeam, getTeams } from "../../../api/teams";
 import { Link } from "react-router-dom";
 import AggieButton from "../../../components/AggieButton";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
-import CountryMultiSelect, { getCountryLabel } from "./CountryMultiSelect";
+import CountryMultiSelect, { getCountryLabel } from "../../../components/CountryMultiSelect";
 
 
 interface IProps {
@@ -69,7 +69,7 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
     doCreateTeam.mutate({
       name: trimmedName,
       description: description.trim(),
-      countryCodes,
+      countryCodes: isAdmin ? countryCodes : [],
       active: true,
     });
   }
@@ -180,7 +180,9 @@ const { data: teams, isLoading } = useQuery(["teams", "all"], getTeams);
             />
           </label>
 
-          <CountryMultiSelect value={countryCodes} onChange={setCountryCodes} />
+          {isAdmin && (
+            <CountryMultiSelect value={countryCodes} onChange={setCountryCodes} />
+          )}
 
           <AggieButton
             variant='primary'

@@ -1,7 +1,7 @@
 // Handles CRUD requests for teams.
 const User = require('../../models/user');
 const Team = require('../../models/team');
-const countries = require('i18n-iso-countries');
+const { normalizeCountryCodes } = require('../../access/countryCodes');
 const {
   canCreateOrDeleteTeams,
   canManageTeam,
@@ -23,22 +23,6 @@ const assignableRoles = ['viewer', 'monitor', 'team_lead_scoped', 'team_lead'];
 const teamLimitPermissions = TEAM_PERMISSION_KEYS.filter(
   (permission) => permission !== 'view data'
 );
-
-const normalizeCountryCodes = (countryCodes) => {
-  if (!Array.isArray(countryCodes)) {
-    throw new Error('Country codes must be an array.');
-  }
-
-  const normalized = countryCodes.map((code) => (
-    typeof code === 'string' ? code.trim().toUpperCase() : ''
-  ));
-
-  if (normalized.some((code) => !countries.isValid(code))) {
-    throw new Error('Use valid two-letter country codes.');
-  }
-
-  return [...new Set(normalized)];
-};
 
 const serializeTeamDetail = (team, members) => {
   const plainTeam = typeof team.toObject === 'function' ? team.toObject() : team;
@@ -331,6 +315,9 @@ exports.team_update = async (req, res) => {
     if (!canManageTeam(req.user, team)) {
       return res.status(403).send('Unauthorized to update this team.');
     }
+    if (countryCodes !== undefined && !isAdmin(req.user)) {
+      return res.status(403).send('Only administrators can change team countries.');
+    }
 
     team.name = name;
     team.description = description;
@@ -366,6 +353,9 @@ exports.team_create = (req, res) => {
     countryCodes = normalizeCountryCodes(req.body.countryCodes || []);
   } catch (err) {
     return res.status(400).send(err.message);
+  }
+  if (countryCodes.length > 0 && !isAdmin(req.user)) {
+    return res.status(403).send('Only administrators can assign team countries.');
   }
 
   const payload = {

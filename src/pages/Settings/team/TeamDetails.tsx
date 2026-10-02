@@ -23,7 +23,7 @@ import AggieDialog from "../../../components/AggieDialog";
 import AggieSwitch from "../../../components/AggieSwitch";
 import PlaceholderDiv from "../../../components/PlaceholderDiv";
 import CreateEditUserForm from "../user/CreateEditUserForm";
-import CountryMultiSelect, { getCountryLabel } from "./CountryMultiSelect";
+import CountryMultiSelect, { getCountryLabel } from "../../../components/CountryMultiSelect";
 
 interface IProps {
   session?: Session;
@@ -333,7 +333,7 @@ const TeamDetails = ({ session }: IProps) => {
                     teamId: params.id,
                     name: teamName.trim(),
                     description: teamDescription.trim(),
-                    countryCodes: teamCountryCodes,
+                    countryCodes: isAdmin ? teamCountryCodes : undefined,
                   });
                 }}
               >
@@ -354,10 +354,12 @@ const TeamDetails = ({ session }: IProps) => {
                     rows={3}
                   />
                 </label>
-                <CountryMultiSelect
-                  value={teamCountryCodes}
-                  onChange={setTeamCountryCodes}
-                />
+                {isAdmin && (
+                  <CountryMultiSelect
+                    value={teamCountryCodes}
+                    onChange={setTeamCountryCodes}
+                  />
+                )}
                 <div className='flex gap-2'>
                   <AggieButton
                     type='button'
