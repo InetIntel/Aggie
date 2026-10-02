@@ -22,13 +22,23 @@ Node `^22.14.0` (use `fnm install` then `fnm use`; pinned in `.nvmrc`). MongoDB 
 
 `DATABASE_URL`, `DATABASE_NAME`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_PARTY` (dev-only auth bypass), `SECRET`, `JWT_SESSION`, WebAuthn (`RP_ID`, `RP_NAME`, `ORIGIN`, `APP_BASE_PATH`, `MFA_REQUIRE_FOR_ENROLLED`), `ENCRYPTION_KEY` (AES-256), `API_REQUEST_TIMEOUT`, `API_FETCH_INTERVAL`, `SOCKET_FRONTEND_PORT` (default `37778`), `PUBLIC_URL`. Ask a maintainer for the shared dev `.env` and DB connection string.
 
+## Project docs (`docs/claude/`)
+
+Before gathering context or planning, check the matching `docs/claude/` subfolder. Browse the folder rather than relying on a fixed file list; new docs get added over time.
+
+- **Understanding how something works** (a subsystem, data model, UI vocabulary, deployment): read the relevant files in `docs/claude/architecture/`.
+- **Investigating or fixing a bug:** check `docs/claude/bugs/` first; the issue may already be written up with its root cause and a fix plan.
+- **Planning new or novel work:** check `docs/claude/plans/` for prior plans on the same or nearby areas, and for decisions already made.
+
+These docs can drift from the code. If something in a doc you read is wrong or out of date (it contradicts the code, names files or functions that no longer exist, or describes behavior that has changed), tell the user what is stale and ask whether to update the doc. Don't edit it silently, and don't just ignore it.
+
 ## Architecture
 
 The repo is **one Node project containing two largely separate apps** that share Mongoose models.
 
 ### Deeper architecture docs
 
-Before working on a subsystem, examine the relevant markdown files in `docs/claude/architecture/`. They document these areas in more depth than the summary below:
+Index of `docs/claude/architecture/` (see Project docs above). These cover the following areas in more depth than the summary below:
 
 - `data-model-and-ui-terminology.md`: data model and the reports/incidents/groups UI vocabulary
 - `alerts-incidents-tables.md`: alerts and incidents table structure
@@ -41,7 +51,7 @@ Before working on a subsystem, examine the relevant markdown files in `docs/clau
 
 ### Known bug workups
 
-Open bugs that have been investigated are written up in `docs/claude/bugs/`. Check here before debugging a subsystem; a known issue may already be documented with its root cause, evidence, and a fix plan. New workups go in that folder and get a line in this list.
+Open bugs that have been investigated are written up in `docs/claude/bugs/`. New workups go in that folder and get a line in this list.
 
 - `incident-attachments-on-local-disk.md`: incident comment attachments are written to `public/uploads` instead of MongoDB, so they don't move with the database and are lost if the checkout folder is recreated
 
