@@ -163,10 +163,10 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
               to={"/settings/user/" + session._id}
               className='focus-theme rounded-full hover:underline  hover:bg-slate-100 dark:hover:bg-gray-700 '
             >
-              <div className='px-3 py-1 flex gap-2 h-full  items-center border border-slate-200 rounded-lg font-medium text-xs '>
-                <FontAwesomeIcon icon={faUser} />
-                {session.username}
-              </div>
+            <div className='px-3 py-1 flex gap-2 h-full items-center border border-slate-200 rounded-lg font-medium text-xs min-w-0'>
+  <FontAwesomeIcon icon={faUser} className='shrink-0' />
+  <span className='truncate max-w-[120px] sm:max-w-[180px]'>{session.username}</span>
+</div>
             </Link>
             
             <span
