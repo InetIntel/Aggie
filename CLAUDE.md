@@ -40,6 +40,12 @@ Before working on a subsystem, examine the relevant markdown files in `docs/clau
 - `media-image-storage.md`: media/image storage
 - `deployment-topology.md`: deployment topology
 
+### Known bug workups
+
+Open bugs that have been investigated are written up in `docs/claude/bugs/`. Check here before debugging a subsystem; a known issue may already be documented with its root cause, evidence, and a fix plan. New workups go in that folder and get a line in this list.
+
+- `incident-attachments-on-local-disk.md`: incident comment attachments are written to `public/uploads` instead of MongoDB, so they don't move with the database and are lost if the checkout folder is recreated
+
 ### Multi-process backend
 
 `app.js` forks two child processes via `backend/process-manager.js`:
