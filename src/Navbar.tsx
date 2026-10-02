@@ -1,24 +1,15 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faRightFromBracket,
-  faBars,
-  faExternalLinkSquareAlt,
-  faSun,
-  faMoon,
-  faShieldHalved,
-  faKey,
-} from "@fortawesome/free-solid-svg-icons";
+import { faRightFromBracket, faBars } from "@fortawesome/free-solid-svg-icons";
 import { Menu } from "@headlessui/react";
 import { faUser } from "@fortawesome/free-regular-svg-icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { logOut } from "./api/session";
 import { Session } from "./api/session/types";
 import AggieButton from "./components/AggieButton";
 import ConfirmationDialog from "./components/ConfirmationDialog";
-import DropdownMenu from "./components/DropdownMenu";
 import { menuLinks } from "./pages/Settings";
 
 interface LinkOptions {
@@ -65,40 +56,6 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
   };
 
   const [logoutModal, setLogoutModal] = useState(false);
-  const [isDark, setIsDark] = useState<boolean>(()=>{
-    try {
-      const saved = localStorage.getItem("theme");
-      if (saved == "dark") return true;
-      if (saved == "light") return false;
-      return window.matchMedia && 
-            window.matchMedia("(prefers-color-scheme: dark)").matches;
-    } catch (error) {
-      return false;
-    }
-  })
-  useEffect(() => {
-    const root = document.documentElement;
-    if (isDark) {
-      root.classList.add('dark');
-      localStorage.setItem("theme", "dark");
-    } else {
-      root.classList.remove('dark');
-      localStorage.setItem("theme", "light");
-    }
-  }, [isDark]);
-  // ensure cross-tab dark mode consistency
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "theme") {
-        setIsDark(e.newValue === "dark");
-      }
-    }
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [])
-
-
-
 
   const doLogout = useMutation({
     mutationFn: logOut,
@@ -114,8 +71,11 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
 
   if (!isAuthenticated) return <></>;
   return (
-    <nav className='w-full bg-white dark:bg-gray-800 text-black dark:text-gray-300 flex justify-between items-center px-2 sm:px-3 md:px-4 border-b border-gray-200 py-1.5 md:py-2'>
-      <div className='flex gap-1 sm:gap-2 items-center '>
+    <nav className='w-full bg-white dark:bg-gray-800 text-black dark:text-gray-300 flex justify-between items-center gap-2 px-2 sm:px-3 md:px-4 border-b border-gray-200 py-1.5 md:py-2'>
+      {/* shrink-0, not min-w-0: the links are whitespace-nowrap, so letting this
+          box shrink would make them overflow it and paint over the user button.
+          The username on the right is the only thing that gives. */}
+      <div className='flex gap-1 sm:gap-2 items-center shrink-0'>
 
         <div>
           <svg
@@ -129,7 +89,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
             />
           </svg>
         </div>
-        <div className='flex whitespace-nowrap rounded-lg font-medium text-xs sm:text-sm md:text-base gap-0.5 sm:gap-1 mx-1 md:mx-2 '>
+        <div className='hidden lg:flex whitespace-nowrap rounded-lg font-medium text-base gap-1 mx-2 '>
           {Object.entries(mainLinks).map(([name, path]) => (
             <Link
               key={name}
@@ -149,53 +109,55 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
           ))}
         </div>
       </div>
-      <div className='flex gap-1 sm:gap-2 items-center '>
+      <div className='flex gap-1 sm:gap-2 items-center min-w-0'>
         {session && (
-          <div className='flex items-center gap-1 sm:gap-2'>
+          <div className='flex items-center gap-1 sm:gap-2 min-w-0'>
             <Link
               to={"/settings/user/" + session._id}
-              className='focus-theme rounded-full hover:underline  hover:bg-slate-100 dark:hover:bg-gray-700 '
+              className='focus-theme min-w-0 rounded-full hover:underline  hover:bg-slate-100 dark:hover:bg-gray-700 '
             >
-              <div className='px-2 sm:px-3 py-1 flex gap-1.5 sm:gap-2 h-full  items-center border border-slate-200 rounded-lg font-medium text-[11px] sm:text-xs '>
-                <FontAwesomeIcon icon={faUser} />
-                {session.username}
+              {/* min-w-0 has to run the whole way down: `truncate` is inert on a
+                  flex item whose min-width is auto, which would floor the name at
+                  its 8rem cap and let it spill out over the hamburger. */}
+              <div className='px-2 sm:px-3 py-1 flex gap-1.5 sm:gap-2 h-full min-w-0 items-center border border-slate-200 rounded-lg font-medium text-[11px] sm:text-xs '>
+                <FontAwesomeIcon icon={faUser} className='shrink-0' />
+                <span className='truncate min-w-0 max-w-[8rem] md:max-w-[14rem]'>
+                  {session.username}
+                </span>
               </div>
             </Link>
-
-            <span
-              className={[
-                'hidden md:inline-block text-xs px-2 py-0.5 rounded-full border',
-                session.mfa_enrolled
-                  ? "text-green-700 border-green-300 bg-green-50" 
-                  : "text-amber-700 border-amber-300 bg-amber-50"
-              ].join(' ')}
-              title={session.mfa_enrolled 
-                ? 'You have at least one MFA method configured' 
-                : 'No MFA methods enrolled yet'}
-            >
-              {session.mfa_enrolled ? 'MFA Enrolled' : 'MFA Off'}
-            </span>
           </div>
-        
         )}
 
-        <div
-          onClick={() => setIsDark(!isDark)}
-          className="focus-theme rounded-lg hover:underline hover:bg-slate-100 dark:hover:bg-gray-700 px-2 sm:px-3 py-1.5 hidden md:flex gap-2 h-full items-center border border-slate-200 rounded-full font-medium text-xs"
-        >
-          <FontAwesomeIcon
-            icon = {isDark? faSun: faMoon}
-            className="fa-fw w-3 h-3"
-          />
-        </div>
-
-
-        <Menu as='div' className='relative'>
+        <Menu as='div' className='relative shrink-0'>
           <Menu.Button className='focus-theme px-2 sm:px-3 py-1 rounded-lg border-y border border-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600 ui-open:bg-slate-300 dark:ui-open:bg-gray-500 disabled:opacity-70 disabled:pointer-events-none'>
             <FontAwesomeIcon icon={faBars} />
           </Menu.Button>
-          <Menu.Items className='absolute top-full right-0 mt-1 shadow-md overflow-hidden rounded-lg bg-white dark:bg-gray-800 border border-slate-200 z-30 text-sm font-medium'>
-            {Object.entries(menuLinks(session?.role, session?.isTeamLead)).map(([name, link]) => (
+          <Menu.Items className='absolute top-full right-0 mt-1 shadow-md overflow-y-auto max-h-[calc(100svh-4rem)] rounded-lg bg-white dark:bg-gray-800 border border-slate-200 z-30 text-sm font-medium'>
+            <div className='lg:hidden border-b border-slate-200 dark:border-gray-600'>
+              {Object.entries(mainLinks).map(([name, path]) => (
+                <Menu.Item key={name}>
+                  <Link
+                    className={`px-3 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 grid grid-cols-[16px_1fr] gap-2 items-center whitespace-nowrap text-left ${
+                      isActive(path.to, path.not)
+                        ? "text-[#416B34] dark:text-gray-100 font-semibold"
+                        : ""
+                    }`}
+                    to={path.to}
+                  >
+                    <span
+                      className={`place-self-center w-1.5 h-1.5 rounded-full ${
+                        isActive(path.to, path.not)
+                          ? "bg-[#416B34] dark:bg-gray-100"
+                          : "bg-transparent"
+                      }`}
+                    />
+                    {name}
+                  </Link>
+                </Menu.Item>
+              ))}
+            </div>
+            {Object.entries(menuLinks(session?.role, session?.isTeamLead, session?._id)).map(([name, link]) => (
               <Menu.Item key={name}>
                 {({ active }) => (
                   <Link
