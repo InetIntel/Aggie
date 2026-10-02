@@ -181,7 +181,7 @@ SocketHandler.prototype._streamerQueryCheck = function (event, QueryType, socket
     if (QueryType.compare(query, new QueryType(clientQuery)) &&
       self.queryGroups[clientQuery.hash] &&
       self.queryGroups[clientQuery.hash].has(socket.id)) {
-      socket.emit(event, data);
+      socket.emit(event, null);
     }
   });
 };
@@ -247,8 +247,8 @@ SocketHandler.prototype._addSourceListeners = function (emitter) {
 
 SocketHandler.prototype._addReportLocalListeners = function (emitter) {
   var self = this;
-  emitter.on('report:updated', function (report) {
-    self.io.sockets.in('reports').emit('report:updated', report);
+  emitter.on('report:updated', function () {
+    self.io.sockets.in('reports').emit('report:updated', null);
   });
 };
 
@@ -303,9 +303,7 @@ SocketHandler.prototype._addAnalyticsListeners = function (emitter) {
 };
 
 function emitAllSources(emitter) {
-  Source.find({}, '-events', { lean: true }, function (err, sources) {
-    if (!err && sources) emitter.emit('sources', sources);
-  });
+  emitter.emit('sources', null);
 }
 
 function getAnalyticsRoom(cacheKey) {
