@@ -34,13 +34,15 @@ const VALID_BUCKETS_BY_RANGE = Object.freeze({
     BUCKET_PRESETS.SIX_HOURS,
   ],
   [RANGE_PRESETS.LAST_7D]: [
+    BUCKET_PRESETS.ONE_HOUR,
     BUCKET_PRESETS.SIX_HOURS,
     BUCKET_PRESETS.TWENTY_FOUR_HOURS,
   ],
 });
 
-// A custom range gets the bucket sizes of the preset closest to its length, so the chart
-// stays between ~4 and ~100 points. Mirrored by the dashboard's custom-range controls.
+// A custom range gets the bucket sizes of the preset closest to its length. Up to a week
+// the default is hourly (at most ~170 points); past that the finest offered is 6h, so a
+// 31-day range stays at ~124 points. Mirrored by the dashboard's custom-range controls.
 const CUSTOM_BUCKETS_BY_MAX_SPAN_DAYS = Object.freeze([
   {
     maxSpanDays: 2,
@@ -51,10 +53,17 @@ const CUSTOM_BUCKETS_BY_MAX_SPAN_DAYS = Object.freeze([
     ],
   },
   {
-    maxSpanDays: 14,
+    maxSpanDays: 7,
+    buckets: [
+      BUCKET_PRESETS.ONE_HOUR,
+      BUCKET_PRESETS.SIX_HOURS,
+      BUCKET_PRESETS.TWENTY_FOUR_HOURS,
+    ],
+  },
+  {
+    maxSpanDays: Infinity,
     buckets: [BUCKET_PRESETS.SIX_HOURS, BUCKET_PRESETS.TWENTY_FOUR_HOURS],
   },
-  { maxSpanDays: Infinity, buckets: [BUCKET_PRESETS.TWENTY_FOUR_HOURS] },
 ]);
 
 // Longest custom range accepted. Bounds the aggregation (every report in the window is

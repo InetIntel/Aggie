@@ -132,10 +132,22 @@ test('custom range: buckets follow the span', () => {
     () => resolveAnalyticsTimeWindow({ ...base, from: '2026-09-19T00:00:00.000Z', bucket: '30m' }),
     /Unsupported analytics bucket preset/
   );
-  // Omitting the bucket picks a valid one.
+  // Omitting the bucket picks 1h up to a week, 6h past it.
+  assert.equal(
+    resolveAnalyticsTimeWindow({ ...base, from: '2026-09-22T00:00:00.000Z' }).bucketPreset,
+    '1h'
+  );
+  assert.equal(
+    resolveAnalyticsTimeWindow({ ...base, from: '2026-09-21T00:00:00.000Z' }).bucketPreset,
+    '6h'
+  );
   assert.equal(
     resolveAnalyticsTimeWindow({ ...base, from: '2026-09-01T00:00:00.000Z' }).bucketPreset,
-    '24h'
+    '6h'
+  );
+  assert.throws(
+    () => resolveAnalyticsTimeWindow({ ...base, from: '2026-09-21T00:00:00.000Z', bucket: '1h' }),
+    /Unsupported analytics bucket preset/
   );
 });
 
@@ -186,7 +198,7 @@ test('presets still reject a bucket they do not offer', () => {
     () => resolveAnalyticsTimeWindow({ range: 'last7d', bucket: '30m', now: NOW }),
     /Unsupported analytics bucket preset/
   );
-  assert.equal(resolveAnalyticsTimeWindow({ range: 'last7d', now: NOW }).bucketPreset, '6h');
+  assert.equal(resolveAnalyticsTimeWindow({ range: 'last7d', now: NOW }).bucketPreset, '1h');
   assert.throws(
     () => resolveAnalyticsTimeWindow({ range: 'last24h', bucket: '30m', now: NOW }),
     /Unsupported analytics bucket preset/

@@ -96,8 +96,14 @@ export function getCustomRangeBounds(
 export function getCustomRangeBuckets(from: string, to: string): AnalyticsBucketPreset[] {
   const spanDays = (new Date(to).getTime() - new Date(from).getTime()) / 86400000;
   if (spanDays <= 2) return ["30m", "1h", "6h"];
-  if (spanDays <= 14) return ["6h", "24h"];
-  return ["24h"];
+  if (spanDays <= 7) return ["1h", "6h", "24h"];
+  return ["6h", "24h"];
+}
+
+// Hourly whenever the range offers it (up to a week), otherwise the finest bucket offered.
+// Mirrors the default in resolveAnalyticsTimeWindow.
+export function getDefaultBucket(options: AnalyticsBucketPreset[]): AnalyticsBucketPreset {
+  return options.includes("1h") ? "1h" : options[0];
 }
 
 export function getActivityLocationSummary(activity: NotableActivity) {

@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { useHref } from "react-router-dom";
-import type {
-  AnalyticsBucketPreset,
-  AnalyticsOverview,
-} from "../../../api/analytics/types";
+import type { AnalyticsOverview } from "../../../api/analytics/types";
 import { useDashboardFormatters } from "../dashboardHelpers";
 
 const fallbackTimeSeries = [
@@ -114,6 +111,9 @@ function ChartToggle<T extends string>({
 const legendItemClass =
   "flex items-center gap-2 rounded-full border px-2.5 py-1";
 
+// Beyond this many buckets the chart draws the line alone, plus the hovered point.
+const MAX_RESTING_DOTS = 60;
+
 const chartFrame = {
   left: 30,
   top: 8,
@@ -125,17 +125,9 @@ const chartTooltipFontSize = 14;
 
 interface IProps {
   overview?: AnalyticsOverview;
-  bucket: AnalyticsBucketPreset;
-  bucketOptions: AnalyticsBucketPreset[];
-  onBucketChange: (bucket: AnalyticsBucketPreset) => void;
 }
 
-const AlertsTrendChart = ({
-  overview,
-  bucket,
-  bucketOptions,
-  onBucketChange,
-}: IProps) => {
+const AlertsTrendChart = ({ overview }: IProps) => {
   const { formatActivityWindow, formatXAxisLabel } = useDashboardFormatters();
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
@@ -239,13 +231,6 @@ const AlertsTrendChart = ({
             onChange={setViewMode}
           />
           <ChartToggle
-            label='Interval'
-            hint='How much time each point on the chart covers'
-            options={bucketOptions.map((option) => ({ key: option, label: option }))}
-            value={bucket}
-            onChange={onBucketChange}
-          />
-          <ChartToggle
             label='OONI'
             hint={
               viewMode === "bySource"
@@ -322,7 +307,8 @@ const AlertsTrendChart = ({
                 key={line.key}
                 fill='none'
                 stroke={line.color}
-                strokeWidth='2.5'
+                strokeWidth='1.5'
+                strokeLinejoin='round'
                 points={line.coords.map(({ x, y }) => `${x},${y}`).join(" ")}
               />
             ))}
@@ -336,26 +322,28 @@ const AlertsTrendChart = ({
                 strokeDasharray='3 3'
               />
             )}
+            {/* Past MAX_RESTING_DOTS points the dots run together, so only the active
+                bucket keeps one. */}
             {seriesCoords.map((line) =>
-              line.coords.map(({ x, y }, index) => (
-                <circle
-                  key={`${line.key}-${timeSeries[index].bucketStart || index}`}
-                  cx={x}
-                  cy={y}
-                  r={activePointIndex === index ? 6 : 4}
-                  fill={line.color}
-                  stroke={activePointIndex === index ? "#FFFFFF" : "none"}
-                  strokeWidth={activePointIndex === index ? 2 : 0}
-                />
-              ))
+              line.coords.map(({ x, y }, index) =>
+                activePointIndex === index || timeSeries.length <= MAX_RESTING_DOTS ? (
+                  <circle
+                    key={`${line.key}-${timeSeries[index].bucketStart || index}`}
+                    cx={x}
+                    cy={y}
+                    r={activePointIndex === index ? 4 : 2.5}
+                    fill={line.color}
+                    stroke={activePointIndex === index ? "#FFFFFF" : "none"}
+                    strokeWidth={activePointIndex === index ? 1.5 : 0}
+                  />
+                ) : null
+              )
             )}
-            {/* One hit band per bucket, so every line in that bucket is reachable. */}
+            {/* One hit band per bucket, so every line in that bucket is reachable. Bands
+                are exactly one bucket wide so they never overlap at hourly density. */}
             {timeSeries.map((item, index) => {
               const x = getChartX(index, timeSeries.length);
-              const bandWidth = Math.max(
-                16,
-                chartFrame.width / Math.max(timeSeries.length - 1, 1)
-              );
+              const bandWidth = chartFrame.width / Math.max(timeSeries.length - 1, 1);
               return (
                 <rect
                   key={`hit-${item.bucketStart || index}`}
@@ -484,10 +472,6 @@ const AlertsTrendChart = ({
                 <span>{overview ? line.label : " "}</span>
               </div>
             ))}
-        {/* <div className='inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 dark:border-gray-600 dark:text-gray-200'>
-          <span>{bucketLabels[bucket]}</span>
-          <FontAwesomeIcon icon={faArrowTrendUp} className='text-slate-500' />
-        </div> */}
       </div>
     </div>
   );

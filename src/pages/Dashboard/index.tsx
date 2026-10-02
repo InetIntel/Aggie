@@ -40,6 +40,7 @@ import {
   getAnalyticsTimeZone,
   getCustomRangeBounds,
   getCustomRangeBuckets,
+  getDefaultBucket,
   toPickerDay,
   useDashboardFormatters,
 } from "./dashboardHelpers";
@@ -57,7 +58,7 @@ const presetBuckets: Record<
 > = {
   today: ["30m", "1h", "6h"],
   last24h: ["1h", "6h"],
-  last7d: ["6h", "24h"],
+  last7d: ["1h", "6h", "24h"],
 };
 
 // A custom range starts out as the last seven days, including today.
@@ -88,7 +89,6 @@ const Dashboard = () => {
   const [customFromDay, setCustomFromDay] = useState(() =>
     addPickerDays(toPickerDay(new Date()), -(DEFAULT_CUSTOM_RANGE_DAYS - 1))
   );
-  const [bucket, setBucket] = useState<AnalyticsBucketPreset>("1h");
   const [tolerance, setTolerance] = useState<number>(
     DEFAULT_START_TIME_TOLERANCE_MINUTES
   );
@@ -128,14 +128,8 @@ const Dashboard = () => {
         : presetBuckets[range],
     [range, customBounds]
   );
-  // Until the effect below reconciles it, never send a bucket the range does not offer.
-  const activeBucket = bucketOptions.includes(bucket) ? bucket : bucketOptions[0];
-
-  useEffect(() => {
-    if (!bucketOptions.includes(bucket)) {
-      setBucket(bucketOptions[0]);
-    }
-  }, [bucket, bucketOptions]);
+  // The chart has no interval toggle; each range uses its default bucket.
+  const activeBucket = getDefaultBucket(bucketOptions);
 
   useEffect(() => {
     setNotablePage(0);
@@ -150,11 +144,10 @@ const Dashboard = () => {
     aggregation: "bucket",
   };
   // Start-time grouping ignores the grid, but the backend still validates a bucket and
-  // keys its cache on it. A fixed one per range keeps the chart's bucket toggle from
-  // refetching (and re-caching) identical cards.
+  // keys its cache on it.
   const notableParams: AnalyticsQueryState = {
     ...windowParams,
-    bucket: bucketOptions[0],
+    bucket: activeBucket,
     aggregation: "startTime",
     tolerance,
   };
@@ -337,9 +330,6 @@ const Dashboard = () => {
 
           <AlertsTrendChart
             overview={overviewQuery.data}
-            bucket={activeBucket}
-            bucketOptions={bucketOptions}
-            onBucketChange={setBucket}
           />
         </section>
       </div>
