@@ -11,7 +11,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import type { NotableActivity } from "../../../api/analytics/types";
 import { ALERT_MEDIA_OPTIONS, DATA_SOURCE_OPTIONS } from "../../../api/common";
-import { formatActivityWindow } from "../dashboardHelpers";
+import { useDashboardFormatters } from "../dashboardHelpers";
 import NotableActivityTitle from "./NotableActivityTitle";
 
 const sourceLabels: Record<string, string> = {
@@ -41,18 +41,14 @@ function NotableActivityCard({
   onAddToIncident: () => void;
   isCreatingIncident: boolean;
 }) {
-  // One "asn / geoScope" title per impacted ASN. Today the backend returns a
-  // single `asn`, so this is a one-element list; when `asn` becomes an array
-  // (many impacted ASNs) this yields one title per ASN and NotableActivityTitle
-  // concatenates them into the reserved two lines with a "+N more" popover.
-  const asns = Array.isArray(activity.asn)
-    ? activity.asn
-    : activity.asn
-    ? [activity.asn]
-    : [];
-  const titles = (asns.length > 0 ? asns : [undefined]).map((asn) =>
-    [asn, activity.geoScope].filter(Boolean).join(" / ")
-  );
+  const { formatActivityWindow } = useDashboardFormatters();
+  const isStartTimeGrouped = activity.aggregationMethod === "startTime";
+
+  // `locations` is absent on snapshots cached before it existed, hence the fallback.
+  const titles =
+    activity.locations && activity.locations.length > 0
+      ? activity.locations
+      : [[activity.asn, activity.geoScope].filter(Boolean).join(" / ")];
 
   return (
     <article className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800'>
@@ -82,9 +78,20 @@ function NotableActivityCard({
         </button>
       </div>
 
-      <p className='mt-6 text-sm font-semibold leading-tight text-slate-950 dark:text-white'>
-        {formatActivityWindow(activity.bucketStart, activity.bucketEnd)}
-      </p>
+      <div className='mt-6'>
+        {/* Under start-time grouping the window is the first and last outage start in the
+            cluster, not a grid cell — say so, or the timestamp reads like a bucket. */}
+        {isStartTimeGrouped && (
+          <p className='text-[0.625rem] font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-gray-500'>
+            {activity.bucketStart === activity.bucketEnd
+              ? "Outage start"
+              : "Outage starts"}
+          </p>
+        )}
+        <p className='text-sm font-semibold leading-tight text-slate-950 dark:text-white'>
+          {formatActivityWindow(activity.bucketStart, activity.bucketEnd)}
+        </p>
+      </div>
       <NotableActivityTitle
         className='mt-3'
         titles={titles}

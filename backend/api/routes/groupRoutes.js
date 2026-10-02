@@ -44,6 +44,9 @@ router.patch('/_title', allowGlobalOrScoped('edit data'), loadIncidentAccessCont
 // User.can('edit data')
 router.patch('/_tag', allowGlobalOrScoped('edit data'), loadIncidentAccessContext, requireIncidentBodyAccess, groupController.group_tags_add);
 
+// Update incident tags
+router.patch('/_tags', allowGlobalOrScoped('edit data'), loadIncidentAccessContext, requireIncidentBodyAccess, groupController.group_tags_update);
+
 // Route to escalate group
 router.patch('/_escalated', allowGlobalOrScoped('edit data'), loadIncidentAccessContext, requireIncidentBodyAccess, groupController.group_escalated_update);
 

@@ -6,6 +6,7 @@ import { updateUserPreferences } from "../../../../api/users";
 import type { User } from "../../../../api/users/types";
 import type { UserPreferences } from "../../../../api/session/types";
 import { DEFAULT_PREFS, formatDateTime } from "../../../../utils/dateFormat";
+import { useTheme } from "../../../../hooks/ThemeProvider";
 
 interface IProps {
   user: User | undefined;
@@ -63,6 +64,7 @@ function Segmented<T extends string>({
 
 const DisplayPreferencesSection = ({ user }: IProps) => {
   const queryClient = useQueryClient();
+  const { isDark, setIsDark } = useTheme();
   const saved: UserPreferences = user?.preferences ?? DEFAULT_PREFS;
 
   const [prefs, setPrefs] = useState<UserPreferences>(saved);
@@ -147,6 +149,23 @@ const DisplayPreferencesSection = ({ user }: IProps) => {
         >
           Save Preferences
         </AggieButton>
+      </div>
+
+      <div className="border-t border-slate-200 dark:border-gray-700 mt-3 pt-3">
+        <Segmented
+          legend="Theme"
+          value={isDark ? "dark" : "light"}
+          onChange={(theme) => setIsDark(theme === "dark")}
+          options={[
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ]}
+        />
+        <div className="grid grid-cols-4">
+          <p className="col-span-3 col-start-2 text-xs text-slate-500 dark:text-gray-400 -mt-1">
+            Applies instantly, and is remembered on this device.
+          </p>
+        </div>
       </div>
     </div>
   );

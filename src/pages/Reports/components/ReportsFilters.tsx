@@ -39,6 +39,7 @@ interface IReportFilters {
   showDedupToggle?: boolean;
   autoEnableDedup?: boolean;
   defaultEntityLevelSelection?: string[];
+  showPagination?: boolean;
 }
 
 const ReportFilters = ({
@@ -56,6 +57,7 @@ const ReportFilters = ({
   showDedupToggle = true,
   autoEnableDedup = true,
   defaultEntityLevelSelection,
+  showPagination = true,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -247,14 +249,16 @@ const ReportFilters = ({
             )}
           </Formik>
         </div>
-        <div className='text-xs shrink-0'>
-          <Pagination
-            currentPage={Number(getParam("page")) || 0}
-            totalCount={reportCount || 0}
-            onPageChange={(num) => setParams({ page: num })}
-            size={0}
-          />
-        </div>
+        {showPagination && (
+          <div className='text-xs shrink-0'>
+            <Pagination
+              currentPage={Number(getParam("page")) || 0}
+              totalCount={reportCount || 0}
+              onPageChange={(num) => setParams({ page: num })}
+              size={0}
+            />
+          </div>
+        )}
       </div>
       <div className='flex flex-wrap justify-between gap-y-2 text-sm'>
         <div className='flex gap-3 items-center'>

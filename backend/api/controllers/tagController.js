@@ -1,5 +1,6 @@
 // Handles CRUD requests for SMTC-created tags.
 var SMTCTag = require('../../models/tag');
+var Group = require('../../models/group');
 var _ = require('lodash');
 const validator = require('validator');
 const eventRouter = require('../sockets/event-router');
@@ -56,18 +57,21 @@ exports.tag_update = (req, res) => {
 };
 
 // Delete a Tag
-exports.tag_delete = (req, res) => {
-  SMTCTag.findById(req.params._id, function (err, tag) {
-    if (err) return res.status(err.status).send(err.message);
+exports.tag_delete = async (req, res) => {
+  try {
+    const tag = await SMTCTag.findById(req.params._id);
     if (!tag) return res.sendStatus(404);
-    tag.remove((err) => {
-      err = Error.decode(err);
-      if (err) res.status(err.status).send(err.message);
-      else {
-        eventRouter.publish('tags:delete', tag).then(() => {
-          res.sendStatus(200);
-        });
-      }
-    });
-  });
+
+    await Group.updateMany(
+      { smtcTags: tag._id },
+      { $pull: { smtcTags: tag._id } }
+    );
+    await tag.remove();
+    await eventRouter.publish('tags:delete', tag);
+
+    return res.sendStatus(200);
+  } catch (err) {
+    err = Error.decode(err);
+    return res.status(err.status || 500).send(err.message);
+  }
 };

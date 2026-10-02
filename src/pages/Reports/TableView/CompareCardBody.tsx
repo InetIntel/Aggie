@@ -13,6 +13,7 @@ import {
   signalToNameColor,
   resolveMediaUrl,
   isInlineSvg,
+  reportLink,
 } from "../../../components/SocialMediaPost/reportParser";
 import { useReportChartImage } from "../../../components/SocialMediaPost/useReportChartImage";
 import { useReportChartSeries } from "../../../components/SocialMediaPost/useReportChartSeries";
@@ -166,11 +167,11 @@ const CompareCardBody = ({ report, fillWidth }: IProps) => {
             {platformLabel}
           </span>
         </span>
-        {!!report.url && (
+        {!!reportLink(report) && (
           <a
             target='_blank'
             rel='noreferrer'
-            href={report.url}
+            href={reportLink(report)}
             onClick={(e) => e.stopPropagation()}
             className='shrink-0 px-2 py-1 rounded-full border border-slate-200 font-medium inline-flex gap-1 items-center bg-slate-100 dark:bg-gray-700 hover:bg-white dark:hover:bg-gray-800 whitespace-nowrap'
           >
