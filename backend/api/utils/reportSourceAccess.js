@@ -7,37 +7,17 @@
 // caller's teams are not permitted to see.
 
 const Source = require('../../models/source');
-const User = require('../../models/user');
 const { buildReportSourceAccessFilter } = require('../../access/sourceAccess');
-
-const getReportAccessUser = async (req) => {
-  if (req.accessUser) {
-    return req.accessUser;
-  }
-
-  if (!req.user) {
-    return null;
-  }
-
-  if (req.user.role === 'admin') {
-    return req.user;
-  }
-
-  const userId = req.user._id || req.user.id;
-
-  return User.findById(userId)
-    .select('_id role teams teamMemberships')
-    .lean();
-};
+const { getSourceAccessUser } = require('./sourceAccessUser');
 
 const getReportSourceAccessFilter = async (req) => {
-  const accessUser = await getReportAccessUser(req);
+  const accessUser = await getSourceAccessUser(req);
 
   if (accessUser && accessUser.role === 'admin') {
     return {};
   }
 
-  const sources = await Source.find({}, '_id accessPolicy')
+  const sources = await Source.find({}, '_id accessPolicy countryCodes')
     .lean()
     .exec();
 
@@ -69,7 +49,7 @@ const loadReportSourceAccessFilter = async (req, res, next) => {
 
 module.exports = {
   combineReportFilters,
-  getReportAccessUser,
+  getReportAccessUser: getSourceAccessUser,
   getReportSourceAccessFilter,
   loadReportSourceAccessFilter,
 };

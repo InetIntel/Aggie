@@ -42,11 +42,21 @@ var sourceSchema = new mongoose.Schema({
   lastReportDateSavedSearch: { type: Date, index: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   tags: { type: [String], default: [] },
+  countryCodes: {
+    type: [{
+      type: String,
+      uppercase: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 2,
+    }],
+    default: [],
+  },
   credentials: { type: mongoose.Schema.Types.ObjectId, ref: 'Credentials', required: true },
   accessPolicy: {
     mode: {
       type: String,
-      enum: ['public', 'restricted', 'public_until'],
+      enum: ['public', 'restricted', 'public_until', 'country_restricted'],
       default: 'public',
       index: true,
     },

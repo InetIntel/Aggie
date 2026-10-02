@@ -14,6 +14,15 @@ const normalizeIds = (values) => {
     });
 };
 
+const normalizeCountryValues = (values) => {
+  if (!Array.isArray(values)) return [];
+  return [...new Set(
+    values
+      .filter(Boolean)
+      .map((value) => String(value).trim().toUpperCase())
+  )];
+};
+
 const getUserTeamIds = (user) => {
   return getMembershipTeamIds(user);
 };
@@ -48,6 +57,16 @@ const canAccessRestrictedPolicy = (user, policy) => {
   return hasTeamOverlap(userTeamIds, allowedTeamIds);
 };
 
+const canAccessCountryRestrictedSource = (user, source) => {
+  if (isAdmin(user)) return true;
+
+  const userCountries = new Set(normalizeCountryValues(user && user.teamCountryCodes));
+  const sourceCountries = normalizeCountryValues(source && source.countryCodes);
+
+  if (sourceCountries.length === 0) return false;
+  return sourceCountries.some((countryCode) => userCountries.has(countryCode));
+};
+
 const canViewSource = (user, source) => {
   if (isAdmin(user)) return true;
 
@@ -63,6 +82,10 @@ const canViewSource = (user, source) => {
 
   if (policy.mode === 'public_until') {
     return canAccessRestrictedPolicy(user, policy);
+  }
+
+  if (policy.mode === 'country_restricted') {
+    return canAccessCountryRestrictedSource(user, source);
   }
 
   return false;
@@ -98,6 +121,10 @@ const canViewSourceDataForDate = (user, source, recordDate) => {
     }
 
     return canAccessRestrictedPolicy(user, policy);
+  }
+
+  if (policy.mode === 'country_restricted') {
+    return canAccessCountryRestrictedSource(user, source);
   }
 
   return false;
@@ -194,6 +221,7 @@ const buildReportSourceAccessFilter = (user, sources) => {
 
 module.exports = {
   buildReportSourceAccessFilter,
+  canAccessCountryRestrictedSource,
   canManageSource,
   canViewSource,
   canViewSourceDataForDate,

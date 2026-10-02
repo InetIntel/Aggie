@@ -20,6 +20,7 @@ const {
 const { resolveUseDedup } = require('../utils/reportCounts');
 
 const Source = require('../../models/source');
+const Team = require('../../models/team');
 const {
   combineReportFilters,
   getReportSourceAccessFilter,
@@ -71,19 +72,37 @@ const canModifyReportsWithinScope = async (
   const groupIds = [...new Set(
     reports.map((report) => report._group).filter(Boolean).map(String)
   )];
-  const [sources, groups] = await Promise.all([
+  const allowedTeams = new Set(normalizeIds(scopedTeamIds));
+  const [sources, groups, scopedTeams] = await Promise.all([
     Source.find({ _id: { $in: sourceIds } })
-      .select('_id accessPolicy')
+      .select('_id accessPolicy countryCodes')
       .lean(),
     Group.find({ _id: { $in: groupIds } })
       .select('_id accessPolicy')
       .lean(),
+    Team.find({
+      _id: { $in: [...allowedTeams] },
+      active: { $ne: false },
+    })
+      .select('_id countryCodes')
+      .lean(),
   ]);
+  const scopedTeamCountries = new Map(scopedTeams.map((team) => [
+    String(team._id),
+    new Set((team.countryCodes || []).map((code) => String(code).toUpperCase())),
+  ]));
   const sourceTeams = new Map(sources.map((source) => [
     String(source._id),
-    source.accessPolicy && source.accessPolicy.mode !== 'public'
-      ? normalizeIds(source.accessPolicy.teams)
-      : [],
+    source.accessPolicy && source.accessPolicy.mode === 'country_restricted'
+      ? [...allowedTeams].filter((teamId) => {
+          const teamCountries = scopedTeamCountries.get(teamId) || new Set();
+          return (source.countryCodes || []).some(
+            (code) => teamCountries.has(String(code).toUpperCase())
+          );
+        })
+      : source.accessPolicy && source.accessPolicy.mode !== 'public'
+        ? normalizeIds(source.accessPolicy.teams)
+        : [],
   ]));
   const groupTeams = new Map(groups.map((group) => [
     String(group._id),
@@ -91,8 +110,6 @@ const canModifyReportsWithinScope = async (
       ? normalizeIds(group.accessPolicy.teams)
       : [],
   ]));
-  const allowedTeams = new Set(normalizeIds(scopedTeamIds));
-
   return reports.length === reportIds.length && reports.every((report) => {
     const reportTeamIds = [
       ...(report._sources || []).flatMap(

@@ -4,6 +4,7 @@
 const Report = require("../../models/report");
 const Source = require("../../models/source");
 const { buildReportSourceAccessFilter } = require("../../access/sourceAccess");
+const { getSourceAccessUser } = require("../utils/sourceAccessUser");
 const {
   hideRestrictedIncidentReferences,
 } = require("../../access/reportIncidentReferences");
@@ -21,8 +22,8 @@ exports.csv_csv = async (req, res) => {
       }
     }
 
-    const accessUser = req.accessUser || req.user || null;
-    const sources = await Source.find({}, "_id accessPolicy").lean();
+    const accessUser = await getSourceAccessUser(req);
+    const sources = await Source.find({}, "_id accessPolicy countryCodes").lean();
     const sourceAccessFilter = buildReportSourceAccessFilter(accessUser, sources);
     const dateFilter = { storedAt: { $lte: endDate, $gte: startDate } };
     const filter = Object.keys(sourceAccessFilter).length > 0

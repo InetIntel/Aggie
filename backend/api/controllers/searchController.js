@@ -11,15 +11,16 @@ const eventRouter = require("../sockets/event-router");
 const axios = require("axios");
 const Source = require('../../models/source');
 const { buildReportSourceAccessFilter } = require('../../access/sourceAccess');
+const { getSourceAccessUser } = require('../utils/sourceAccessUser');
 const {
   hideRestrictedIncidentReferences,
 } = require('../../access/reportIncidentReferences');
 
 const getSearchSourceAccessFilter = async (req) => {
-  const accessUser = req.accessUser || req.user || null;
+  const accessUser = await getSourceAccessUser(req);
   if (accessUser && accessUser.role === 'admin') return {};
 
-  const sources = await Source.find({}, '_id accessPolicy')
+  const sources = await Source.find({}, '_id accessPolicy countryCodes')
     .lean()
     .exec();
 
