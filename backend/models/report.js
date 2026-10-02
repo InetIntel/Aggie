@@ -292,7 +292,10 @@ Report.queryReports = function (query, page, callback, extraFilter) {
     return Report.findPage(
       filter,
       page,
-      { sort: { addedToGroupAt: -1, authoredAt: -1 } },
+      {
+        sort: { addedToGroupAt: -1, authoredAt: -1 },
+        populate: { path: "addedToGroupBy", select: "username" },
+      },
       callback,
     );
   }

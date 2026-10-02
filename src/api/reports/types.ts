@@ -17,7 +17,7 @@ export interface Report extends hasId {
   escalated: boolean;
   _group?: string;
   addedToGroupAt?: string; // absent on reports linked before tracking existed
-  addedToGroupBy?: string;
+  addedToGroupBy?: (hasId & { username: string }) | null; // populated on incident report lists
   authoredAt: string;
   fetchedAt: string;
   content: string;
