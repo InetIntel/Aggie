@@ -33,8 +33,7 @@ Before working on a subsystem, examine the relevant markdown files in `docs/clau
 - `data-model-and-ui-terminology.md`: data model and the reports/incidents/groups UI vocabulary
 - `alerts-incidents-tables.md`: alerts and incidents table structure
 - `api-configuration.md`: API configuration
-- `connections-page.md`: the Connections page (grouped sources + credentials, connection pill palette, Provider→Source terminology)
-- `cloudflare-ioda-source-config.md`: IODA / Cloudflare / OONI source configuration
+- `sources-and-feeds.md`: the Sources and Feeds settings page (connections + feeds per provider, connection pill palette, Provider→Source terminology) and IODA / Cloudflare / OONI feed configuration
 - `dashboard-triage-metrics.md`: dashboard triage-metrics card (Alerts & Social Media)
 - `navbar.md`: top navigation bar responsive behavior
 - `media-image-storage.md`: media/image storage

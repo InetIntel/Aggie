@@ -1,7 +1,7 @@
 # Make ASN storage consistent: migrate OONI onto the typed `asns` array
 
 > Follow-up within the (now shipped) "make sources configurable" feature.
-> As-built docs: [../architecture/cloudflare-ioda-source-config.md](../architecture/cloudflare-ioda-source-config.md)
+> As-built docs: [../architecture/sources-and-feeds.md](../architecture/sources-and-feeds.md) ("Outage feeds" section)
 > (see the "ASN storage is still split" caveat — OONI still stores ASNs in the legacy
 > `lists` string, which this plan unifies).
 
