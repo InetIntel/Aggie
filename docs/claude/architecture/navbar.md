@@ -6,21 +6,74 @@ button, and the hamburger.
 
 ## Responsive behavior
 
-The nav is **mobile-first with stepped Tailwind breakpoints** (`sm:` / `md:`): the base
-classes are the scaled-down small-screen sizes, and `md:` restores the full desktop
-sizing. Scaling is applied to the container padding, the logo, the link text, and the
-user button (e.g. logo `w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10`, links
-`text-sm md:text-base`).
+The bar is **fit-driven, not breakpoint-driven**: it measures itself and gives up space
+only once it has actually run out of room. Narrowing the window, it gives up three things
+in order, tracked as `fit.squeeze` in [src/Navbar.tsx](../../../src/Navbar.tsx):
 
-Below `lg` (1024px) the inline link row is hidden (`hidden lg:flex`) and the same links are
-rendered as a `lg:hidden` section at the top of the hamburger panel, above a `border-b`
-divider that separates them from the settings links.
+| `squeeze` | What changes |
+| --- | --- |
+| 0 | Everything shows: logo, links at `text-base`, username pill, hamburger. |
+| 1 | The username pill is hidden. |
+| 2 | The links drop to `text-sm`. |
+| 3 | The links move into the hamburger panel (a section at the top, above a `border-b` divider that separates them from the settings links). |
 
-`lg` is deliberately conservative rather than the tightest breakpoint that technically
-fits. Measuring this header off-app repeatedly under-estimated its real width, and the
-cost of guessing low is a visibly broken bar; the cost of guessing high is using the
-hamburger on a tablet. If you want the links back at a narrower width, lower this one
-breakpoint and check it in the running app, not in a static reproduction.
+The steps are cumulative: once the username is hidden it stays hidden at narrower widths,
+including after the links have moved into the menu ("My Profile" in the panel covers it).
+
+### How the fit is measured
+
+- **Reset, then step up.** A layout effect resets `squeeze` to 0 on mount, on window
+  `resize`, when web fonts finish loading (`document.fonts.ready`), and when the username
+  changes. A second layout effect then checks `navFits(nav)` and bumps `squeeze` by one
+  per render until the bar fits or reaches 3. Layout effects run before paint, so the
+  intermediate steps are never visible.
+- **`navFits`** compares the natural widths of the two groups (left: logo + links;
+  right: username + hamburger) against the nav's inner width minus its padding and
+  `gap`. That only works because **both groups are `shrink-0`**: their widths are what
+  they need, not what flexbox squeezed them to.
+- **Why not breakpoints.** The bar's width depends on the username length and on the
+  browser's font-size setting, since everything in it is rem-sized. Fixed breakpoints
+  either shrink things when there is plenty of room, or, with a larger browser font,
+  keep the links inline after they no longer fit, pushing the hamburger against the
+  window edge. Both happened before this design. Em-based breakpoints (which do scale
+  with the browser font) were tried too, but they still shrink things at fixed widths.
+  If you reach for them anyway: `min-[40em]:` silently compiles to nothing, because
+  Tailwind 3 drops `min-*`/`max-*` variants whose units differ from the px `screens`
+  config. Switching `screens` to em app-wide would break the existing `min-[1080px]:`
+  and `min-[1456px]:` classes on other pages. A custom variant via `addVariant` works.
+
+### Widths must depend on `squeeze`, not the viewport
+
+While the links are inline (`squeeze` 0-2), nothing that affects the bar's width may use
+a viewport breakpoint (`sm:`/`md:`). If the logo shrank at 640px, for example, it would
+free room and the username would reappear partway through narrowing the window, then
+disappear again. That is why the nav padding, the gaps, the logo and the hamburger use
+their full desktop sizes at `squeeze` 0-2 and only take the smaller phone sizing
+(`sm:`/`md:`) once `linksInMenu` is true. Vertical-only classes (`py-1.5 md:py-2`) are
+fine either way.
+
+### Where the steps land
+
+These are measured, not configured. With "ronniegross" as the username they are about
+680 / 560 / 520px at the browser's default font size and 1000 / 820 / 765px at Chrome's
+"Very large" (24px). A long username moves the first step out (835px at the default
+size, with the name capped at `max-w-[14rem]` and truncated beyond that).
+
+To check a change, sweep the window width down and back up at the default font size and
+at a larger one (Chrome: Settings > Appearance > Font size). Each step should land only
+when the gap between the two groups is nearly gone, and the username should never
+reappear while narrowing.
+
+The nav only renders when logged in, so to test it without a session, render the real
+`AggieNavbar` on its own: a small entry file that mounts it inside `QueryClientProvider`
+and `MemoryRouter` with `isAuthenticated` and a stub `session`, bundled with the webpack
+and `babel-preset-react-app` already in `node_modules`, and styled with the app's CSS
+from `npx tailwindcss -i src/index.css`. Drive that page with Playwright (also in
+`node_modules`), and set the browser font size with the CDP call
+`Page.setFontSizes({ fontSizes: { standard: 24 } })`. Run webpack through its Node API:
+`webpack/bin/webpack.js` stalls on an interactive prompt to install `webpack-cli`.
+Injecting static nav markup into a page is not a substitute, since it skips the
+measuring code entirely.
 
 The settings half of the panel comes from `menuLinks(role, isTeamLead, userId)` in
 [src/pages/Settings/index.tsx](../../../src/pages/Settings/index.tsx), shared with the
@@ -34,30 +87,18 @@ bottom on a short screen.
 
 ### The no-overflow contract
 
-The nav is `flex justify-between` on a `w-full` element, which overflows the viewport if
-nothing in it is allowed to shrink. Four classes keep that from happening, and they should
-be preserved when adding anything to the bar:
-
-- `shrink-0` on the left group (logo + links). It must **not** be `min-w-0`: the links are
-  `whitespace-nowrap`, so a left group that is allowed to shrink keeps full-width content
-  inside a narrower box, and the links overflow it and paint on top of the user button.
-  That produces an overlap with no page scrollbar, so a check that only watches
-  `documentElement.scrollWidth` will not catch it. Assert instead that the links row's
-  right edge stays left of the right group's left edge.
-- `min-w-0` on the right group and the username `Link`, so the right side is what yields.
-  Without it a flex item's `min-width: auto` pins it to its intrinsic content width.
-- `truncate` plus a `max-w` cap on the username text, **and `min-w-0` on every box between
-  it and the right group**. `truncate` is inert on a flex item whose `min-width` is `auto`:
-  the name then refuses to shrink past its `max-w` cap, the `<a>` around it shrinks anyway,
-  and the pill spills out over the hamburger. The username is deliberately the one element
-  that absorbs the squeeze, and without `truncate` a long one wraps to two lines and makes
-  the whole bar taller.
-- `shrink-0` on the hamburger `Menu` wrapper, so the button is never pushed off-screen.
-- `gap-2` on the `<nav>` itself, so the two groups cannot collide.
-
-In short: the left group is rigid, the username is elastic. Anything added to the bar
-belongs on the right and needs either `shrink-0` (if it must stay whole) or a truncation
-rule (if it can give).
+- **Both groups are `shrink-0`.** Nothing in the bar is elastic; the squeeze steps make it
+  fit instead. Making a group `min-w-0` again would break `navFits` (it would read the
+  squeezed width and think everything fits). The links are `whitespace-nowrap`, and a
+  squeezed left group lets them paint over the right group with no page scrollbar, so a
+  check that only watches `documentElement.scrollWidth` will not catch that. Assert
+  instead that the links row's right edge stays left of the right group's left edge.
+- **The username's `max-w-[14rem]` and `truncate`** only cap a very long name so it
+  can't crowd out the links. The name is never squeezed below that; it is hidden whole.
+- **`gap-2` on the `<nav>`** keeps the two groups apart, and `navFits` counts it.
+- **Anything new in the bar** goes in one of the two groups, stays `shrink-0`, and needs
+  a place in the squeeze order (or must be small enough to always fit next to the logo and
+  hamburger).
 
 Do **not** add `overflow-hidden` or `overflow-x-clip` to the `<nav>`: the `Menu.Items`
 dropdown is absolutely positioned and would be clipped.
