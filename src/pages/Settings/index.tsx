@@ -21,6 +21,7 @@ export function menuLinks(role: string | undefined, isTeamLead = false) {
         "Teams": { to: "teams", icon: faShieldHalved },
         "Tags": { to: "tags", icon: faTags },
         "Sources and Feeds": { to: "connections", icon: faCloudArrowDown },
+        "KPI tracking": { to: "kpis", icon: faCog },
       };
     case "team_lead":
       return {
