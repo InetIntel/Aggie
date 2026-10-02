@@ -16,6 +16,8 @@ export interface Report extends hasId {
   asn?: string; // outage alerts (ioda/cloudflare), e.g. "as15169"; absent for social/region-scoped
   escalated: boolean;
   _group?: string;
+  addedToGroupAt?: string; // absent on reports linked before tracking existed
+  addedToGroupBy?: string;
   authoredAt: string;
   fetchedAt: string;
   content: string;

@@ -10,6 +10,7 @@ async function attachReportsToGroup(reportIds, groupId, options = {}) {
   const ids = normalizeIds(reportIds);
   const targetGroupId = normalizeId(groupId, 'groupId');
   const markRead = options.markRead !== false;
+  const addedBy = options.addedBy || undefined;
 
   if (!ids.length) return null;
 
@@ -39,8 +40,16 @@ async function attachReportsToGroup(reportIds, groupId, options = {}) {
   normalizeGroupReportState(group);
 
   const reportIdSet = new Set(group._reports.map((id) => id.toString()));
+  const addedAt = new Date();
 
   for (const report of reports) {
+    // Re-attaching to the incident a report is already in keeps its original add time.
+    const alreadyInGroup =
+      report._group && report._group.toString() === targetGroupId;
+    if (!alreadyInGroup) {
+      report.addedToGroupAt = addedAt;
+      report.addedToGroupBy = addedBy;
+    }
     report._group = targetGroupId;
     if (markRead) report.read = true;
     await report.save();
@@ -83,7 +92,7 @@ async function removeReportsFromGroup(reportIds, groupId) {
   if (!reports.length) return null;
 
   for (const report of reports) {
-    report._group = undefined;
+    clearGroupLink(report);
     await report.save();
   }
 
@@ -120,7 +129,7 @@ async function clearGroupFromReports(reportIds) {
   if (!reports.length) return [];
 
   for (const report of reports) {
-    report._group = undefined;
+    clearGroupLink(report);
     await report.save();
   }
 
@@ -132,6 +141,12 @@ async function clearGroupFromReports(reportIds) {
   await syncNotableActivityIncidentContext(ids);
 
   return ids;
+}
+
+function clearGroupLink(report) {
+  report._group = undefined;
+  report.addedToGroupAt = undefined;
+  report.addedToGroupBy = undefined;
 }
 
 function addImpactedFromReportToGroup(group, report) {

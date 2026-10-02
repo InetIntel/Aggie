@@ -526,7 +526,10 @@ exports.reports_group_update = async (req, res) => {
     if (!groupPayload || !groupPayload._id) {
       return res.status(400).send('Target group is required');
     }
-    await attachReportsToGroup(ids, groupPayload._id, { markRead: true });
+    await attachReportsToGroup(ids, groupPayload._id, {
+      markRead: true,
+      addedBy: req.user && req.user._id,
+    });
     return res.sendStatus(200);
   } catch (err) {
     console.error('Error in reports_group_update', err);

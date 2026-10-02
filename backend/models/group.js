@@ -162,6 +162,8 @@ schema.post('remove', function () {
     }
     reports.forEach(function (report) {
       report._group = null;
+      report.addedToGroupAt = undefined;
+      report.addedToGroupBy = undefined;
       report.save();
     });
   });

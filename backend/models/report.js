@@ -44,6 +44,11 @@ let schema = new Schema({
   _media: { type: [String], index: true },
   _sourceNicknames: [String],
   _group: { type: SchemaTypes.ObjectId, ref: "Group", index: true },
+  // When/by whom the report was added to its current `_group`. Set by
+  // attachReportsToGroup, cleared whenever `_group` is cleared. Reports linked before
+  // these fields existed have neither and sort after tracked ones.
+  addedToGroupAt: { type: Date },
+  addedToGroupBy: { type: Schema.ObjectId, ref: "User" },
   checkedOutBy: { type: Schema.ObjectId, ref: "User", index: true },
   checkedOutAt: { type: Date, index: true },
   commentTo: { type: Schema.ObjectId, ref: "Report", index: true },
@@ -280,6 +285,17 @@ Report.queryReports = function (query, page, callback, extraFilter) {
   //   filter.$or = [...prevOr, ...orArray]
   // }
   // delete query.keywords
+
+  // A single incident's reports list newest-added first. Untracked (legacy) reports
+  // have no addedToGroupAt, which sorts as null (last) and falls back to authoredAt.
+  if (typeof query.groupId === "string") {
+    return Report.findPage(
+      filter,
+      page,
+      { sort: { addedToGroupAt: -1, authoredAt: -1 } },
+      callback,
+    );
+  }
 
   Report.findSortedPage(filter, page, callback);
 };
