@@ -164,6 +164,7 @@ schema.post('remove', function () {
       report._group = null;
       report.addedToGroupAt = undefined;
       report.addedToGroupBy = undefined;
+      report.pinnedInGroupAt = undefined;
       report.save();
     });
   });

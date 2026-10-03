@@ -49,6 +49,7 @@ async function attachReportsToGroup(reportIds, groupId, options = {}) {
     if (!alreadyInGroup) {
       report.addedToGroupAt = addedAt;
       report.addedToGroupBy = addedBy;
+      report.pinnedInGroupAt = undefined;
     }
     report._group = targetGroupId;
     if (markRead) report.read = true;
@@ -147,6 +148,24 @@ function clearGroupLink(report) {
   report._group = undefined;
   report.addedToGroupAt = undefined;
   report.addedToGroupBy = undefined;
+  report.pinnedInGroupAt = undefined;
+}
+
+// Pins/unpins reports at the top of an incident's report list. Only reports currently
+// in that incident are touched, so a stale request can't pin a report elsewhere.
+async function setReportsPinnedInGroup(reportIds, groupId, pinned) {
+  const ids = normalizeIds(reportIds);
+  const targetGroupId = normalizeId(groupId, 'groupId');
+
+  if (!ids.length) return;
+
+  const update = pinned
+    ? { $set: { pinnedInGroupAt: new Date() } }
+    : { $unset: { pinnedInGroupAt: 1 } };
+  await Report.updateMany({ _id: { $in: ids }, _group: targetGroupId }, update).exec();
+
+  // Other viewers of the incident refetch its report list on groups:update.
+  await eventRouter.publish('groups:update', { ids: [targetGroupId], update: {} });
 }
 
 function addImpactedFromReportToGroup(group, report) {
@@ -285,4 +304,5 @@ module.exports = {
   attachReportsToGroup,
   clearGroupFromReports,
   removeReportsFromGroup,
+  setReportsPinnedInGroup,
 };

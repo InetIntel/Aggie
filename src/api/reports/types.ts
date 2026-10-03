@@ -18,6 +18,7 @@ export interface Report extends hasId {
   _group?: string;
   addedToGroupAt?: string; // absent on reports linked before tracking existed
   addedToGroupBy?: (hasId & { username: string }) | null; // populated on incident report lists
+  pinnedInGroupAt?: string; // set while pinned to the top of its incident's report list
   authoredAt: string;
   fetchedAt: string;
   content: string;

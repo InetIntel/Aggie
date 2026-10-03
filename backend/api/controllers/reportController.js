@@ -16,6 +16,7 @@ const { buildMediaUrl } = require('../../fetching/utils/socialImageStorage');
 const {
   attachReportsToGroup,
   removeReportsFromGroup,
+  setReportsPinnedInGroup,
 } = require('../utils/reportGroupActions');
 const { resolveUseDedup } = require('../utils/reportCounts');
 
@@ -537,6 +538,29 @@ exports.reports_group_update = async (req, res) => {
       res
         .status(err.status || 500)
         .send(err.message || 'Error updating report groups');
+    }
+  }
+};
+
+// Pin or unpin selected reports at the top of their incident's report list
+exports.reports_group_pin = async (req, res) => {
+  try {
+    const ids = req.body.ids;
+    const groupPayload = req.body.group;
+
+    if (!ids || !ids.length) return res.sendStatus(200);
+    if (!groupPayload || !groupPayload._id) {
+      return res.status(400).send('Group is required');
+    }
+
+    await setReportsPinnedInGroup(ids, groupPayload._id, req.body.pinned === true);
+    return res.sendStatus(200);
+  } catch (err) {
+    console.error('Error in reports_group_pin', err);
+    if (!res.headersSent) {
+      res
+        .status(err.status || 500)
+        .send(err.message || 'Error pinning reports');
     }
   }
 };

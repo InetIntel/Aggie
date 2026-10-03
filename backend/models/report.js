@@ -49,6 +49,9 @@ let schema = new Schema({
   // these fields existed have neither and sort after tracked ones.
   addedToGroupAt: { type: Date },
   addedToGroupBy: { type: Schema.ObjectId, ref: "User" },
+  // Set when the report is pinned to the top of its incident's report list. Scoped to
+  // the current `_group`, so it is cleared whenever the report leaves that incident.
+  pinnedInGroupAt: { type: Date },
   checkedOutBy: { type: Schema.ObjectId, ref: "User", index: true },
   checkedOutAt: { type: Date, index: true },
   commentTo: { type: Schema.ObjectId, ref: "Report", index: true },
@@ -286,14 +289,15 @@ Report.queryReports = function (query, page, callback, extraFilter) {
   // }
   // delete query.keywords
 
-  // A single incident's reports list newest-added first. Untracked (legacy) reports
-  // have no addedToGroupAt, which sorts as null (last) and falls back to authoredAt.
+  // A single incident's reports list pinned reports first (most recently pinned on top),
+  // then newest-added. Unpinned and untracked (legacy) reports have no pinnedInGroupAt /
+  // addedToGroupAt, which sort as null (last) and fall back to authoredAt.
   if (typeof query.groupId === "string") {
     return Report.findPage(
       filter,
       page,
       {
-        sort: { addedToGroupAt: -1, authoredAt: -1 },
+        sort: { pinnedInGroupAt: -1, addedToGroupAt: -1, authoredAt: -1 },
         populate: { path: "addedToGroupBy", select: "username" },
       },
       callback,
