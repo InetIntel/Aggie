@@ -97,7 +97,7 @@ function buildSeries({ rows, anchor, domains, blocks = SERIES_BLOCKS }) {
 
 // Each request returns a row per domain per hour for every domain OONI measured
 // on the network; only the watched ones are kept.
-async function fetchSeries({ asn, anchor, domains, blocks = SERIES_BLOCKS, fetchImpl, delayMs = 500 }) {
+async function fetchSeries({ asn, anchor, domains, blocks = SERIES_BLOCKS, probeCC, testName, fetchImpl, delayMs = 500 }) {
   const { sinceDay, untilDay } = seriesRange(anchor, blocks);
   const index = new Map();
   const windows = dateWindows(sinceDay, untilDay);
@@ -108,6 +108,8 @@ async function fetchSeries({ asn, anchor, domains, blocks = SERIES_BLOCKS, fetch
       until: windows[i].until,
       axisY: 'domain',
       timeGrain: 'hour',
+      ...(probeCC ? { probeCC } : {}),
+      ...(testName ? { testName } : {}),
       ...(fetchImpl ? { fetchImpl } : {}),
     });
     indexRows(rows, domains, index);

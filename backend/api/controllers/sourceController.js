@@ -2,10 +2,45 @@
 'use strict';
 
 var Source = require('../../models/source');
+var Report = require('../../models/report');
 var _ = require('lodash');
 
 const User = require('../../models/user');
 const { canManageSource, canViewSource } = require('../../access/sourceAccess');
+const SUPPORTED_OONI_TESTS = require('../../config/models/ooniTests');
+
+// How far back the "observed ASNs" summary looks for asn-scoped reports.
+const OBSERVED_ASN_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Light, defensive normalization of the structured per-media config so a bad
+// value can't reach the schema cast (500) or the fetching channel. Mutates the
+// request body in place; returns an error message string, or null when valid.
+var normalizeStructuredConfig = function (body) {
+  if (!body) return null;
+
+  if (body.asns !== undefined) {
+    if (!Array.isArray(body.asns)) return 'asns must be an array of ASN numbers.';
+    const cleaned = body.asns
+      .map((asn) => Number(asn))
+      .filter((asn) => Number.isInteger(asn) && asn > 0);
+    body.asns = cleaned;
+  }
+
+  if (body.ooniTestName) {
+    if (!SUPPORTED_OONI_TESTS.includes(body.ooniTestName)) {
+      return 'Unsupported OONI test.';
+    }
+  }
+
+  if (body.ooniDomains !== undefined) {
+    if (!Array.isArray(body.ooniDomains)) return 'ooniDomains must be an array of domains.';
+    body.ooniDomains = body.ooniDomains
+      .map((domain) => String(domain || '').trim())
+      .filter(Boolean);
+  }
+
+  return null;
+};
 
 var sourcePopulate = [
   { path: 'user', select: 'username' },
@@ -45,6 +80,9 @@ exports.source_create = (req, res) => {
 
   // set user as the logged in user
   if (req.user) req.body.user = req.user._id;
+
+  const configError = normalizeStructuredConfig(req.body);
+  if (configError) return res.status(400).send(configError);
 
   normalizeAccessPolicy(req.body);
 
@@ -135,6 +173,60 @@ exports.source_details = (req, res) => {
   });
 }
 
+// GET /api/source/:_id/observed-asns
+// Summarize which ASNs a source has actually produced (asn-scoped) reports for
+// recently. Read-only visibility — used by the Cloudflare feed details view,
+// where collection is country-wide and the ASNs seen aren't a configured input.
+exports.source_observed_asns = async (req, res) => {
+  try {
+    const source = await Source.findById(req.params._id);
+    if (!source) return res.sendStatus(404);
+
+    const accessUser = await getSourceAccessUser(req);
+    if (res.headersSent) return;
+
+    if (!canViewSource(accessUser, source)) {
+      return res.status(403).send('Unauthorized to view this source.');
+    }
+
+    const since = new Date(Date.now() - OBSERVED_ASN_WINDOW_MS);
+
+    const rows = await Report.aggregate([
+      {
+        $match: {
+          _sources: String(source._id),
+          isAsnScoped: true,
+          asn: { $ne: null },
+          fetchedAt: { $gte: since },
+        },
+      },
+      {
+        $group: {
+          _id: '$asn',
+          count: { $sum: 1 },
+          lastSeen: { $max: '$fetchedAt' },
+          geoScope: { $last: '$geoScope' },
+        },
+      },
+      { $sort: { count: -1 } },
+    ]);
+
+    const observed = rows.map((row) => ({
+      asn: row._id,
+      count: row.count,
+      lastSeen: row.lastSeen,
+      geoScope: row.geoScope,
+    }));
+
+    return res.status(200).send(observed);
+  } catch (err) {
+    if (res.headersSent) return;
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to fetch observed ASNs.');
+  }
+};
+
 //helper for source.lpopulate
 var normalizeAccessPolicy = function (sourceData) {
   if (!sourceData.accessPolicy) return;
@@ -181,6 +273,9 @@ exports.source_update = async (req, res, next) => {
     if (!canManageSource(accessUser, source)) {
       return res.status(403).send('Unauthorized to update this source.');
     }
+
+    const configError = normalizeStructuredConfig(req.body);
+    if (configError) return res.status(400).send(configError);
 
     normalizeAccessPolicy(req.body);
 

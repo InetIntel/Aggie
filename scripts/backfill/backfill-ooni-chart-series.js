@@ -80,27 +80,33 @@ async function run() {
       { 'metadata.rawAPIResponse.chart.starts': { $exists: false } },
     ],
   })
-    .select('guid metadata.rawAPIResponse.probeASN metadata.rawAPIResponse.windowEnd metadata.rawAPIResponse.configuredDomains')
+    .select('guid metadata.rawAPIResponse.probeASN metadata.rawAPIResponse.probeCC metadata.rawAPIResponse.testName metadata.rawAPIResponse.windowEnd metadata.rawAPIResponse.configuredDomains')
     .lean();
 
-  const byAsn = new Map();
+  // Grouped by (ASN, country, test) rather than just ASN - a source can be
+  // configured for a country/test other than the Iran/web_connectivity default,
+  // and alerts carry their own probeCC/testName (see "Make IODA/Cloudflare/OONI
+  // sources configurable" on development).
+  const groups = new Map();
   for (const report of found) {
     const raw = report.metadata.rawAPIResponse;
     const asn = Number(raw.probeASN);
     if (!asn || !raw.windowEnd || (ONLY_ASN && asn !== ONLY_ASN)) continue;
+    const probeCC = raw.probeCC || 'IR';
+    const testName = raw.testName || 'web_connectivity';
     const anchor = chartAnchor(raw.windowEnd);
-    const list = byAsn.get(asn) || [];
-    list.push({
+    const key = `${asn}|${probeCC}|${testName}`;
+    if (!groups.has(key)) groups.set(key, { asn, probeCC, testName, reports: [] });
+    groups.get(key).reports.push({
       id: report._id,
       guid: report.guid,
       anchor,
       days: neededDays(anchor),
       domains: raw.configuredDomains?.length ? raw.configuredDomains : defaultDomainConfig.domains,
     });
-    byAsn.set(asn, list);
   }
 
-  const total = [...byAsn.values()].reduce((n, list) => n + list.length, 0);
+  const total = [...groups.values()].reduce((n, g) => n + g.reports.length, 0);
   console.log(`OONI alerts needing a chart: ${total}${DRY_RUN ? ' [DRY-RUN, no OONI calls, no writes]' : ''}`);
   if (total === 0) return;
 
@@ -108,7 +114,7 @@ async function run() {
   let written = 0;
   let stopped = null;
 
-  for (const [asn, reports] of byAsn) {
+  for (const { asn, probeCC, testName, reports } of groups.values()) {
     const needed = [...new Set(reports.flatMap((r) => r.days))].sort();
 
     // Windows of at most CHUNK_DAYS whole dates, skipping stretches nobody needs.
@@ -120,7 +126,7 @@ async function run() {
       windows.push({ since, until: shiftDay(last, 1) });
       while (i < needed.length && needed[i] < stop) i += 1;
     }
-    console.log(`AS${asn}: ${reports.length} alert(s), ${needed.length} day(s) needed, ${windows.length} request(s)`);
+    console.log(`AS${asn} (${probeCC}/${testName}): ${reports.length} alert(s), ${needed.length} day(s) needed, ${windows.length} request(s)`);
     if (DRY_RUN) {
       requests += windows.length;
       continue;
@@ -144,6 +150,8 @@ async function run() {
           until: window.until,
           axisY: 'domain',
           timeGrain: 'hour',
+          probeCC,
+          testName,
         });
       } catch (error) {
         stopped = `OONI request failed (${error.status || error.message}); re-run later to continue`;

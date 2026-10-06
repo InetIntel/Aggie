@@ -82,6 +82,11 @@ class OONIChannel extends PollChannel {
       namespace: options.namespace || `ooni-${asns.join('-')}`,
     });
     this.asns = asns;
+    // Probe country and test are configurable per-source; fall back to the
+    // historical Iran / web_connectivity defaults so existing sources (which
+    // store neither) keep their current behavior.
+    this.probeCC = options.probeCC || PROBE_CC;
+    this.testName = options.testName || 'web_connectivity';
     this.interval = options.interval || OONIChannel.INTERVAL;
     this.hasMeasurements = options.hasMeasurements || hasMeasurements;
     this.fetchSeries = options.fetchSeries || fetchSeries;
@@ -106,7 +111,13 @@ class OONIChannel extends PollChannel {
 
       let alerts;
       if (this.domainConfig.useAllDomains) {
-        const found = await this.hasMeasurements({ asn, since: windowStart, until: windowEnd });
+        const found = await this.hasMeasurements({
+          asn,
+          since: windowStart,
+          until: windowEnd,
+          probeCC: this.probeCC,
+          testName: this.testName,
+        });
         alerts = evaluateRollingAlert(found, windowStart, windowEnd);
       } else {
         const rows = [];
@@ -116,6 +127,8 @@ class OONIChannel extends PollChannel {
             domain,
             since: windowStart,
             until: windowEnd,
+            probeCC: this.probeCC,
+            testName: this.testName,
           });
           rows.push({ domain, hasMeasurements: found });
         }
@@ -148,6 +161,8 @@ class OONIChannel extends PollChannel {
         asn,
         anchor: chartAnchor(windowEnd),
         domains: this.domainConfig.domains,
+        probeCC: this.probeCC,
+        testName: this.testName,
       });
     } catch (error) {
       console.warn(`OONI chart series unavailable for AS${asn}: ${error.message}`);
@@ -159,9 +174,9 @@ class OONIChannel extends PollChannel {
     const { asn, alerts, guid, fetchedAt, chart } = rawMessage;
     const alertDate = alerts[0].alertDate;
     const searchParams = new URLSearchParams({
-      probe_cc: PROBE_CC,
+      probe_cc: this.probeCC,
       probe_asn: `AS${asn}`,
-      test_name: 'web_connectivity',
+      test_name: this.testName,
       since: alerts[0].windowStart,
       until: alerts[0].windowEnd,
     });
@@ -175,10 +190,10 @@ class OONIChannel extends PollChannel {
       platform: 'ooni',
       platformID: guid,
       raw: {
-        probeCC: PROBE_CC,
+        probeCC: this.probeCC,
         probeASN: asn,
         networkName: NETWORK_NAMES[asn] || null,
-        testName: 'web_connectivity',
+        testName: this.testName,
         dataSource: DATA_SOURCES.OONI,
         entityLevel: 'AS',
         alertDate,
@@ -197,7 +212,7 @@ class OONIChannel extends PollChannel {
 
     post.isOutageEvent = true;
     post.isAsnScoped = true;
-    Object.assign(post, outageFields({ asn, windowEnd: alerts[0].windowEnd }));
+    Object.assign(post, outageFields({ asn, probeCC: this.probeCC, windowEnd: alerts[0].windowEnd }));
     return post;
   }
 }

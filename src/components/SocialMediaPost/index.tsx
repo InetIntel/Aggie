@@ -1,6 +1,7 @@
 import Linkify from "linkify-react";
 import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
+import { detectTextDirection } from "../../utils/format";
 import PostReactions from "./PostReactions";
 import MediaPreview from "./MediaPreview";
 
@@ -91,7 +92,10 @@ const SocialMediaPost = ({ report, showMedia, compact }: IProps) => {
       default:
         return (
           <>
-            <div className='whitespace-pre-wrap mb-1 break-all '>
+            <div
+              dir={detectTextDirection(report.content)}
+              className='whitespace-pre-wrap mb-1 post-text'
+            >
               <Linkify
                 options={{
                   target: "_blank",
