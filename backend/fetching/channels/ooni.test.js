@@ -76,6 +76,7 @@ test('creates one report containing all watched domains with zero measurements',
       assert.equal(until, '2026-08-12T14:30:00.000Z');
       return domain === 'measured.example';
     },
+    fetchSeries: async () => null,
   });
   channel.enqueue = (post) => queued.push(post);
 
@@ -124,4 +125,93 @@ test('rejects an invalid ASN list', () => {
     () => new OONIChannel({ asns: '44244 invalid' }),
     /one or more valid ASNs/,
   );
+});
+
+const selectedChannel = (overrides = {}) =>
+  new OONIChannel({
+    asns: '44244',
+    domainConfig: { useAllDomains: false, domains: ['measured.example', 'missing.example'] },
+    now: () => new Date('2026-08-12T14:30:00.000Z'),
+    reportExists: async () => false,
+    hasMeasurements: async ({ domain }) => domain === 'measured.example',
+    ...overrides,
+  });
+
+test('stores the series on a new alert, anchored on the hour the alert window ends', async () => {
+  const calls = [];
+  const channel = selectedChannel({
+    fetchSeries: async (request) => {
+      calls.push(request);
+      return { source: 'ooni-aggregation', granularity: 'hour', blockHours: 24, until: request.anchor.toISOString(), starts: [], domains: {} };
+    },
+  });
+  channel.enqueue = () => {};
+
+  const [post] = await channel.fetch();
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].asn, 44244);
+  assert.equal(calls[0].anchor.toISOString(), '2026-08-12T14:00:00.000Z');
+  assert.deepEqual(calls[0].domains, ['measured.example', 'missing.example']);
+  assert.equal(post.raw.chart.until, '2026-08-12T14:00:00.000Z');
+  assert.equal(post.raw.chart.fetchedAt, post.fetchedAt.toISOString());
+});
+
+test('a window ending at midnight is anchored at midnight, so its blocks are whole days', async () => {
+  const calls = [];
+  const channel = selectedChannel({
+    now: () => new Date('2026-08-12T00:00:00.000Z'),
+    fetchSeries: async (request) => {
+      calls.push(request);
+      return { until: request.anchor.toISOString(), starts: [], domains: {} };
+    },
+  });
+  channel.enqueue = () => {};
+
+  await channel.fetch();
+
+  assert.equal(calls[0].anchor.toISOString(), '2026-08-12T00:00:00.000Z');
+});
+
+test('still creates the alert, without a chart, when the series cannot be fetched', async () => {
+  const channel = selectedChannel({
+    fetchSeries: async () => {
+      throw new Error('OONI aggregation request failed (429)');
+    },
+  });
+  channel.enqueue = () => {};
+  const warn = console.warn;
+  console.warn = () => {};
+
+  let posts;
+  try {
+    posts = await channel.fetch();
+  } finally {
+    console.warn = warn;
+  }
+
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].raw.chart, undefined);
+  assert.deepEqual(posts[0].raw.zeroDomains, ['missing.example']);
+});
+
+test('does not fetch a series in all-domains mode', async () => {
+  let called = false;
+  const channel = new OONIChannel({
+    asns: '44244',
+    domainConfig: { useAllDomains: true, domains: [] },
+    now: () => new Date('2026-08-12T14:30:00.000Z'),
+    reportExists: async () => false,
+    hasMeasurements: async () => false,
+    fetchSeries: async () => {
+      called = true;
+      return null;
+    },
+  });
+  channel.enqueue = () => {};
+
+  const [post] = await channel.fetch();
+
+  assert.equal(called, false);
+  assert.equal(post.raw.chart, undefined);
 });

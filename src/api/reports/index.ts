@@ -137,6 +137,22 @@ export const removeReportsFromGroup = async (
   return data;
 };
 
+interface setReportsPinnedInGroupParams {
+  reportIds: string[];
+  groupId: string;
+  pinned: boolean;
+}
+export const setReportsPinnedInGroup = async (
+  params: setReportsPinnedInGroupParams
+) => {
+  const { data } = await axios.patch<null>("/api/report/_group-pin", {
+    ids: params.reportIds,
+    group: { _id: params.groupId },
+    pinned: params.pinned,
+  });
+  return data;
+};
+
 /**
  * todo: get rid of tagId? i dont see why this needs to be separated
  * @param queryState

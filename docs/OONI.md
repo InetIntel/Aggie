@@ -54,6 +54,37 @@ media type `ooni` and entity level `AS`. List, detail, table, and comparison
 views show the network, ASN, rolling window, and zero-domain details. The
 report URL opens the matching OONI Explorer query.
 
+## 14-day chart on the alert
+
+The alert detail view shows a bar chart of measurements in rolling 24-hour blocks:
+14 blocks counted back from where the alert's window ends, so the last bar is the
+alert's own window, the one before it is the 24 hours before that, and so on. A
+domain picker starts on the domains that had zero measurements. The numbers are
+stored on the alert itself, at `metadata.rawAPIResponse.chart`, and the chart
+reads them from there. Viewing an alert never calls OONI, so browsing alerts
+cannot use up OONI's per-IP quota.
+
+- The channel fetches the series once, when it creates an alert. It uses the
+  aggregation endpoint at hourly grain (`axis_y=domain`, `time_grain=hour`) and
+  adds 24 hourly buckets into each block, keeping the watched domains. If OONI
+  refuses the requests, the alert is still created, without a chart.
+- OONI only takes whole dates in `since`/`until`, and refuses hourly grain for
+  ranges longer than 7 days, so a fortnight is fetched in windows of at most 7
+  days (three requests per network for a live alert).
+- Hourly buckets start on the hour, so the blocks end on the hour at or before
+  the window end. A live alert whose window ends at 14:30 has blocks ending at
+  14:00 UTC, up to 59 minutes short of its exact window. A window ending at
+  midnight (historical alerts) gives whole UTC days.
+- The shape is `{ source, granularity: "hour", blockHours: 24, from, until, starts: [14 ISO times], domains: { <domain>: [14 counts] }, fetchedAt }`,
+  about 3 KB per alert. Like IODA's chart, it is left out of list responses and
+  returned by the single-report endpoint (`GET /api/report/:id`). A chart stored
+  in the earlier calendar-day shape (a `days` list) still draws, as midnight blocks.
+- Alerts created before this shipped, and alerts loaded from a generated backfill
+  file, have no series and are not backfilled - only new alerts get a chart. One
+  shows "The last 14 days were not stored for this alert." instead.
+- Only selected-domain mode stores a series. In all-domains mode there is no
+  watchlist to chart.
+
 ## Historical backtest
 
 Run the same evaluator used by the production channel:

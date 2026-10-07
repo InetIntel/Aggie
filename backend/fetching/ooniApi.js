@@ -37,6 +37,8 @@ async function fetchDailyMeasurements({
   since,
   until,
   axisX = 'measurement_start_day',
+  axisY,
+  timeGrain,
   probeCC = 'IR',
   testName = 'web_connectivity',
   fetchImpl = fetch,
@@ -49,6 +51,8 @@ async function fetchDailyMeasurements({
     since,
     until,
   });
+  if (axisY) params.set('axis_y', axisY);
+  if (timeGrain) params.set('time_grain', timeGrain);
   const url = `${AGGREGATION_URL}?${params}`;
   const response = await fetchImpl(url, {
     headers: { accept: 'application/json' },
