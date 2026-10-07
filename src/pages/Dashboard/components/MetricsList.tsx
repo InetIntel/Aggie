@@ -57,7 +57,7 @@ const MetricsList = ({ category, isLoading }: IProps) => {
   const metricsByKey = new Map(category.metrics.map((metric) => [metric.key, metric]));
 
   return (
-    <div className='rounded-xl border border-slate-200 px-3 py-2 shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:border-gray-700'>
+    <div>
       {METRIC_GROUPS.map((group) => (
         <div
           key={group.label}
