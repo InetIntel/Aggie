@@ -192,7 +192,10 @@ exports.analytics_create_incident = async (req, res) => {
     });
 
     await eventRouter.publish('groups:create', group);
-    await attachReportsToGroup(notableActivity.reportIds, group._id, { markRead: true });
+    await attachReportsToGroup(notableActivity.reportIds, group._id, {
+      markRead: true,
+      addedBy: req.user && req.user._id,
+    });
     await updateSnapshotIncident(notableActivity, group._id);
 
     return res.status(200).send(group);
@@ -218,6 +221,7 @@ exports.analytics_update_incident = async (req, res) => {
     if (mode === 'add') {
       const updatedGroup = await attachReportsToGroup(notableActivity.reportIds, groupId, {
         markRead: true,
+        addedBy: req.user && req.user._id,
       });
       await updateSnapshotIncident(notableActivity, groupId);
       return res.status(200).send(updatedGroup || { _id: groupId });
