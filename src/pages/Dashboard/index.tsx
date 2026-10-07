@@ -47,6 +47,15 @@ import {
 import { formatTimeZone } from "../../utils/dateFormat";
 import type { GroupEditableData } from "../../api/groups/types";
 
+const sectionTitleClass =
+  "text-lg font-bold uppercase tracking-wide text-slate-900 dark:text-white";
+
+// The left column's detail cards, one per report category.
+const metricCategoryCards = [
+  { key: "alerts", title: "Alerts" },
+  { key: "social", title: "Social Media Posts" },
+] as const;
+
 const sectionCardClass =
   "rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 dark:bg-gray-800";
 
@@ -293,139 +302,142 @@ const Dashboard = () => {
         timeZoneLabel={formatTimeZone(new Date(), prefs)}
       />
 
-      <div className='grid gap-4 xl:grid-cols-[1fr_1.15fr]'>
-        <section className={`${sectionCardClass} flex h-full flex-col p-4`}>
-          <h1 className='text-xl font-semibold text-slate-900 dark:text-white'>
-            Metrics
-          </h1>
-          <MetricsList
-            data={reportMetricsQuery.data}
-            isLoading={reportMetricsQuery.isLoading}
-          />
-        </section>
-
-        <section className={`${sectionCardClass} p-4`}>
-          <div className='flex flex-wrap items-center justify-between gap-4'>
-            <h2 className='text-xl font-semibold text-slate-900 dark:text-white'>
-              Trends
-            </h2>
-          </div>
-
-          <div className='mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-gray-400'>
-            <span>
-              {overviewQuery.data
-                ? `Showing ${formatRangeLabel(overviewQuery.data)}`
-                : "Loading trend data"}
-            </span>
-            <span>
-              {overviewQuery.isFetching
-                ? "Refreshing..."
-                : overviewQuery.isError
-                  ? "Live data unavailable"
-                  : overviewQuery.data
-                    ? `Updated ${formatCompactDateTime(overviewQuery.data.computedAt)}`
-                    : ""}
-            </span>
-          </div>
-
-          <AlertsTrendChart
-            overview={overviewQuery.data}
-          />
-        </section>
-      </div>
-
-      <section className={`${sectionCardClass} mt-5`}>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <h2 className='text-xl font-semibold text-slate-900 dark:text-white'>
-            Notable Activity
-          </h2>
-          <div className='flex flex-wrap items-center gap-3'>
-            <label className='inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-gray-200'>
-              <span>Start-time tolerance</span>
-              <select
-                value={tolerance}
-                onChange={(event) => setTolerance(Number(event.target.value))}
-                title='Largest gap between consecutive outage starts that still counts as one activity'
-                className='cursor-pointer rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
-              >
-                {START_TIME_TOLERANCE_OPTIONS.map((minutes) => (
-                  <option key={minutes} value={minutes}>
-                    {formatToleranceLabel(minutes)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type='button'
-              onClick={() => {
-                setDismissedActivityKeys([]);
-                setNotablePage(0);
-              }}
-              disabled={!hasDismissedActivities}
-              className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
-            >
-              <FontAwesomeIcon icon={faRotateLeft} />
-              <span>Reset</span>
-            </button>
-            <p className='text-xs text-slate-500 dark:text-gray-400'>
-              {notableActivitiesQuery.data
-                ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} activities`
-                : "Loading activities"}
-            </p>
-          </div>
-        </div>
-
-        <div className='mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
-          {paginatedLiveNotableActivities.map((activity) => (
-            <NotableActivityCard
-              key={activity.eventAggKey}
-              activity={activity}
-              cacheKey={notableActivitiesQuery.data?.cacheKey || ""}
-              onDismiss={() => dismissActivity(activity.eventAggKey)}
-              onCreateIncident={() => setActivityToPromote(activity)}
-              onAddToIncident={() => setActivityToLink(activity)}
-              isCreatingIncident={
-                createIncidentMutation.isLoading &&
-                activityToPromote?.eventAggKey === activity.eventAggKey
-              }
-            />
+      <div className='grid gap-5 xl:grid-cols-[17rem_minmax(0,1fr)]'>
+        <div className='grid content-start gap-5 sm:grid-cols-2 xl:grid-cols-1'>
+          {metricCategoryCards.map(({ key, title }) => (
+            <section key={key} className={`${sectionCardClass} p-4`}>
+              <h2 className={`${sectionTitleClass} mb-3`}>{title}</h2>
+              <MetricsList
+                category={reportMetricsQuery.data?.categories.find(
+                  (category) => category.key === key
+                )}
+                isLoading={reportMetricsQuery.isLoading}
+              />
+            </section>
           ))}
         </div>
 
-        {notableActivitiesQuery.data && activeNotableActivityCount === 0 && (
-          <p className='mt-5 rounded-md border border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-gray-700 dark:text-gray-400'>
-            No notable activities found.
-          </p>
-        )}
+        <div className='flex min-w-0 flex-col gap-5'>
+          <section className={`${sectionCardClass} p-4`}>
+            <div className='flex flex-wrap items-center justify-between gap-4'>
+              <h2 className={sectionTitleClass}>Trends</h2>
+            </div>
 
-        {notablePageCount > 1 && (
-          <div className='mt-5 flex flex-wrap items-center justify-center gap-3'>
-            <button
-              type='button'
-              onClick={() => setNotablePage((page) => Math.max(page - 1, 0))}
-              disabled={currentNotablePage === 0}
-              className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
-            >
-              <FontAwesomeIcon icon={faChevronLeft} />
-              <span>Previous</span>
-            </button>
-            <span className='text-sm font-medium text-slate-700 dark:text-gray-200'>
-              Page {currentNotablePage + 1} of {notablePageCount}
-            </span>
-            <button
-              type='button'
-              onClick={() =>
-                setNotablePage((page) => Math.min(page + 1, notablePageCount - 1))
-              }
-              disabled={currentNotablePage >= notablePageCount - 1}
-              className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
-            >
-              <span>Next</span>
-              <FontAwesomeIcon icon={faChevronRight} />
-            </button>
+            <div className='mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-gray-400'>
+              <span>
+                {overviewQuery.data
+                  ? `Showing ${formatRangeLabel(overviewQuery.data)}`
+                  : "Loading trend data"}
+              </span>
+              <span>
+                {overviewQuery.isFetching
+                  ? "Refreshing..."
+                  : overviewQuery.isError
+                    ? "Live data unavailable"
+                    : overviewQuery.data
+                      ? `Updated ${formatCompactDateTime(overviewQuery.data.computedAt)}`
+                      : ""}
+              </span>
+            </div>
+
+            <div className='mt-4 grid gap-4 md:grid-cols-2'>
+              <AlertsTrendChart overview={overviewQuery.data} variant='total' />
+              <AlertsTrendChart overview={overviewQuery.data} variant='bySource' />
+            </div>
+          </section>
+
+        <section className={`${sectionCardClass} p-4`}>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
+            <h2 className={sectionTitleClass}>Notable Activity</h2>
+            <div className='flex flex-wrap items-center gap-3'>
+              <label className='inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-gray-200'>
+                <span>Start-time tolerance</span>
+                <select
+                  value={tolerance}
+                  onChange={(event) => setTolerance(Number(event.target.value))}
+                  title='Largest gap between consecutive outage starts that still counts as one activity'
+                  className='cursor-pointer rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
+                >
+                  {START_TIME_TOLERANCE_OPTIONS.map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {formatToleranceLabel(minutes)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type='button'
+                onClick={() => {
+                  setDismissedActivityKeys([]);
+                  setNotablePage(0);
+                }}
+                disabled={!hasDismissedActivities}
+                className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+              >
+                <FontAwesomeIcon icon={faRotateLeft} />
+                <span>Reset</span>
+              </button>
+              <p className='text-xs text-slate-500 dark:text-gray-400'>
+                {notableActivitiesQuery.data
+                  ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} activities`
+                  : "Loading activities"}
+              </p>
+            </div>
           </div>
-        )}
-      </section>
+
+          <div className='mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'>
+            {paginatedLiveNotableActivities.map((activity) => (
+              <NotableActivityCard
+                key={activity.eventAggKey}
+                activity={activity}
+                cacheKey={notableActivitiesQuery.data?.cacheKey || ""}
+                onDismiss={() => dismissActivity(activity.eventAggKey)}
+                onCreateIncident={() => setActivityToPromote(activity)}
+                onAddToIncident={() => setActivityToLink(activity)}
+                isCreatingIncident={
+                  createIncidentMutation.isLoading &&
+                  activityToPromote?.eventAggKey === activity.eventAggKey
+                }
+              />
+            ))}
+          </div>
+
+          {notableActivitiesQuery.data && activeNotableActivityCount === 0 && (
+            <p className='mt-5 rounded-md border border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-gray-700 dark:text-gray-400'>
+              No notable activities found.
+            </p>
+          )}
+
+          {notablePageCount > 1 && (
+            <div className='mt-5 flex flex-wrap items-center justify-center gap-3'>
+              <button
+                type='button'
+                onClick={() => setNotablePage((page) => Math.max(page - 1, 0))}
+                disabled={currentNotablePage === 0}
+                className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+              >
+                <FontAwesomeIcon icon={faChevronLeft} />
+                <span>Previous</span>
+              </button>
+              <span className='text-sm font-medium text-slate-700 dark:text-gray-200'>
+                Page {currentNotablePage + 1} of {notablePageCount}
+              </span>
+              <button
+                type='button'
+                onClick={() =>
+                  setNotablePage((page) => Math.min(page + 1, notablePageCount - 1))
+                }
+                disabled={currentNotablePage >= notablePageCount - 1}
+                className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+              >
+                <span>Next</span>
+                <FontAwesomeIcon icon={faChevronRight} />
+              </button>
+            </div>
+          )}
+        </section>
+        </div>
+      </div>
 
       <AggieDialog
         isOpen={!!activityToPromote}

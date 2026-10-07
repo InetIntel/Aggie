@@ -36,77 +36,14 @@ const sourceSeriesMeta: Record<string, { label: string; color: string }> = {
 };
 const otherSourceColor = "var(--trend-other)";
 
-const viewModes = [
-  { key: "combined", label: "Combined" },
-  { key: "bySource", label: "By source" },
-] as const;
-type ViewMode = (typeof viewModes)[number]["key"];
+// "total" draws one line of every alert report; "bySource" draws a line per source,
+// with OONI counted by its watched domains that had zero measurements at alert time.
+export type TrendChartVariant = "total" | "bySource";
 
-// What the OONI line counts in the "by source" view: one per alert report, or the watched
-// domains with zero measurements at alert time.
-const ooniModes = [
-  { key: "reports", label: "Reports" },
-  { key: "domains", label: "Domains" },
-] as const;
-type OoniMode = (typeof ooniModes)[number]["key"];
-
-// A compact labelled pill toggle; the chart's header controls share it so they line up.
-function ChartToggle<T extends string>({
-  label,
-  hint,
-  options,
-  value,
-  onChange,
-  disabled = false,
-}: {
-  label: string;
-  hint?: string;
-  options: readonly { key: T; label: string }[];
-  value: T;
-  onChange: (value: T) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <>
-      <span
-        className={[
-          "justify-self-end text-xs font-medium text-slate-500 dark:text-gray-400",
-          disabled ? "opacity-50" : "",
-        ].join(" ")}
-        title={hint}
-      >
-        {label}
-      </span>
-      <div
-        className={[
-          "inline-flex justify-self-end rounded-full border border-slate-200 p-0.5 dark:border-gray-600",
-          disabled ? "opacity-50" : "",
-        ].join(" ")}
-        role='group'
-        aria-label={label}
-        title={hint}
-      >
-        {options.map((option) => (
-          <button
-            key={option.key}
-            type='button'
-            aria-pressed={value === option.key}
-            disabled={disabled}
-            onClick={() => onChange(option.key)}
-            className={[
-              "rounded-full px-3 py-1 text-xs font-medium transition disabled:cursor-default",
-              value === option.key
-                ? "bg-slate-700 text-white dark:bg-gray-600"
-                : "text-slate-600 enabled:hover:bg-slate-100 dark:text-gray-300 dark:enabled:hover:bg-gray-700",
-            ].join(" ")}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </>
-  );
-}
+const chartTitles: Record<TrendChartVariant, string> = {
+  total: "All alerts",
+  bySource: "Alerts by source",
+};
 
 const legendItemClass =
   "flex items-center gap-2 rounded-full border px-2.5 py-1";
@@ -114,10 +51,11 @@ const legendItemClass =
 // Beyond this many buckets the chart draws the line alone, plus the hovered point.
 const MAX_RESTING_DOTS = 60;
 
+// Sized for a half-width card, so the two charts can sit side by side.
 const chartFrame = {
   left: 30,
   top: 8,
-  width: 620,
+  width: 400,
   height: 142,
 };
 
@@ -125,14 +63,13 @@ const chartTooltipFontSize = 14;
 
 interface IProps {
   overview?: AnalyticsOverview;
+  variant: TrendChartVariant;
 }
 
-const AlertsTrendChart = ({ overview }: IProps) => {
+const AlertsTrendChart = ({ overview, variant }: IProps) => {
   const { formatActivityWindow, formatXAxisLabel } = useDashboardFormatters();
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("combined");
-  const [ooniMode, setOoniMode] = useState<OoniMode>("reports");
   // Sources toggled off in the "by source" view. Tracking the hidden ones (rather than
   // the shown ones) keeps a source that first appears after a range change visible.
   const [hiddenSources, setHiddenSources] = useState<string[]>([]);
@@ -154,7 +91,7 @@ const AlertsTrendChart = ({ overview }: IProps) => {
     ? overview.timeSeries
     : fallbackTimeSeries;
 
-  const allSeries = buildSeries(timeSeries, viewMode, ooniMode);
+  const allSeries = buildSeries(timeSeries, variant);
   const isSourceView = allSeries.some((line) => line.key !== "total");
   const shownSeries = isSourceView
     ? allSeries.filter((line) => !hiddenSources.includes(line.key))
@@ -210,53 +147,23 @@ const AlertsTrendChart = ({ overview }: IProps) => {
 
   return (
     <div
-      className={`mt-4 rounded-[1.5rem] border border-slate-200 px-2 py-4 dark:border-gray-700 sm:px-3 ${sourceSeriesStyle}`}
+      className={`rounded-[1.5rem] border border-slate-200 px-2 py-4 dark:border-gray-700 sm:px-3 ${sourceSeriesStyle}`}
     >
-      <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
-        <div>
-          <h3 className='text-2xl font-medium text-sky-700'>Alert</h3>
-          <p className='text-xs text-slate-500 dark:text-gray-400'>
-            Click a point to view the reports in that time bucket
-          </p>
-          {/* <p className='text-sm text-slate-500 dark:text-gray-400'>
-            {overview ? "Reports per time bucket" : "Static dashboard placeholder"}
-          </p> */}
-        </div>
-        {/* Label | toggle rows, both columns right-aligned so the toggles share an edge. */}
-        <div className='ml-auto grid shrink-0 grid-cols-[auto_auto] items-center gap-x-2 gap-y-1.5'>
-          <ChartToggle
-            label='View'
-            options={viewModes}
-            value={viewMode}
-            onChange={setViewMode}
-          />
-          <ChartToggle
-            label='OONI'
-            hint={
-              viewMode === "bySource"
-                ? "Count each OONI alert once, or by its watched domains with zero measurements at alert time"
-                : "Switch the view to By source to count OONI by domain"
-            }
-            options={ooniModes}
-            value={ooniMode}
-            onChange={(mode) => {
-              setPinnedPointIndex(null);
-              setOoniMode(mode);
-            }}
-            disabled={viewMode !== "bySource"}
-          />
-        </div>
-        {/* <div className='rounded-full bg-slate-50 p-2 text-slate-500 shadow-sm dark:bg-gray-700'>
-          <FontAwesomeIcon icon={faBell} />
-        </div> */}
+      <div className='mb-3'>
+        <h3 className='text-sm font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-400'>
+          {chartTitles[variant]}
+        </h3>
+        {/* <p className='text-xs text-slate-500 dark:text-gray-400'>
+          Click a point to view the reports in that time bucket
+        </p> */}
       </div>
 
       <div className='flex w-full justify-center'>
         <svg
-          viewBox='0 0 660 215'
-          className='block h-[185px] w-full'
+          viewBox='0 0 440 215'
+          className='block h-auto w-full'
           role='img'
-          aria-label='Alert trends chart'
+          aria-label={`${chartTitles[variant]} trend chart`}
         >
           <rect
             x={chartFrame.left}
@@ -483,20 +390,19 @@ type ChartSeries = {
   label: string;
   color: string;
   values: number[];
-  // "domains" only for the OONI line when it counts zero-measurement domains.
+  // "domains" for the OONI line, which counts zero-measurement domains.
   unit: "reports" | "domains";
 };
 
 function buildSeries(
   timeSeries: TimeSeriesBucket[],
-  viewMode: ViewMode,
-  ooniMode: OoniMode
+  variant: TrendChartVariant
 ): ChartSeries[] {
-  if (viewMode === "combined") {
+  if (variant === "total") {
     return [
       {
         key: "total",
-        label: "Total reports",
+        label: "All alerts",
         color: trendColor,
         values: timeSeries.map((item) => item.totalReports),
         unit: "reports",
@@ -511,19 +417,19 @@ function buildSeries(
     });
   });
 
-  const orderedSources = [
-    ...Object.keys(sourceSeriesMeta).filter((source) => presentSources.has(source)),
-    ...[...presentSources].filter((source) => !sourceSeriesMeta[source]).sort(),
-  ];
-
-  if (orderedSources.length === 0) {
-    return buildSeries(timeSeries, "combined", ooniMode);
-  }
+  // With no alerts in range, still draw the known sources as flat lines so the chart
+  // keeps its legend.
+  const orderedSources = presentSources.size
+    ? [
+        ...Object.keys(sourceSeriesMeta).filter((source) => presentSources.has(source)),
+        ...[...presentSources].filter((source) => !sourceSeriesMeta[source]).sort(),
+      ]
+    : Object.keys(sourceSeriesMeta);
 
   return orderedSources.map((source) => {
     const label = sourceSeriesMeta[source]?.label || source;
     const color = sourceSeriesMeta[source]?.color || otherSourceColor;
-    if (source === "ooni" && ooniMode === "domains") {
+    if (source === "ooni") {
       return {
         key: source,
         label: `${label} domains`,
@@ -761,7 +667,7 @@ function getNiceYAxisTicks(maxValue: number) {
 
 function getXAxisLabelIndexes(totalPoints: number) {
   if (totalPoints <= 1) return [0];
-  const maxLabels = 7;
+  const maxLabels = 5;
   if (totalPoints <= maxLabels) {
     return Array.from({ length: totalPoints }, (_, index) => index);
   }
