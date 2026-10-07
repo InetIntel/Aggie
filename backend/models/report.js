@@ -223,6 +223,9 @@ schema.methods.clearSMTCTags = function (callback) {
   cb();
 };
 // schema.plugin(AutoIncrement, { inc_field: 'reportId' });
+schema.plugin(require('./kpiPlugin').kpiPlugin, {
+  entity: 'report', recordEvents: require('../api/utils/kpiTracking').recordEvents,
+});
 const Report = mongoose.model("Report", schema);
 
 SMTCTag.schema.on("tag:removed", function (id) {
