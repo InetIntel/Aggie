@@ -104,6 +104,23 @@ export interface IodaChartSeries {
   points: IodaChartPoint[];
 }
 
+// OONI alerts store the per-domain measurement counts they were raised against at
+// metadata.rawAPIResponse.chart, so viewing one never calls OONI. The series is 14
+// blocks of 24 hours counted back from where the alert's window ends (the last
+// block is the alert's own window). Older stored charts have a "days" list of
+// calendar days instead of "starts".
+export interface OoniChartData {
+  source: string;
+  granularity?: string; // "hour": each block is the sum of hourly buckets
+  blockHours?: number; // 24
+  from: string; // start of the first block (ISO, UTC)
+  until: string; // end of the last block (ISO, UTC)
+  starts?: string[]; // start of each block (ISO, UTC)
+  days?: string[]; // older shape: YYYY-MM-DD
+  domains: Record<string, number[]>; // watched domain -> count per block
+  fetchedAt?: string;
+}
+
 export interface IodaChartData {
   from: number; // window fetched (unix seconds)
   until: number;
