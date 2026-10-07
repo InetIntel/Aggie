@@ -1,7 +1,12 @@
 import { Link } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import { faBell } from "@fortawesome/free-solid-svg-icons";
+import { faTwitter } from "@fortawesome/free-brands-svg-icons";
 import type {
   ReportMetric,
   ReportMetricCategory,
+  ReportMetricsResponse,
 } from "../../../api/analytics/types";
 
 // Rows are grouped by backend `metric.key`; the investigate rows repeat the
@@ -91,3 +96,93 @@ const MetricsList = ({ category, isLoading }: IProps) => {
 };
 
 export default MetricsList;
+
+// The headline strip: the counts that still need someone's attention, per category.
+const HEADLINE_METRICS: { key: string; label: string }[] = [
+  { key: "unread", label: "Unread" },
+  { key: "investigate-unlinked", label: "Investigate and unlinked" },
+];
+
+const CATEGORY_DISPLAY: Record<
+  ReportMetricCategory["key"],
+  { label: string; icon: IconDefinition }
+> = {
+  alerts: { label: "Alert", icon: faBell },
+  social: { label: "Social Media Post", icon: faTwitter },
+};
+
+function CategoryIcon({
+  category,
+  size,
+}: {
+  category: ReportMetricCategory["key"];
+  size: "sm" | "lg";
+}) {
+  return (
+    <span
+      className={[
+        "flex shrink-0 items-center justify-center rounded-full bg-[#51B6D8] text-white",
+        size === "lg" ? "h-9 w-9 text-lg" : "h-4 w-4 text-[10px]",
+      ].join(" ")}
+    >
+      <FontAwesomeIcon icon={CATEGORY_DISPLAY[category].icon} />
+    </span>
+  );
+}
+
+interface HeadlineProps {
+  data?: ReportMetricsResponse;
+  isLoading?: boolean;
+}
+
+export const HeadlineMetrics = ({ data, isLoading }: HeadlineProps) => {
+  if (!data) {
+    return (
+      <p className='py-4 text-sm text-slate-500 dark:text-gray-400'>
+        {isLoading ? "Loading metrics" : "Metrics unavailable"}
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className='flex flex-wrap gap-3'>
+        {data.categories.flatMap((category) =>
+          HEADLINE_METRICS.map((row) => {
+            const metric = category.metrics.find((item) => item.key === row.key);
+            if (!metric) return null;
+            return (
+              <Link
+                key={`${category.key}-${row.key}`}
+                to={hrefForMetric(category, metric)}
+                target='_blank'
+                rel='noopener noreferrer'
+                title={`${category.label}: ${row.label}`}
+                className='flex items-center gap-2 rounded-[10px] bg-white py-[5px] pl-[5px] pr-3 shadow-[0_4px_10px_rgba(0,0,0,0.2)] transition hover:brightness-95 dark:bg-gray-700'
+              >
+                <CategoryIcon category={category.key} size='lg' />
+                <span className='flex flex-col'>
+                  <span className='text-xs font-light text-slate-700 dark:text-gray-200'>
+                    {row.label}
+                  </span>
+                  <span className='text-[15px] font-bold text-slate-900 dark:text-white'>
+                    {metric.count}
+                  </span>
+                </span>
+              </Link>
+            );
+          })
+        )}
+      </div>
+      <div className='mt-4 flex flex-wrap gap-4 text-xs text-slate-700 dark:text-gray-300'>
+        {data.categories.map((category) => (
+          <span key={category.key} className='inline-flex items-center gap-1.5'>
+            <CategoryIcon category={category.key} size='sm' />
+            {CATEGORY_DISPLAY[category.key].label}
+          </span>
+        ))}
+      </div>
+    </>
+  );
+};
+

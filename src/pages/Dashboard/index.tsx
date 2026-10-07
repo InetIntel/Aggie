@@ -31,7 +31,7 @@ import AlertsTrendChart from "./components/AlertsTrendChart";
 import DashboardAddToIncident from "./components/DashboardAddToIncident";
 import DashboardTimeControls from "./components/DashboardTimeControls";
 import NotableActivityCard from "./components/NotableActivityCard";
-import MetricsList from "./components/MetricsList";
+import MetricsList, { HeadlineMetrics } from "./components/MetricsList";
 import {
   addPickerDays,
   buildAnalyticsSocketQuery,
@@ -301,6 +301,14 @@ const Dashboard = () => {
         }}
         timeZoneLabel={formatTimeZone(new Date(), prefs)}
       />
+
+      <section className={`${sectionCardClass} mb-5 p-4`}>
+        <h2 className={`${sectionTitleClass} mb-3`}>Reports at a glance</h2>
+        <HeadlineMetrics
+          data={reportMetricsQuery.data}
+          isLoading={reportMetricsQuery.isLoading}
+        />
+      </section>
 
       <div className='grid gap-5 xl:grid-cols-[17rem_minmax(0,1fr)]'>
         <div className='grid content-start gap-5 sm:grid-cols-2 xl:grid-cols-1'>
