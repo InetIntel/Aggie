@@ -152,8 +152,9 @@ class OONIChannel extends PollChannel {
 
   // The 14 blocks of 24 hours of per-domain counts shown on the alert. Fetched once, here,
   // and stored with the alert so opening it never calls OONI (whose API is rate
-  // limited per IP). A failure must not stop the alert from being created; the
-  // chart can be added later with scripts/backfill/backfill-ooni-chart-series.js.
+  // limited per IP). A failure must not stop the alert from being created - the
+  // alert is saved without a chart rather than retried; only new alerts get one,
+  // there is no backfill for alerts created before this.
   async loadChart(asn, windowEnd) {
     if (this.domainConfig.useAllDomains) return null;
     try {

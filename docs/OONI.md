@@ -79,24 +79,11 @@ cannot use up OONI's per-IP quota.
   about 3 KB per alert. Like IODA's chart, it is left out of list responses and
   returned by the single-report endpoint (`GET /api/report/:id`). A chart stored
   in the earlier calendar-day shape (a `days` list) still draws, as midnight blocks.
-- Alerts created before this, and alerts loaded from a generated backfill file,
-  have no series. Add it with `scripts/backfill/backfill-ooni-chart-series.js`,
-  which asks OONI for whole date ranges in 7-day windows and cuts each alert's 14
-  blocks out of that (roughly 40 requests per network for 290 days). Alerts
-  without one show "The last 14 days were not stored for this alert."
+- Alerts created before this shipped, and alerts loaded from a generated backfill
+  file, have no series and are not backfilled - only new alerts get a chart. One
+  shows "The last 14 days were not stored for this alert." instead.
 - Only selected-domain mode stores a series. In all-domains mode there is no
   watchlist to chart.
-
-```
-node scripts/backfill/backfill-ooni-chart-series.js --dry-run
-node scripts/backfill/backfill-ooni-chart-series.js
-```
-
-Options: `--asn=44244` for one network, `--chunk-days=7` for the window size (7 is the
-most OONI allows), and `--max-requests=60` as a cap. It is safe to re-run: alerts
-without a chart, or with a chart in the earlier shape, are done; each alert is
-written as soon as all its hours have arrived, and a stop (for example a rate
-limit) keeps its progress.
 
 ## Historical backtest
 
