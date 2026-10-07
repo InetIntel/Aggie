@@ -5,15 +5,21 @@ import { useEffect, useState } from "react";
 import { useField } from "formik";
 
 import { getCredentials } from "../../../api/credentials";
-import { editSource, newSource } from "../../../api/sources";
+import { editSource, getObservedAsns, newSource } from "../../../api/sources";
 import type { Source, SourceAccessMode } from "../../../api/sources/types";
+import { getAsnsByIds } from "../../../api/asn";
 
 import { Listbox } from "@headlessui/react";
+import FormikCombobox from "../../../components/FormikCombobox";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
+import FormikSwitch from "../../../components/FormikSwitch";
 import FormikWithSchema from "../../../components/FormikWithSchema";
 import AxiosErrorCard from "../../../components/AxiosErrorCard";
 import type { Credential } from "../../../api/credentials/types";
+import { COUNTRY_OPTIONS } from "./countryOptions";
+import { OONI_TEST_OPTIONS } from "./ooniTests";
+import AsnChipInput from "./AsnChipInput";
 
 import {
   faChevronDown,
@@ -44,6 +50,7 @@ const SourceNameField = () => (
   <FormikInput
     name='nickname'
     label='Feed name'
+    maxLength={80}
     placeholder="A label for this feed, e.g. 'Elections, Mastodon #wildfire'"
     hint="A name to identify this feed in your lists; the items it collects appear as Alerts. It's only a label and doesn't change what gets fetched. Pick something recognizable, like the topic plus the account or hashtag."
   />
@@ -202,6 +209,161 @@ const MastodonConditionalFields = () => {
         />
       )}
     </>
+  );
+};
+
+// Chip input for OONI watched domains, backed by the Formik `ooniDomains` array
+// field. Same interaction as MastodonHashtagField, but stores an array (not a
+// comma-string) to match the structured schema field.
+const OoniDomainsField = () => {
+  const [field, , helpers] = useField<string[]>("ooniDomains");
+  const [draft, setDraft] = useState("");
+
+  const domains = Array.isArray(field.value) ? field.value : [];
+
+  const parse = (raw: string) =>
+    (raw || "")
+      .split(/[\s,]+/)
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+
+  const commit = (raw: string) => {
+    const next = [...domains];
+    parse(raw).forEach((d) => {
+      if (!next.includes(d)) next.push(d);
+    });
+    helpers.setValue(next);
+    setDraft("");
+  };
+
+  const removeDomain = (d: string) => {
+    helpers.setValue(domains.filter((existing) => existing !== d));
+  };
+
+  return (
+    <div className='flex flex-col gap-1'>
+      <span className='text-slate-600 dark:text-gray-400'>Watched domains</span>
+      <p className='text-xs text-slate-500 dark:text-gray-400'>
+        Type a domain and press Enter to add it. We alert when none of these
+        domains were measured on a watched ASN in the last 24 hours. Leave empty
+        and toggle "watch all domains" to alert on total measurement volume
+        instead.
+      </p>
+      <div className='flex flex-wrap gap-2 items-center px-2 py-2 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900'>
+        {domains.map((domain) => (
+          <span
+            key={domain}
+            className='inline-flex items-center gap-1 rounded-full bg-slate-200 dark:bg-gray-600 px-2 py-1 text-sm font-medium'
+          >
+            {domain}
+            <button
+              type='button'
+              onClick={() => removeDomain(domain)}
+              className='text-slate-500 hover:text-slate-800 dark:hover:text-gray-200'
+              aria-label={`Remove ${domain}`}
+            >
+              <FontAwesomeIcon icon={faXmark} size='xs' />
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (/[\s,]$/.test(value)) commit(value);
+            else setDraft(value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              commit(draft);
+            } else if (e.key === "Backspace" && !draft && domains.length) {
+              removeDomain(domains[domains.length - 1]);
+            }
+          }}
+          onBlur={() => commit(draft)}
+          placeholder={
+            domains.length ? "Add another…" : "e.g. twitter.com, signal.org"
+          }
+          className='flex-1 min-w-[8rem] bg-transparent focus:outline-none text-black dark:text-gray-300 px-1 py-1'
+        />
+      </div>
+    </div>
+  );
+};
+
+// OONI domain config: an "all domains" toggle plus the watched-domains editor
+// (hidden when watching all domains, since the list is then ignored).
+const OoniDomainFields = () => {
+  const [, meta] = useField<boolean>("ooniUseAllDomains");
+  return (
+    <div className='flex flex-col gap-2'>
+      <FormikSwitch
+        name='ooniUseAllDomains'
+        label='Watch all domains (alert on total measurement volume)'
+      />
+      {!meta.value && <OoniDomainsField />}
+    </div>
+  );
+};
+
+// Read-only summary of the ASNs a source has actually produced anomaly reports
+// for. Cloudflare collects country-wide, so the ASNs seen aren't a configured
+// input — this shows coverage without letting the user change it.
+const ObservedAsnsPanel = ({ sourceId }: { sourceId: string }) => {
+  const { data: observed, isLoading } = useQuery(
+    ["observed-asns", sourceId],
+    () => getObservedAsns(sourceId),
+    { staleTime: 30000 }
+  );
+
+  const asnKeys = (observed || []).map((o) => o.asn);
+  const { data: asnInfo } = useQuery(
+    ["observed-asns-info", asnKeys.join(",")],
+    () => getAsnsByIds(asnKeys),
+    { enabled: asnKeys.length > 0, staleTime: 60000 }
+  );
+
+  return (
+    <div className='mt-4 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'>
+      <h3 className='font-medium mb-1'>Observed ASNs (last 30 days)</h3>
+      <p className='text-xs text-slate-500 dark:text-gray-400 mb-2'>
+        Cloudflare anomalies are collected for the whole country; these are the
+        networks that have actually produced reports for this feed. Read-only.
+      </p>
+      {isLoading ? (
+        <p className='text-sm text-slate-500 dark:text-gray-400'>Loading…</p>
+      ) : observed && observed.length > 0 ? (
+        <div className='flex flex-col gap-1 max-h-48 overflow-y-auto'>
+          {observed.map((o) => {
+            const name = asnInfo?.[o.asn]?.name;
+            return (
+              <div
+                key={o.asn}
+                className='flex items-center justify-between text-sm gap-2'
+              >
+                <span className='font-medium'>
+                  {o.asn.toUpperCase()}
+                  {name ? (
+                    <span className='font-normal text-slate-500 dark:text-gray-400'>
+                      {" "}
+                      — {name}
+                    </span>
+                  ) : null}
+                </span>
+                <span className='text-slate-500 dark:text-gray-400'>
+                  {o.count} report{o.count === 1 ? "" : "s"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className='text-sm text-slate-500 dark:text-gray-400'>
+          No ASN-scoped reports yet.
+        </p>
+      )}
+    </div>
   );
 };
 
@@ -561,7 +723,7 @@ function onSubmit(data: any) {
 
   const iodaSchema = Yup.object().shape({
     nickname: Yup.string().required("Feed name is required"),
-    keywords: Yup.string().required("Country Code is required"),
+    keywords: Yup.string().required("Country is required"),
     credentials: Yup.string().required(
       "A connection is required to create a feed"
     ),
@@ -575,6 +737,8 @@ function onSubmit(data: any) {
         regex: source?.regex || "",
         keywords: source?.keywords || "",
         lists: source?.lists || "",
+        asns: (source?.asns || []).map(String),
+        region: source?.region || "",
         tags: source?.tags || "",
         credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
@@ -589,12 +753,23 @@ function onSubmit(data: any) {
       onClose={onClose}
     >
       <SourceNameField />
-      <FormikDropdown
-        list={
-          [{ _id: "IR", label: "IR" }]
-        }
-        label={"Two-Letter Country Code"}
+      <FormikCombobox
+        list={COUNTRY_OPTIONS}
+        label={"Country"}
         name={"keywords"}
+      />
+      <AsnChipInput
+        name='asns'
+        format='array'
+        label='ASNs (optional)'
+        placeholder='e.g. 44244, 58224'
+        hint='Type an ASN number and press Enter to add it. Leave empty to monitor the whole country; add ASNs to narrow outages to specific networks (e.g. a provider in an upstream country).'
+      />
+      <FormikInput
+        name='region'
+        label='Region code (optional)'
+        placeholder='IODA region code, e.g. 1843'
+        hint='Optional. Narrows outages to a single IODA region within the country. Leave empty for the whole country.'
       />
       <CredentialPickerField
         label='Connection'
@@ -607,7 +782,7 @@ function onSubmit(data: any) {
 
   const cloudflareSchema = Yup.object().shape({
     nickname: Yup.string().required("Feed name is required"),
-    keywords: Yup.string().required("Country Code is required"),
+    keywords: Yup.string().required("Country is required"),
     credentials: Yup.string().required(
       "A connection is required to create a feed"
     ),
@@ -635,11 +810,9 @@ function onSubmit(data: any) {
       onClose={onClose}
     >
       <SourceNameField />
-      <FormikDropdown
-        list={
-          [{ _id: "IR", label: "IR" }]
-        }
-        label={"Two-Letter Country Code"}
+      <FormikCombobox
+        list={COUNTRY_OPTIONS}
+        label={"Country"}
         name={"keywords"}
       />
       <CredentialPickerField
@@ -647,6 +820,7 @@ function onSubmit(data: any) {
         credentialsList={credentialsList}
         allowMultiple={allowMultipleConnections}
       />
+      {source && <ObservedAsnsPanel sourceId={source._id} />}
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
@@ -674,6 +848,9 @@ function onSubmit(data: any) {
         regex: source?.regex || "",
         keywords: source?.keywords || "IR",
         lists: source?.lists || "44244, 58224",
+        ooniTestName: source?.ooniTestName || "web_connectivity",
+        ooniDomains: source?.ooniDomains || [],
+        ooniUseAllDomains: source?.ooniUseAllDomains || false,
         tags: source?.tags || "",
         credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
@@ -687,17 +864,30 @@ function onSubmit(data: any) {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <FormikInput name='nickname' label='Source Name' maxLength={80} />
       <CredentialPickerField
         label='OONI Credentials'
         credentialsList={credentialsList}
         allowMultiple={allowMultipleConnections}
       />
-      <FormikInput
+      <FormikCombobox
+        list={COUNTRY_OPTIONS}
+        label={"Country"}
+        name={"keywords"}
+      />
+      <FormikDropdown
+        list={OONI_TEST_OPTIONS}
+        label={"OONI Test"}
+        name={"ooniTestName"}
+      />
+      <AsnChipInput
         name='lists'
+        format='string'
         label='Network ASNs'
         placeholder='44244, 58224'
+        hint='Type an ASN number and press Enter to add it. We watch these networks for zero measurements.'
       />
+      <OoniDomainFields />
       <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
@@ -885,7 +1075,7 @@ function onSubmit(data: any) {
     <>
       {!providerLocked && (
         <>
-          <label className='text-slate-600 dark:text-gray-400'>Provider</label>
+          <label className='text-slate-600 dark:text-gray-400'>Source</label>
           <Listbox
             value={credentialType}
             onChange={setCredentialType}
@@ -893,7 +1083,7 @@ function onSubmit(data: any) {
             className='relative z-20 font-medium mb-3'
           >
             <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200 dark:ui-active:bg-gray-600  rounded'>
-              {credentialType ? providerLabel(credentialType) : "Select Provider"}
+              {credentialType ? providerLabel(credentialType) : "Select Source"}
               <FontAwesomeIcon
                 icon={faChevronDown}
                 className='ui-active:rotate-180 text-slate-400 dark:text-gray-400'

@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import {
   faCog,
   faUsersCog,
+  faShieldHalved,
   faTags,
   faCloudArrowDown,
-
+  faUser,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
@@ -12,34 +13,49 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { getSession } from "../../api/session";
 
-export function menuLinks(role: string | undefined, isTeamLead = false) {
+// Both menus that render these links prefix them with /settings/, so `to` is
+// always relative to that: the navbar builds '/settings/' + to, and the left nav
+// below relies on `user/:id` and friends being children of the /settings route.
+export function menuLinks(
+  role: string | undefined,
+  isTeamLead = false,
+  userId?: string
+) {
+  // Your own profile is not role-dependent, so it sits outside the switch.
+  const profile = userId
+    ? { "My Profile": { to: "user/" + userId, icon: faUser } }
+    : {};
+  return { ...profile, ...roleLinks(role, isTeamLead) };
+}
+
+function roleLinks(role: string | undefined, isTeamLead: boolean) {
   switch (role) {
     case "admin":
       return {
         "Manage Users": { to: "users", icon: faUsersCog },
-        "Teams": { to: "teams", icon: faUsersCog },
-        // "Manage Tags": { to: "tags", icon: faTags },
-        "Providers and Feeds": { to: "connections", icon: faCloudArrowDown },
+        "Teams": { to: "teams", icon: faShieldHalved },
+        "Tags": { to: "tags", icon: faTags },
+        "Sources and Feeds": { to: "connections", icon: faCloudArrowDown },
       };
     case "team_lead":
       return {
         "Manage Users": { to: "users", icon: faUsersCog },
-        "Teams": { to: "teams", icon: faUsersCog },
-        // "Manage Tags": { to: "tags", icon: faTags },
-        "Providers and Feeds": { to: "connections", icon: faCloudArrowDown },
+        "Teams": { to: "teams", icon: faShieldHalved },
+        "Tags": { to: "tags", icon: faTags },
+        "Sources and Feeds": { to: "connections", icon: faCloudArrowDown },
       };
     case "monitor":
     case "viewer":
       if (isTeamLead) {
         return {
-          "Teams": { to: "teams", icon: faUsersCog },
+          "Teams": { to: "teams", icon: faShieldHalved },
           "Tags": { to: "tags", icon: faTags },
           "Sources": { to: "sources", icon: faCloudArrowDown },
         };
       }
       return {
         "Tags": { to: "tags", icon: faTags },
-        "Providers and Feeds": { to: "sources", icon: faCloudArrowDown },
+        "Sources and Feeds": { to: "sources", icon: faCloudArrowDown },
       };
     default:
       return {};
@@ -55,7 +71,7 @@ const Settings = () => {
   return (
     <section className='max-w-screen-xl mx-auto w-full px-4 flex flex-col min-[1080px]:flex-row gap-4'>
       <nav className='flex flex-wrap min-[1080px]:flex-col gap-2 mt-3 min-[1080px]:pr-3 min-[1080px]:border-r border-slate-300 min-[1080px]:w-[300px] min-[1080px]:shrink-0 min-[1080px]:min-h-[80vh]'>
-        {Object.entries(menuLinks(session?.role, session?.isTeamLead)).map(([name, link]) => (
+        {Object.entries(menuLinks(session?.role, session?.isTeamLead, session?._id)).map(([name, link]) => (
           <Link
             key={name}
             className={`px-3 py-2 flex items-center gap-3 font-medium text-left rounded-lg min-[1080px]:w-full ${location.pathname.includes(link.to)

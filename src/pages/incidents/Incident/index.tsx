@@ -1,12 +1,19 @@
 // i need to refactor this...
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import type { InfiniteData } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useIncidentMutations } from "../useIncidentMutations";
 
 import {
   getGroup,
   getGroupReports,
+  setGroupTags,
   setSelectedPublic,
 } from "../../../api/groups";
 import { Group, Groups } from "../../../api/groups/types";
@@ -44,7 +51,7 @@ import CommentTimeline from "./CommentTimeline";
 import IncidentInfo from "./IncidentInfo";
 import ReportFilters from "../../Reports/components/ReportsFilters";
 import { useQueryParams } from "../../../hooks/useQueryParams";
-import { Report, ReportQueryState } from "../../../api/reports/types";
+import { Report, Reports, ReportQueryState } from "../../../api/reports/types";
 import { useMultiSelect } from "../../../hooks/useMultiSelect";
 import GroupReportListItem from "./GroupReportListItem";
 import AggieCheck from "../../../components/AggieCheck";
@@ -54,11 +61,14 @@ import { useReportMutations } from "../../Reports/useReportMutations";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
 
 import { updateByIds } from "../../../utils/immutable";
+import { TernaryOptions } from "../../../api/common";
 import {
   SocketEvent,
   useSocketSubscribe,
 } from "../../../hooks/WebsocketProvider";
 import { removeReportsFromGroup } from "../../../api/reports";
+import { getSession } from "../../../api/session";
+import IncidentTagsDialog from "./IncidentTagsDialog";
 
 const Incident = () => {
   const { id } = useParams();
@@ -68,6 +78,7 @@ const Incident = () => {
     useQueryParams<ReportQueryState>();
   const { doUpdate, doSetClosed } = useIncidentMutations();
   const [deleteModal, setDeleteModal] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
 
   const [removeReports, setRemoveReports] = useState(false);
   const doRemoveReportFromGroup = useMutation(removeReportsFromGroup, {
@@ -94,6 +105,22 @@ const Incident = () => {
   } = useQuery(["group", id], () => getGroup(id), {
     onSuccess: (data) => { },
   });
+  const { data: session } = useQuery(["session"], getSession, {
+    staleTime: 50000,
+  });
+  const canManageTags = session?.permissions?.includes("edit data") === true;
+
+  const doSetTags = useMutation(setGroupTags, {
+    onSuccess: (_, params) => {
+      if (id) {
+        queryData.update<Group>(["group", id], () => ({
+          smtcTags: params.tagIds,
+        }));
+        queryClient.invalidateQueries(["group", id]);
+      }
+      setIsTagsOpen(false);
+    },
+  });
 
   const doDelete = useMutation(setSelectedPublic, {
     onSuccess: (_, params) => {
@@ -114,13 +141,64 @@ const Incident = () => {
       });
     },
   });
+  // Reports are loaded page-by-page and appended as the user scrolls, so the
+  // panel reads as one continuous list instead of paginated chunks.
+  const reportsQueryKey = [
+    "groups",
+    "reports",
+    { groupId: id },
+    "infinite",
+    searchParams.toString(),
+  ];
   const {
-    data: groupReports,
+    data: groupReportPages,
     refetch: groupRefetch,
     isFetching: groupIsFetching,
-  } = useQuery(["groups", "reports", { groupId: id }], () =>
-    getGroupReports({ ...getAllParams(searchParams), groupId: id })
-  );
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: reportsQueryKey,
+    queryFn: ({ pageParam = 0 }) =>
+      getGroupReports({
+        ...getAllParams(searchParams),
+        page: pageParam,
+        groupId: id,
+      }),
+    getNextPageParam: (lastPage, allPages) => {
+      // an empty page means there is nothing left, even if total disagrees
+      if (!lastPage || !lastPage.results?.length) return undefined;
+      const loaded = allPages.reduce(
+        (sum, page) => sum + (page?.results?.length || 0),
+        0
+      );
+      return loaded < lastPage.total ? allPages.length : undefined;
+    },
+  });
+
+  const groupReports = useMemo(() => {
+    if (!groupReportPages) return undefined;
+    return {
+      total: groupReportPages.pages[0]?.total || 0,
+      results: groupReportPages.pages.flatMap((page) => page?.results || []),
+    };
+  }, [groupReportPages]);
+
+  // Load the next page once the sentinel at the bottom of the list scrolls in.
+  const scrollContainer = useRef<HTMLDivElement | null>(null);
+  const loadMore = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const node = loadMore.current;
+    if (!node || !hasNextPage) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isFetchingNextPage) fetchNextPage();
+      },
+      { root: scrollContainer.current, rootMargin: "200px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, groupReports?.results.length]);
 
   const multiSelect = useMultiSelect({
     allItems: groupReports?.results,
@@ -128,10 +206,10 @@ const Incident = () => {
   });
 
   useEffect(() => {
-    // refetch on filter change
-    groupRefetch();
+    // the query key carries the filters, so changing them refetches from page 0
     document.title = `${group?.title ? group.title : "Incident"} - Aggie`;
     multiSelect.set([]);
+    scrollContainer.current?.scrollTo({ top: 0 });
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -149,6 +227,33 @@ const Incident = () => {
       hideDuplicateASNs: undefined,
     });
   }, [getParam, setParams]);
+
+  // the paged cache the shared mutations write to no longer backs this list, so
+  // patch the loaded pages here instead
+  function patchLoadedReports(reportIds: string[], patch: Partial<Report>) {
+    queryClient.setQueryData<InfiniteData<Reports | undefined>>(
+      reportsQueryKey,
+      (data) => {
+        if (!data) return data;
+        return {
+          ...data,
+          pages: data.pages.map((page) =>
+            page
+              ? { ...page, results: updateByIds(reportIds, page.results, patch) }
+              : page
+          ),
+        };
+      }
+    );
+  }
+
+  function onSetIrrelevance(irrelevant: TernaryOptions) {
+    const reportIds = multiSelect.toIdList();
+    setIrrelevance.mutate(
+      { reportIds, irrelevant },
+      { onSuccess: () => patchLoadedReports(reportIds, { irrelevant }) }
+    );
+  }
 
   function onNewIncidentFromReports() {
     const params = new URLSearchParams({
@@ -274,6 +379,11 @@ const Incident = () => {
           group={group}
           isLoading={isLoading}
           onEdit={() => setIsEditOpen(true)}
+          canManageTags={canManageTags}
+          onManageTags={() => {
+            doSetTags.reset();
+            setIsTagsOpen(true);
+          }}
         />
 
         <CommentTimeline group={group} isLoading={isLoading} />
@@ -296,9 +406,10 @@ const Incident = () => {
           reportCount={groupReports && groupReports.total}
           fromGroup={id}
           refetch={groupRefetch}
-          isFetching={groupIsFetching}
+          isFetching={groupIsFetching && !isFetchingNextPage}
           showDedupToggle={false}
           autoEnableDedup={false}
+          showPagination={false}
           defaultEntityLevelSelection={[]}
           headerElement={
             multiSelect.isActive ? (
@@ -340,12 +451,7 @@ const Incident = () => {
                   className='rounded-l-lg'
                   disabled={!multiSelect.any() || setIrrelevance.isLoading}
                   icon={faXmark}
-                  onClick={() =>
-                    setIrrelevance.mutate({
-                      reportIds: multiSelect.toIdList(),
-                      irrelevant: "true",
-                    })
-                  }
+                  onClick={() => onSetIrrelevance("true")}
                 >
                   Ignore
                 </AggieButton>
@@ -354,12 +460,7 @@ const Incident = () => {
                   className='rounded-r-lg'
                   disabled={!multiSelect.any() || setIrrelevance.isLoading}
                   icon={faDotCircle}
-                  onClick={() =>
-                    setIrrelevance.mutate({
-                      reportIds: multiSelect.toIdList(),
-                      irrelevant: "false",
-                    })
-                  }
+                  onClick={() => onSetIrrelevance("false")}
                 >
                   Investigate
                 </AggieButton>
@@ -405,21 +506,33 @@ const Incident = () => {
             </>
           )}
         </div>
-        <div className='overflow-y-auto flex flex-col rounded-lg bg-slate-50 dark:bg-gray-900 border border-slate-300 '>
+        <div
+          ref={scrollContainer}
+          className='overflow-y-auto flex flex-col rounded-lg bg-slate-50 dark:bg-gray-900 border border-slate-300 '
+        >
           {groupReports && groupReports.total > 0 ? (
-            groupReports.results.map((report) => (
-              <div
-                onClick={() => setActivePost(report)}
-                className='cursor-pointer '
-              >
-                <GroupReportListItem
-                  report={report}
-                  isChecked={multiSelect.exists(report)}
-                  isSelectMode={multiSelect.isActive}
-                  onCheckChange={() => multiSelect.addRemove(report)}
-                />
-              </div>
-            ))
+            <>
+              {groupReports.results.map((report) => (
+                <div
+                  key={report._id}
+                  onClick={() => setActivePost(report)}
+                  className='cursor-pointer '
+                >
+                  <GroupReportListItem
+                    report={report}
+                    isChecked={multiSelect.exists(report)}
+                    isSelectMode={multiSelect.isActive}
+                    onCheckChange={() => multiSelect.addRemove(report)}
+                  />
+                </div>
+              ))}
+              <div ref={loadMore} />
+              {isFetchingNextPage && (
+                <p className='py-3 text-sm text-center text-slate-500 dark:text-slate-400'>
+                  Loading more reports...
+                </p>
+              )}
+            </>
           ) : (
             <div className='grid place-items-center py-8 bg-white dark:bg-gray-800 rounded-lg'>
               <p className='font-medium text-center px-3'>No Reports Found</p>
@@ -473,6 +586,17 @@ const Incident = () => {
           isLoading={doUpdate.isLoading}
         />
       </AggieDialog>
+      <IncidentTagsDialog
+        isOpen={isTagsOpen}
+        selectedTagIds={group?.smtcTags || []}
+        isSaving={doSetTags.isLoading}
+        saveError={doSetTags.isError}
+        onClose={() => setIsTagsOpen(false)}
+        onSave={(tagIds) => {
+          if (!group?._id) return;
+          doSetTags.mutate({ groupIds: [group._id], tagIds });
+        }}
+      />
       <ConfirmationDialog
         isOpen={deleteModal}
         onClose={() => setDeleteModal(false)}

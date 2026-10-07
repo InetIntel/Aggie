@@ -7,6 +7,11 @@ const util = require('util');
 const EventEmitter = require('events').EventEmitter;
 const Report = require('../models/report');
 const { getMaterializedNotableActivities } = require('./utils/analyticsMaterialization');
+const {
+  DEFAULT_AGGREGATION_METHOD,
+  normalizeAggregationMethod,
+  normalizeStartTimeToleranceMinutes,
+} = require('./utils/analyticsTime');
 
 const QUERY_INTERVAL = 1000; // 1s
 const ANALYTICS_QUERY_INTERVAL = 60000; // 60s
@@ -106,6 +111,7 @@ Streamer.prototype.refreshDirtyAnalyticsQueries = function () {
           cacheKey,
           rangePreset: data.rangePreset,
           bucketPreset: data.bucketPreset,
+          aggregationMethod: data.aggregationMethod,
           computedAt: data.computedAt,
         });
       })
@@ -224,14 +230,33 @@ Streamer.prototype.handleAnalyticsReportNew = function (reportRef) {
 };
 
 function normalizeAnalyticsQuery(query) {
+  // The grouping has to travel with the subscription: the refresh below recomputes under
+  // this timeWindow and writes back to the client's cacheKey. Dropping it here would let a
+  // socket refresh overwrite a startTime result set with fixed-grid activities.
+  let aggregationMethod = DEFAULT_AGGREGATION_METHOD;
+  let startTimeToleranceMinutes;
+  try {
+    aggregationMethod = normalizeAggregationMethod(query.aggregationMethod);
+    startTimeToleranceMinutes = normalizeStartTimeToleranceMinutes(
+      query.startTimeToleranceMinutes
+    );
+  } catch (err) {
+    aggregationMethod = DEFAULT_AGGREGATION_METHOD;
+    startTimeToleranceMinutes = normalizeStartTimeToleranceMinutes(undefined);
+  }
+
   return {
     cacheKey: query.cacheKey,
     range: query.rangePreset || query.range,
     bucket: query.bucketPreset || query.bucket,
+    aggregationMethod,
+    startTimeToleranceMinutes,
     timeWindow: {
       rangePreset: query.rangePreset || query.range,
       bucketPreset: query.bucketPreset || query.bucket,
       bucketSizeMinutes: query.bucketSizeMinutes,
+      aggregationMethod,
+      startTimeToleranceMinutes,
       rangeStartUtc: new Date(query.rangeStartUtc),
       rangeEndUtc: new Date(query.rangeEndUtc),
     },

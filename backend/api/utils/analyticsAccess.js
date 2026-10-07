@@ -15,7 +15,8 @@ const { combineReportFilters } = require('./reportSourceAccess');
 
 // Fields projectNotableActivityToReports needs to re-derive an activity.
 const PROJECTION_FIELDS =
-  '_id _media metadata.rawAPIResponse.dataSource asn geoScope _group outageStartedAt';
+  '_id _media metadata.rawAPIResponse.dataSource asn geoScope _group outageStartedAt ' +
+  'eventAggKeyBase';
 
 const isAdmin = (user) => Boolean(user) && user.role === 'admin';
 

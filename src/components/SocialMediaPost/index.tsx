@@ -1,6 +1,7 @@
 import Linkify from "linkify-react";
 import { Report } from "../../api/reports/types";
 import { formatText } from "../../utils/format";
+import { detectTextDirection } from "../../utils/format";
 import PostReactions from "./PostReactions";
 import MediaPreview from "./MediaPreview";
 
@@ -11,6 +12,7 @@ import {
   isTwitterReply,
   sanitize,
   reportNetwork,
+  reportLink,
 } from "./reportParser";
 
 import { faExternalLink } from "@fortawesome/free-solid-svg-icons";
@@ -90,7 +92,10 @@ const SocialMediaPost = ({ report, showMedia, compact }: IProps) => {
       default:
         return (
           <>
-            <div className='whitespace-pre-wrap mb-1 break-all '>
+            <div
+              dir={detectTextDirection(report.content)}
+              className='whitespace-pre-wrap mb-1 post-text'
+            >
               <Linkify
                 options={{
                   target: "_blank",
@@ -144,10 +149,10 @@ const SocialMediaPost = ({ report, showMedia, compact }: IProps) => {
           {renderAuthor(contentType)}
         </div>
         <div className='flex items-center gap-2 h-fit pr-1'>
-          {!!report.url && (
+          {!!reportLink(report) && (
             <a
               target='_blank'
-              href={report.url}
+              href={reportLink(report)}
               className='ml-1 px-2 py-1 rounded-full border border-slate-200 font-medium text-xs inline-flex gap-1 items-center bg-slate-100 dark:bg-gray-700 hover:bg-white dark:hover:bg-gray-800 text-nowrap '
             >
               <span>Open Post</span>

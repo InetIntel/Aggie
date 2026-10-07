@@ -21,8 +21,8 @@ test('creates one deduplicated report from a zero-measurement rolling window', a
   const posts = await channel.fetch();
 
   assert.deepEqual(requests, [
-    { asn: 44244, since: '2026-08-11T14:30:00.000Z', until: '2026-08-12T14:30:00.000Z' },
-    { asn: 58224, since: '2026-08-11T14:30:00.000Z', until: '2026-08-12T14:30:00.000Z' },
+    { asn: 44244, since: '2026-08-11T14:30:00.000Z', until: '2026-08-12T14:30:00.000Z', probeCC: 'IR', testName: 'web_connectivity' },
+    { asn: 58224, since: '2026-08-11T14:30:00.000Z', until: '2026-08-12T14:30:00.000Z', probeCC: 'IR', testName: 'web_connectivity' },
   ]);
   assert.equal(posts.length, 1);
   assert.equal(queued.length, 1);
@@ -88,6 +88,35 @@ test('creates one report containing all watched domains with zero measurements',
   assert.deepEqual(posts[0].raw.zeroDomains, ['missing.example']);
   assert.equal(posts[0].raw.triggers[0].type, 'zero_domain_measurements');
   assert.equal(posts[0].raw.triggers[0].windowEnd, '2026-08-12T14:30:00.000Z');
+});
+
+test('uses the configured probe country and test', async () => {
+  const requests = [];
+  const queued = [];
+  const now = new Date('2026-08-12T14:30:00.000Z');
+  const channel = new OONIChannel({
+    asns: '12345',
+    probeCC: 'RU',
+    testName: 'telegram',
+    domainConfig: { useAllDomains: true, domains: [] },
+    now: () => now,
+    reportExists: async () => false,
+    hasMeasurements: async (request) => {
+      requests.push(request);
+      return false; // zero measurements -> alert
+    },
+  });
+  channel.enqueue = (post) => queued.push(post);
+
+  const posts = await channel.fetch();
+
+  assert.equal(requests[0].probeCC, 'RU');
+  assert.equal(requests[0].testName, 'telegram');
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].raw.probeCC, 'RU');
+  assert.equal(posts[0].raw.testName, 'telegram');
+  // geoScope resolves from the configured probe country, not a hardcoded Iran.
+  assert.equal(posts[0].geoScope, 'Russian Federation');
 });
 
 test('rejects an invalid ASN list', () => {
