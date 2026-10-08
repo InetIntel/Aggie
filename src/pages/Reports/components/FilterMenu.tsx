@@ -13,8 +13,8 @@ import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCaretRight, faFilter } from "@fortawesome/free-solid-svg-icons";
 
-// Shared look for the selected state of options and the active filter chips,
-// so a chip visibly matches the option that produced it.
+// Shared look for selected options and the applied filters shown above the
+// Filter button, so an applied filter visibly matches the option that set it.
 export const SELECTED_CSS =
   "bg-aggie-lime-400 hover:bg-aggie-lime-500 text-slate-900 dark:saturate-[0.8]";
 

@@ -60,10 +60,10 @@ const EARLIEST_DATE = new Date(2025, 5, 1);
 const TAG_OPTIONS = ["Read", "Unread", "Investigate", "Ignore"];
 const IRRELEVANT_PARAM: Record<string, string> = { Investigate: "false", Ignore: "true" };
 
-// A single removable "chip" showing one active filter value. Clicking it clears
+// One removable applied filter value. Clicking it clears
 // just that value (issue #138: users should see what's applied without opening
 // the filter menu, and be able to clear one at a time).
-const FilterChip = ({
+const AppliedFilter = ({
   label,
   onRemove,
 }: {
@@ -231,7 +231,7 @@ const ReportFilters = ({
     (key) => key !== "view" && key !== "sort"
   );
 
-  // --- Active filter chips (issue #138): one chip per applied value so users
+  // --- Applied filters (issue #138): one entry per applied value so users
   // see what's filtered without opening the menu, and can clear one at a time.
   const keywordsValue = getParam("keywords");
   const irrelevantValue = getParam("irrelevant");
@@ -495,7 +495,7 @@ const ReportFilters = ({
       {(activeFilters.length > 0 || hasActiveFilter) && (
         <div className='flex flex-wrap items-center gap-2 mb-2'>
           {activeFilters.map((filter) => (
-            <FilterChip key={filter.id} label={filter.label} onRemove={filter.onRemove} />
+            <AppliedFilter key={filter.id} label={filter.label} onRemove={filter.onRemove} />
           ))}
           {hasActiveFilter && (
             <button
