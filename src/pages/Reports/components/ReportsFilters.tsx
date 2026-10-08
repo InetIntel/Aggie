@@ -55,8 +55,6 @@ interface IReportFilters {
   showPagination?: boolean;
 }
 
-// Earliest day the date range filter offers.
-const EARLIEST_DATE = new Date(2025, 5, 1);
 const TAG_OPTIONS = ["Read", "Unread", "Investigate", "Ignore"];
 const IRRELEVANT_PARAM: Record<string, string> = { Investigate: "false", Ignore: "true" };
 
@@ -365,7 +363,6 @@ const ReportFilters = ({
       icon: faCalendar,
       content: (close) => (
         <DateRangePanel
-          earliest={EARLIEST_DATE}
           after={afterValue}
           before={beforeValue}
           onCancel={close}

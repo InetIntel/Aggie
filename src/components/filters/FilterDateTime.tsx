@@ -15,6 +15,9 @@ interface IProps {
   earliest?: Date;
 }
 
+/** Aggie started collecting data on this day; earlier days are not selectable. */
+export const AGGIE_START_DATE = new Date(2025, 5, 12);
+
 // Dates are whole days in the browser's time zone: the range runs from the
 // start of the first day to the end of the last day, so the end date is inclusive.
 // The end never goes past the current time, so picking today means "up to now".
@@ -55,14 +58,14 @@ interface IPanelProps {
   after: string;
   onApply: (after: string, before: string) => void;
   onCancel: () => void;
-  /** first selectable day; defaults to no lower bound */
+  /** first selectable day; defaults to the day Aggie started collecting data */
   earliest?: Date;
 }
 
 // The date range panel on its own, so it can be shown inside other menus
 // (e.g. the Reports "Filter" menu). It mounts fresh each time it opens, so its
 // draft state always starts from the applied values.
-export const DateRangePanel = ({ before, after, onApply, onCancel, earliest }: IPanelProps) => {
+export const DateRangePanel = ({ before, after, onApply, onCancel, earliest = AGGIE_START_DATE }: IPanelProps) => {
   const [today] = useState(() => startOfDay(new Date()));
   const [range, setRange] = useState<DateRange | undefined>(() =>
     after ? { from: startOfDay(new Date(after)), to: before ? startOfDay(new Date(before)) : undefined } : undefined
@@ -79,11 +82,10 @@ export const DateRangePanel = ({ before, after, onApply, onCancel, earliest }: I
   const outOfBounds = (day?: Date) => !!day && (day > today || (!!earliest && day < earliest));
   const startTyped = fromInputValue(startText);
   const endTyped = fromInputValue(endText);
+  const earliestLabel = earliest.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
   const error =
     outOfBounds(startTyped) || outOfBounds(endTyped)
-        ? earliest
-          ? `Dates must be between ${earliest.toLocaleDateString()} and ${today.toLocaleDateString()}.`
-          : `Dates can't be after ${today.toLocaleDateString()}.`
+        ? `Dates must be between ${earliest.toLocaleDateString()} and ${today.toLocaleDateString()}.`
         : startTyped && endTyped && startTyped > endTyped ? "End date must be on or after start date."
           : "";
 
@@ -119,15 +121,18 @@ export const DateRangePanel = ({ before, after, onApply, onCancel, earliest }: I
               type='date'
               ref={inputRefs[input.id]}
               defaultValue={input.initial}
-              min={earliest ? toInputValue(earliest) : undefined}
+              min={toInputValue(earliest)}
               max={toInputValue(today)}
               onChange={(event) => typeDate(input.id, event.target.value)}
-              className='block w-full px-2 py-1.5 rounded-md border border-slate-300 bg-white dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-aggie-secondary-500 focus:border-aggie-secondary-500'
+              // The calendar below replaces the browser's own date popup, which lists years outside min/max.
+              className='[&::-webkit-calendar-picker-indicator]:hidden block w-full px-2 py-1.5 rounded-md border border-slate-300 bg-white dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-aggie-secondary-500 focus:border-aggie-secondary-500'
             />
           </label>
         ))}
       </div>
-      {error && <p role='alert' className='mt-2 text-xs text-red-700 dark:text-red-400'>{error}</p>}
+      {error
+        ? <p role='alert' className='mt-2 text-xs text-red-700 dark:text-red-400'>{error}</p>
+        : <p className='mt-2 text-xs text-slate-500 dark:text-gray-400'>Data is available from {earliestLabel}.</p>}
       <DayPicker
         mode='range'
         captionLayout='dropdown'
@@ -139,7 +144,7 @@ export const DateRangePanel = ({ before, after, onApply, onCancel, earliest }: I
         onMonthChange={setMonth}
         startMonth={earliest}
         endMonth={today}
-        disabled={[{ after: today }, ...(earliest ? [{ before: earliest }] : [])]}
+        disabled={[{ after: today }, { before: earliest }]}
         style={{
           "--rdp-accent-color": "#237F9E",
           "--rdp-accent-background-color": "#EAF6FA",
