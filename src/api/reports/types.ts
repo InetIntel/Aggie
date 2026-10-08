@@ -67,6 +67,7 @@ export interface ReportQueryState {
   irrelevant?: string;
   alerts?: boolean;
   ongoing?: string;
+  sort?: string; // 'oldest' for oldest first; absent means newest first
 }
 
 // metadata typed

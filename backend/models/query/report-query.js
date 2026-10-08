@@ -38,6 +38,8 @@ function ReportQuery(options) {
   this.irrelevant = options.irrelevant;
   this.isOutageEvent = options.isOutageEvent;
   this.isOutageOngoing = options.isOutageOngoing;
+  // List order by authoredAt: 'oldest' first, anything else newest first.
+  this.sortDirection = options.sort === 'oldest' ? 1 : -1;
 
 }
 
