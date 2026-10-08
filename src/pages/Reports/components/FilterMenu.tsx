@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useFloating,
   autoUpdate,
@@ -87,11 +87,23 @@ const FilterMenu = ({ categories }: { categories: FilterCategory[] }) => {
   const [activeId, setActiveId] = useState<string>();
   const [submenuTop, setSubmenuTop] = useState(0);
   const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const hoverTimer = useRef<ReturnType<typeof setTimeout>>();
   const active = categories.find((category) => category.id === activeId);
 
+  useEffect(() => () => clearTimeout(hoverTimer.current), []);
+
   function openCategory(id: string) {
+    clearTimeout(hoverTimer.current);
     setActiveId(id);
     setSubmenuTop(rowRefs.current[id]?.offsetTop ?? 0);
+  }
+
+  // Hovering switches the submenu only after the pointer rests on a row, so
+  // moving diagonally from a row to its (tall) submenu doesn't flip it to
+  // whichever rows the pointer crosses on the way.
+  function hoverCategory(id: string) {
+    clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => openCategory(id), activeId ? 200 : 0);
   }
 
   return (
@@ -107,7 +119,8 @@ const FilterMenu = ({ categories }: { categories: FilterCategory[] }) => {
                   aria-haspopup='true'
                   aria-expanded={category.id === activeId}
                   ref={(el) => (rowRefs.current[category.id] = el)}
-                  onMouseEnter={() => openCategory(category.id)}
+                  onMouseEnter={() => hoverCategory(category.id)}
+                  onMouseLeave={() => clearTimeout(hoverTimer.current)}
                   onFocus={() => openCategory(category.id)}
                   onClick={() => openCategory(category.id)}
                   className={`w-full flex items-center gap-2.5 px-2 py-1.5 my-0.5 rounded-md text-left whitespace-nowrap ${category.id === activeId
