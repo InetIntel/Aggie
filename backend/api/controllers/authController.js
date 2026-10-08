@@ -7,6 +7,7 @@ const {
   getTeamPermissions,
 } = require('../../access/teamMemberships');
 const jwt = require('jsonwebtoken');
+const { recordLogin } = require('../utils/kpiTracking');
 require('dotenv').config();
 const crypto = require('crypto');
 const OTPAuth = require('otpauth');                              
@@ -176,6 +177,7 @@ exports.login = async (req, res) => {
     }
 
     const token = signJWT(user, false);
+    await recordLogin(user);
     res.cookie('jwt', token, cookieOpts());
     return res.json({ success: true, token, message: "Authentication successful", mfa: false });
   } catch (err) {
@@ -520,6 +522,7 @@ exports.webauthnLoginFinish = async (req, res) => {
 
     const token = signJWT(user, true);
     res.cookie('jwt', token, cookieOpts());
+    await recordLogin(user);
     return res.json({ ok: true, mfa: true, token });
   } catch {
     return res.status(400).json({ ok: false, error: 'Authentication finish failed' });
@@ -748,6 +751,7 @@ exports.totpLoginVerify = async (req, res) => {
 
     const token = signJWT(user, true);
     res.cookie('jwt', token, cookieOpts());
+    await recordLogin(user);
     return res.json({ ok: true, mfa: true, token });
   } catch (err) {
     console.error('[totpLoginVerify] error:', err);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { getSources } from "../../../api/sources";
@@ -6,12 +6,13 @@ import { getCredentials } from "../../../api/credentials";
 import { getSession } from "../../../api/session";
 import {
   CREDENTIAL_OPTIONS,
-  MULTI_CONNECTION_STORAGE_KEY,
-  getAllowMultipleConnections,
+  // Kept for the (temporarily disabled) "Allow multiple connections" toggle:
+  // MULTI_CONNECTION_STORAGE_KEY,
+  // getAllowMultipleConnections,
 } from "../../../api/common";
 
 import AxiosErrorCard from "../../../components/AxiosErrorCard";
-import AggieSwitch from "../../../components/AggieSwitch";
+// import AggieSwitch from "../../../components/AggieSwitch";
 import Configuration from "../Configuration";
 import ApiTypeSection from "./ApiTypeSection";
 
@@ -19,7 +20,7 @@ import ApiTypeSection from "./ApiTypeSection";
 // type's credentials and sources (grouped by `credential.type` / `source.media`).
 const ConnectionsIndex = () => {
   useEffect(() => {
-    document.title = "Providers and Feeds - Aggie";
+    document.title = "Sources and Feeds - Aggie";
   }, []);
 
   const {
@@ -35,16 +36,18 @@ const ConnectionsIndex = () => {
   const canManageSources =
     session?.permissions?.includes("manage sources") === true;
 
-  // Allow more than one connection per provider. Seeded from the code default,
-  // then persisted per-browser so the choice survives reloads.
-  const [allowMultipleConnections, setAllowMultipleConnections] =
-    useState<boolean>(getAllowMultipleConnections);
-  useEffect(() => {
-    localStorage.setItem(
-      MULTI_CONNECTION_STORAGE_KEY,
-      String(allowMultipleConnections)
-    );
-  }, [allowMultipleConnections]);
+  // Multiple connections per provider are always allowed now, so this is fixed
+  // to `true`. The per-browser toggle below is temporarily disabled; its state
+  // is preserved (commented out) in case the cap needs to be re-enabled.
+  const allowMultipleConnections = true;
+  // const [allowMultipleConnections, setAllowMultipleConnections] =
+  //   useState<boolean>(getAllowMultipleConnections);
+  // useEffect(() => {
+  //   localStorage.setItem(
+  //     MULTI_CONNECTION_STORAGE_KEY,
+  //     String(allowMultipleConnections)
+  //   );
+  // }, [allowMultipleConnections]);
 
   if (sourcesError)
     return (
@@ -55,15 +58,15 @@ const ConnectionsIndex = () => {
 
   return (
     <div className='mt-3 pb-16'>
-      <h1 className='font-medium text-3xl mb-1'>Providers and Feeds</h1>
+      <h1 className='font-medium text-3xl mb-1'>Sources and Feeds</h1>
       <p className='text-sm text-slate-500 dark:text-gray-400 mb-4 max-w-3xl'>
-        A <span className='font-medium'>Provider</span> is a platform Aggie pulls
+        A <span className='font-medium'>Source</span> is a platform Aggie pulls
         from, like Mastodon or IODA. A{" "}
         <span className='font-medium'>Connection</span> is the login or API key
-        that lets Aggie reach a Provider. A{" "}
+        that lets Aggie reach a Source. A{" "}
         <span className='font-medium'>Feed</span> then runs on top of a Connection
         to collect the posts and signals you care about, which show up as Alerts.
-        Connect a Provider first, then add Feeds to it.
+        Connect a Source first, then add Feeds to it.
       </p>
       {canManageConnections && (
         <div className='mb-6'>
@@ -83,6 +86,11 @@ const ConnectionsIndex = () => {
         />
       ))}
 
+      {/*
+        Multiple connections per Provider are now always allowed, so this toggle
+        is temporarily disabled. Kept here (rather than deleted) so the
+        single-connection cap can be re-enabled later.
+
       {canManageConnections && (
         <label className='flex items-center gap-3 mt-8 pt-4 border-t border-slate-200 dark:border-gray-700 text-sm'>
           <AggieSwitch
@@ -98,6 +106,7 @@ const ConnectionsIndex = () => {
           </span>
         </label>
       )}
+      */}
     </div>
   );
 };

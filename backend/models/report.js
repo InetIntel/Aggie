@@ -44,6 +44,14 @@ let schema = new Schema({
   _media: { type: [String], index: true },
   _sourceNicknames: [String],
   _group: { type: SchemaTypes.ObjectId, ref: "Group", index: true },
+  // When/by whom the report was added to its current `_group`. Set by
+  // attachReportsToGroup, cleared whenever `_group` is cleared. Reports linked before
+  // these fields existed have neither and sort after tracked ones.
+  addedToGroupAt: { type: Date },
+  addedToGroupBy: { type: Schema.ObjectId, ref: "User" },
+  // Set when the report is pinned to the top of its incident's report list. Scoped to
+  // the current `_group`, so it is cleared whenever the report leaves that incident.
+  pinnedInGroupAt: { type: Date },
   checkedOutBy: { type: Schema.ObjectId, ref: "User", index: true },
   checkedOutAt: { type: Date, index: true },
   commentTo: { type: Schema.ObjectId, ref: "Report", index: true },
@@ -223,6 +231,9 @@ schema.methods.clearSMTCTags = function (callback) {
   cb();
 };
 // schema.plugin(AutoIncrement, { inc_field: 'reportId' });
+schema.plugin(require('./kpiPlugin').kpiPlugin, {
+  entity: 'report', recordEvents: require('../api/utils/kpiTracking').recordEvents,
+});
 const Report = mongoose.model("Report", schema);
 
 SMTCTag.schema.on("tag:removed", function (id) {
@@ -280,6 +291,21 @@ Report.queryReports = function (query, page, callback, extraFilter) {
   //   filter.$or = [...prevOr, ...orArray]
   // }
   // delete query.keywords
+
+  // A single incident's reports list pinned reports first (most recently pinned on top),
+  // then newest-added. Unpinned and untracked (legacy) reports have no pinnedInGroupAt /
+  // addedToGroupAt, which sort as null (last) and fall back to authoredAt.
+  if (typeof query.groupId === "string") {
+    return Report.findPage(
+      filter,
+      page,
+      {
+        sort: { pinnedInGroupAt: -1, addedToGroupAt: -1, authoredAt: -1 },
+        populate: { path: "addedToGroupBy", select: "username" },
+      },
+      callback,
+    );
+  }
 
   Report.findSortedPage(filter, page, callback, query.sortDirection);
 };

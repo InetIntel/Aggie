@@ -162,6 +162,9 @@ schema.post('remove', function () {
     }
     reports.forEach(function (report) {
       report._group = null;
+      report.addedToGroupAt = undefined;
+      report.addedToGroupBy = undefined;
+      report.pinnedInGroupAt = undefined;
       report.save();
     });
   });
@@ -235,6 +238,9 @@ schema.methods.clearSMTCTags = function (callback) {
   cb();
 };
 
+schema.plugin(require('./kpiPlugin').kpiPlugin, {
+  entity: 'group', recordEvents: require('../api/utils/kpiTracking').recordEvents,
+});
 var Group = mongoose.model('Group', schema);
 
 /* We need to be able to find Groups by smtcTag Id
@@ -353,9 +359,11 @@ Group.queryGroups = function (query, page, options, callback) {
 
   // Checking for multiple tags in group
   if (filter.tags) {
-    filter.smtcTags = { $all: filter.tags };
+    const tagOperator = filter.tagMatch === 'all' ? '$all' : '$in';
+    filter.smtcTags = { [tagOperator]: filter.tags };
     delete filter.tags;
   }
+  delete filter.tagMatch;
   // Re-set search timestamp
   query.since = new Date();
   console.log(JSON.stringify(filter))

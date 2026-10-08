@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useHref } from "react-router-dom";
 import type { AnalyticsOverview } from "../../../api/analytics/types";
-import { formatActivityWindow, formatXAxisLabel } from "../dashboardHelpers";
+import { useDashboardFormatters } from "../dashboardHelpers";
 
 const fallbackTimeSeries = [
   "2026-02-26T10:00:00.000Z",
@@ -55,6 +55,7 @@ const chartFrame = {
 const chartTooltipFontSize = 14;
 
 const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
+  const { formatActivityWindow, formatXAxisLabel } = useDashboardFormatters();
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("combined");
@@ -286,7 +287,12 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
                   }
                 >
                   <title>
-                    {buildTooltipLines(item, series, index).join(" — ")}
+                    {buildTooltipLines(
+                      item,
+                      series,
+                      index,
+                      formatActivityWindow
+                    ).join(" — ")}
                   </title>
                 </rect>
               );
@@ -299,7 +305,8 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
               lines={buildTooltipLines(
                 activeItem,
                 series,
-                activePointIndex as number
+                activePointIndex as number,
+                formatActivityWindow
               )}
               hasReports={
                 sumSeriesAt(series, activePointIndex as number) > 0
@@ -446,9 +453,10 @@ function sumSeriesAt(series: ChartSeries[], index: number) {
 function buildTooltipLines(
   item: TimeSeriesBucket,
   series: ChartSeries[],
-  index: number
+  index: number,
+  formatWindow: (start: string, end: string) => string
 ) {
-  const window = formatActivityWindow(item.bucketStart, item.bucketEnd);
+  const window = formatWindow(item.bucketStart, item.bucketEnd);
   const total = sumSeriesAt(series, index);
   const reportsLabel = `report${total === 1 ? "" : "s"}`;
 

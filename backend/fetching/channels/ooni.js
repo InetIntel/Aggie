@@ -1,6 +1,7 @@
 const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { hasMeasurements } = require('../ooniApi');
+const { fetchSeries, chartAnchor } = require('../ooniSeries');
 const {
   normalizeDomainConfig,
   evaluateRollingAlert,
@@ -81,8 +82,14 @@ class OONIChannel extends PollChannel {
       namespace: options.namespace || `ooni-${asns.join('-')}`,
     });
     this.asns = asns;
+    // Probe country and test are configurable per-source; fall back to the
+    // historical Iran / web_connectivity defaults so existing sources (which
+    // store neither) keep their current behavior.
+    this.probeCC = options.probeCC || PROBE_CC;
+    this.testName = options.testName || 'web_connectivity';
     this.interval = options.interval || OONIChannel.INTERVAL;
     this.hasMeasurements = options.hasMeasurements || hasMeasurements;
+    this.fetchSeries = options.fetchSeries || fetchSeries;
     this.domainConfig = normalizeDomainConfig(options.domainConfig || defaultDomainConfig);
     this.reportExists = options.reportExists
       || ((query) => require('../../models/report').exists(query));
@@ -104,7 +111,13 @@ class OONIChannel extends PollChannel {
 
       let alerts;
       if (this.domainConfig.useAllDomains) {
-        const found = await this.hasMeasurements({ asn, since: windowStart, until: windowEnd });
+        const found = await this.hasMeasurements({
+          asn,
+          since: windowStart,
+          until: windowEnd,
+          probeCC: this.probeCC,
+          testName: this.testName,
+        });
         alerts = evaluateRollingAlert(found, windowStart, windowEnd);
       } else {
         const rows = [];
@@ -114,6 +127,8 @@ class OONIChannel extends PollChannel {
             domain,
             since: windowStart,
             until: windowEnd,
+            probeCC: this.probeCC,
+            testName: this.testName,
           });
           rows.push({ domain, hasMeasurements: found });
         }
@@ -126,7 +141,8 @@ class OONIChannel extends PollChannel {
       }
       if (alerts.length === 0) continue;
 
-      const post = this.parse({ asn, alerts, guid, fetchedAt: this.now() });
+      const chart = await this.loadChart(asn, alerts[0].windowEnd);
+      const post = this.parse({ asn, alerts, guid, fetchedAt: this.now(), chart });
       posts.push(post);
       this.enqueue(post);
     }
@@ -134,13 +150,34 @@ class OONIChannel extends PollChannel {
     return posts;
   }
 
+  // The 14 blocks of 24 hours of per-domain counts shown on the alert. Fetched once, here,
+  // and stored with the alert so opening it never calls OONI (whose API is rate
+  // limited per IP). A failure must not stop the alert from being created - the
+  // alert is saved without a chart rather than retried; only new alerts get one,
+  // there is no backfill for alerts created before this.
+  async loadChart(asn, windowEnd) {
+    if (this.domainConfig.useAllDomains) return null;
+    try {
+      return await this.fetchSeries({
+        asn,
+        anchor: chartAnchor(windowEnd),
+        domains: this.domainConfig.domains,
+        probeCC: this.probeCC,
+        testName: this.testName,
+      });
+    } catch (error) {
+      console.warn(`OONI chart series unavailable for AS${asn}: ${error.message}`);
+      return null;
+    }
+  }
+
   parse(rawMessage) {
-    const { asn, alerts, guid, fetchedAt } = rawMessage;
+    const { asn, alerts, guid, fetchedAt, chart } = rawMessage;
     const alertDate = alerts[0].alertDate;
     const searchParams = new URLSearchParams({
-      probe_cc: PROBE_CC,
+      probe_cc: this.probeCC,
       probe_asn: `AS${asn}`,
-      test_name: 'web_connectivity',
+      test_name: this.testName,
       since: alerts[0].windowStart,
       until: alerts[0].windowEnd,
     });
@@ -154,10 +191,10 @@ class OONIChannel extends PollChannel {
       platform: 'ooni',
       platformID: guid,
       raw: {
-        probeCC: PROBE_CC,
+        probeCC: this.probeCC,
         probeASN: asn,
         networkName: NETWORK_NAMES[asn] || null,
-        testName: 'web_connectivity',
+        testName: this.testName,
         dataSource: DATA_SOURCES.OONI,
         entityLevel: 'AS',
         alertDate,
@@ -170,12 +207,13 @@ class OONIChannel extends PollChannel {
           .filter((alert) => alert.type === 'zero_domain_measurements')
           .map((alert) => alert.domain),
         triggers: alerts,
+        ...(chart ? { chart: { ...chart, fetchedAt: fetchedAt.toISOString() } } : {}),
       },
     });
 
     post.isOutageEvent = true;
     post.isAsnScoped = true;
-    Object.assign(post, outageFields({ asn, windowEnd: alerts[0].windowEnd }));
+    Object.assign(post, outageFields({ asn, probeCC: this.probeCC, windowEnd: alerts[0].windowEnd }));
     return post;
   }
 }

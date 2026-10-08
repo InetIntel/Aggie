@@ -95,6 +95,8 @@ exports.analytics_overview = async (req, res) => {
       rangePreset: data.rangePreset,
       bucketPreset: data.bucketPreset,
       bucketSizeMinutes: data.bucketSizeMinutes,
+      aggregationMethod: data.aggregationMethod,
+      startTimeToleranceMinutes: data.startTimeToleranceMinutes,
       rangeStartUtc: data.rangeStartUtc,
       rangeEndUtc: data.rangeEndUtc,
       metrics: {
@@ -190,7 +192,10 @@ exports.analytics_create_incident = async (req, res) => {
     });
 
     await eventRouter.publish('groups:create', group);
-    await attachReportsToGroup(notableActivity.reportIds, group._id, { markRead: true });
+    await attachReportsToGroup(notableActivity.reportIds, group._id, {
+      markRead: true,
+      addedBy: req.user && req.user._id,
+    });
     await updateSnapshotIncident(notableActivity, group._id);
 
     return res.status(200).send(group);
@@ -216,6 +221,7 @@ exports.analytics_update_incident = async (req, res) => {
     if (mode === 'add') {
       const updatedGroup = await attachReportsToGroup(notableActivity.reportIds, groupId, {
         markRead: true,
+        addedBy: req.user && req.user._id,
       });
       await updateSnapshotIncident(notableActivity, groupId);
       return res.status(200).send(updatedGroup || { _id: groupId });
@@ -230,9 +236,14 @@ exports.analytics_update_incident = async (req, res) => {
 };
 
 function parseAnalyticsQuery(query = {}, parseOptions = {}) {
+  // `aggregation` picks how reports are grouped into an activity ('bucket' | 'startTime');
+  // `tolerance` is the startTime gap in minutes. Both are validated in analyticsTime and
+  // surface as 400s. Omitting them keeps the original fixed-grid behaviour.
   const analyticsOptions = {
     range: query.range,
     bucket: query.bucket,
+    aggregationMethod: query.aggregation,
+    startTimeToleranceMinutes: query.tolerance,
   };
 
   if (parseOptions.allowLimit && query.limit !== undefined) {

@@ -52,6 +52,7 @@ interface IReportFilters {
   showDedupToggle?: boolean;
   autoEnableDedup?: boolean;
   defaultEntityLevelSelection?: string[];
+  showPagination?: boolean;
 }
 
 // Earliest day the date range filter offers.
@@ -95,6 +96,7 @@ const ReportFilters = ({
   showDedupToggle = true,
   autoEnableDedup = true,
   defaultEntityLevelSelection,
+  showPagination = true,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -480,14 +482,16 @@ const ReportFilters = ({
             </Form>
           </Formik>
         </div>
-        <div className='text-xs shrink-0'>
-          <Pagination
-            currentPage={Number(getParam("page")) || 0}
-            totalCount={reportCount || 0}
-            onPageChange={(num) => setParams({ page: num })}
-            size={0}
-          />
-        </div>
+        {showPagination && (
+          <div className='text-xs shrink-0'>
+            <Pagination
+              currentPage={Number(getParam("page")) || 0}
+              totalCount={reportCount || 0}
+              onPageChange={(num) => setParams({ page: num })}
+              size={0}
+            />
+          </div>
+        )}
       </div>
       {(activeFilters.length > 0 || hasActiveFilter) && (
         <div className='flex flex-wrap items-center gap-2 mb-2'>
@@ -511,21 +515,24 @@ const ReportFilters = ({
       )}
       <div className='flex items-center gap-2 pb-3 mb-3 border-b border-slate-200 dark:border-gray-700'>
         <FilterMenu categories={categories} />
-        <ToolbarPopover label='Sort' icon={faArrowsUpDown}>
-          {(close) => (
-            <div className={PANEL_CSS}>
-              <FilterOptionList
-                options={["newest", "oldest"]}
-                getLabel={(option) => option === "newest" ? "Newest first" : "Oldest first"}
-                isSelected={(option) => option === sortValue}
-                onToggle={(option) => {
-                  setParams({ sort: option === "oldest" ? "oldest" : undefined });
-                  close();
-                }}
-              />
-            </div>
-          )}
-        </ToolbarPopover>
+        {/* An incident's own list is always pinned-first, so Sort doesn't apply there. */}
+        {!fromGroup && (
+          <ToolbarPopover label='Sort' icon={faArrowsUpDown}>
+            {(close) => (
+              <div className={PANEL_CSS}>
+                <FilterOptionList
+                  options={["newest", "oldest"]}
+                  getLabel={(option) => option === "newest" ? "Newest first" : "Oldest first"}
+                  isSelected={(option) => option === sortValue}
+                  onToggle={(option) => {
+                    setParams({ sort: option === "oldest" ? "oldest" : undefined });
+                    close();
+                  }}
+                />
+              </div>
+            )}
+          </ToolbarPopover>
+        )}
       </div>
       {headerElement && (
         <div className='flex flex-wrap items-center gap-3 text-sm'>

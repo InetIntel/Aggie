@@ -48,6 +48,8 @@ router.patch('/_irrelevance', allowGlobalOrScoped('edit data'), reportController
 router.patch('/_group', allowGlobalOrScoped('edit data'), reportController.requireReportAccess, loadIncidentAccessContext, requireReportIncidentAccess, reportController.reports_group_update);
 // remove reports from group
 router.patch('/_group-rm', allowGlobalOrScoped('edit data'), reportController.requireReportAccess, loadIncidentAccessContext, requireReportIncidentAccess, reportController.reports_group_remove);
+// pin/unpin reports at the top of their incident's report list
+router.patch('/_group-pin', allowGlobalOrScoped('edit data'), reportController.requireReportAccess, loadIncidentAccessContext, requireReportIncidentAccess, reportController.reports_group_pin);
 
 // Update reports notes
 router.patch('/_notes', allowGlobalOrScoped('edit data'), reportController.requireReportAccess, reportController.reports_notes_update);
