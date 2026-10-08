@@ -16,8 +16,13 @@ interface IProps {
 
 // Dates are whole days in the browser's time zone: the range runs from the
 // start of the first day to the end of the last day, so the end date is inclusive.
+// The end never goes past the current time, so picking today means "up to now".
 const startOfDay = (day: Date) => new Date(day.getFullYear(), day.getMonth(), day.getDate());
-const endOfDay = (day: Date) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+const endOfDay = (day: Date) => {
+  const end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+  const now = new Date();
+  return end > now ? now : end;
+};
 
 /** Date -> "YYYY-MM-DD" (the format `<input type="date">` uses). */
 function toInputValue(day?: Date) {
