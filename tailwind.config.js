@@ -23,8 +23,15 @@ module.exports = {
             10: '#EAF6FA',
           },
           secondary: {
+            200: '#A4D8EC',
             500: '#237F9E',
             650: '#1A5E75',
+            900: '#21393D',
+          },
+          // Selected filter options and active-filter chips (filter bar redesign).
+          lime: {
+            400: '#C4CC00',
+            500: '#B0B800',
           },
         },
       },

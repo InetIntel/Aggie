@@ -4,6 +4,7 @@ import { DayPicker, getDefaultClassNames, type DateRange } from "react-day-picke
 import AggieButton from "../AggieButton";
 import FilterDropdown from "./FilterDropdown";
 import { useFormatters } from "../../utils/useFormatters";
+import { formatDate } from "../../utils/dateFormat";
 
 interface IProps {
   before: string;
@@ -37,6 +38,16 @@ function fromInputValue(value: string) {
   if (!match) return undefined;
   const day = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   return Number.isNaN(day.getTime()) ? undefined : day;
+}
+
+/**
+ * Formats a range bound for display. Range days are picked in the browser's
+ * time zone, so they're shown in it too (a UTC display preference would turn
+ * the start of Sep 1 in UTC+8 into "Aug 31"); the user's date format still applies.
+ */
+export function useRangeDateFormatter() {
+  const { prefs } = useFormatters();
+  return (value: string) => formatDate(value, { ...prefs, timeZone: "local" });
 }
 
 interface IPanelProps {
@@ -165,7 +176,7 @@ export const DateRangePanel = ({ before, after, onApply, onCancel, earliest }: I
 };
 
 const FilterDateTime = ({ before, onSetBefore, after, onSetAfter, label = "Date Range", earliest }: IProps) => {
-  const { formatDate } = useFormatters();
+  const formatDate = useRangeDateFormatter();
   const rangeLabel = after && before ? `${formatDate(after)} - ${formatDate(before)}`
     : after ? `After ${formatDate(after)}` : before ? `Before ${formatDate(before)}` : "";
 

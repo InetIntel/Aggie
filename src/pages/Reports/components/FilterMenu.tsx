@@ -11,21 +11,21 @@ import {
 } from "@floating-ui/react";
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCaretRight, faCheck, faFilter } from "@fortawesome/free-solid-svg-icons";
+import { faCaretRight, faFilter } from "@fortawesome/free-solid-svg-icons";
 
 // Shared look for the selected state of options and the active filter chips,
 // so a chip visibly matches the option that produced it.
 export const SELECTED_CSS =
-  "bg-lime-300 hover:bg-lime-400 text-slate-900 dark:bg-lime-700 dark:hover:bg-lime-600 dark:text-lime-50";
+  "bg-aggie-lime-400 hover:bg-aggie-lime-500 text-slate-900 dark:saturate-[0.8]";
 
 const triggerCSS = (open: boolean) =>
-  `focus-theme inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 font-medium text-sm ${open
-    ? "bg-aggie-teal-10 text-aggie-secondary-650 border-aggie-secondary-500 dark:bg-gray-700 dark:text-gray-100"
-    : "bg-aggie-secondary-500 text-white border-aggie-secondary-650 hover:bg-aggie-secondary-650"
+  `focus-theme inline-flex items-center gap-1.5 px-2 py-1 rounded-md border-2 border-aggie-secondary-650 font-semibold text-sm ${open
+    ? "bg-aggie-secondary-200 text-aggie-secondary-650"
+    : "bg-aggie-secondary-500 text-white hover:bg-aggie-secondary-650"
   }`;
 
 export const PANEL_CSS =
-  "rounded-lg border-2 border-aggie-secondary-650 bg-white dark:bg-gray-800 drop-shadow-lg text-sm";
+  "rounded-lg border-[1.5px] border-aggie-secondary-900 dark:border-gray-500 bg-white dark:bg-gray-800 shadow-md text-sm text-slate-800 dark:text-gray-100";
 
 /** A toolbar button that toggles a floating panel below it. */
 export const ToolbarPopover = ({
@@ -74,8 +74,6 @@ export interface FilterCategory {
   id: string;
   label: string;
   icon: IconProp;
-  /** true when this category currently narrows the results */
-  active?: boolean;
   content: (close: () => void) => React.ReactNode;
 }
 
@@ -85,8 +83,6 @@ export interface FilterCategory {
  */
 const FilterMenu = ({ categories }: { categories: FilterCategory[] }) => {
   const [activeId, setActiveId] = useState<string>();
-  const [submenuTop, setSubmenuTop] = useState(0);
-  const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const hoverTimer = useRef<ReturnType<typeof setTimeout>>();
   const active = categories.find((category) => category.id === activeId);
 
@@ -95,7 +91,6 @@ const FilterMenu = ({ categories }: { categories: FilterCategory[] }) => {
   function openCategory(id: string) {
     clearTimeout(hoverTimer.current);
     setActiveId(id);
-    setSubmenuTop(rowRefs.current[id]?.offsetTop ?? 0);
   }
 
   // Hovering switches the submenu only after the pointer rests on a row, so
@@ -110,7 +105,7 @@ const FilterMenu = ({ categories }: { categories: FilterCategory[] }) => {
     <ToolbarPopover label='Filter' icon={faFilter}>
       {(close) => (
         <div className='flex items-start gap-2'>
-          <ul className={`${PANEL_CSS} relative p-1.5 m-0 list-none min-w-[11rem]`} role='menu'>
+          <ul className={`${PANEL_CSS} p-1.5 m-0 list-none min-w-[10.5rem]`} role='menu'>
             {categories.map((category) => (
               <li key={category.id}>
                 <button
@@ -118,28 +113,24 @@ const FilterMenu = ({ categories }: { categories: FilterCategory[] }) => {
                   role='menuitem'
                   aria-haspopup='true'
                   aria-expanded={category.id === activeId}
-                  ref={(el) => (rowRefs.current[category.id] = el)}
                   onMouseEnter={() => hoverCategory(category.id)}
                   onMouseLeave={() => clearTimeout(hoverTimer.current)}
                   onFocus={() => openCategory(category.id)}
                   onClick={() => openCategory(category.id)}
-                  className={`w-full flex items-center gap-2.5 px-2 py-1.5 my-0.5 rounded-md text-left whitespace-nowrap ${category.id === activeId
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 my-0.5 rounded-md text-left whitespace-nowrap ${category.id === activeId
                     ? SELECTED_CSS
                     : "hover:bg-slate-100 dark:hover:bg-gray-700"
                     }`}
                 >
-                  <FontAwesomeIcon icon={category.icon} fixedWidth className='text-slate-600 dark:text-gray-300' />
+                  <FontAwesomeIcon icon={category.icon} fixedWidth className='text-sm' />
                   <span className='flex-1'>{category.label}</span>
-                  {category.active && (
-                    <span className='w-1.5 h-1.5 rounded-full bg-aggie-secondary-500' title='Filter applied' />
-                  )}
-                  <FontAwesomeIcon icon={faCaretRight} />
+                  <FontAwesomeIcon icon={faCaretRight} className='text-xs' />
                 </button>
               </li>
             ))}
           </ul>
           {active && (
-            <div className={`${PANEL_CSS} overflow-hidden`} style={{ marginTop: submenuTop - 6 }}>
+            <div className={`${PANEL_CSS} overflow-hidden`}>
               {active.content(close)}
             </div>
           )}
@@ -174,18 +165,17 @@ export const FilterOptionList = ({
         role='menuitemcheckbox'
         aria-checked={isSelected(option)}
         onClick={() => onToggle(option)}
-        className={`w-full flex items-center justify-between gap-3 px-2 py-1.5 my-0.5 rounded-md text-left whitespace-nowrap ${isSelected(option) ? SELECTED_CSS : "hover:bg-slate-100 dark:hover:bg-gray-700"
+        className={`w-full block px-2 py-1 my-1 rounded-md text-left whitespace-nowrap ${isSelected(option) ? SELECTED_CSS : "hover:bg-slate-100 dark:hover:bg-gray-700"
           }`}
       >
         {getLabel(option)}
-        {isSelected(option) && <FontAwesomeIcon icon={faCheck} className='text-xs' />}
       </button>
     ))}
     {onClear && (
       <button
         type='button'
         onClick={onClear}
-        className='w-full px-2 py-1.5 my-0.5 rounded-md text-left hover:bg-slate-100 dark:hover:bg-gray-700'
+        className='w-full block px-2 py-1 my-1 rounded-md text-left hover:bg-slate-100 dark:hover:bg-gray-700'
       >
         All
       </button>

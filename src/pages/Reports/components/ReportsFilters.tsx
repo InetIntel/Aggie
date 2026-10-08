@@ -17,6 +17,7 @@ import {
   faFlag,
   faMinusCircle,
   faRefresh,
+  faSearch,
   faTag,
   faTowerBroadcast,
   faXmark,
@@ -26,7 +27,7 @@ import Pagination from "../../../components/Pagination";
 import { getAllGroups } from "../../../api/groups";
 import { useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { DateRangePanel } from "../../../components/filters/FilterDateTime";
+import { DateRangePanel, useRangeDateFormatter } from "../../../components/filters/FilterDateTime";
 import AggieSwitch from "../../../components/AggieSwitch";
 import FilterMenu, {
   FilterOptionList,
@@ -35,7 +36,6 @@ import FilterMenu, {
   ToolbarPopover,
   type FilterCategory,
 } from "./FilterMenu";
-import { useFormatters } from "../../../utils/useFormatters";
 
 interface IReportFilters {
   reportCount?: number;
@@ -74,10 +74,10 @@ const FilterChip = ({
     type='button'
     onClick={onRemove}
     title={`Remove filter: ${label}`}
-    className={`flex items-center gap-2 px-2.5 py-1 rounded text-sm ${SELECTED_CSS}`}
+    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-sm ${SELECTED_CSS}`}
   >
     <span>{label}</span>
-    <FontAwesomeIcon icon={faXmark} />
+    <FontAwesomeIcon icon={faXmark} className='text-base' />
   </button>
 );
 
@@ -105,7 +105,7 @@ const ReportFilters = ({
     clearAllParams,
   } = useQueryParams<ReportQueryState>();
   const navigate = useNavigate();
-  const { formatDate } = useFormatters();
+  const formatDate = useRangeDateFormatter();
   const formikRef = useRef<FormikProps<{ keywords: string }>>(null);
   const { data: sources } = useQuery(["sources"], getSources);
   function sourcesRemapComboBox(query: typeof sources) {
@@ -331,7 +331,6 @@ const ReportFilters = ({
       id: "tags",
       label: "Tags",
       icon: faTag,
-      active: selectedTags.length > 0,
       content: () => (
         <FilterOptionList
           options={TAG_OPTIONS}
@@ -347,7 +346,6 @@ const ReportFilters = ({
       id: "status",
       label: "Status",
       icon: faFlag,
-      active: currentOutageStatus.length > 0,
       content: () => (
         <FilterOptionList
           options={OUTAGE_STATUS_OPTIONS.filter((status) => status !== "All")}
@@ -365,7 +363,6 @@ const ReportFilters = ({
       id: "dateRange",
       label: "Date range",
       icon: faCalendar,
-      active: !!(afterValue || beforeValue),
       content: (close) => (
         <DateRangePanel
           earliest={EARLIEST_DATE}
@@ -383,7 +380,6 @@ const ReportFilters = ({
       id: "platforms",
       label: "Platforms",
       icon: faTowerBroadcast,
-      active: mediaValues.length > 0,
       content: () => (
         <FilterOptionList
           options={platformOptions}
@@ -400,7 +396,6 @@ const ReportFilters = ({
       id: "entityLevel",
       label: "Entity level",
       icon: faEarthAmericas,
-      active: !entityLevelIsDefault,
       content: () => (
         <FilterOptionList
           options={[...ENTITY_LEVEL_OPTIONS]}
@@ -431,7 +426,6 @@ const ReportFilters = ({
       id: "dataSources",
       label: "Signal sources",
       icon: faBriefcase,
-      active: dataSourcesValue.length > 0,
       content: () => (
         <FilterOptionList
           options={[...DATA_SOURCE_OPTIONS]}
@@ -458,14 +452,19 @@ const ReportFilters = ({
             }}
           >
             <Form className='flex items-center gap-2 min-w-0'>
-              <div className='flex items-center focus-within-theme rounded-lg min-w-0'>
-                <div className='group relative min-w-0'>
-                  <Field
-                    name='keywords'
-                    className='focus-theme px-2 py-1 border border-slate-300 bg-white dark:bg-gray-800 rounded-lg w-[16rem] max-w-full'
-                    placeholder={searchPlaceholder || "Search"}
-                  />
-                </div>
+              <div className='flex items-stretch min-w-0 rounded-lg border border-slate-300 dark:border-gray-600 overflow-hidden focus-within-theme'>
+                <Field
+                  name='keywords'
+                  className='px-3 py-1.5 bg-white dark:bg-gray-800 w-[18rem] max-w-full min-w-0 text-sm focus:outline-none'
+                  placeholder={searchPlaceholder || "Search"}
+                />
+                <button
+                  type='submit'
+                  title='Search'
+                  className='px-4 border-l border-slate-300 dark:border-gray-600 bg-slate-50 hover:bg-slate-100 dark:bg-gray-700 dark:hover:bg-gray-600'
+                >
+                  <FontAwesomeIcon icon={faSearch} />
+                </button>
               </div>
               <AggieButton
                 type='button'
