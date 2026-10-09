@@ -79,17 +79,25 @@ const AccessModePill = ({ source }: { source: Source }) => {
 };
 
 // Connection pill colors: a fixed, accessible light-bg / dark-text palette keyed
-// by a connection's position WITHIN its provider, so connection 1/2/3 look the
-// same across providers, and a connection reads identically in the Connections
-// list and on every feed that uses it. The palette cycles if a provider has more
-// connections than entries.
+// by a connection's position WITHIN its provider (not by status), so connection
+// 1/2/3 look the same across providers, and a connection reads identically in the
+// Connections list and on every feed that uses it. The palette cycles if a
+// provider has more connections than entries.
+//
+// RESERVED — do NOT use these hue families here. They carry meaning elsewhere in
+// the app, so using them for a non-status decorative pill makes it look like an
+// alert:
+//   * red / pink / rose  -> error & danger
+//   * orange / amber     -> warning
+// Keep connection colors to neutral/cool decorative hues (teal, blue, indigo,
+// violet, slate, ...).
 type ConnectionColor = { bg: string; text: string; icon: string };
 const CONNECTION_COLORS: ConnectionColor[] = [
-  { bg: "#E4EDA8", text: "#21290A", icon: "#21290A" }, // 1: chartreuse / dark
-  { bg: "#CFE9F1", text: "#153A45", icon: "#153A45" }, // 2: light teal / dark teal
-  { bg: "#F3C0CF", text: "#4A1626", icon: "#4A1626" }, // 3: rose / dark rose
-  { bg: "#F6D79A", text: "#4A3410", icon: "#4A3410" }, // 4: amber / dark amber
-  { bg: "#CBB6E6", text: "#331A4E", icon: "#331A4E" }, // 5: violet / dark violet
+  { bg: "#CFE9F1", text: "#123642", icon: "#123642" }, // 1: teal
+  { bg: "#CBDDF7", text: "#17335C", icon: "#17335C" }, // 2: sky blue
+  { bg: "#D6D5F5", text: "#262264", icon: "#262264" }, // 3: indigo
+  { bg: "#E3CDEF", text: "#3D1A4E", icon: "#3D1A4E" }, // 4: violet
+  { bg: "#DBE0E8", text: "#2A3644", icon: "#2A3644" }, // 5: slate
 ];
 const getConnectionColor = (index: number): ConnectionColor =>
   CONNECTION_COLORS[
@@ -225,7 +233,7 @@ const ApiTypeSection = ({
       <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400">
-            Provider
+            Source
           </p>
           <h2 className="text-xl font-bold text-green-800 dark:text-green-600">
             {label}

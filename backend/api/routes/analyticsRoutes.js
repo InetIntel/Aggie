@@ -14,6 +14,9 @@ const NotableActivity = require('../../models/notableActivity');
 const Report = require('../../models/report');
 const reportController = require('../controllers/reportController');
 
+// These are organization-wide historical totals, including restricted activity.
+router.get('/kpis', User.can('admin users'), require('../controllers/kpiController').overview);
+
 // Resolves the snapshot and restates
 // the request in the shape those middlewares already understand, so they can run
 // unchanged rather than a second copy of the same checks being written here.

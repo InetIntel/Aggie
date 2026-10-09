@@ -66,7 +66,10 @@ import {
   SocketEvent,
   useSocketSubscribe,
 } from "../../../hooks/WebsocketProvider";
-import { removeReportsFromGroup } from "../../../api/reports";
+import {
+  removeReportsFromGroup,
+  setReportsPinnedInGroup,
+} from "../../../api/reports";
 import { getSession } from "../../../api/session";
 import IncidentTagsDialog from "./IncidentTagsDialog";
 
@@ -85,6 +88,13 @@ const Incident = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(["group"]);
       queryClient.invalidateQueries(["groups", "reports"]);
+    },
+  });
+
+  // Pinning re-sorts the list server-side, so refetch rather than patch in place.
+  const doSetPinned = useMutation(setReportsPinnedInGroup, {
+    onSuccess: () => {
+      queryClient.invalidateQueries(["groups", "reports", { groupId: id }]);
     },
   });
 
@@ -523,6 +533,18 @@ const Incident = () => {
                     isChecked={multiSelect.exists(report)}
                     isSelectMode={multiSelect.isActive}
                     onCheckChange={() => multiSelect.addRemove(report)}
+                    isPinLoading={
+                      doSetPinned.isLoading &&
+                      doSetPinned.variables?.reportIds.includes(report._id)
+                    }
+                    onTogglePin={() =>
+                      id &&
+                      doSetPinned.mutate({
+                        reportIds: [report._id],
+                        groupId: id,
+                        pinned: !report.pinnedInGroupAt,
+                      })
+                    }
                   />
                 </div>
               ))}

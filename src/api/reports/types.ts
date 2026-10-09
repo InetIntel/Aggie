@@ -16,6 +16,9 @@ export interface Report extends hasId {
   asn?: string; // outage alerts (ioda/cloudflare), e.g. "as15169"; absent for social/region-scoped
   escalated: boolean;
   _group?: string;
+  addedToGroupAt?: string; // absent on reports linked before tracking existed
+  addedToGroupBy?: (hasId & { username: string }) | null; // populated on incident report lists
+  pinnedInGroupAt?: string; // set while pinned to the top of its incident's report list
   authoredAt: string;
   fetchedAt: string;
   content: string;
@@ -102,6 +105,23 @@ export interface IodaChartSeries {
   datasource: string; // "bgp" | "ping-slash24" | "merit-nt"
   step: number; // seconds between points
   points: IodaChartPoint[];
+}
+
+// OONI alerts store the per-domain measurement counts they were raised against at
+// metadata.rawAPIResponse.chart, so viewing one never calls OONI. The series is 14
+// blocks of 24 hours counted back from where the alert's window ends (the last
+// block is the alert's own window). Older stored charts have a "days" list of
+// calendar days instead of "starts".
+export interface OoniChartData {
+  source: string;
+  granularity?: string; // "hour": each block is the sum of hourly buckets
+  blockHours?: number; // 24
+  from: string; // start of the first block (ISO, UTC)
+  until: string; // end of the last block (ISO, UTC)
+  starts?: string[]; // start of each block (ISO, UTC)
+  days?: string[]; // older shape: YYYY-MM-DD
+  domains: Record<string, number[]>; // watched domain -> count per block
+  fetchedAt?: string;
 }
 
 export interface IodaChartData {

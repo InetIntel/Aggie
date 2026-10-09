@@ -20,6 +20,9 @@ const stripIncidentReferences = (payload, accessibleIncidentIds) => {
       ? report.toObject()
       : { ...report };
     delete plainReport._group;
+    delete plainReport.addedToGroupAt;
+    delete plainReport.addedToGroupBy;
+    delete plainReport.pinnedInGroupAt;
     return plainReport;
   };
 
