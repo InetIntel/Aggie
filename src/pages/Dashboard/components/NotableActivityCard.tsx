@@ -48,7 +48,7 @@ function NotableActivityCard({
       : [[activity.asn, activity.geoScope].filter(Boolean).join(" / ")];
 
   return (
-    <article className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800'>
+    <article className='rounded-lg border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 dark:bg-gray-800'>
       <div className='flex items-center justify-between gap-2'>
         <div className='flex min-w-0 items-center gap-1.5 whitespace-nowrap'>
           <span

@@ -147,7 +147,7 @@ const AlertsTrendChart = ({ overview, variant }: IProps) => {
 
   return (
     <div
-      className={`rounded-[1.5rem] border border-slate-200 px-2 py-4 dark:border-gray-700 sm:px-3 ${sourceSeriesStyle}`}
+      className={`rounded-lg border border-slate-200 px-2 py-4 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 sm:px-3 ${sourceSeriesStyle}`}
     >
       <div className='mb-3'>
         <h3 className='text-sm font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-400'>

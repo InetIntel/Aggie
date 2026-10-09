@@ -45,7 +45,7 @@ const sectionTitleClass =
   "text-lg font-bold uppercase tracking-wide text-slate-900 dark:text-white";
 
 const sectionCardClass =
-  "rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 dark:bg-gray-800";
+  "rounded-md border border-[#C5D9E2] bg-white p-5 dark:border-slate-600 dark:bg-gray-800";
 
 // A card's title on the left and its own range picker on the right. In a narrow card the
 // picker wraps under the title.
