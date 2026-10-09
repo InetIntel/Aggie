@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faBell,
+  faArrowUpRightFromSquare,
   faFolderPlus,
   faLink,
   faPlus,
@@ -19,12 +19,9 @@ const sourceLabels: Record<string, string> = {
   cloudflare: "Cloudflare",
   ooni: "OONI",
 };
-// Every notable activity card action shares this box so the row of incident
-// buttons stays exactly as tall as the full-width actions above and below it.
+// Every notable activity card action is a full-width row of the same height.
 const cardActionClass =
-  "flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-md text-xs font-medium shadow-sm transition";
-const fullWidthActionClass = `${cardActionClass} w-full gap-2 px-4`;
-const pairedActionClass = `${cardActionClass} w-full min-w-0 gap-1 px-2`;
+  "flex h-9 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-xs font-medium uppercase shadow-sm transition";
 
 function NotableActivityCard({
   activity,
@@ -64,9 +61,16 @@ function NotableActivityCard({
           >
             {activity.isHighConfidence ? "High" : "Medium"}
           </span>
-          <span className='inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'>
+          <Link
+            to={`/alerts?reportIds=${activity.reportIds.join(",")}&alerts=true`}
+            target='_blank'
+            rel='noopener noreferrer'
+            title='View reports'
+            className='inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700 transition hover:bg-slate-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+          >
+            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className='text-[9px]' />
             {activity.totalReports} report{activity.totalReports === 1 ? "" : "s"}
-          </span>
+          </Link>
         </div>
         <button
           type='button'
@@ -145,47 +149,36 @@ function NotableActivityCard({
         {activity.incidentId ? (
           <Link
             to={`/incidents/${activity.incidentId}`}
-            className={`${fullWidthActionClass} bg-[#1683A3] text-white hover:bg-[#126b85]`}
+            className={`${cardActionClass} bg-[#1683A3] text-white hover:bg-[#126b85]`}
           >
             <FontAwesomeIcon icon={faLink} />
             <span>Open Linked Incident</span>
           </Link>
         ) : (
-          <div className='grid grid-cols-2 items-stretch gap-2'>
+          <>
             <button
               type='button'
               onClick={onCreateIncident}
               disabled={!cacheKey || isCreatingIncident}
-              className={`${pairedActionClass} bg-[#166534] text-white hover:bg-[#14532d] disabled:cursor-not-allowed disabled:opacity-60`}
+              className={`${cardActionClass} bg-[#166534] text-white hover:bg-[#14532d] disabled:cursor-not-allowed disabled:opacity-60`}
             >
               <FontAwesomeIcon
                 icon={isCreatingIncident ? faSpinner : faPlus}
-                className={`shrink-0 ${isCreatingIncident ? "animate-spin" : ""}`}
+                className={isCreatingIncident ? "animate-spin" : ""}
               />
-              <span className='min-w-0 truncate'>
-                {isCreatingIncident ? "Creating" : "New Incident"}
-              </span>
+              <span>{isCreatingIncident ? "Creating" : "New Incident"}</span>
             </button>
             <button
               type='button'
               onClick={onAddToIncident}
               disabled={!cacheKey || isCreatingIncident}
-              className={`${pairedActionClass} border border-[#166534] text-[#166534] hover:bg-[#166534]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-lime-500 dark:text-lime-300 dark:hover:bg-lime-500/10`}
+              className={`${cardActionClass} border border-[#166534] text-[#166534] hover:bg-[#166534]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-lime-500 dark:text-lime-300 dark:hover:bg-lime-500/10`}
             >
-              <FontAwesomeIcon icon={faFolderPlus} className='shrink-0' />
-              <span className='min-w-0 truncate'>Add to Incident</span>
+              <FontAwesomeIcon icon={faFolderPlus} />
+              <span>Add to Incident</span>
             </button>
-          </div>
+          </>
         )}
-        <Link
-          to={`/alerts?reportIds=${activity.reportIds.join(",")}&alerts=true`}
-          target='_blank'
-          rel='noopener noreferrer'
-          className={`${fullWidthActionClass} bg-slate-700 text-white hover:bg-slate-800`}
-        >
-          <FontAwesomeIcon icon={faBell} />
-          <span>View Reports</span>
-        </Link>
       </div>
     </article>
   );
