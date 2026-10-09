@@ -23,12 +23,13 @@ interface IProps {
 }
 
 // Recolors react-day-picker's own range styling (the band joining the two ends) to the
-// app's green, instead of overriding its classes and losing the band. Its defaults are
+// dashboard's teal, matching the range toggle, instead of overriding its classes and losing the band. Its defaults are
 // declared on .rdp-root itself, so these go on that element and win with `!`.
 const calendarThemeClass = [
-  "![--rdp-accent-color:#15803d]",
-  "![--rdp-accent-background-color:#dcfce7]",
-  "dark:![--rdp-accent-background-color:rgba(21,128,61,0.35)]",
+  "![--rdp-accent-color:#1F5F78]",
+  "![--rdp-accent-background-color:#CDEAF4]",
+  "dark:![--rdp-accent-color:#0284c7]",
+  "dark:![--rdp-accent-background-color:rgba(12,74,110,0.4)]",
   "![--rdp-day-height:36px] ![--rdp-day-width:36px]",
   "![--rdp-day_button-height:34px] ![--rdp-day_button-width:34px]",
 ].join(" ");
@@ -96,7 +97,7 @@ const DateRangeSelector = ({ fromDay, toDay, onChange, maxSpanDays }: IProps) =>
         ref={refs.setReference}
         type='button'
         aria-label='Custom date range'
-        className='rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.08)] hover:bg-slate-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+        className='rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
         {...getReferenceProps()}
       >
         {formatDate(fromDay)} – {formatDate(toDay)}

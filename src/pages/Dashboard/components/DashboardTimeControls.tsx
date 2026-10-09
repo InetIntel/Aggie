@@ -1,18 +1,7 @@
 import type { AnalyticsRangePreset } from "../../../api/analytics/types";
 import { MAX_CUSTOM_RANGE_DAYS } from "../../../api/analytics/types";
+import type { AnalyticsWindow } from "../dashboardHelpers";
 import DateRangeSelector from "./DateRangeSelector";
-
-const pillGroupClass =
-  "inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800";
-
-function pillClass(isActive: boolean, activeClass: string) {
-  return [
-    "rounded-full px-4 py-1.5 text-sm font-medium transition",
-    isActive
-      ? activeClass
-      : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
-  ].join(" ");
-}
 
 export const dashboardRangeOptions: {
   label: string;
@@ -23,56 +12,46 @@ export const dashboardRangeOptions: {
   { label: "Custom", value: "custom" },
 ];
 
-interface IProps {
-  range: AnalyticsRangePreset;
-  onRangeChange: (range: AnalyticsRangePreset) => void;
-  customFromDay: string;
-  customToDay: string;
-  onCustomRangeChange: (fromDay: string, toDay: string) => void;
-  // e.g. "UTC" or "EDT": the zone the grid and every timestamp on the page are in.
-  timeZoneLabel: string;
+function rangeButtonClass(isActive: boolean) {
+  return [
+    "rounded px-2 py-1 text-[11px] font-semibold uppercase tracking-wide transition",
+    isActive
+      ? "bg-[#1F5F78] text-white dark:bg-sky-600"
+      : "bg-[#CDEAF4] text-[#1F5F78] hover:bg-[#b5dfee] dark:bg-sky-900/40 dark:text-sky-200 dark:hover:bg-sky-900/70",
+  ].join(" ");
 }
 
-const DashboardTimeControls = ({
-  range,
-  onRangeChange,
-  customFromDay,
-  customToDay,
-  onCustomRangeChange,
-  timeZoneLabel,
-}: IProps) => {
+interface IProps {
+  // The card's own time window, from useAnalyticsWindow.
+  timeWindow: AnalyticsWindow;
+  className?: string;
+}
+
+// A card's range picker, shown in its top-right corner.
+const DashboardTimeControls = ({ timeWindow, className = "" }: IProps) => {
   return (
-    <div className='mb-5 flex flex-wrap items-center justify-center gap-3'>
-      <div role='group' aria-label='Time range' className={pillGroupClass}>
+    <div className={`flex flex-wrap items-center justify-end gap-1.5 ${className}`}>
+      <div role='group' aria-label='Time range' className='flex gap-1'>
         {dashboardRangeOptions.map((option) => (
           <button
             key={option.value}
             type='button'
-            onClick={() => onRangeChange(option.value)}
-            aria-pressed={range === option.value}
-            className={pillClass(range === option.value, "bg-[#166534] text-white")}
+            onClick={() => timeWindow.setRange(option.value)}
+            aria-pressed={timeWindow.range === option.value}
+            className={rangeButtonClass(timeWindow.range === option.value)}
           >
             {option.label}
           </button>
         ))}
       </div>
 
-      {range === "custom" && (
+      {timeWindow.range === "custom" && (
         <DateRangeSelector
-          fromDay={customFromDay}
-          toDay={customToDay}
-          onChange={onCustomRangeChange}
+          fromDay={timeWindow.customFromDay}
+          toDay={timeWindow.customToDay}
+          onChange={timeWindow.setCustomRange}
           maxSpanDays={MAX_CUSTOM_RANGE_DAYS}
         />
-      )}
-
-      {timeZoneLabel && (
-        <span
-          className='text-xs text-slate-500 dark:text-gray-400'
-          title='Set in your profile under display preferences'
-        >
-          Times in {timeZoneLabel}
-        </span>
       )}
     </div>
   );

@@ -59,7 +59,7 @@ const chartFrame = {
   height: 142,
 };
 
-const chartTooltipFontSize = 14;
+const chartFontSize = 10;
 
 interface IProps {
   overview?: AnalyticsOverview;
@@ -198,9 +198,9 @@ const AlertsTrendChart = ({ overview, variant }: IProps) => {
             <text
               key={`y-label-${tick}-${index}`}
               x={chartFrame.left - 8}
-              y={getChartY(tick, yAxisMax) + 4}
+              y={getChartY(tick, yAxisMax) + chartFontSize / 3}
               fill='#475569'
-              fontSize='12'
+              fontSize={chartFontSize}
               fontWeight='500'
               textAnchor='end'
             >
@@ -314,14 +314,14 @@ const AlertsTrendChart = ({ overview, variant }: IProps) => {
                 x={x}
                 y='172'
                 fill='#475569'
-                fontSize='10'
+                fontSize={chartFontSize}
                 fontWeight='500'
                 textAnchor='middle'
               >
                 <tspan x={x} dy='0'>
                   {dateLabel}
                 </tspan>
-                <tspan x={x} dy='12'>
+                <tspan x={x} dy={chartFontSize + 2}>
                   {timeLabel}
                 </tspan>
               </text>
@@ -530,9 +530,7 @@ function ChartTooltip({
   const actionLabel = "View Reports";
   const showAction = isPinned && hasReports;
 
-  // All geometry is a multiple of the base font size so the box, the padding and
-  // the action button grow together when `chartTooltipFontSize` changes.
-  const fontSize = chartTooltipFontSize;
+  const fontSize = chartFontSize;
   const charWidth = fontSize * 0.52;
   const lineHeight = Math.round(fontSize * 1.35);
   const paddingX = Math.round(fontSize * 0.75);

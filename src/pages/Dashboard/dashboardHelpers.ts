@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type {
   AnalyticsBucketPreset,
   AnalyticsOverview,
+  AnalyticsQueryState,
+  AnalyticsRangePreset,
   AnalyticsSocketQuery,
   NotableActivitiesResponse,
   NotableActivity,
@@ -105,6 +107,68 @@ export function getCustomRangeBuckets(from: string, to: string): AnalyticsBucket
 export function getDefaultBucket(options: AnalyticsBucketPreset[]): AnalyticsBucketPreset {
   return options.includes("1h") ? "1h" : options[0];
 }
+
+// Bucket sizes offered per preset; a custom range's depend on its length.
+// Mirrors VALID_BUCKETS_BY_RANGE in backend/api/utils/analyticsTime.js.
+const presetBuckets: Record<
+  Exclude<AnalyticsRangePreset, "custom">,
+  AnalyticsBucketPreset[]
+> = {
+  today: ["30m", "1h", "6h"],
+  last24h: ["1h", "6h"],
+  last7d: ["1h", "6h", "24h"],
+};
+
+// A custom range starts out as the last seven days, including today.
+const DEFAULT_CUSTOM_RANGE_DAYS = 7;
+
+/**
+ * One card's time window: its range preset, its custom days, and the query params and
+ * default bucket they resolve to. Each dashboard card holds its own, so changing one
+ * card's range leaves the others alone. Times are laid out in the zone the user reads
+ * them in, so a 24h bucket runs midnight to midnight for them.
+ */
+export function useAnalyticsWindow(prefs: UserPreferences) {
+  const [range, setRange] = useState<AnalyticsRangePreset>("last24h");
+  const [customToDay, setCustomToDay] = useState(() => toPickerDay(new Date()));
+  const [customFromDay, setCustomFromDay] = useState(() =>
+    addPickerDays(toPickerDay(new Date()), -(DEFAULT_CUSTOM_RANGE_DAYS - 1))
+  );
+
+  const timeZone = getAnalyticsTimeZone(prefs);
+  const customBounds = useMemo(
+    () => getCustomRangeBounds(customFromDay, customToDay, prefs),
+    [customFromDay, customToDay, prefs]
+  );
+  const params: AnalyticsQueryState = useMemo(
+    () =>
+      range === "custom"
+        ? { range, ...customBounds, timeZone }
+        : { range, timeZone },
+    [range, customBounds, timeZone]
+  );
+  // Charts have no interval toggle; each range uses its default bucket.
+  const bucket = getDefaultBucket(
+    range === "custom"
+      ? getCustomRangeBuckets(customBounds.from, customBounds.to)
+      : presetBuckets[range]
+  );
+
+  return {
+    range,
+    setRange,
+    customFromDay,
+    customToDay,
+    setCustomRange: (fromDay: string, toDay: string) => {
+      setCustomFromDay(fromDay);
+      setCustomToDay(toDay);
+    },
+    params,
+    bucket,
+  };
+}
+
+export type AnalyticsWindow = ReturnType<typeof useAnalyticsWindow>;
 
 export function getActivityLocationSummary(activity: NotableActivity) {
   const locations = activity.locations || [];

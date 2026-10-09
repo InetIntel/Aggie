@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -16,8 +16,6 @@ import {
 import type {
   AnalyticsQueryState,
   AnalyticsUpdateEvent,
-  AnalyticsBucketPreset,
-  AnalyticsRangePreset,
   NotableActivity,
 } from "../../api/analytics/types";
 import {
@@ -33,45 +31,47 @@ import DashboardTimeControls from "./components/DashboardTimeControls";
 import NotableActivityCard from "./components/NotableActivityCard";
 import MetricsList, { HeadlineMetrics } from "./components/MetricsList";
 import {
-  addPickerDays,
   buildAnalyticsSocketQuery,
   getActivityLocationSummary,
   getAnalyticsRoom,
-  getAnalyticsTimeZone,
-  getCustomRangeBounds,
-  getCustomRangeBuckets,
-  getDefaultBucket,
-  toPickerDay,
+  useAnalyticsWindow,
   useDashboardFormatters,
 } from "./dashboardHelpers";
+import type { AnalyticsWindow } from "./dashboardHelpers";
 import { formatTimeZone } from "../../utils/dateFormat";
 import type { GroupEditableData } from "../../api/groups/types";
 
 const sectionTitleClass =
   "text-lg font-bold uppercase tracking-wide text-slate-900 dark:text-white";
 
-// The left column's detail cards, one per report category.
-const metricCategoryCards = [
-  { key: "alerts", title: "Alerts" },
-  { key: "social", title: "Social Media Posts" },
-] as const;
-
 const sectionCardClass =
   "rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 dark:bg-gray-800";
 
-// Bucket sizes offered per preset; a custom range's depend on its length.
-// Mirrors VALID_BUCKETS_BY_RANGE in backend/api/utils/analyticsTime.js.
-const presetBuckets: Record<
-  Exclude<AnalyticsRangePreset, "custom">,
-  AnalyticsBucketPreset[]
-> = {
-  today: ["30m", "1h", "6h"],
-  last24h: ["1h", "6h"],
-  last7d: ["1h", "6h", "24h"],
-};
+// A card's title on the left and its own range picker on the right. In a narrow card the
+// picker wraps under the title.
+function CardHeader({
+  title,
+  timeWindow,
+}: {
+  title: string;
+  timeWindow: AnalyticsWindow;
+}) {
+  return (
+    <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
+      <h2 className={sectionTitleClass}>{title}</h2>
+      <DashboardTimeControls timeWindow={timeWindow} className='ml-auto' />
+    </div>
+  );
+}
 
-// A custom range starts out as the last seven days, including today.
-const DEFAULT_CUSTOM_RANGE_DAYS = 7;
+// Each metrics card asks for its own window; equal windows share one cached request.
+function useReportMetricsQuery(params: AnalyticsQueryState) {
+  return useQuery({
+    queryKey: ["analytics", "report-metrics", params],
+    queryFn: () => getReportMetrics(params),
+    keepPreviousData: true,
+  });
+}
 
 function formatToleranceLabel(minutes: number) {
   if (minutes === 0) return "exact";
@@ -93,11 +93,12 @@ const Dashboard = () => {
     formatCompactDateTime,
     formatRangeLabel,
   } = useDashboardFormatters();
-  const [range, setRange] = useState<AnalyticsRangePreset>("last24h");
-  const [customToDay, setCustomToDay] = useState(() => toPickerDay(new Date()));
-  const [customFromDay, setCustomFromDay] = useState(() =>
-    addPickerDays(toPickerDay(new Date()), -(DEFAULT_CUSTOM_RANGE_DAYS - 1))
-  );
+  // Every card picks its own time range.
+  const glanceWindow = useAnalyticsWindow(prefs);
+  const alertsWindow = useAnalyticsWindow(prefs);
+  const socialWindow = useAnalyticsWindow(prefs);
+  const trendsWindow = useAnalyticsWindow(prefs);
+  const notableWindow = useAnalyticsWindow(prefs);
   const [tolerance, setTolerance] = useState<number>(
     DEFAULT_START_TIME_TOLERANCE_MINUTES
   );
@@ -116,47 +117,23 @@ const Dashboard = () => {
     });
   }, []);
 
-  // One window for the whole page — metrics, chart and cards — laid out in the zone the
-  // user reads times in, so a 24h bucket runs midnight to midnight for them.
-  const timeZone = getAnalyticsTimeZone(prefs);
-  const customBounds = useMemo(
-    () => getCustomRangeBounds(customFromDay, customToDay, prefs),
-    [customFromDay, customToDay, prefs]
-  );
-  const windowParams: AnalyticsQueryState = useMemo(
-    () =>
-      range === "custom"
-        ? { range, ...customBounds, timeZone }
-        : { range, timeZone },
-    [range, customBounds, timeZone]
-  );
-  const bucketOptions = useMemo(
-    () =>
-      range === "custom"
-        ? getCustomRangeBuckets(customBounds.from, customBounds.to)
-        : presetBuckets[range],
-    [range, customBounds]
-  );
-  // The chart has no interval toggle; each range uses its default bucket.
-  const activeBucket = getDefaultBucket(bucketOptions);
-
   useEffect(() => {
     setNotablePage(0);
-  }, [windowParams, tolerance]);
+  }, [notableWindow.params, tolerance]);
 
   // The chart counts reports on the fixed bucket grid, while the cards group reports
   // whose outages started within `tolerance` of each other. Each grouping gets its own
-  // request (and cache key); both share the window.
+  // request (and cache key) over its own card's window.
   const overviewParams: AnalyticsQueryState = {
-    ...windowParams,
-    bucket: activeBucket,
+    ...trendsWindow.params,
+    bucket: trendsWindow.bucket,
     aggregation: "bucket",
   };
   // Start-time grouping ignores the grid, but the backend still validates a bucket and
   // keys its cache on it.
   const notableParams: AnalyticsQueryState = {
-    ...windowParams,
-    bucket: activeBucket,
+    ...notableWindow.params,
+    bucket: notableWindow.bucket,
     aggregation: "startTime",
     tolerance,
   };
@@ -173,12 +150,18 @@ const Dashboard = () => {
     keepPreviousData: true,
   });
 
-  // Metrics follow the same window the rest of the dashboard is showing.
-  const reportMetricsQuery = useQuery({
-    queryKey: ["analytics", "report-metrics", windowParams],
-    queryFn: () => getReportMetrics(windowParams),
-    keepPreviousData: true,
-  });
+  const glanceMetricsQuery = useReportMetricsQuery(glanceWindow.params);
+  const alertsMetricsQuery = useReportMetricsQuery(alertsWindow.params);
+  const socialMetricsQuery = useReportMetricsQuery(socialWindow.params);
+  const metricCategoryCards = [
+    { key: "alerts", title: "Alerts", timeWindow: alertsWindow, query: alertsMetricsQuery },
+    {
+      key: "social",
+      title: "Social Media Posts",
+      timeWindow: socialWindow,
+      query: socialMetricsQuery,
+    },
+  ] as const;
 
   const createIncidentMutation = useMutation({
     mutationFn: createNotableActivityIncident,
@@ -290,46 +273,43 @@ const Dashboard = () => {
 
   return (
     <section className='mx-auto max-w-[1400px] px-4 py-6'>
-      <DashboardTimeControls
-        range={range}
-        onRangeChange={setRange}
-        customFromDay={customFromDay}
-        customToDay={customToDay}
-        onCustomRangeChange={(fromDay, toDay) => {
-          setCustomFromDay(fromDay);
-          setCustomToDay(toDay);
-        }}
-        timeZoneLabel={formatTimeZone(new Date(), prefs)}
-      />
+      <p
+        className='mb-2 text-right text-xs text-slate-500 dark:text-gray-400'
+        title='Set in your profile under display preferences'
+      >
+        Times in {formatTimeZone(new Date(), prefs)}
+      </p>
 
       <section className={`${sectionCardClass} mb-5 p-4`}>
-        <h2 className={`${sectionTitleClass} mb-3`}>Reports at a glance</h2>
-        <HeadlineMetrics
-          data={reportMetricsQuery.data}
-          isLoading={reportMetricsQuery.isLoading}
-        />
+        <CardHeader title='Reports at a glance' timeWindow={glanceWindow} />
+        <div className='mt-3'>
+          <HeadlineMetrics
+            data={glanceMetricsQuery.data}
+            isLoading={glanceMetricsQuery.isLoading}
+          />
+        </div>
       </section>
 
       <div className='grid gap-5 xl:grid-cols-[17rem_minmax(0,1fr)]'>
         <div className='grid content-start gap-5 sm:grid-cols-2 xl:grid-cols-1'>
-          {metricCategoryCards.map(({ key, title }) => (
+          {metricCategoryCards.map(({ key, title, timeWindow, query }) => (
             <section key={key} className={`${sectionCardClass} p-4`}>
-              <h2 className={`${sectionTitleClass} mb-3`}>{title}</h2>
-              <MetricsList
-                category={reportMetricsQuery.data?.categories.find(
-                  (category) => category.key === key
-                )}
-                isLoading={reportMetricsQuery.isLoading}
-              />
+              <CardHeader title={title} timeWindow={timeWindow} />
+              <div className='mt-3'>
+                <MetricsList
+                  category={query.data?.categories.find(
+                    (category) => category.key === key
+                  )}
+                  isLoading={query.isLoading}
+                />
+              </div>
             </section>
           ))}
         </div>
 
         <div className='flex min-w-0 flex-col gap-5'>
           <section className={`${sectionCardClass} p-4`}>
-            <div className='flex flex-wrap items-center justify-between gap-4'>
-              <h2 className={sectionTitleClass}>Trends</h2>
-            </div>
+            <CardHeader title='Trends' timeWindow={trendsWindow} />
 
             <div className='mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-gray-400'>
               <span>
@@ -355,42 +335,40 @@ const Dashboard = () => {
           </section>
 
         <section className={`${sectionCardClass} p-4`}>
-          <div className='flex flex-wrap items-center justify-between gap-3'>
-            <h2 className={sectionTitleClass}>Notable Activity</h2>
-            <div className='flex flex-wrap items-center gap-3'>
-              <label className='inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-gray-200'>
-                <span>Start-time tolerance</span>
-                <select
-                  value={tolerance}
-                  onChange={(event) => setTolerance(Number(event.target.value))}
-                  title='Largest gap between consecutive outage starts that still counts as one activity'
-                  className='cursor-pointer rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
-                >
-                  {START_TIME_TOLERANCE_OPTIONS.map((minutes) => (
-                    <option key={minutes} value={minutes}>
-                      {formatToleranceLabel(minutes)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type='button'
-                onClick={() => {
-                  setDismissedActivityKeys([]);
-                  setNotablePage(0);
-                }}
-                disabled={!hasDismissedActivities}
-                className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+          <CardHeader title='Notable Activity' timeWindow={notableWindow} />
+          <div className='mt-3 flex flex-wrap items-center justify-end gap-3'>
+            <label className='inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-gray-200'>
+              <span>Start-time tolerance</span>
+              <select
+                value={tolerance}
+                onChange={(event) => setTolerance(Number(event.target.value))}
+                title='Largest gap between consecutive outage starts that still counts as one activity'
+                className='cursor-pointer rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
               >
-                <FontAwesomeIcon icon={faRotateLeft} />
-                <span>Reset</span>
-              </button>
-              <p className='text-xs text-slate-500 dark:text-gray-400'>
-                {notableActivitiesQuery.data
-                  ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} activities`
-                  : "Loading activities"}
-              </p>
-            </div>
+                {START_TIME_TOLERANCE_OPTIONS.map((minutes) => (
+                  <option key={minutes} value={minutes}>
+                    {formatToleranceLabel(minutes)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type='button'
+              onClick={() => {
+                setDismissedActivityKeys([]);
+                setNotablePage(0);
+              }}
+              disabled={!hasDismissedActivities}
+              className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+            >
+              <FontAwesomeIcon icon={faRotateLeft} />
+              <span>Reset</span>
+            </button>
+            <p className='text-xs text-slate-500 dark:text-gray-400'>
+              {notableActivitiesQuery.data
+                ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} activities`
+                : "Loading activities"}
+            </p>
           </div>
 
           <div className='mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'>
