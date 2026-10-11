@@ -51,12 +51,12 @@ function roleLinks(role: string | undefined, isTeamLead: boolean) {
         return {
           "Teams": { to: "teams", icon: faShieldHalved },
           "Tags": { to: "tags", icon: faTags },
-          "Sources": { to: "sources", icon: faCloudArrowDown },
+          "Sources": { to: "connections", icon: faCloudArrowDown },
         };
       }
       return {
         "Tags": { to: "tags", icon: faTags },
-        "Sources and Feeds": { to: "sources", icon: faCloudArrowDown },
+        "Sources and Feeds": { to: "connections", icon: faCloudArrowDown },
       };
     default:
       return {};

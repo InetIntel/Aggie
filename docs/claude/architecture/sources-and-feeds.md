@@ -35,17 +35,27 @@ the UI.
 
 ### Routing and access
 
-- `/settings/connections` → `ConnectionsIndex`. The route only exists for `admin` and
-  `team_lead` roles ([AppRouter.tsx](../../../src/AppRouter.tsx)), and the "Sources and
-  Feeds" nav link for those roles points there
+- `/settings/connections` → `ConnectionsIndex`. The route is registered for all
+  logged-in roles ([AppRouter.tsx](../../../src/AppRouter.tsx)): `admin` and
+  `team_lead` manage it fully, while `monitor` / `viewer` roles (including
+  team-lead monitors/viewers) see the same page read-only — feed name opens the
+  feed details view in view mode, and the page never fetches
+  `GET /api/credential` for them (no 403s). Their nav link is labeled
+  "Sources and Feeds" (or "Sources" for team leads) and points at `connections`
   ([Settings/index.tsx](../../../src/pages/Settings/index.tsx)).
-- `monitor` / `viewer` roles get the older flat `/settings/sources` page (`SourcesIndex`)
-  instead; their nav link is labeled "Sources and Feeds" (or "Sources" for team leads).
+- `monitor` / `viewer` roles previously got the older flat `/settings/sources`
+  page (`SourcesIndex`); it stays routed until retired in a follow-up cleanup,
+  per the keep-old-files convention.
 - `/settings/credentials` (`CredentialsIndex`) is still routed for admins/team leads but
   has no nav link. It is a leftover from before the grouped page.
 - Within the page, controls are gated by session permissions: `change settings` shows the
   global **Enable Fetching** toggle (`<Configuration />`) and the connection controls;
   `manage sources` shows the feed add/edit controls.
+- Roles with neither permission (monitor/viewer) get a fully read-only page:
+  feed rows show the access-mode pill and warnings badge; clicking the feed name
+  opens the feed details view in view mode; the `["credentials"]` query is
+  disabled for them so no `GET /api/credential` 403s occur; and the intro copy
+  does not tell them to connect sources or add feeds.
 
 ### One card per provider
 

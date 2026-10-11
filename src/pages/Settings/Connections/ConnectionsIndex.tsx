@@ -28,13 +28,23 @@ const ConnectionsIndex = () => {
     isError: sourcesError,
     error: sourcesErr,
   } = useQuery(["sources"], getSources);
-  const { data: credentials } = useQuery(["credentials"], getCredentials);
   const { data: session } = useQuery(["session"], getSession);
 
   const canManageConnections =
     session?.permissions?.includes("change settings") === true;
+  // The credentials endpoint requires `change settings`, which monitor/viewer
+  // roles lack. Skip the query for them so the page never fires a 403ing
+  // GET /api/credential (issue #208).
+  const { data: credentials } = useQuery(["credentials"], getCredentials, {
+    enabled: canManageConnections,
+  });
   const canManageSources =
     session?.permissions?.includes("manage sources") === true;
+
+  // Read-only roles (monitor/viewer, including team-lead monitors/viewers)
+  // have neither permission, so every control hides and the page shows feeds
+  // with their status only (issue #208).
+  const isReadOnly = !canManageConnections && !canManageSources;
 
   // Multiple connections per provider are always allowed now, so this is fixed
   // to `true`. The per-browser toggle below is temporarily disabled; its state
@@ -66,7 +76,9 @@ const ConnectionsIndex = () => {
         that lets Aggie reach a Source. A{" "}
         <span className='font-medium'>Feed</span> then runs on top of a Connection
         to collect the posts and signals you care about, which show up as Alerts.
-        Connect a Source first, then add Feeds to it.
+        {isReadOnly
+          ? " Feeds and connections are managed by your team's administrators."
+          : " Connect a Source first, then add Feeds to it."}
       </p>
       {canManageConnections && (
         <div className='mb-6'>
@@ -82,6 +94,7 @@ const ConnectionsIndex = () => {
           credentials={credentials ?? []}
           canManageConnections={canManageConnections}
           canManageSources={canManageSources}
+          isReadOnly={isReadOnly}
           allowMultipleConnections={allowMultipleConnections}
         />
       ))}

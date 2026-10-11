@@ -97,6 +97,9 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
         {sessionData?.role === 'admin' && <Route path='kpis' element={<Kpis />} />}
         <Route path='sources' element={<SourcesIndex />} />
         <Route path='source/:id' element={<SourceDetails />} />
+        {/* Grouped Sources and Feeds page: read-only for monitor/viewer roles,
+            fully managed for admins and team leads (issue #208). */}
+        <Route path='connections' element={<ConnectionsIndex />} />
         <Route path='tags' element={<TagsIndex />} />
         <Route
           path='user/:id'
@@ -105,7 +108,6 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
         { (sessionData?.role === "admin" || sessionData?.role === "team_lead" ) &&
           <>
             <Route path='users' element={<UsersIndex session={sessionData} />} />
-            <Route path='connections' element={<ConnectionsIndex />} />
             <Route path='credentials' element={<CredentialsIndex />} />
           </>
         }

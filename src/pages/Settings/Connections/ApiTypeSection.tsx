@@ -134,6 +134,9 @@ interface IProps {
   credentials: Credential[];
   canManageConnections: boolean;
   canManageSources: boolean;
+  // True for roles with neither permission (monitor/viewer): the whole section
+  // renders read-only and the feed name opens details in view mode.
+  isReadOnly?: boolean;
   // Toggle from the Feeds page: allow more than one connection per provider.
   allowMultipleConnections: boolean;
 }
@@ -147,6 +150,7 @@ const ApiTypeSection = ({
   credentials,
   canManageConnections,
   canManageSources,
+  isReadOnly = false,
   allowMultipleConnections,
 }: IProps) => {
   const queryClient = useQueryClient();
@@ -374,20 +378,43 @@ const ApiTypeSection = ({
                   </div>
                 )}
               </div>
-              {/* Title line: bold uppercase type + italic nickname */}
-              <div className="flex flex-wrap items-baseline min-w-0">
-                <h3 className="font-bold uppercase tracking-wide text-slate-500 dark:text-gray-400 break-words">
-                  {feedTypeLabel(source)}
-                </h3>
-                {source.nickname && (
-                  <span className="italic text-slate-800 dark:text-gray-100 break-words">
-                    <span className="not-italic font-normal text-slate-400 mx-1">
-                      -
+              {/* Title line: bold uppercase type + italic nickname. For read-only
+                  roles the name is a button that opens the feed details view
+                  in view mode (they have no menu), per issue #208. */}
+              {isReadOnly ? (
+                <button
+                  type="button"
+                  onClick={() => openDetails(source._id)}
+                  className="flex flex-wrap items-baseline min-w-0 text-left hover:underline"
+                  title="View feed details"
+                >
+                  <h3 className="font-bold uppercase tracking-wide text-slate-500 dark:text-gray-400 break-words">
+                    {feedTypeLabel(source)}
+                  </h3>
+                  {source.nickname && (
+                    <span className="italic text-slate-800 dark:text-gray-100 break-words">
+                      <span className="not-italic font-normal text-slate-400 mx-1">
+                        -
+                      </span>
+                      {source.nickname}
                     </span>
-                    {source.nickname}
-                  </span>
-                )}
-              </div>
+                  )}
+                </button>
+              ) : (
+                <div className="flex flex-wrap items-baseline min-w-0">
+                  <h3 className="font-bold uppercase tracking-wide text-slate-500 dark:text-gray-400 break-words">
+                    {feedTypeLabel(source)}
+                  </h3>
+                  {source.nickname && (
+                    <span className="italic text-slate-800 dark:text-gray-100 break-words">
+                      <span className="not-italic font-normal text-slate-400 mx-1">
+                        -
+                      </span>
+                      {source.nickname}
+                    </span>
+                  )}
+                </div>
+              )}
                   </article>
                 ))}
               </div>
