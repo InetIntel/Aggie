@@ -188,6 +188,7 @@ class OONIChannel extends PollChannel {
 
     post.isOutageEvent = true;
     post.isAsnScoped = true;
+    post.countryCode = this.probeCC.toUpperCase();
     Object.assign(post, outageFields({ asn, probeCC: this.probeCC, windowEnd: alerts[0].windowEnd }));
     return post;
   }

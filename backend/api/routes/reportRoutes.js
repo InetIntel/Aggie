@@ -14,6 +14,8 @@ const { allowGlobalOrScoped } = require('../middlewares/scopedPermissionMiddlewa
 // Get list of reports
 router.get('', User.can("view data"), requireIncidentQueryAccess, reportController.report_reports);
 
+router.get('/filter-options', User.can('view data'), reportController.report_filter_options);
+
 // Get batch of reports
 router.get('/batch', User.can('view data'), reportController.report_batch);
 
