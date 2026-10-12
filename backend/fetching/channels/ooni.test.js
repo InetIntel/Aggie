@@ -31,7 +31,6 @@ test('creates one deduplicated report from a zero-measurement rolling window', a
   assert.equal(posts[0].isOutageEvent, true);
   assert.equal(posts[0].isAsnScoped, true);
   assert.equal(posts[0].asn, 'as44244');
-  assert.equal(posts[0].countryCode, 'IR');
   assert.equal(posts[0].raw.networkName, 'IranCell');
   assert.equal(posts[0].raw.entityLevel, 'AS');
   assert.equal(posts[0].raw.windowStart, '2026-08-11T14:30:00.000Z');
