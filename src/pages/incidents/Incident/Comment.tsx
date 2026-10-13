@@ -10,13 +10,13 @@ import { getSession } from "../../../api/session";
 import AggieButton from "../../../components/AggieButton";
 import UserToken from "../../../components/UserToken";
 import { Formik, Field, Form } from "formik";
-import Linkify from "linkify-react";
 
 import { faComment, faCommentAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit, faEllipsisH } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DateTime from "../../../components/DateTime";
 import DropdownMenu from "../../../components/DropdownMenu";
+import CommentContent from "./CommentContent";
 
 const CommentSchema = Yup.object().shape({
   commentdata: Yup.string().required("Cannot Post Empty Comment!"),
@@ -152,9 +152,9 @@ const Comment = ({ data, groupId }: IProps) => {
           </Formik>
         </>
       ) : (
-        <p className='whitespace-pre-line px-3 py-3 bg-white'>
-          <Linkify>{data.data}</Linkify>
-        </p>
+        <div className='whitespace-pre-line px-3 py-3 bg-white'>
+          <CommentContent text={data.data} />
+        </div>
       )}
     </div>
   );
