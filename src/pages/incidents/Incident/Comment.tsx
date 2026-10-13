@@ -11,6 +11,7 @@ import AggieButton from "../../../components/AggieButton";
 import UserToken from "../../../components/UserToken";
 import { Formik, Field, Form } from "formik";
 import Linkify from "linkify-react";
+import CommentPostPreviews from "./CommentPostPreviews";
 
 import { faComment, faCommentAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit, faEllipsisH } from "@fortawesome/free-solid-svg-icons";
@@ -152,9 +153,10 @@ const Comment = ({ data, groupId }: IProps) => {
           </Formik>
         </>
       ) : (
-        <p className='whitespace-pre-line px-3 py-3 bg-white'>
-          <Linkify>{data.data}</Linkify>
-        </p>
+        <div className='whitespace-pre-line px-3 py-3 bg-white flex flex-col gap-3'>
+          <p><Linkify>{data.data}</Linkify></p>
+          <CommentPostPreviews text={data.data} />
+        </div>
       )}
     </div>
   );

@@ -82,6 +82,14 @@ exports.report_batch_cancel = (req, res) => {
 }
 
 // Get Report by id
+exports.report_by_url = require('../utils/reportByUrl').createReportByUrlHandler({
+  Report,
+  sendReportResponse: (req, res, report) => {
+    writelog.writeReport(req, report, 'viewReport');
+    return res.status(200).send(report);
+  },
+});
+
 exports.report_details = (req, res) => {
   Report.findById(req.params._id, (err, report) => {
     if (err) res.status(err.status).send(err.message);
