@@ -23,6 +23,11 @@ export const getReports = async (
   }
 };
 
+export const getReportByUrl = async (url: string) => {
+  const { data } = await axios.get<Report | null>("/api/report/by-url", { params: { url } });
+  return data;
+};
+
 export const getReport = async (id: string | undefined) => {
   if (id) {
     const { data } = await axios.get<Report | undefined>("/api/report/" + id);
