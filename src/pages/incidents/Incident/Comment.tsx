@@ -16,7 +16,7 @@ import {
 } from "../../../components/FileUploader";
 import UserToken from "../../../components/UserToken";
 import { Formik, Field, FieldProps, Form } from "formik";
-import Linkify from "linkify-react";
+import CommentContent from "./CommentContent";
 import { isEmpty, isEqual, differenceWith } from "lodash";
 
 import { faComment, faCommentAlt } from "@fortawesome/free-regular-svg-icons";
@@ -182,6 +182,7 @@ const Comment = ({ data, groupId }: IProps) => {
                 className='focus-theme px-3 py-2 border-b border-slate-300 bg-white dark:bg-gray-800 w-full min-h-36'
                 placeholder='Write a comment here...'
               />
+              <p className='px-3 py-1 text-sm text-slate-500'>Paste Cloudflare Radar iframe embed code to include a chart.</p>
               <Field name='attachments'>
                 {({ form }: FieldProps) => (
                   <div className='px-2 py-1'>
@@ -224,7 +225,7 @@ const Comment = ({ data, groupId }: IProps) => {
         </Formik>
       ) : (
         <div className='bg-white dark:bg-gray-800 flex flex-col gap-3 px-3 py-3 whitespace-pre-line'>
-          <p><Linkify>{data.data}</Linkify></p>
+          <CommentContent text={data.data} />
           <FileChipList
             nameList={nameList}
             pathList={pathList}

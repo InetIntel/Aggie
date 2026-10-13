@@ -111,6 +111,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
                 className='focus-theme px-3 py-1 border-y border-slate-300 bg-white dark:bg-gray-800 w-full min-h-36 dark:bg-gray-600'
                 placeholder='Write a comment here...'
               />
+              <p className='px-3 py-1 text-sm text-slate-500'>Paste Cloudflare Radar iframe embed code to include a chart.</p>
               <Field name='attachments' >
                 {({ form }: FieldProps) => (
                   <div className='px-2 py-1 '>

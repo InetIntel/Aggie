@@ -6,6 +6,7 @@
     "url": "https://github.com/TID-Lab/aggie.git"
   },
   "scripts": {
+    "test:comments": "react-scripts test --watchAll=false --runInBand --testPathPattern=CommentContent.test.js",
     "dev": "stmux -- [ \"npm run dev:frontend\" .. \"npm run dev:backend\" ]",
     "dev:frontend": "cross-env PORT=8000 react-scripts start",
     "dev:backend": "cross-env ENVIRONMENT=development nodemon app.js",
