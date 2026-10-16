@@ -9,7 +9,8 @@ const _ = require('lodash');
 var tags = require('../../shared/tags');
 const Report = require('../../models/report');
 const eventRouter = require('../sockets/event-router');
-const { saveFile, deleteFile, getUploadDir } = require('../utils/fileStorage');
+const { saveFile, deleteFile } = require('../utils/fileStorage');
+const MediaAsset = require('../../models/mediaAsset');
 const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../../config/models/groupConfigs');
 const path = require('path');
 const { canViewIncident, canModifyIncidentWithScope } = require('../../access/incidentAccess');
@@ -44,22 +45,33 @@ exports.group_attachment_download = async (req, res) => {
 
     if (!attachment) return res.sendStatus(404);
 
-    const uploadRoot = path.resolve(getUploadDir());
-    const serverPath = path.resolve(uploadRoot, filename);
-    if (!serverPath.startsWith(`${uploadRoot}${path.sep}`)) {
-      return res.status(400).send('Invalid attachment storage path.');
-    }
+    // Bytes live in the `mediaassets` collection (kind 'incident-attachment'). The storage key
+    // is looked up from the attachment record — never from the URL — so the URL can't be abused
+    // to fetch arbitrary documents. Authorization is unchanged: the incident checks above still
+    // gate every download, unlike the public /media/* route.
+    const asset = await MediaAsset.findOne({ key: attachment.storageKey }).lean();
+    if (!asset) return res.sendStatus(404);
 
-    return res.sendFile(serverPath, (err) => {
-      if (!err || res.headersSent) return;
-      return res.sendStatus(err.statusCode || 404);
-    });
+    // Under .lean(), the driver hands back BinData as a mongodb.Binary wrapper, not a Node
+    // Buffer — coerce to the underlying Buffer so res.send writes bytes, not JSON.
+    const data = Buffer.isBuffer(asset.data) ? asset.data : asset.data.buffer;
+    // Keys are a SHA-256 of the contents, so the bytes for a key never change → cache immutable.
+    res.set('Content-Type', asset.contentType || attachment.mimeType || 'application/octet-stream');
+    res.set('Content-Disposition', `attachment; filename="${sanitizeDownloadFilename(attachment.fileName)}"`);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.set('ETag', asset.key);
+    if (req.headers['if-none-match'] === asset.key) return res.sendStatus(304);
+    return res.send(data);
   } catch (err) {
     return res
       .status(err.status || 500)
       .send(err.message || 'Unable to download attachment.');
   }
 };
+
+function sanitizeDownloadFilename(fileName) {
+  return String(fileName || 'attachment').replace(/["\r\n]/g, '').slice(0, 200) || 'attachment';
+}
 
 exports.group_create = (req, res) => {
   req.body.creator = req.user;
@@ -566,7 +578,7 @@ exports.group_comment_add = async (req, res) => {
           comment.attachments.push({
             fileName: attachment.originalname,
             path: publicRefPath, // relative path for frontend href
-            serverPath: savedPath, // actual server storage path
+            storageKey: savedPath, // MongoDB `mediaassets` key for the bytes
             mimeType: attachment.mimetype,
             fileSize: attachment.size,
           });
@@ -643,7 +655,7 @@ exports.group_comment_update = async (req, res) => {
     comment.attachments = comment.attachments.filter((att) => {
       const toDelete = attachmentsToDelete.includes(att._id.toString());
       if (toDelete) {
-        deletedPaths.push(att.serverPath);
+        deletedPaths.push(att.storageKey);
       }
       return !toDelete;      
     })
@@ -671,7 +683,7 @@ exports.group_comment_update = async (req, res) => {
         comment.attachments.push({
           fileName: attachment.originalname,
           path: publicRefPath, // relative path for frontend href
-          serverPath: savedPath, // actual server storage path
+          storageKey: savedPath, // MongoDB `mediaassets` key for the bytes
           mimeType: attachment.mimetype,
           fileSize: attachment.size,
         });
@@ -713,7 +725,7 @@ exports.group_comment_remove = async (req, res) => {
     if (!comment) { return res.status(404).send('Comment not found.'); };
 
     let deletedPaths = [];
-    deletedPaths = comment.attachments.map(att => att.serverPath);
+    deletedPaths = comment.attachments.map(att => att.storageKey);
 
     await Promise.all(deletedPaths.map(deleteFile));
     await comment.remove();
@@ -768,7 +780,7 @@ exports.group_delete = async (req, res, next) => {
     if (!group) { return res.status(404).send('Group not found.'); };
 
     const deletedPaths = group.comments.flatMap(comment => {
-      comment.attachments.map(att => att.path);
+      comment.attachments.map(att => att.storageKey);
     });
 
     await Promise.all(deletedPaths.map(deleteFile));

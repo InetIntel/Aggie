@@ -31,7 +31,6 @@ backend/migrations/.migrate
 .migrate
 
 public/css/styles.css
-public/uploads
 public/media
 public/ioda-charts-backup
 

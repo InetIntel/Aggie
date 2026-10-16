@@ -2,6 +2,7 @@ import { useState } from "react";
 import { faCircleXmark, faDotCircle, faFileImage, faFile } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { FieldProps } from "formik";
+import { buildAttachmentUrl } from "../utils/buildAttachmentUrl";
 
 interface FileChipProps {
   name: string;
@@ -21,9 +22,7 @@ export default function FileChip({
   hoveredIndex, setHoveredIndex,
   edit,
 }: FileChipProps) {
-  const attachmentPath = path.startsWith("/incidents/uploads/")
-    ? `${(process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/$/, "")}${path}`
-    : path;
+  const attachmentPath = buildAttachmentUrl(path);
 
   return (
     <span

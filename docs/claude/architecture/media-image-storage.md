@@ -1,6 +1,6 @@
 # Media & Image Storage
 
-_Last updated: 2026-10-02_
+_Last updated: 2026-10-16_
 
 How Aggie stores images from reports (social media attachments, alert charts) for every source
 type, and what that means for sharing media across environments (e.g. QA vs. production).
@@ -184,13 +184,51 @@ same media at `/media/<key>`, with no filesystem to mount or rsync.
   small (SVGs tiny, social images well under the 16 MB BSON cap). The reference-aware backfill
   deliberately skipped orphaned files so pruned-report bytes didn't bloat the DB.
 
+## Attachment storage
+
+Incident comment attachments are the same kind of problem as report media — files that must
+travel with the database — and are stored the same way: as `mediaassets` docs, with one key
+difference from `/media/*`: **attachment downloads are authenticated**.
+
+- **Collection `mediaassets`, `kind: 'incident-attachment'`**. One doc per unique file:
+  `{ key, data /* Buffer */, contentType, byteSize, kind: 'incident-attachment' }`.
+- **Keys are content-addressed**: `incidents/attachments/{sha256}.{ext}`, the SHA-256 of the
+  file bytes plus a sanitized extension. Uploading the same file twice stores the bytes once
+  (upserted by key). Keys never change for a key, so downloads are cacheable as immutable.
+- **Writes** go through `saveFile()` / `deleteFile()` in
+  [`backend/api/utils/fileStorage.js`](../../../backend/api/utils/fileStorage.js), called from
+  the comment add/update/remove/delete handlers in
+  [`backend/api/controllers/groupController.js`](../../../backend/api/controllers/groupController.js).
+  Uploads arrive as in-memory buffers (multer `memoryStorage()`), so no request handler ever
+  touches the filesystem. `UPLOAD_DIR` is gone from the code and `public/uploads` from
+  `.gitignore`.
+- **The comment doc** (`Attachment` subdocument in
+  [`backend/models/group.js`](../../../backend/models/group.js)) stores `storageKey` (the
+  `mediaassets` key) and keeps `path` (`/incidents/uploads/<sha256>.<ext>`) as the frontend
+  reference. The old `serverPath` (absolute disk path) is gone from the schema and the data.
+- **Reads** go through `GET /incidents/uploads/:filename` in
+  [`backend/api.js`](../../../backend/api.js), which still requires `auth.authenticate()`,
+  `User.can('view data')`, `loadIncidentAccessContext` and `canViewIncident` — a user who can't
+  view the incident gets a 404 for its attachments. The storage key is looked up from the
+  attachment record, never from the URL.
+- **Frontend URLs** are built by `buildAttachmentUrl()` in
+  [`src/utils/buildAttachmentUrl.ts`](../../../src/utils/buildAttachmentUrl.ts), the single
+  helper used by both `Comment.tsx` and `FileChip.tsx` (it also drops the old hardcoded
+  `http://localhost:3000` fallback and the dead `process.env.UPLOAD_DIR` read).
+- **Backfill**: [`backend/scripts/backfillAttachmentsToMongo.js`](../../../backend/scripts/backfillAttachmentsToMongo.js)
+  moves legacy on-disk attachments into Mongo. It is reference-aware (migrates only files a
+  comment points at; orphaned files are counted and reported, never ingested or deleted),
+  re-runnable (skips already-migrated attachments), and **dry-run by default** — pass
+  `--apply` to write.
+
 ## Key files
 
 Storage and serving:
 
 - [`backend/models/mediaAsset.js`](../../../backend/models/mediaAsset.js): `mediaassets` model (bytes + metadata)
 - [`backend/fetching/utils/socialImageStorage.js`](../../../backend/fetching/utils/socialImageStorage.js): storage core (`persistSocialImage`, `persistSvgChart`, `deleteMediaByKey`, `deleteSocialAttachments`, `buildMediaUrl`, `normalizeKey`; `getMediaRoot` retained for the backfills)
-- [`backend/api.js`](../../../backend/api.js): `serveMediaAsset` streaming `/media/*` route
+- [`backend/api.js`](../../../backend/api.js): `serveMediaAsset` streaming `/media/*` route; the authenticated `/incidents/uploads/:filename` attachment route
+- [`backend/api/utils/fileStorage.js`](../../../backend/api/utils/fileStorage.js): attachment `saveFile` / `deleteFile` (bytes → `mediaassets`, kind `incident-attachment`)
 - [`backend/api/controllers/reportController.js`](../../../backend/api/controllers/reportController.js): `serializeReport()` / `serializeReportResponse()` URL construction and chart stripping
 - [`backend/models/report.js`](../../../backend/models/report.js): Report schema (`_media`, `metadata.attachments`) and the list query
 
@@ -216,5 +254,6 @@ Frontend:
 Scripts:
 
 - [`backend/scripts/backfillMediaToMongo.js`](../../../backend/scripts/backfillMediaToMongo.js): one-time reference-aware disk→Mongo backfill
+- [`backend/scripts/backfillAttachmentsToMongo.js`](../../../backend/scripts/backfillAttachmentsToMongo.js): one-time reference-aware attachment disk→Mongo backfill (dry-run by default, `--apply` to write)
 - [`backend/scripts/trim-reports-to-size.js`](../../../backend/scripts/trim-reports-to-size.js): trims reports; `--purge-media` also deletes their media
 - [`scripts/backfill-ioda-svg-to-json.js`](../../../scripts/backfill-ioda-svg-to-json.js), [`scripts/migrate-ioda-svg-to-storage.js`](../../../scripts/migrate-ioda-svg-to-storage.js): legacy IODA SVG migrations (only remaining `persistSvgChart` callers)
