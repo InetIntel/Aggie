@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 
 import { getSources } from "../../../api/sources";
+import { getAllAsns } from "../../../api/asn";
+import { getReportGeoFacets } from "../../../api/reports";
 import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS, OUTAGE_STATUS_OPTIONS, providerLabel } from "../../../api/common";
 import type { ReportQueryState } from "../../../api/reports/types";
 
@@ -36,6 +38,7 @@ interface IReportFilters {
   showEntityLevelFilter?: boolean;
   showSignalSourcesFilter?: boolean;
   showOngoingFilter?: boolean;
+  showAlertGeoFilters?: boolean;
   showDedupToggle?: boolean;
   autoEnableDedup?: boolean;
   defaultEntityLevelSelection?: string[];
@@ -54,6 +57,7 @@ const ReportFilters = ({
   showEntityLevelFilter = true,
   showSignalSourcesFilter = true,
   showOngoingFilter = true,
+  showAlertGeoFilters = false,
   showDedupToggle = true,
   autoEnableDedup = true,
   defaultEntityLevelSelection,
@@ -78,6 +82,38 @@ const ReportFilters = ({
   const sourcesList = useCallback(sourcesRemapComboBox, [sources]);
 
   const { data: groups } = useQuery(["allgroups"], () => getAllGroups());
+
+  // Alerts-only geo filters (#194): distinct countries/regions present on
+  // outage alerts, and the ASN directory for ASN selection.
+  const { data: geoFacets } = useQuery(
+    ["report-geo-facets"],
+    () => getReportGeoFacets(),
+    { enabled: showAlertGeoFilters }
+  );
+  const { data: asnDirectory } = useQuery(["asns"], () => getAllAsns(), {
+    enabled: showAlertGeoFilters,
+  });
+  const asnOptions = (asnDirectory ?? [])
+    .map((a) => a.asn)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const asnLabels = Object.fromEntries(
+    (asnDirectory ?? []).map((a) => [
+      a.asn,
+      a.name ? `${a.asn.toUpperCase()} · ${a.name}` : a.asn.toUpperCase(),
+    ])
+  );
+  const asnLabel = (asn: string) => asnLabels[asn] ?? asn.toUpperCase();
+
+  const currentCountries = getParam("countries")
+    ? getParam("countries").split(",").filter(Boolean)
+    : [];
+  const currentRegions = getParam("regions")
+    ? getParam("regions").split(",").filter(Boolean)
+    : [];
+  const currentAsns = getParam("asns")
+    ? getParam("asns").split(",").filter(Boolean)
+    : [];
 
   function groupsRemapComboBox(query: typeof groups) {
     if (!query || "total" in query) return [];
@@ -172,6 +208,12 @@ const ReportFilters = ({
 
     if (!showSignalSourcesFilter) {
       formattedValues.dataSources = undefined;
+    }
+
+    if (!showAlertGeoFilters) {
+      formattedValues.countries = undefined;
+      formattedValues.asns = undefined;
+      formattedValues.regions = undefined;
     }
 
     if (!showOngoingFilter) {
@@ -334,6 +376,34 @@ const ReportFilters = ({
               value={getParam("dataSources") ? getParam("dataSources").split(",") as string[] : []}
               onChange={(e) => setParams({ dataSources: e as string[]})}
               isMultiSelect={true}
+            />
+          )}
+          {showAlertGeoFilters && (
+            <FilterListbox
+              label='Countries'
+              options={geoFacets?.countries ?? []}
+              value={currentCountries}
+              onChange={(e) => setParams({ countries: e as string[] })}
+              isMultiSelect={true}
+            />
+          )}
+          {showAlertGeoFilters && (
+            <FilterListbox
+              label='Regions'
+              options={geoFacets?.regions ?? []}
+              value={currentRegions}
+              onChange={(e) => setParams({ regions: e as string[] })}
+              isMultiSelect={true}
+            />
+          )}
+          {showAlertGeoFilters && (
+            <FilterListbox
+              label='ASNs'
+              options={asnOptions}
+              value={currentAsns}
+              onChange={(e) => setParams({ asns: e as string[] })}
+              isMultiSelect={true}
+              getOptionLabel={asnLabel}
             />
           )}
           {/* <FilterComboBox

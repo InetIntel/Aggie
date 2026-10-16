@@ -14,6 +14,10 @@ const { allowGlobalOrScoped } = require('../middlewares/scopedPermissionMiddlewa
 // Get list of reports
 router.get('', User.can("view data"), requireIncidentQueryAccess, reportController.report_reports);
 
+// Get distinct country/region geo scopes for the alerts page filters
+// (registered before /:_id so "geo-facets" isn't parsed as a report id)
+router.get('/geo-facets', User.can("view data"), reportController.report_geo_facets);
+
 // Get batch of reports
 router.get('/batch', User.can('view data'), reportController.report_batch);
 

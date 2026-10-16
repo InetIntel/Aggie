@@ -27,6 +27,9 @@ function ReportQuery(options) {
   this.media = options.media;
   this.dataSources = options.dataSources;
   this.entityLevel = options.entityLevel;
+  this.countries = options.countries;
+  this.asns = options.asns;
+  this.regions = options.regions;
   this.author = options.author;
   this.event = 'reports';
   this.list = options.list;
@@ -52,7 +55,7 @@ ReportQuery.prototype.run = function (callback) {
 
 // Normalize query for comparison
 ReportQuery.prototype.normalize = function () {
-  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports', 'isOutageOngoing']);
+  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports', 'isOutageOngoing', 'countries', 'asns', 'regions']);
 };
 
 ReportQuery.prototype.toMongooseFilter = function () {
@@ -173,6 +176,25 @@ ReportQuery.prototype.toMongooseFilter = function () {
       ...(filter.$and || []),
       {"metadata.rawAPIResponse.entityLevel": {$exists: true}},
       {"metadata.rawAPIResponse.entityLevel": entityLevelFilter},
+    ]
+  }
+  // Multi-select geo filters (alerts page): `asn` is the top-level ASN field
+  // (e.g. "as15169"); `geoScope` holds the country name for country/ASN-scoped
+  // alerts and the region name for region-scoped alerts, so countries and
+  // regions both match on it.
+  if (this.asns && this.asns.length > 0) {
+    filter.asn = this.asns.length === 1 ? this.asns[0] : { $in: this.asns };
+  }
+  if (this.countries && this.countries.length > 0) {
+    filter.$and = [
+      ...(filter.$and || []),
+      {geoScope: {$in: this.countries}},
+    ]
+  }
+  if (this.regions && this.regions.length > 0) {
+    filter.$and = [
+      ...(filter.$and || []),
+      {geoScope: {$in: this.regions}},
     ]
   }
   return filter;

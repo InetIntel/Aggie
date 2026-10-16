@@ -57,6 +57,9 @@ export interface ReportQueryState {
   dataSources?: string[];
   entityLevel?: string[];
   hideDuplicateASNs?: string; // 'true' or 'false'
+  countries?: string[]; // multi-select geo filter (alerts page)
+  asns?: string[]; // multi-select ASN filter, e.g. ["as15169"] (alerts page)
+  regions?: string[]; // multi-select geo filter (alerts page)
   sourceId?: string;
   list?: string;
   reportIds?: string;

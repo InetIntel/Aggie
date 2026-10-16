@@ -30,6 +30,18 @@ export const getReport = async (id: string | undefined) => {
   }
 };
 
+export interface ReportGeoFacets {
+  countries: string[];
+  regions: string[];
+}
+
+// Distinct country/region geo scopes present on outage alerts — options for
+// the alerts page multi-select filters.
+export const getReportGeoFacets = async () => {
+  const { data } = await axios.get<ReportGeoFacets>("/api/report/geo-facets");
+  return data;
+};
+
 export const editReport = async (report: Report) => {
   const { data } = await axios.put("/api/report/" + report._id, report);
   return data;

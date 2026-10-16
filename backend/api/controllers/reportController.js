@@ -36,6 +36,7 @@ const parseQueryData = (queryString) => {
   // Data passed through URL parameters
   var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before',
     'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media', 'dataSources', 'entityLevel',
+    'countries', 'asns', 'regions',
     'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity',
     'isRelevantReports', "irrelevant", 'ongoing']);
 
@@ -55,6 +56,9 @@ const parseQueryData = (queryString) => {
   
   if (query.dataSources) query.dataSources = query.dataSources.split(",").filter(Boolean);
   if (query.entityLevel) query.entityLevel = query.entityLevel.split(',').map(s => s.trim()).filter(Boolean);
+  if (query.countries) query.countries = query.countries.split(',').map(s => s.trim()).filter(Boolean);
+  if (query.asns) query.asns = query.asns.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (query.regions) query.regions = query.regions.split(',').map(s => s.trim()).filter(Boolean);
   if (query.reportIds) query.reportIds = query.reportIds.split(',').map(s => s.trim()).filter(Boolean);
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
@@ -306,6 +310,42 @@ exports.report_reports = async (req, res) => {
     return res
       .status(err.status || 500)
       .send(err.message || 'Unable to fetch reports.');
+  }
+}
+
+// Get distinct country/region geo scopes present on outage alerts, for the
+// alerts page multi-select filters. Scoped by the same source-access filter
+// as the report list so users only see scopes they can access.
+exports.report_geo_facets = async (req, res) => {
+  try {
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
+    const base = { isOutageEvent: true, geoScope: { $ne: null } };
+    const [countries, regions] = await Promise.all([
+      Report.distinct(
+        'geoScope',
+        combineReportFilters(
+          { ...base, 'metadata.rawAPIResponse.entityLevel': { $in: ['Country', 'AS - Country', 'AS'] } },
+          sourceAccessFilter,
+        ),
+      ),
+      Report.distinct(
+        'geoScope',
+        combineReportFilters(
+          { ...base, 'metadata.rawAPIResponse.entityLevel': { $in: ['Region', 'AS - Region'] } },
+          sourceAccessFilter,
+        ),
+      ),
+    ]);
+    if (res.headersSent) return;
+    return res.status(200).json({
+      countries: countries.filter(Boolean).sort(),
+      regions: regions.filter(Boolean).sort(),
+    });
+  } catch (err) {
+    if (res.headersSent) return;
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to load geo facets.');
   }
 }
 

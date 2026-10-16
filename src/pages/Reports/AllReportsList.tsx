@@ -65,6 +65,9 @@ const AllReportsList = ({ alerts }: IProps) => {
   const entityLevelParam = getParam("entityLevel");
   const dataSourcesParam = getParam("dataSources");
   const hideDuplicateASNsParam = getParam("hideDuplicateASNs");
+  const countriesParam = getParam("countries");
+  const asnsParam = getParam("asns");
+  const regionsParam = getParam("regions");
 
   const shouldClearMedia =
     !!currentMedia &&
@@ -77,7 +80,10 @@ const AllReportsList = ({ alerts }: IProps) => {
     (shouldClearMedia ||
       !!entityLevelParam ||
       !!dataSourcesParam ||
-      !!hideDuplicateASNsParam);
+      !!hideDuplicateASNsParam ||
+      !!countriesParam ||
+      !!asnsParam ||
+      !!regionsParam);
   // `view` is a UI-only param: keep it out of the query key (so toggling
   // doesn't refetch) and out of the request to the API.
   const apiSearchParams = new URLSearchParams(searchParams);
@@ -299,6 +305,9 @@ const AllReportsList = ({ alerts }: IProps) => {
       entityLevel: undefined,
       dataSources: undefined,
       hideDuplicateASNs: undefined,
+      countries: undefined,
+      asns: undefined,
+      regions: undefined,
     });
   }, [currentMedia, setParams, shouldClearMedia, shouldResetSocialFilters]);
 
@@ -341,6 +350,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           showEntityLevelFilter={alerts}
           showSignalSourcesFilter={alerts}
           showOngoingFilter={alerts}
+          showAlertGeoFilters={alerts}
           headerElement={
             compareMode ? undefined : multiSelect.isActive ? (
               <AggieButton
