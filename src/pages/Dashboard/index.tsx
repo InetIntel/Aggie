@@ -38,7 +38,6 @@ import {
   useDashboardFormatters,
 } from "./dashboardHelpers";
 import type { AnalyticsWindow } from "./dashboardHelpers";
-import { formatTimeZone } from "../../utils/dateFormat";
 import type { GroupEditableData } from "../../api/groups/types";
 
 const sectionTitleClass =
@@ -273,12 +272,9 @@ const Dashboard = () => {
 
   return (
     <section className='mx-auto max-w-[1400px] px-4 py-6'>
-      <p
-        className='mb-2 text-right text-xs text-slate-500 dark:text-gray-400'
-        title='Set in your profile under display preferences'
-      >
-        Times in {formatTimeZone(new Date(), prefs)}
-      </p>
+      <header className='mb-4'>
+        <h1 className='text-3xl font-medium'>Dashboard</h1>
+      </header>
 
       <section className={`${sectionCardClass} mb-5 p-4`}>
         <CardHeader title='Reports at a glance' timeWindow={glanceWindow} />
@@ -295,7 +291,7 @@ const Dashboard = () => {
           {metricCategoryCards.map(({ key, title, timeWindow, query }) => (
             <section key={key} className={`${sectionCardClass} p-4`}>
               <CardHeader title={title} timeWindow={timeWindow} />
-              <div className='mt-3'>
+              <div className='mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 dark:bg-gray-800'>
                 <MetricsList
                   category={query.data?.categories.find(
                     (category) => category.key === key

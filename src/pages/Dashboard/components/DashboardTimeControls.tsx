@@ -14,7 +14,7 @@ export const dashboardRangeOptions: {
 
 function rangeButtonClass(isActive: boolean) {
   return [
-    "rounded px-2 py-1 text-[11px] font-semibold uppercase tracking-wide transition",
+    "rounded px-2 py-1 text-[11px] font-bold uppercase tracking-wide transition",
     isActive
       ? "bg-[#1F5F78] text-white dark:bg-sky-600"
       : "bg-[#CDEAF4] text-[#1F5F78] hover:bg-[#b5dfee] dark:bg-sky-900/40 dark:text-sky-200 dark:hover:bg-sky-900/70",

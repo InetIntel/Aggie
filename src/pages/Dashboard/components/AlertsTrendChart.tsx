@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useHref } from "react-router-dom";
 import type { AnalyticsOverview } from "../../../api/analytics/types";
+import { formatTimeZone } from "../../../utils/dateFormat";
 import { useDashboardFormatters } from "../dashboardHelpers";
 
 const fallbackTimeSeries = [
@@ -67,7 +68,7 @@ interface IProps {
 }
 
 const AlertsTrendChart = ({ overview, variant }: IProps) => {
-  const { formatActivityWindow, formatXAxisLabel } = useDashboardFormatters();
+  const { prefs, formatActivityWindow, formatXAxisLabel } = useDashboardFormatters();
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
   // Sources toggled off in the "by source" view. Tracking the hidden ones (rather than
@@ -322,7 +323,7 @@ const AlertsTrendChart = ({ overview, variant }: IProps) => {
                   {dateLabel}
                 </tspan>
                 <tspan x={x} dy={chartFontSize + 2}>
-                  {timeLabel}
+                  {`${timeLabel} ${formatTimeZone(item.bucketStart, prefs)}`.trim()}
                 </tspan>
               </text>
             );

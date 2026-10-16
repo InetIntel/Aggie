@@ -66,7 +66,7 @@ function NotableActivityCard({
             target='_blank'
             rel='noopener noreferrer'
             title='View reports'
-            className='inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700 transition hover:bg-slate-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+            className='inline-flex items-center gap-1 rounded-full border border-[#CDEAF4] bg-[#EAF6FA] px-2 py-0.5 text-[11px] text-slate-700 transition hover:bg-[#CDEAF4] dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
           >
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className='text-[9px]' />
             {activity.totalReports} report{activity.totalReports === 1 ? "" : "s"}
