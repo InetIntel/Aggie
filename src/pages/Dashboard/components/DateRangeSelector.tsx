@@ -97,7 +97,7 @@ const DateRangeSelector = ({ fromDay, toDay, onChange, maxSpanDays }: IProps) =>
         ref={refs.setReference}
         type='button'
         aria-label='Custom date range'
-        className='rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+        className='inline-flex h-6 items-center rounded border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
         {...getReferenceProps()}
       >
         {formatDate(fromDay)} – {formatDate(toDay)}

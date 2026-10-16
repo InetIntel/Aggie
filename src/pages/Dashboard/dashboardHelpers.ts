@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AnalyticsBucketPreset,
   AnalyticsOverview,
@@ -169,6 +169,80 @@ export function useAnalyticsWindow(prefs: UserPreferences) {
 }
 
 export type AnalyticsWindow = ReturnType<typeof useAnalyticsWindow>;
+
+// Dismissals are a per-browser convenience, not shared with other users. They are
+// stored per start-time tolerance because activities regroup (and get new keys)
+// whenever the tolerance changes, so each tolerance keeps its own list.
+const DISMISSED_ACTIVITIES_STORAGE_KEY = "dashboard.dismissedNotableActivities";
+// Keys from old windows are never cleaned up on their own, so keep only the newest.
+const MAX_KEYS_PER_TOLERANCE = 500;
+
+type DismissedByTolerance = Record<string, string[]>;
+
+function readStoredDismissals(): DismissedByTolerance {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DISMISSED_ACTIVITIES_STORAGE_KEY) || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredDismissals(value: DismissedByTolerance) {
+  try {
+    localStorage.setItem(DISMISSED_ACTIVITIES_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Storage is unavailable (private mode, quota): dismissals last for this visit only.
+  }
+}
+
+export function useDismissedActivities(tolerance: number) {
+  const [dismissedByTolerance, setDismissedByTolerance] =
+    useState<DismissedByTolerance>(readStoredDismissals);
+
+  useEffect(() => {
+    writeStoredDismissals(dismissedByTolerance);
+  }, [dismissedByTolerance]);
+
+  const toleranceKey = String(tolerance);
+  const currentKeys = dismissedByTolerance[toleranceKey];
+  const dismissedKeys = useMemo(
+    () => new Set(Array.isArray(currentKeys) ? currentKeys : []),
+    [currentKeys]
+  );
+
+  const updateCurrent = useCallback(
+    (update: (keys: string[]) => string[]) => {
+      setDismissedByTolerance((all) => {
+        const keys = Array.isArray(all[toleranceKey]) ? all[toleranceKey] : [];
+        const next = { ...all, [toleranceKey]: update(keys) };
+        if (next[toleranceKey].length === 0) delete next[toleranceKey];
+        return next;
+      });
+    },
+    [toleranceKey]
+  );
+
+  const dismiss = useCallback(
+    (activityKey: string) =>
+      updateCurrent((keys) =>
+        keys.includes(activityKey)
+          ? keys
+          : [...keys, activityKey].slice(-MAX_KEYS_PER_TOLERANCE)
+      ),
+    [updateCurrent]
+  );
+
+  const restore = useCallback(
+    (activityKey: string) => updateCurrent((keys) => keys.filter((key) => key !== activityKey)),
+    [updateCurrent]
+  );
+
+  // Clears only the current tolerance; other tolerances keep their dismissals.
+  const reset = useCallback(() => updateCurrent(() => []), [updateCurrent]);
+
+  return { dismissedKeys, dismiss, restore, reset };
+}
 
 export function getActivityLocationSummary(activity: NotableActivity) {
   const locations = activity.locations || [];

@@ -6,6 +6,7 @@ import {
   faFolderPlus,
   faLink,
   faPlus,
+  faRotateLeft,
   faSpinner,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
@@ -26,14 +27,18 @@ const cardActionClass =
 function NotableActivityCard({
   activity,
   cacheKey,
+  isDismissed,
   onDismiss,
+  onRestore,
   onCreateIncident,
   onAddToIncident,
   isCreatingIncident,
 }: {
   activity: NotableActivity;
   cacheKey: string;
+  isDismissed: boolean;
   onDismiss: () => void;
+  onRestore: () => void;
   onCreateIncident: () => void;
   onAddToIncident: () => void;
   isCreatingIncident: boolean;
@@ -74,11 +79,12 @@ function NotableActivityCard({
         </div>
         <button
           type='button'
-          onClick={onDismiss}
+          onClick={isDismissed ? onRestore : onDismiss}
           className='grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-base text-slate-700 shadow-[0_4px_10px_rgba(15,23,42,0.16)] transition hover:bg-slate-100 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-          aria-label='Dismiss activity card'
+          aria-label={isDismissed ? "Restore activity card" : "Dismiss activity card"}
+          title={isDismissed ? "Restore" : "Dismiss"}
         >
-          <FontAwesomeIcon icon={faXmark} />
+          <FontAwesomeIcon icon={isDismissed ? faRotateLeft : faXmark} />
         </button>
       </div>
 

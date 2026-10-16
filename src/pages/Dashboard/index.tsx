@@ -36,6 +36,7 @@ import {
   getAnalyticsRoom,
   useAnalyticsWindow,
   useDashboardFormatters,
+  useDismissedActivities,
 } from "./dashboardHelpers";
 import type { AnalyticsWindow } from "./dashboardHelpers";
 import type { GroupEditableData } from "../../api/groups/types";
@@ -77,6 +78,22 @@ function formatToleranceLabel(minutes: number) {
   return minutes >= 60 ? `${minutes / 60}h` : `${minutes}m`;
 }
 
+type NotableView = "active" | "dismissed";
+
+const notableViewOptions: { label: string; value: NotableView }[] = [
+  { label: "Notable Activity", value: "active" },
+  { label: "Dismissed Activity", value: "dismissed" },
+];
+
+function notableViewButtonClass(isActive: boolean) {
+  return [
+    "rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition",
+    isActive
+      ? "bg-[#1F5F78] text-white dark:bg-sky-600"
+      : "text-[#1F5F78] hover:bg-[#CDEAF4] dark:text-sky-200 dark:hover:bg-sky-900/40",
+  ].join(" ");
+}
+
 // const maxNotableCards = 6;
 const notableCardsPerPage = 12;
 
@@ -101,7 +118,13 @@ const Dashboard = () => {
   const [tolerance, setTolerance] = useState<number>(
     DEFAULT_START_TIME_TOLERANCE_MINUTES
   );
-  const [dismissedActivityKeys, setDismissedActivityKeys] = useState<string[]>([]);
+  const {
+    dismissedKeys: dismissedActivityKeys,
+    dismiss: dismissActivity,
+    restore: restoreActivity,
+    reset: resetDismissedActivities,
+  } = useDismissedActivities(tolerance);
+  const [notableView, setNotableView] = useState<NotableView>("active");
   const [notablePage, setNotablePage] = useState(0);
   const [activityToPromote, setActivityToPromote] = useState<NotableActivity | null>(
     null
@@ -118,7 +141,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     setNotablePage(0);
-  }, [notableWindow.params, tolerance]);
+  }, [notableWindow.params, tolerance, notableView]);
 
   // The chart counts reports on the fixed bucket grid, while the cards group reports
   // whose outages started within `tolerance` of each other. Each grouping gets its own
@@ -222,8 +245,9 @@ const Dashboard = () => {
   }, [overviewQuery.data, notableActivitiesQuery.data, socket]);
 
   const liveNotableActivities = notableActivitiesQuery.data?.notableActivities || [];
+  const isDismissedView = notableView === "dismissed";
   const visibleLiveNotableActivities = liveNotableActivities.filter(
-    (activity) => !dismissedActivityKeys.includes(activity.eventAggKey)
+    (activity) => dismissedActivityKeys.has(activity.eventAggKey) === isDismissedView
   );
   const activeNotableActivityCount = visibleLiveNotableActivities.length;
   const notablePageCount = Math.max(
@@ -242,19 +266,13 @@ const Dashboard = () => {
     notablePageStart + notableCardsPerPage,
     activeNotableActivityCount
   );
-  const hasDismissedActivities = dismissedActivityKeys.length > 0;
+  const hasDismissedActivities = dismissedActivityKeys.size > 0;
 
   useEffect(() => {
     if (notablePage >= notablePageCount) {
       setNotablePage(notablePageCount - 1);
     }
   }, [notablePage, notablePageCount]);
-
-  function dismissActivity(activityKey: string) {
-    setDismissedActivityKeys((currentKeys) =>
-      currentKeys.includes(activityKey) ? currentKeys : [...currentKeys, activityKey]
-    );
-  }
 
   function createIncidentFromActivity(values: Partial<GroupEditableData>) {
     const cacheKey = notableActivitiesQuery.data?.cacheKey;
@@ -332,39 +350,62 @@ const Dashboard = () => {
 
         <section className={`${sectionCardClass} p-4`}>
           <CardHeader title='Notable Activity' timeWindow={notableWindow} />
-          <div className='mt-3 flex flex-wrap items-center justify-end gap-3'>
-            <label className='inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-gray-200'>
-              <span>Start-time tolerance</span>
-              <select
-                value={tolerance}
-                onChange={(event) => setTolerance(Number(event.target.value))}
-                title='Largest gap between consecutive outage starts that still counts as one activity'
-                className='cursor-pointer rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
-              >
-                {START_TIME_TOLERANCE_OPTIONS.map((minutes) => (
-                  <option key={minutes} value={minutes}>
-                    {formatToleranceLabel(minutes)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type='button'
-              onClick={() => {
-                setDismissedActivityKeys([]);
-                setNotablePage(0);
-              }}
-              disabled={!hasDismissedActivities}
-              className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+          <div className='mt-3 flex flex-wrap items-center justify-between gap-3'>
+            <div
+              role='group'
+              aria-label='Notable activity view'
+              className='flex gap-1 rounded-full border border-[#C5D9E2] p-0.5 dark:border-slate-600'
             >
-              <FontAwesomeIcon icon={faRotateLeft} />
-              <span>Reset</span>
-            </button>
-            <p className='text-xs text-slate-500 dark:text-gray-400'>
-              {notableActivitiesQuery.data
-                ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} activities`
-                : "Loading activities"}
-            </p>
+              {notableViewOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type='button'
+                  onClick={() => setNotableView(option.value)}
+                  aria-pressed={notableView === option.value}
+                  className={notableViewButtonClass(notableView === option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className='flex flex-wrap items-center justify-end gap-3'>
+              <label className='inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-gray-200'>
+                <span>Start-time tolerance</span>
+                <select
+                  value={tolerance}
+                  onChange={(event) => setTolerance(Number(event.target.value))}
+                  title='Largest gap between consecutive outage starts that still counts as one activity'
+                  className='h-6 cursor-pointer rounded border border-slate-200 bg-white px-1.5 py-0 text-[11px] text-slate-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
+                >
+                  {START_TIME_TOLERANCE_OPTIONS.map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {formatToleranceLabel(minutes)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type='button'
+                onClick={() => {
+                  resetDismissedActivities();
+                  setNotableView("active");
+                  setNotablePage(0);
+                }}
+                disabled={!hasDismissedActivities}
+                title='Restore every activity dismissed at this tolerance'
+                className='inline-flex h-6 items-center gap-1.5 rounded bg-[#1F5F78] px-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-[#184c60] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-600 dark:hover:bg-sky-500'
+              >
+                <FontAwesomeIcon icon={faRotateLeft} />
+                <span>Reset</span>
+              </button>
+              <p className='text-xs text-slate-500 dark:text-gray-400'>
+                {notableActivitiesQuery.data
+                  ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} ${
+                      isDismissedView ? "dismissed " : ""
+                    }activities`
+                  : "Loading activities"}
+              </p>
+            </div>
           </div>
 
           <div className='mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'>
@@ -373,7 +414,9 @@ const Dashboard = () => {
                 key={activity.eventAggKey}
                 activity={activity}
                 cacheKey={notableActivitiesQuery.data?.cacheKey || ""}
+                isDismissed={isDismissedView}
                 onDismiss={() => dismissActivity(activity.eventAggKey)}
+                onRestore={() => restoreActivity(activity.eventAggKey)}
                 onCreateIncident={() => setActivityToPromote(activity)}
                 onAddToIncident={() => setActivityToLink(activity)}
                 isCreatingIncident={
@@ -386,7 +429,9 @@ const Dashboard = () => {
 
           {notableActivitiesQuery.data && activeNotableActivityCount === 0 && (
             <p className='mt-5 rounded-md border border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-gray-700 dark:text-gray-400'>
-              No notable activities found.
+              {isDismissedView
+                ? "No dismissed activities in this time range."
+                : "No notable activities found."}
             </p>
           )}
 
