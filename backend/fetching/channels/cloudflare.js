@@ -5,6 +5,7 @@ const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { mongoose } = require('../../database');
 const { API_BASE_URLS, API_ROUTES, DATA_SOURCES, API_LINKED_PAGE_URLS, API_MAX_RESULTS } = require('../../config/fetching/externalApis');
 const { decryptSecretsObject } = require('../utils/decryption');
+const { AGGIE_USER_AGENT } = require('../utils/userAgent');
 const {  recomputeIncidentDurationForGroups } = require('../../api/utils/incidentDuration');
 const Group = require('../../models/group');
 const Report = require('../../models/report');
@@ -87,6 +88,7 @@ class CloudflareChannel extends PollChannel {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${apiToken}`,
+                    'User-Agent': AGGIE_USER_AGENT,
                 },
             });
 
@@ -253,7 +255,10 @@ class CloudflareChannel extends PollChannel {
 
         const res = await fetch(url, {
             method: 'GET',
-            headers: { 'Authorization': `Bearer ${apiToken}` },
+            headers: {
+                'Authorization': `Bearer ${apiToken}`,
+                'User-Agent': AGGIE_USER_AGENT,
+            },
         });
 
         if (!res.ok) {
