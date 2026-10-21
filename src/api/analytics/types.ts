@@ -15,7 +15,7 @@ export type AnalyticsAggregationMethod =
 
 // Gap options offered for the startTime method. 0 groups only identical timestamps.
 export const START_TIME_TOLERANCE_OPTIONS = [0, 1, 5, 15, 30, 60] as const;
-export const DEFAULT_START_TIME_TOLERANCE_MINUTES = 60;
+export const DEFAULT_START_TIME_TOLERANCE_MINUTES = 5;
 
 // Longest custom range the backend accepts (MAX_CUSTOM_RANGE_DAYS in analyticsTime.js).
 export const MAX_CUSTOM_RANGE_DAYS = 31;
