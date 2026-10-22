@@ -5,6 +5,11 @@ import type { hasId, TernaryOptions, VeracityOptions } from "../common";
 import { ENTITY_LEVEL_OPTIONS } from "../common";
 import { isString } from "lodash";
 
+export const getAlertFilterOptions = async () => {
+  const { data } = await axios.get<Record<"countries" | "asns" | "regions", { key: string; label: string }[]>>("/api/report/filter-options");
+  return data;
+};
+
 export const getReports = async (
   searchState: ReportQueryState,
   alerts?: boolean,

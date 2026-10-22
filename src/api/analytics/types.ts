@@ -1,4 +1,5 @@
-export const ANALYTICS_RANGE_PRESETS = ["today", "last24h", "last7d"] as const;
+// "custom" is bounded by `from`/`to` on the request instead of a rolling window.
+export const ANALYTICS_RANGE_PRESETS = ["today", "last24h", "last7d", "custom"] as const;
 export type AnalyticsRangePreset = (typeof ANALYTICS_RANGE_PRESETS)[number];
 
 export const ANALYTICS_BUCKET_PRESETS = ["30m", "1h", "6h", "24h"] as const;
@@ -14,13 +15,21 @@ export type AnalyticsAggregationMethod =
 
 // Gap options offered for the startTime method. 0 groups only identical timestamps.
 export const START_TIME_TOLERANCE_OPTIONS = [0, 1, 5, 15, 30, 60] as const;
-export const DEFAULT_START_TIME_TOLERANCE_MINUTES = 60;
+export const DEFAULT_START_TIME_TOLERANCE_MINUTES = 5;
+
+// Longest custom range the backend accepts (MAX_CUSTOM_RANGE_DAYS in analyticsTime.js).
+export const MAX_CUSTOM_RANGE_DAYS = 31;
 
 export interface AnalyticsQueryState {
   range?: AnalyticsRangePreset;
   bucket?: AnalyticsBucketPreset;
   aggregation?: AnalyticsAggregationMethod;
   tolerance?: number;
+  // ISO instants bounding a `range: "custom"` request.
+  from?: string;
+  to?: string;
+  // IANA zone the bucket grid is laid out in; the backend defaults to UTC.
+  timeZone?: string;
   limit?: number;
 }
 
@@ -60,6 +69,7 @@ export interface AnalyticsSocketQuery {
   // grouping; without it a refresh would overwrite the cache with fixed-grid activities.
   aggregationMethod: AnalyticsAggregationMethod;
   startTimeToleranceMinutes?: number;
+  timeZone: string;
   rangeStartUtc: string;
   rangeEndUtc: string;
 }
@@ -78,6 +88,9 @@ export interface AnalyticsTimeSeriesBucket {
   totalReports: number;
   // { <media>: count }, summing to totalReports — the chart's per-source lines.
   reportsBySource?: Record<string, number>;
+  // Watched domains with zero measurements at alert time, summed over the bucket's
+  // OONI reports. Volume (all-domains) alerts contribute 0.
+  ooniZeroDomainCount?: number;
   notableActivityCount: number;
   highConfidenceActivityCount: number;
 }
@@ -98,6 +111,7 @@ export interface AnalyticsOverview {
   bucketSizeMinutes: number;
   aggregationMethod: AnalyticsAggregationMethod;
   startTimeToleranceMinutes?: number;
+  timeZone: string;
   rangeStartUtc: string;
   rangeEndUtc: string;
   metrics: AnalyticsOverviewMetrics;
@@ -171,6 +185,7 @@ export interface NotableActivitiesResponse {
   bucketSizeMinutes: number;
   aggregationMethod: AnalyticsAggregationMethod;
   startTimeToleranceMinutes?: number;
+  timeZone: string;
   rangeStartUtc: string;
   rangeEndUtc: string;
   notableActivities: NotableActivity[];

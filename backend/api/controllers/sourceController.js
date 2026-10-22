@@ -5,8 +5,9 @@ var Source = require('../../models/source');
 var Report = require('../../models/report');
 var _ = require('lodash');
 
-const User = require('../../models/user');
 const { canManageSource, canViewSource } = require('../../access/sourceAccess');
+const { normalizeCountryCodes } = require('../../access/countryCodes');
+const { getSourceAccessUser } = require('../utils/sourceAccessUser');
 const SUPPORTED_OONI_TESTS = require('../../config/models/ooniTests');
 
 // How far back the "observed ASNs" summary looks for asn-scoped reports.
@@ -48,30 +49,6 @@ var sourcePopulate = [
   { path: 'accessPolicy.teams', select: 'name description active' },
 ];
 
-
-//Access control
-
-const getSourceAccessUser = async (req) => {
-  if (req.accessUser) {
-    return req.accessUser;
-  }
-
-  if (!req.user) {
-    return null;
-  }
-
-  // Admins can see everything, so no extra lookup needed.
-  if (req.user.role === 'admin') {
-    return req.user;
-  }
-
-  const userId = req.user._id || req.user.id;
-
-  return User.findById(userId)
-    .select('_id role teams teamMemberships')
-    .lean();
-};
-
 // Create a new Source
 exports.source_create = (req, res) => {
   if (!canManageSource(req.accessUser || req.user)) {
@@ -84,7 +61,13 @@ exports.source_create = (req, res) => {
   const configError = normalizeStructuredConfig(req.body);
   if (configError) return res.status(400).send(configError);
 
-  normalizeAccessPolicy(req.body);
+  try {
+    normalizeSourceCountries(req.body);
+    normalizeAccessPolicy(req.body);
+    validateCountryAccessPolicy(req.body);
+  } catch (err) {
+    return res.status(err.status || 400).send(err.message);
+  }
 
   Source.create(req.body, function (err, source) {
     if (err) {
@@ -253,6 +236,31 @@ var normalizeAccessPolicy = function (sourceData) {
   if (accessPolicy.mode === 'restricted') {
     accessPolicy.cutoffDate = null;
   }
+
+  if (accessPolicy.mode === 'country_restricted') {
+    accessPolicy.teams = [];
+    accessPolicy.cutoffDate = null;
+  }
+};
+
+var normalizeSourceCountries = function (sourceData) {
+  if (sourceData.countryCodes === undefined) return;
+  sourceData.countryCodes = normalizeCountryCodes(sourceData.countryCodes);
+};
+
+var validateCountryAccessPolicy = function (sourceData, currentSource) {
+  const accessPolicy = sourceData.accessPolicy || (currentSource && currentSource.accessPolicy);
+  if (!accessPolicy || accessPolicy.mode !== 'country_restricted') return;
+
+  const countryCodes = sourceData.countryCodes !== undefined
+    ? sourceData.countryCodes
+    : currentSource && currentSource.countryCodes;
+
+  if (!Array.isArray(countryCodes) || countryCodes.length === 0) {
+    const err = new Error('Choose at least one country for country-restricted access.');
+    err.status = 400;
+    throw err;
+  }
 };
 
 
@@ -277,7 +285,9 @@ exports.source_update = async (req, res, next) => {
     const configError = normalizeStructuredConfig(req.body);
     if (configError) return res.status(400).send(configError);
 
+    normalizeSourceCountries(req.body);
     normalizeAccessPolicy(req.body);
+    validateCountryAccessPolicy(req.body, source);
 
     // Update the actual values
     _.forEach(_.omit(req.body, ['_id', 'user', 'events']), function (val, key) {

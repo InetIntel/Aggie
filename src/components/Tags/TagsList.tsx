@@ -1,3 +1,4 @@
+import TagBadge from "./TagBadge";
 import { useQuery } from "@tanstack/react-query";
 import { getTags } from "../../api/tags";
 import {
@@ -39,9 +40,8 @@ const TagsList = ({ values, maxVisible }: IProps) => {
           title={`${TAG_CATEGORY_GROUP_LABELS[getTagCategoryGroup(tag.category)]}: ${tag.name}${
             tag.description ? `\n${tag.description}` : ""
           }`}
-          className='bg-slate-200 dark:bg-gray-600 font-medium px-2 text-slate-700 dark:text-gray-300 rounded-full whitespace-nowrap'
         >
-          {tag.name}
+          <TagBadge tag={tag} />
         </span>
       ))}
       {hiddenTags.length > 0 && (

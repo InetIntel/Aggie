@@ -56,6 +56,9 @@ export interface ReportQueryState {
   media?: string | string[]; // one platform, or several (serialized comma-separated)
   dataSources?: string[];
   entityLevel?: string[];
+  countries?: string[];
+  asns?: string[];
+  regions?: string[];
   hideDuplicateASNs?: string; // 'true' or 'false'
   sourceId?: string;
   list?: string;

@@ -5,6 +5,7 @@ export const TAG_CATEGORIES = [
   "protocol_affected",
   "cause",
   "circumvention_solution",
+  "special",
 ] as const;
 
 export type TagCategory = (typeof TAG_CATEGORIES)[number];
@@ -24,6 +25,7 @@ export const TAG_CATEGORY_LABELS: Record<TagCategory, string> = {
   protocol_affected: "Protocols Affected",
   cause: "Cause",
   circumvention_solution: "Circumvention Solution",
+  special: "Custom tags",
 };
 
 export const TAG_CATEGORY_GROUP_LABELS: Record<TagCategoryGroup, string> = {
@@ -65,3 +67,19 @@ export interface TagEditableData {
   isBeingEdited?: boolean;
   isBeingEditedBy?: string;
 }
+
+export const tagLabel = (tag: Pick<Tag, "name" | "category">) =>
+  tag.category === "special" ? `✦ ${tag.name} ✦` : tag.name;
+
+export const tagColor = (tag: Pick<Tag, "category" | "color">) => {
+  const colors: Record<TagCategoryGroup, string> = {
+    measurement: "#0369a1",
+    protocol_affected: "#7c3aed",
+    cause: "#b45309",
+    circumvention_solution: "#047857",
+    special: "#7c3aed",
+    uncategorized: "#475569",
+  };
+  return tag.category === "special" && /^#[0-9a-f]{6}$/i.test(tag.color || "")
+    ? tag.color : colors[getTagCategoryGroup(tag.category)];
+};

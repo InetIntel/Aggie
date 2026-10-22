@@ -27,6 +27,9 @@ function ReportQuery(options) {
   this.media = options.media;
   this.dataSources = options.dataSources;
   this.entityLevel = options.entityLevel;
+  this.countries = options.countries;
+  this.asns = options.asns;
+  this.regions = options.regions;
   this.author = options.author;
   this.event = 'reports';
   this.list = options.list;
@@ -54,7 +57,7 @@ ReportQuery.prototype.run = function (callback) {
 
 // Normalize query for comparison
 ReportQuery.prototype.normalize = function () {
-  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports', 'isOutageOngoing']);
+  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports', 'isOutageOngoing', 'countries', 'asns', 'regions']);
 };
 
 ReportQuery.prototype.toMongooseFilter = function () {
@@ -177,6 +180,8 @@ ReportQuery.prototype.toMongooseFilter = function () {
       {"metadata.rawAPIResponse.entityLevel": entityLevelFilter},
     ]
   }
+  const locations = require("../../shared/alertLocations").locationPredicates(this);
+  if (locations.length) filter.$and = [...(filter.$and || []), ...locations];
   return filter;
 };
 

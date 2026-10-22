@@ -16,6 +16,8 @@ let schema = new Schema({
   isOutageEvent: {type: Boolean, index: true},
   isAsnScoped: {type:Boolean, index: true},
   asn: {type: String},
+  countryCode: { type: String, index: true },
+  regionId: { type: String, index: true },
   outageStartedAt: { type: Date,},
   outageEndedAt: { type: Date}, // null while the outage is still running
   isOutageOngoing: { type: Boolean, default: false, index: true },

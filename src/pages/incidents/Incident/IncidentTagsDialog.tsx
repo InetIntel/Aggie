@@ -1,3 +1,5 @@
+import SpecialTagForm from "../../../components/Tags/SpecialTagForm";
+import TagBadge from "../../../components/Tags/TagBadge";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -31,6 +33,7 @@ const IncidentTagsDialog = ({
   onSave,
 }: IProps) => {
   const [selected, setSelected] = useState<string[]>(selectedTagIds);
+  const [creatingSpecial, setCreatingSpecial] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | TagCategoryGroup>("all");
   const { data: tags, isLoading, isError } = useQuery(["tags"], getTags, {
@@ -42,6 +45,7 @@ const IncidentTagsDialog = ({
     setSelected(selectedTagIds);
     setSearch("");
     setCategory("all");
+    setCreatingSpecial(false);
   }, [isOpen, selectedTagIds]);
 
   const visibleTags = useMemo(() => {
@@ -123,6 +127,17 @@ const IncidentTagsDialog = ({
           ))}
         </div>
 
+        {creatingSpecial ? <SpecialTagForm
+          onCancel={() => setCreatingSpecial(false)}
+          onCreated={(tag) => {
+            setSelected((current) => [...current, tag._id]);
+            setCreatingSpecial(false);
+            setCategory("special");
+            setSearch("");
+          }}
+        /> : <AggieButton type='button' variant='secondary' disabled={isSaving}
+          onClick={() => setCreatingSpecial(true)}>✦ Create custom tag</AggieButton>}
+
         <input
           type='search'
           value={search}
@@ -172,7 +187,7 @@ const IncidentTagsDialog = ({
                           className='mt-1'
                         />
                         <span>
-                          <span className='block'>{tag.name}</span>
+                          <span className='block'><TagBadge tag={tag} /></span>
                           {tag.description && (
                             <span className='block text-xs text-slate-500 dark:text-gray-400'>
                               {tag.description}
@@ -211,7 +226,7 @@ const IncidentTagsDialog = ({
               type='button'
               variant='primary'
               loading={isSaving}
-              disabled={isSaving || isLoading || isError}
+              disabled={isSaving || isLoading || isError || creatingSpecial}
               onClick={() => onSave(selected)}
             >
               Save tags

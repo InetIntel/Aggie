@@ -1,3 +1,5 @@
+import { getAlertFilterOptions } from "../../../api/reports";
+import LocationFilter from "../../../components/filters/LocationFilter";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 
@@ -46,6 +48,7 @@ interface IReportFilters {
   refetch: () => void;
   isFetching: boolean;
   platformOptions?: string[];
+  showLocationFilters?: boolean;
   showEntityLevelFilter?: boolean;
   showSignalSourcesFilter?: boolean;
   showOngoingFilter?: boolean;
@@ -94,6 +97,7 @@ const ReportFilters = ({
   showDedupToggle = true,
   autoEnableDedup = true,
   defaultEntityLevelSelection,
+  showLocationFilters = false,
   showPagination = true,
 }: IReportFilters) => {
   const {
@@ -103,6 +107,7 @@ const ReportFilters = ({
     clearAllParams,
   } = useQueryParams<ReportQueryState>();
   const navigate = useNavigate();
+  const locationOptions = useQuery(["alert-filter-options"], getAlertFilterOptions, { enabled: showLocationFilters });
   const formatDate = useRangeDateFormatter();
   const formikRef = useRef<FormikProps<{ keywords: string }>>(null);
   const { data: sources } = useQuery(["sources"], getSources);
@@ -511,6 +516,17 @@ const ReportFilters = ({
       )}
       <div className='flex items-center gap-2 pb-3 mb-3 border-b border-slate-200 dark:border-gray-700'>
         <FilterMenu categories={categories} />
+        {showLocationFilters && (["countries", "asns", "regions"] as const).map(kind => (
+          <LocationFilter
+            key={kind}
+            label={{ countries: "Countries", asns: "ASNs", regions: "Regions" }[kind]}
+            options={locationOptions.data?.[kind] ?? []}
+            value={getParam(kind).split(",").filter(Boolean)}
+            loading={locationOptions.isLoading}
+            error={locationOptions.isError}
+            onChange={values => setParams({ [kind]: values.length ? values : undefined })}
+          />
+        ))}
         {/* An incident's own list is always pinned-first, so Sort doesn't apply there. */}
         {!fromGroup && (
           <ToolbarPopover label='Sort' icon={faArrowsUpDown}>
