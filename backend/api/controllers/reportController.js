@@ -38,7 +38,7 @@ const parseQueryData = (queryString) => {
   var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before',
     'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media', 'dataSources', 'entityLevel',
     'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity',
-    'isRelevantReports', "irrelevant", 'ongoing', 'countries', 'asns', 'regions']);
+    'isRelevantReports', "irrelevant", 'ongoing', 'sort', 'countries', 'asns', 'regions']);
 
   if (query.ongoing === 'true') {
     query.isOutageOngoing = true;
