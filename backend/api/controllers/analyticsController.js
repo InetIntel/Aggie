@@ -1,6 +1,7 @@
 'use strict';
 
 const Group = require('../../models/group');
+const Report = require('../../models/report');
 const NotableActivity = require('../../models/notableActivity');
 const eventRouter = require('../sockets/event-router');
 const {
@@ -10,8 +11,6 @@ const {
   getBucketEndUtc,
   getBucketStartUtc,
   resolveAnalyticsTimeWindow,
-  VALID_BUCKETS_BY_RANGE,
-  DEFAULT_RANGE_PRESET,
 } = require('../utils/analyticsTime');
 const {
   attachReportsToGroup,
@@ -19,6 +18,8 @@ const {
 } = require('../utils/reportGroupActions');
 const { countReports } = require('../utils/reportCounts');
 const { filterNotableActivitiesForUser } = require('../utils/analyticsAccess');
+const { buildOutageReportMatch } = require('../utils/analyticsAggregation');
+const { combineReportFilters } = require('../utils/reportSourceAccess');
 
 // All entity levels — matches the frontend's ENTITY_LEVEL_OPTIONS (src/api/common.ts).
 // Alert metric counts carry these so their filter/dedup matches the deduped alerts list.
@@ -97,6 +98,7 @@ exports.analytics_overview = async (req, res) => {
       bucketSizeMinutes: data.bucketSizeMinutes,
       aggregationMethod: data.aggregationMethod,
       startTimeToleranceMinutes: data.startTimeToleranceMinutes,
+      timeZone: data.timeZone,
       rangeStartUtc: data.rangeStartUtc,
       rangeEndUtc: data.rangeEndUtc,
       metrics: {
@@ -104,7 +106,10 @@ exports.analytics_overview = async (req, res) => {
         highConfidenceActivityCount: data.highConfidenceActivities.length,
         totalReports: sumReports(data.notableActivities),
       },
-      timeSeries: buildActivityTimeSeries(data),
+      timeSeries: buildActivityTimeSeries(
+        data,
+        await countOoniZeroDomainsByBucket(data, req.reportSourceAccessFilter)
+      ),
     });
   } catch (err) {
     return handleAnalyticsError(res, err, 'Error fetching analytics overview');
@@ -113,12 +118,8 @@ exports.analytics_overview = async (req, res) => {
 
 exports.analytics_report_metrics = async (req, res) => {
   try {
-    // Metrics only need the range bounds, not a bucket. Pick any bucket valid for the
-    // range so resolveAnalyticsTimeWindow's range/bucket validation passes (its default
-    // '1h' is invalid for last7d). An unknown range still throws a 400 below.
-    const range = req.query.range || DEFAULT_RANGE_PRESET;
-    const bucket = (VALID_BUCKETS_BY_RANGE[range] || [])[0];
-    const timeWindow = resolveAnalyticsTimeWindow({ range, bucket });
+    const { range, from, to, timeZone } = parseAnalyticsQuery(req.query);
+    const timeWindow = resolveAnalyticsTimeWindow({ range, from, to, timeZone });
     const after = timeWindow.rangeStartUtc.toISOString();
     const before = timeWindow.rangeEndUtc.toISOString();
 
@@ -237,13 +238,16 @@ exports.analytics_update_incident = async (req, res) => {
 
 function parseAnalyticsQuery(query = {}, parseOptions = {}) {
   // `aggregation` picks how reports are grouped into an activity ('bucket' | 'startTime');
-  // `tolerance` is the startTime gap in minutes. Both are validated in analyticsTime and
-  // surface as 400s. Omitting them keeps the original fixed-grid behaviour.
+  // `tolerance` is the startTime gap in minutes. `from`/`to` bound a `range=custom`, and
+  // `timeZone` is the zone the bucket grid is laid out in, defaulting to UTC.
   const analyticsOptions = {
     range: query.range,
     bucket: query.bucket,
     aggregationMethod: query.aggregation,
     startTimeToleranceMinutes: query.tolerance,
+    from: query.from,
+    to: query.to,
+    timeZone: query.timeZone,
   };
 
   if (parseOptions.allowLimit && query.limit !== undefined) {
@@ -285,10 +289,44 @@ async function updateSnapshotIncident(notableActivity, incidentId) {
   await notableActivity.save();
 }
 
-function buildActivityTimeSeries(data) {
+// Watched domains with zero measurements at alert time, summed per bucket over OONI
+// reports, for the trend chart's "OONI: Domains" option. Queried live rather than read
+// from the notable-activity cache, whose reportBuckets carry only report counts. Uses the
+// aggregation's own match so it covers the same OONI reports the chart counts.
+async function countOoniZeroDomainsByBucket(data, accessFilter) {
+  const match = {
+    ...buildOutageReportMatch({
+      rangeStartUtc: new Date(data.rangeStartUtc),
+      rangeEndUtc: new Date(data.rangeEndUtc),
+    }),
+    _media: 'ooni',
+  };
+  const reports = await Report.find(combineReportFilters(match, accessFilter))
+    .select('outageStartedAt metadata.rawAPIResponse.zeroDomains')
+    .lean()
+    .exec();
+
+  const counts = new Map();
+  for (const report of reports) {
+    // Volume alerts (all-domains mode) have no per-domain list, so they add nothing.
+    const zeroDomains = report.metadata?.rawAPIResponse?.zeroDomains;
+    const count = Array.isArray(zeroDomains) ? zeroDomains.length : 0;
+    if (!count) continue;
+    const bucketKey = getBucketStartUtc(
+      report.outageStartedAt,
+      data.bucketSizeMinutes,
+      data.timeZone
+    ).toISOString();
+    counts.set(bucketKey, (counts.get(bucketKey) || 0) + count);
+  }
+  return counts;
+}
+
+function buildActivityTimeSeries(data, ooniZeroDomainCounts = new Map()) {
   const notableActivities = data.notableActivities || [];
   const buckets = new Map();
-  let cursor = getBucketStartUtc(data.rangeStartUtc, data.bucketSizeMinutes);
+  const { bucketSizeMinutes, timeZone } = data;
+  let cursor = getBucketStartUtc(data.rangeStartUtc, bucketSizeMinutes, timeZone);
   const rangeEnd = new Date(data.rangeEndUtc);
 
   const getBucket = (bucketStart) => {
@@ -296,10 +334,12 @@ function buildActivityTimeSeries(data) {
     if (!buckets.has(bucketKey)) {
       buckets.set(bucketKey, {
         bucketStart: new Date(bucketStart),
-        bucketEnd: getBucketEndUtc(new Date(bucketStart), data.bucketSizeMinutes),
+        bucketEnd: getBucketEndUtc(new Date(bucketStart), bucketSizeMinutes, timeZone),
         totalReports: 0,
         // { <media>: count } for the chart's per-source lines; sums to totalReports.
         reportsBySource: {},
+        // Sum of zeroDomains across this bucket's OONI reports (see countOoniZeroDomainsByBucket).
+        ooniZeroDomainCount: 0,
         notableActivityCount: 0,
         highConfidenceActivityCount: 0,
       });
@@ -311,7 +351,7 @@ function buildActivityTimeSeries(data) {
   // empty ones. Shares getBucket so seeded and on-demand buckets have the same shape.
   while (cursor < rangeEnd) {
     getBucket(cursor);
-    cursor = getBucketEndUtc(cursor, data.bucketSizeMinutes);
+    cursor = getBucketEndUtc(cursor, bucketSizeMinutes, timeZone);
   }
 
   for (const activity of notableActivities) {
@@ -332,6 +372,10 @@ function buildActivityTimeSeries(data) {
         current.reportsBySource[source] = (current.reportsBySource[source] || 0) + count;
       }
     }
+  }
+
+  for (const [bucketStart, count] of ooniZeroDomainCounts) {
+    getBucket(bucketStart).ooniZeroDomainCount += count;
   }
 
   return [...buckets.values()].sort(

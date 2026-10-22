@@ -31,9 +31,9 @@ interface ParsedLocation {
 // one-part label is either an ASN or a region — this tells them apart.
 const ASN_PATTERN = /^as\d+$/i;
 
-// Two rendered lines at text-base (1rem) with leading-snug (1.375):
-// 1 * 1.375 * 2 = 2.75rem. Reserving this height keeps 1-line and 2-line
-const TWO_LINE_MIN_HEIGHT = "2.75rem";
+// Two rendered lines at text-sm (0.875rem) with leading-snug (1.375):
+// 0.875 * 1.375 * 2 = 2.40625rem. Reserving this height keeps 1-line and 2-line
+const TWO_LINE_MIN_HEIGHT = "2.40625rem";
 
 // How many regions are named inline before the primary line switches to "+N more".
 const INLINE_REGION_LIMIT = 2;
@@ -66,7 +66,7 @@ export default function NotableActivityTitle({
   return (
     <div className={className}>
       <p
-        className='line-clamp-2 text-base font-medium leading-snug text-slate-900 dark:text-white'
+        className='line-clamp-2 text-sm font-medium leading-snug text-slate-900 dark:text-white'
         style={{ minHeight: TWO_LINE_MIN_HEIGHT }}
         title={items.join(", ")}
       >
@@ -79,7 +79,7 @@ export default function NotableActivityTitle({
             type='button'
             ref={refs.setReference}
             {...getReferenceProps()}
-            className='rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+            className='rounded-full border border-[#CDEAF4] bg-[#EAF6FA] px-2 py-0.5 text-xs font-medium text-slate-700 transition hover:bg-[#CDEAF4] dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
           >
             View details
           </button>

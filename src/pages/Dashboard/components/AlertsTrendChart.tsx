@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useHref } from "react-router-dom";
 import type { AnalyticsOverview } from "../../../api/analytics/types";
+import { formatTimeZone } from "../../../utils/dateFormat";
 import { useDashboardFormatters } from "../dashboardHelpers";
 
 const fallbackTimeSeries = [
@@ -36,29 +37,40 @@ const sourceSeriesMeta: Record<string, { label: string; color: string }> = {
 };
 const otherSourceColor = "var(--trend-other)";
 
-const viewModes = [
-  { key: "combined", label: "Combined" },
-  { key: "bySource", label: "By source" },
-] as const;
-type ViewMode = (typeof viewModes)[number]["key"];
+// "total" draws one line of every alert report; "bySource" draws a line per source,
+// with OONI counted by its watched domains that had zero measurements at alert time.
+export type TrendChartVariant = "total" | "bySource";
+
+const chartTitles: Record<TrendChartVariant, string> = {
+  total: "All alerts",
+  bySource: "Alerts by source",
+};
 
 const legendItemClass =
   "flex items-center gap-2 rounded-full border px-2.5 py-1";
 
+// Beyond this many buckets the chart draws the line alone, plus the hovered point.
+const MAX_RESTING_DOTS = 60;
+
+// Sized for a half-width card, so the two charts can sit side by side.
 const chartFrame = {
   left: 30,
   top: 8,
-  width: 620,
+  width: 400,
   height: 142,
 };
 
-const chartTooltipFontSize = 14;
+const chartFontSize = 10;
 
-const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
-  const { formatActivityWindow, formatXAxisLabel } = useDashboardFormatters();
+interface IProps {
+  overview?: AnalyticsOverview;
+  variant: TrendChartVariant;
+}
+
+const AlertsTrendChart = ({ overview, variant }: IProps) => {
+  const { prefs, formatActivityWindow, formatXAxisLabel } = useDashboardFormatters();
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [pinnedPointIndex, setPinnedPointIndex] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("combined");
   // Sources toggled off in the "by source" view. Tracking the hidden ones (rather than
   // the shown ones) keeps a source that first appears after a range change visible.
   const [hiddenSources, setHiddenSources] = useState<string[]>([]);
@@ -80,7 +92,7 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
     ? overview.timeSeries
     : fallbackTimeSeries;
 
-  const allSeries = buildSeries(timeSeries, viewMode);
+  const allSeries = buildSeries(timeSeries, variant);
   const isSourceView = allSeries.some((line) => line.key !== "total");
   const shownSeries = isSourceView
     ? allSeries.filter((line) => !hiddenSources.includes(line.key))
@@ -136,51 +148,23 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
 
   return (
     <div
-      className={`mt-4 rounded-[1.5rem] border border-slate-200 px-2 py-4 dark:border-gray-700 sm:px-3 ${sourceSeriesStyle}`}
+      className={`rounded-lg border border-slate-200 px-2 py-4 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 sm:px-3 ${sourceSeriesStyle}`}
     >
-      <div className='mb-3 flex items-start justify-between gap-3'>
-        <div>
-          <h3 className='text-2xl font-medium text-sky-700'>Alert</h3>
-          <p className='text-xs text-slate-500 dark:text-gray-400'>
-            Click a point to view the reports in that time bucket
-          </p>
-          {/* <p className='text-sm text-slate-500 dark:text-gray-400'>
-            {overview ? "Reports per time bucket" : "Static dashboard placeholder"}
-          </p> */}
-        </div>
-        <div
-          className='inline-flex shrink-0 rounded-full border border-slate-200 p-0.5 dark:border-gray-600'
-          role='group'
-          aria-label='Trend line grouping'
-        >
-          {viewModes.map((mode) => (
-            <button
-              key={mode.key}
-              type='button'
-              aria-pressed={viewMode === mode.key}
-              onClick={() => setViewMode(mode.key)}
-              className={[
-                "rounded-full px-3 py-1 text-xs font-medium transition",
-                viewMode === mode.key
-                  ? "bg-slate-700 text-white dark:bg-gray-600"
-                  : "text-slate-600 hover:bg-slate-100 dark:text-gray-300 dark:hover:bg-gray-700",
-              ].join(" ")}
-            >
-              {mode.label}
-            </button>
-          ))}
-        </div>
-        {/* <div className='rounded-full bg-slate-50 p-2 text-slate-500 shadow-sm dark:bg-gray-700'>
-          <FontAwesomeIcon icon={faBell} />
-        </div> */}
+      <div className='mb-3'>
+        <h3 className='text-sm font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-400'>
+          {chartTitles[variant]}
+        </h3>
+        {/* <p className='text-xs text-slate-500 dark:text-gray-400'>
+          Click a point to view the reports in that time bucket
+        </p> */}
       </div>
 
       <div className='flex w-full justify-center'>
         <svg
-          viewBox='0 0 660 215'
-          className='block h-[185px] w-full'
+          viewBox='0 0 440 215'
+          className='block h-auto w-full'
           role='img'
-          aria-label='Alert trends chart'
+          aria-label={`${chartTitles[variant]} trend chart`}
         >
           <rect
             x={chartFrame.left}
@@ -215,9 +199,9 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
             <text
               key={`y-label-${tick}-${index}`}
               x={chartFrame.left - 8}
-              y={getChartY(tick, yAxisMax) + 4}
+              y={getChartY(tick, yAxisMax) + chartFontSize / 3}
               fill='#475569'
-              fontSize='12'
+              fontSize={chartFontSize}
               fontWeight='500'
               textAnchor='end'
             >
@@ -231,7 +215,8 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
                 key={line.key}
                 fill='none'
                 stroke={line.color}
-                strokeWidth='2.5'
+                strokeWidth='1.5'
+                strokeLinejoin='round'
                 points={line.coords.map(({ x, y }) => `${x},${y}`).join(" ")}
               />
             ))}
@@ -245,26 +230,28 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
                 strokeDasharray='3 3'
               />
             )}
+            {/* Past MAX_RESTING_DOTS points the dots run together, so only the active
+                bucket keeps one. */}
             {seriesCoords.map((line) =>
-              line.coords.map(({ x, y }, index) => (
-                <circle
-                  key={`${line.key}-${timeSeries[index].bucketStart || index}`}
-                  cx={x}
-                  cy={y}
-                  r={activePointIndex === index ? 6 : 4}
-                  fill={line.color}
-                  stroke={activePointIndex === index ? "#FFFFFF" : "none"}
-                  strokeWidth={activePointIndex === index ? 2 : 0}
-                />
-              ))
+              line.coords.map(({ x, y }, index) =>
+                activePointIndex === index || timeSeries.length <= MAX_RESTING_DOTS ? (
+                  <circle
+                    key={`${line.key}-${timeSeries[index].bucketStart || index}`}
+                    cx={x}
+                    cy={y}
+                    r={activePointIndex === index ? 4 : 2.5}
+                    fill={line.color}
+                    stroke={activePointIndex === index ? "#FFFFFF" : "none"}
+                    strokeWidth={activePointIndex === index ? 1.5 : 0}
+                  />
+                ) : null
+              )
             )}
-            {/* One hit band per bucket, so every line in that bucket is reachable. */}
+            {/* One hit band per bucket, so every line in that bucket is reachable. Bands
+                are exactly one bucket wide so they never overlap at hourly density. */}
             {timeSeries.map((item, index) => {
               const x = getChartX(index, timeSeries.length);
-              const bandWidth = Math.max(
-                16,
-                chartFrame.width / Math.max(timeSeries.length - 1, 1)
-              );
+              const bandWidth = chartFrame.width / Math.max(timeSeries.length - 1, 1);
               return (
                 <rect
                   key={`hit-${item.bucketStart || index}`}
@@ -308,9 +295,7 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
                 activePointIndex as number,
                 formatActivityWindow
               )}
-              hasReports={
-                sumSeriesAt(series, activePointIndex as number) > 0
-              }
+              hasReports={countReportsAt(activeItem, series) > 0}
               isPinned={isActivePointPinned}
               reportsTo={buildBucketReportsTo(
                 activeItem,
@@ -330,15 +315,15 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
                 x={x}
                 y='172'
                 fill='#475569'
-                fontSize='10'
+                fontSize={chartFontSize}
                 fontWeight='500'
                 textAnchor='middle'
               >
                 <tspan x={x} dy='0'>
                   {dateLabel}
                 </tspan>
-                <tspan x={x} dy='12'>
-                  {timeLabel}
+                <tspan x={x} dy={chartFontSize + 2}>
+                  {`${timeLabel} ${formatTimeZone(item.bucketStart, prefs)}`.trim()}
                 </tspan>
               </text>
             );
@@ -395,29 +380,33 @@ const AlertsTrendChart = ({ overview }: { overview?: AnalyticsOverview }) => {
                 <span>{overview ? line.label : " "}</span>
               </div>
             ))}
-        {/* <div className='inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 dark:border-gray-600 dark:text-gray-200'>
-          <span>{bucketLabels[bucket]}</span>
-          <FontAwesomeIcon icon={faArrowTrendUp} className='text-slate-500' />
-        </div> */}
       </div>
     </div>
   );
 };
 
 type TimeSeriesBucket = AnalyticsOverview["timeSeries"][number];
-type ChartSeries = { key: string; label: string; color: string; values: number[] };
+type ChartSeries = {
+  key: string;
+  label: string;
+  color: string;
+  values: number[];
+  // "domains" for the OONI line, which counts zero-measurement domains.
+  unit: "reports" | "domains";
+};
 
 function buildSeries(
   timeSeries: TimeSeriesBucket[],
-  viewMode: ViewMode
+  variant: TrendChartVariant
 ): ChartSeries[] {
-  if (viewMode === "combined") {
+  if (variant === "total") {
     return [
       {
         key: "total",
-        label: "Total reports",
+        label: "All alerts",
         color: trendColor,
         values: timeSeries.map((item) => item.totalReports),
+        unit: "reports",
       },
     ];
   }
@@ -429,23 +418,48 @@ function buildSeries(
     });
   });
 
-  const orderedSources = [
-    ...Object.keys(sourceSeriesMeta).filter((source) => presentSources.has(source)),
-    ...[...presentSources].filter((source) => !sourceSeriesMeta[source]).sort(),
-  ];
+  // With no alerts in range, still draw the known sources as flat lines so the chart
+  // keeps its legend.
+  const orderedSources = presentSources.size
+    ? [
+        ...Object.keys(sourceSeriesMeta).filter((source) => presentSources.has(source)),
+        ...[...presentSources].filter((source) => !sourceSeriesMeta[source]).sort(),
+      ]
+    : Object.keys(sourceSeriesMeta);
 
-  if (orderedSources.length === 0) return buildSeries(timeSeries, "combined");
-
-  return orderedSources.map((source) => ({
-    key: source,
-    label: sourceSeriesMeta[source]?.label || source,
-    color: sourceSeriesMeta[source]?.color || otherSourceColor,
-    values: timeSeries.map((item) => (item.reportsBySource || {})[source] || 0),
-  }));
+  return orderedSources.map((source) => {
+    const label = sourceSeriesMeta[source]?.label || source;
+    const color = sourceSeriesMeta[source]?.color || otherSourceColor;
+    if (source === "ooni") {
+      return {
+        key: source,
+        label: `${label} domains`,
+        color,
+        values: timeSeries.map((item) => item.ooniZeroDomainCount || 0),
+        unit: "domains",
+      };
+    }
+    return {
+      key: source,
+      label,
+      color,
+      values: timeSeries.map((item) => (item.reportsBySource || {})[source] || 0),
+      unit: "reports",
+    };
+  });
 }
 
-function sumSeriesAt(series: ChartSeries[], index: number) {
-  return series.reduce((total, line) => total + (line.values[index] || 0), 0);
+// Reports behind the lines on the chart, read from the bucket rather than the line values
+// so an OONI line counting domains still counts its reports here.
+function countReportsAt(item: TimeSeriesBucket, series: ChartSeries[]) {
+  return series.reduce(
+    (total, line) =>
+      total +
+      (line.key === "total"
+        ? item.totalReports
+        : (item.reportsBySource || {})[line.key] || 0),
+    0
+  );
 }
 
 // Counts only the lines on the chart, so with sources toggled off the total matches
@@ -457,11 +471,19 @@ function buildTooltipLines(
   formatWindow: (start: string, end: string) => string
 ) {
   const window = formatWindow(item.bucketStart, item.bucketEnd);
-  const total = sumSeriesAt(series, index);
+  const total = countReportsAt(item, series);
   const reportsLabel = `report${total === 1 ? "" : "s"}`;
 
   if (series.length === 1) {
     const [line] = series;
+    if (line.unit === "domains") {
+      const domains = line.values[index] || 0;
+      return [
+        `${domains} zero-measurement domain${domains === 1 ? "" : "s"}`,
+        `across ${total} OONI ${reportsLabel}`,
+        window,
+      ];
+    }
     return [
       line.key === "total"
         ? `${total} ${reportsLabel}`
@@ -509,9 +531,7 @@ function ChartTooltip({
   const actionLabel = "View Reports";
   const showAction = isPinned && hasReports;
 
-  // All geometry is a multiple of the base font size so the box, the padding and
-  // the action button grow together when `chartTooltipFontSize` changes.
-  const fontSize = chartTooltipFontSize;
+  const fontSize = chartFontSize;
   const charWidth = fontSize * 0.52;
   const lineHeight = Math.round(fontSize * 1.35);
   const paddingX = Math.round(fontSize * 0.75);
@@ -646,7 +666,7 @@ function getNiceYAxisTicks(maxValue: number) {
 
 function getXAxisLabelIndexes(totalPoints: number) {
   if (totalPoints <= 1) return [0];
-  const maxLabels = 7;
+  const maxLabels = 5;
   if (totalPoints <= maxLabels) {
     return Array.from({ length: totalPoints }, (_, index) => index);
   }
