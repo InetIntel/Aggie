@@ -3,7 +3,7 @@ import {
   faCircleMinus,
   faUsers,
   faMagnifyingGlassChart,
-  faCommentNodes,
+  faComments,
   faBullhorn,
   faBackwardStep,
   faForwardStep,
@@ -283,7 +283,7 @@ const CreateEditIncidentForm = ({
             {_id: "false", label: "Unable to Confirm"},
           ]}
           placeholder='Confirming'
-          icon={faCommentNodes}
+          icon={faComments}
         />
         <FormikMultiCombobox
           name='publication_status'
