@@ -1,3 +1,5 @@
+import TagBadge from "../Tags/TagBadge";
+import type { Tag } from "../../api/tags/types";
 import {
   faXmark,
   faExclamationTriangle,
@@ -26,10 +28,6 @@ import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
 import { parseYoutube } from "../SocialMediaPost/YoutubePost";
 import { getReportImages } from "../SocialMediaPost/mediaAttachments";
 
-// Sky blue, matching the solid signal-badge style (e.g. IODA's BGP pill) rather
-// than TagsList's neutral gray pill - tags shown here sit right beside the
-// platform name/signal badge, so they need to read as the same kind of chip.
-const TAG_BADGE_CLASS = "bg-sky-500 dark:bg-sky-500 dark:saturate-[0.7]";
 
 interface IProps {
   report: Report;
@@ -43,9 +41,9 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const { imagePreview, imagesCount } = renderImage(contentType, report);
   const [signal, bgColor] = signalToNameColor(report?.metadata?.rawAPIResponse?.rawEvent?.datasource);
   const { data: allTags } = useQuery(["tags"], getTags, { staleTime: 40000 });
-  const tagNames = (report.smtcTags || [])
-    .map((id) => allTags?.find((t) => t._id === id)?.name)
-    .filter((name): name is string => !!name);
+  const reportTags = (report.smtcTags || [])
+    .map((id) => allTags?.find((t) => t._id === id))
+    .filter((tag): tag is Tag => !!tag);
   return (
     <>
       <header className='flex justify-between mb-2 relative '>
@@ -58,11 +56,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <h1 className='text-sm text-black font-medium dark:text-gray-300'>
             {renderAuthor(contentType, report)}
           </h1>
-          {tagNames.map((name) => (
-            <AggieToken key={name} className={`${TAG_BADGE_CLASS} ${SIGNAL_BADGE_CLASS}`}>
-              {name}
-            </AggieToken>
-          ))}
+          {reportTags.map((tag) => <TagBadge key={tag._id} tag={tag} />)}
           {signal && (
             <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
               {signal}

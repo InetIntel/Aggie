@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   clusterRowsByStartTime,
+  regroupRowsToGrid,
   mergeOoniRows,
   formatNotableActivity,
   projectNotableActivityToReports,
@@ -341,4 +342,44 @@ test('OONI reports cluster on their own start rather than being folded back by k
     ooniActivity.reportBuckets.map((b) => [b.bucketStart.toISOString(), b.totalReports]),
     [['2026-08-12T14:00:00.000Z', 1]]
   );
+});
+
+test('regroups quarter-hour bins onto a local-day grid', () => {
+  const nyWindow = { bucketSizeMinutes: 24 * 60, timeZone: 'America/New_York' };
+  // New York is UTC-4 here, so its 29th runs 2026-09-29T04:00Z to 2026-09-30T04:00Z:
+  // the first two bins share a local day, the third starts the next one.
+  const rows = regroupRowsToGrid([
+    { ...iodaRow({ bucket: '2026-09-29T04:15:00.000Z', id: 'a' }) },
+    { ...iodaRow({ bucket: '2026-09-30T03:45:00.000Z', id: 'b' }) },
+    { ...iodaRow({ bucket: '2026-09-30T04:00:00.000Z', id: 'c' }) },
+  ], nyWindow);
+
+  assert.equal(rows.length, 2);
+  const byStart = Object.fromEntries(
+    rows.map((row) => [new Date(row._id.bucketStartMs).toISOString(), row])
+  );
+  assert.deepEqual(byStart['2026-09-29T04:00:00.000Z'].reportIds, ['a', 'b']);
+  assert.equal(byStart['2026-09-29T04:00:00.000Z'].totalReports, 2);
+  assert.deepEqual(byStart['2026-09-30T04:00:00.000Z'].reportIds, ['c']);
+
+  const activity = formatNotableActivity(byStart['2026-09-29T04:00:00.000Z'], nyWindow);
+  assert.equal(activity.bucketEnd.toISOString(), '2026-09-30T04:00:00.000Z');
+  assert.equal(activity.timeZone, 'America/New_York');
+});
+
+test('regrouping leaves a UTC grid untouched and keeps OONI rows apart', () => {
+  const rows = regroupRowsToGrid([
+    iodaRow({ bucket: '2026-08-11T14:00:00.000Z' }),
+    ooniRow({ bucket: '2026-08-11T14:00:00.000Z', windowStart: '2026-08-11T13:00:00.000Z' }),
+  ], timeWindow);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows.map((row) => row._id.isOoni).sort(), [false, true]);
+});
+
+test('report buckets for the chart follow the viewer zone', () => {
+  const nyWindow = { bucketSizeMinutes: 24 * 60, timeZone: 'America/New_York' };
+  const row = iodaRow({ bucket: '2026-09-29T04:00:00.000Z' });
+  row.startedAtPerReport = [ms('2026-09-30T03:59:00.000Z')];
+  const activity = formatNotableActivity(row, nyWindow);
+  assert.equal(activity.reportBuckets[0].bucketStart.toISOString(), '2026-09-29T04:00:00.000Z');
 });

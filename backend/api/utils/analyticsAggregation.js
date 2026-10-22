@@ -2,6 +2,9 @@
 
 const {
   AGGREGATION_METHODS,
+  DEFAULT_TIME_ZONE,
+  TIME_ZONE_GRANULARITY_MS,
+  floorToBucketStartMs,
   getBucketEndUtc,
   isStartTimeAggregation,
   resolveAnalyticsTimeWindow,
@@ -41,15 +44,14 @@ async function aggregateNotableActivities(options = {}) {
 
   const Report = require('../../models/report');
   // Under `startTime` the pipeline emits one row per distinct outage start, which the
-  // clustering pass then chains into activities. Under `bucket` the pipeline already
-  // emits one row per grid bucket and the pass is skipped.
+  // clustering pass then chains into activities. 
   const pipelineRows = await Report.aggregate(pipeline).exec();
   const rows = isStartTimeAggregation(timeWindow)
     ? clusterRowsByStartTime(
         pipelineRows,
         timeWindow.startTimeToleranceMinutes * 60 * 1000
       )
-    : mergeOoniRows(pipelineRows);
+    : mergeOoniRows(regroupRowsToGrid(pipelineRows, timeWindow));
   const notableActivities = rows.map(function (row) {
     return formatNotableActivity(row, timeWindow);
   });
@@ -63,8 +65,14 @@ async function aggregateNotableActivities(options = {}) {
   return notableActivities;
 }
 
-function buildAggregationPipeline(match, timeWindow) {
+function getPipelineBinMs(timeWindow) {
   const bucketMs = timeWindow.bucketSizeMinutes * 60 * 1000;
+  const timeZone = timeWindow.timeZone || DEFAULT_TIME_ZONE;
+  return timeZone === DEFAULT_TIME_ZONE ? bucketMs : TIME_ZONE_GRANULARITY_MS;
+}
+
+function buildAggregationPipeline(match, timeWindow) {
+  const binMs = getPipelineBinMs(timeWindow);
   // `startTime` groups on the raw outage start so each distinct timestamp is its own
   // row; clusterRowsByStartTime then chains rows that fall within the tolerance.
   const groupKeyMs = isStartTimeAggregation(timeWindow)
@@ -72,7 +80,7 @@ function buildAggregationPipeline(match, timeWindow) {
     : {
         $subtract: [
           '$outageStartedAtMs',
-          { $mod: ['$outageStartedAtMs', bucketMs] },
+          { $mod: ['$outageStartedAtMs', binMs] },
         ],
       };
 
@@ -211,6 +219,33 @@ function appendRowToCluster(cluster, row) {
   }
 }
 
+// Fold pipeline bins onto the bucket grid in the window's time zone: rows sharing a key,
+// OONI flag and grid bucket become one. A no-op for a UTC grid, whose bins already are
+// grid buckets.
+function regroupRowsToGrid(rows, timeWindow) {
+  const timeZone = timeWindow.timeZone || DEFAULT_TIME_ZONE;
+  const grouped = new Map();
+
+  for (const row of rows) {
+    const bucketStartMs = floorToBucketStartMs(
+      row._id.bucketStartMs,
+      timeWindow.bucketSizeMinutes,
+      timeZone
+    );
+    const key = [row._id.eventAggKeyBase, bucketStartMs, row._id.isOoni].join('|');
+    const existing = grouped.get(key);
+    if (existing) {
+      appendRowToCluster(existing, row);
+      continue;
+    }
+    const regrouped = startCluster(row);
+    regrouped._id.bucketStartMs = bucketStartMs;
+    grouped.set(key, regrouped);
+  }
+
+  return [...grouped.values()];
+}
+
 // Fold each OONI row into the nearest non-OONI row with the same eventAggKeyBase whose
 // outages started within OONI_MATCH_WINDOW_MS of the OONI windowStart. 
 function mergeOoniRows(rows) {
@@ -287,7 +322,11 @@ function formatNotableActivity(row, timeWindow) {
           ? row.lastOutageStartedAtMs
           : row._id.bucketStartMs
       )
-    : getBucketEndUtc(bucketStart, timeWindow.bucketSizeMinutes);
+    : getBucketEndUtc(
+        bucketStart,
+        timeWindow.bucketSizeMinutes,
+        timeWindow.timeZone || DEFAULT_TIME_ZONE
+      );
   const sources = getDistinctNonEmptyStrings(flattenArrayValues(row.mediaValues)).sort();
   const signals = getDistinctNonEmptyStrings(row.signalSourceValues).sort();
   const sourceCnt = sources.length;
@@ -320,7 +359,12 @@ function formatNotableActivity(row, timeWindow) {
     signals,
     totalReports: row.totalReports || 0,
     reportIds: row.reportIds || [],
-    reportBuckets: buildReportBuckets(row, timeWindow.bucketSizeMinutes),
+    reportBuckets: buildReportBuckets(
+      row,
+      timeWindow.bucketSizeMinutes,
+      timeWindow.timeZone || DEFAULT_TIME_ZONE
+    ),
+    timeZone: timeWindow.timeZone || DEFAULT_TIME_ZONE,
     aggregationMethod: timeWindow.aggregationMethod || AGGREGATION_METHODS.TIME_BUCKET,
     isHighConfidence:
       sourceCnt >= HIGH_CONFIDENCE_MIN_COUNT ||
@@ -358,25 +402,25 @@ function formatLocationLabel(value) {
 // Report counts per bucket of each report's own outageStartedAt, split by source. Always
 // on the grid, whichever way the activity itself was grouped: the trend chart draws a
 // fixed grid, and "View Reports" filters on the same bounds.
-function buildReportBuckets(row, bucketSizeMinutes) {
-  const bucketMs = bucketSizeMinutes * 60 * 1000;
+function buildReportBuckets(row, bucketSizeMinutes, timeZone = DEFAULT_TIME_ZONE) {
+  const grid = { bucketSizeMinutes, timeZone };
   const mergedRows = row.mergedRows || [];
 
   return sumReportBuckets([
-    ...ownReportBuckets(row, bucketMs, mergedRows),
-    ...mergedRows.flatMap((mergedRow) => ownReportBuckets(mergedRow, bucketMs, [])),
+    ...ownReportBuckets(row, grid, mergedRows),
+    ...mergedRows.flatMap((mergedRow) => ownReportBuckets(mergedRow, grid, [])),
   ]);
 }
 
 // One entry per report, placed by its own outage start. Falls back to the row's key for
 // snapshots aggregated before startedAtPerReport existed.
-function ownReportBuckets(row, bucketMs, mergedRows) {
+function ownReportBuckets(row, grid, mergedRows) {
   const media = row.mediaPerReport || [];
   const startedAt = row.startedAtPerReport || [];
 
   if (startedAt.length) {
     return startedAt.map((startedAtMs, index) => ({
-      bucketStartMs: floorToBucketMs(startedAtMs, bucketMs),
+      bucketStartMs: floorToGrid(startedAtMs, grid),
       totalReports: 1,
       sourceCounts: { [normalizeSourceKey(media[index])]: 1 },
     }));
@@ -387,14 +431,14 @@ function ownReportBuckets(row, bucketMs, mergedRows) {
     0
   );
   return [{
-    bucketStartMs: floorToBucketMs(row._id.bucketStartMs, bucketMs),
+    bucketStartMs: floorToGrid(row._id.bucketStartMs, grid),
     totalReports: media.length || (row.totalReports || 0) - mergedCount,
     sourceCounts: countSourcesPerReport(row),
   }];
 }
 
-function floorToBucketMs(timestampMs, bucketMs) {
-  return timestampMs - (timestampMs % bucketMs);
+function floorToGrid(timestampMs, { bucketSizeMinutes, timeZone }) {
+  return floorToBucketStartMs(timestampMs, bucketSizeMinutes, timeZone);
 }
 
 // A report's source is its single `_media` entry; anything unexpected lands under
@@ -516,15 +560,19 @@ function toDistinctSet(values) {
 }
 
 function projectReportBuckets(activity, reports) {
-  const bucketMs = activity.bucketSizeMinutes * 60 * 1000;
+  // Snapshots cached before timeZone was stored were all laid out in UTC.
+  const grid = {
+    bucketSizeMinutes: activity.bucketSizeMinutes,
+    timeZone: activity.timeZone || DEFAULT_TIME_ZONE,
+  };
   const activityBucketMs = new Date(activity.bucketStart).getTime();
   return sumReportBuckets(reports.map((report) => {
     const startedAtMs = new Date(report.outageStartedAt).getTime();
     return {
-      // Same flooring as the pipeline's $mod bucketing.
+      // Same grid the aggregation placed the activity's reports on.
       bucketStartMs: Number.isNaN(startedAtMs)
         ? activityBucketMs
-        : startedAtMs - (startedAtMs % bucketMs),
+        : floorToGrid(startedAtMs, grid),
       totalReports: 1,
       sourceCounts: { [normalizeSourceKey(report._media)]: 1 },
     };
@@ -584,6 +632,7 @@ module.exports = {
   OONI_MATCH_WINDOW_MS,
   buildOutageReportMatch,
   clusterRowsByStartTime,
+  regroupRowsToGrid,
   mergeOoniRows,
   formatNotableActivity,
   aggregateNotableActivities,
