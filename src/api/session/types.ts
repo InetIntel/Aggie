@@ -1,12 +1,31 @@
 import { hasId } from "../common";
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON,
+} from "@simplewebauthn/browser";
+
+export interface UserPreferences {
+  timeFormat: "12h" | "24h";
+  dateFormat: "MDY" | "DMY";
+  timeZone: "local" | "utc";
+}
 
 export interface Session extends hasId {
   email: string;
   hasDefaultPassword: boolean;
   provider: string;
-  role: "admin" | "monitor" | undefined;
+  role: "admin" | "monitor" |"viewer" |"team_lead" | undefined;
+  permissions?: Permission[];
+  teamRoles?: Record<string, "viewer" | "monitor" | "team_lead">;
+  isTeamLead?: boolean;
   username: string;
-  __v: number;
+  mfa?: boolean;              // session is MFA-verified
+  mfa_enrolled?: boolean;     // account has at least one WebAuthn / TOTP credential
+  mfa_enforced?: boolean;     // MFA policy enforced for this user/org
+  preferences?: UserPreferences; // date/time display preferences
+  __v?: number;
 }
 
 export interface LoginData {
@@ -14,8 +33,79 @@ export interface LoginData {
   password: string;
 }
 
+export interface LoginResponse {
+  success: boolean;
+  message?: string;
+  token?: string;          // present when mfa=false and JWT is also set as cookie
+  mfa?: boolean;           // whether current session has been verified by mfa
+  mfa_required?: boolean;  // whether current session require mfa verification
+  pendingLoginId?: string; // present when mfa_required=true
+  methods?: ("webauthn" | "totp")[];
+}
+
+export type AuthOptions = PublicKeyCredentialRequestOptionsJSON;
+
+export type RegisterOptions = PublicKeyCredentialCreationOptionsJSON;
+
+export type AuthFinishPayload = {
+  username: string; 
+  assertion: AuthenticationResponseJSON;
+};
+
+export type RegisterFinishPayload = RegistrationResponseJSON;
+
 export interface SourceEvent {
   datetime: string;
   type: string;
   message: string;
 }
+
+export type WebAuthnDevice = {
+  credentialID: string;          // base64url string 
+  label: string;
+  transports: string[];
+  fmt: string;
+  aaguid: string;
+  counter: number;
+  userVerified: boolean;
+  lastUsedAt?: string | null;
+  createdAt?: string | null;
+};
+
+export interface TotpEnrollStartResponse {
+  otpauthUrl: string;
+  qrPngDataUrl: string;
+  manualSecret: string;
+}
+
+export interface TotpEnrollVerifyResponse {
+  ok: boolean;
+  totpEnabled: boolean;
+  recoveryCodes: string[];
+}
+
+export interface TotpLoginVerifyResponse {
+  ok: boolean;
+  mfa: boolean;
+  token?: string;
+}
+
+export interface TotpRecoveryCodesResponse {
+  ok: boolean;
+  recoveryCodes: string[];
+}
+
+export type Permission =
+  | "manage trends"
+  | "view data"
+  | "edit data"
+  | "change settings"
+  | "manage sources"
+  | "manage incident access"
+  | "view users"
+  | "view other users"
+  | "update users"
+  | "delete users"
+  | "admin users"
+  | "change admin password"
+  | "edit tags";

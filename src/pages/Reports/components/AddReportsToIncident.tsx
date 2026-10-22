@@ -16,22 +16,21 @@ import SocialMediaPost from "../../../components/SocialMediaPost";
 
 import NestedIncidentsList from "./NestedIncidentsList";
 import IncidentsFilters from "../../incidents/IncidentsFilters";
-import MultiSelectListItem from "../../../components/MultiSelectListItem";
 import SocialMediaListItem from "../../../components/SocialMediaListItem";
-import { useMultiSelect } from "../../../hooks/useMultiSelect";
 import AggieCheck from "../../../components/AggieCheck";
 import {
   faFileCirclePlus,
   faFileEdit,
   faMinus,
   faMinusCircle,
+  faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { Link, useNavigate } from "react-router-dom";
 
 interface IAddReportsToIncidents {
   isOpen: boolean;
   selection?: Report[];
-  queryKey: any[];
+  queryKey: readonly unknown[];
   onSuccess?: () => void;
   onClose: () => void;
   addRemove: (r: Report) => void;
@@ -44,7 +43,6 @@ const AddReportsToIncidents = ({
   onSuccess,
   addRemove,
 }: IAddReportsToIncidents) => {
-  const [selectedIncident, setSelectedIncident] = useState<Group>();
   const queryClient = useQueryClient();
   const queryData = useUpdateQueryData();
   const navigate = useNavigate();
@@ -56,10 +54,6 @@ const AddReportsToIncidents = ({
     setParams,
     clearAllParams,
   } = useQueryParamsInternal<GroupQueryState>();
-
-  const multiSelect = useMultiSelect({
-    allItems: selection,
-  });
 
   const { data: incidents, refetch } = useQuery({
     queryKey: ["groups"],
@@ -90,11 +84,11 @@ const AddReportsToIncidents = ({
     },
   });
 
-  function onAddIncident() {
-    if (!selection || selection.length === 0 || !selectedIncident) return;
+  function onAddIncident(item: Group) {
+    if (!selection || selection.length === 0 || !item) return;
     doAddReportToIncident.mutate({
       reportIds: selection.map((i) => i._id),
-      groupId: selectedIncident,
+      groupId: item,
     });
   }
 
@@ -112,92 +106,54 @@ const AddReportsToIncidents = ({
   if (!isOpen) return <></>;
   return (
     <Dialog open={isOpen} onClose={onClose} className='relative z-50'>
-      <div className='fixed inset-0 bg-black/30' aria-hidden='true' />
+      <div className='fixed inset-0 bg-black/30 dark:bg-white/20' aria-hidden='true' />
       <div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
-        <Dialog.Panel className='bg-gray-50 rounded-xl border border-slate-200 shadow-xl min-w-24 h-[90vh] min-h-12 p-3 grid grid-cols-5 gap-y-1 gap-x-4 w-full	grid-rows-[auto_1fr]'>
-          <div className='col-span-full flex justify-between '>
-            <div className='flex-1'>
-              <AggieButton variant='secondary' onClick={onClose}>
-                Cancel
-              </AggieButton>
-            </div>
+        <Dialog.Panel className='bg-gray-50 dark:bg-gray-800 rounded-xl border border-slate-200 shadow-xl min-w-24 h-[90vh] min-h-12 p-3 grid grid-cols-4 gap-y-1 gap-x-4 w-full	grid-rows-[auto_1fr]'>
+          <div className='col-span-full relative flex items-center justify-center'>
+            <p className='font-medium text-xl'>Select an Incident Below:</p>
 
-            <p className='font-medium text-lg'>Add Reports to Incident</p>
-            <div className='flex-1 flex justify-end gap-1'>
-              <AggieButton
-                variant='transparent'
-                icon={faFileCirclePlus}
-                onClick={onNewIncidentFromReports}
-                className='hover:bg-slate-50 hover:underline text-blue-600 text-sm'
-              >
-                Create New Incident from Reports
-              </AggieButton>
-              <AggieButton
-                variant='primary'
-                onClick={onAddIncident}
-                loading={doAddReportToIncident.isLoading}
-                disabled={doAddReportToIncident.isLoading || !selectedIncident}
-              >
-                Add {selection ? `${selection.length}` : ""} report(s) to
-                incident
-              </AggieButton>
-            </div>
+            <AggieButton
+              variant='transparent'
+              className='absolute right-0'
+              onClick={onClose}
+              icon={faXmark}
+              title='Close'
+              aria-label='Close'
+            />
           </div>
 
-          <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-2 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3'>
+          <div className='overflow-y-auto flex flex-col gap-1 h-full col-span-1 border-2 border-dashed border-slate-300 bg-slate-50 dark:bg-gray-900 rounded-lg p-3'>
             <h2 className='font-medium text-lg mb-1'>
-              <span className='bg-slate-100 rounded-lg px-2 py-1  text-slate-700'>
+              <span className='bg-slate-100 dark:bg-gray-700 rounded-lg px-2 py-1  text-slate-700 dark:text-gray-300'>
                 {selection?.length || 0}
               </span>{" "}
               Selected Reports
             </h2>
-            <div className='flex gap-1 items-center'>
-              {multiSelect.isActive && (
-                <>
-                  <AggieButton
-                    variant='secondary'
-                    className='text-xs font-medium '
-                    onClick={() => multiSelect.toggleActive()}
-                  >
-                    Cancel Selection
-                  </AggieButton>
-                </>
-              )}
-            </div>
             <div className='rounded-lg border overflow-x-hidden border-slate-300 overflow-y-auto'>
               {selection &&
                 selection.map((report) => (
-                  <MultiSelectListItem
-                    isChecked={multiSelect.exists(report)}
-                    isSelectMode={multiSelect.isActive}
-                    onCheckChange={() => multiSelect.addRemove(report)}
-                    key={report._id}
-                  >
-                    <div className='text-sm'>
-                      <SocialMediaListItem
-                        report={report}
-                        header={
-                          <span className='flex gap-1 group-hover:opacity-100 opacity-0'>
-                            <AggieButton
-                              variant='light:rose'
-                              className='rounded-lg text-xs border border-slate-300 '
-                              icon={faMinusCircle}
-                              onClick={() => addRemove(report)}
-                            >
-                              Remove from Selection
-                            </AggieButton>
-                          </span>
-                        }
-                      />
-                    </div>
-                  </MultiSelectListItem>
+                  <div className='bg-white dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 border-b border-slate-300 group p-3 relative text-sm'>
+                    <SocialMediaListItem
+                      report={report}
+                      header={
+                        <span className='flex gap-1 group-hover:opacity-100 opacity-0'>
+                          <AggieButton
+                            variant='light:rose'
+                            className='rounded-lg text-xs border border-slate-300 '
+                            icon={faMinusCircle}
+                            onClick={() => addRemove(report)}
+                          >
+                            Remove
+                          </AggieButton>
+                        </span>
+                      }
+                    />
+                  </div>
                 ))}
             </div>
           </div>
 
           <div className='flex flex-col h-full overflow-y-auto col-span-3 overflow-x-hidden w-full'>
-            <h2 className='font-medium text-lg mb-1'>Select an Incident:</h2>
-
             <IncidentsFilters
               get={getParam}
               set={setParams}
@@ -205,11 +161,20 @@ const AddReportsToIncidents = ({
               clearAll={clearAllParams}
               totalCount={incidents && incidents.total}
             />
-            <div className='overflow-y-auto bg-white border border-slate-300 rounded-lg'>
+            <div className='overflow-y-auto bg-white dark:bg-gray-800 border border-slate-300 rounded-lg'>
+              <AggieButton
+                className='hover:bg-green-100 active:bg-green-200 border-b border-slate-200 font-medium gap-2 h-16 items-center text-left text-lg w-full dark:hover:bg-green-100 dark:active:bg-green-200 dark:saturate-[0.7]'
+                icon={faFileCirclePlus}
+                padding='px-2 py-2'
+                onClick={onNewIncidentFromReports}
+              >
+                Create new incident
+              </AggieButton>
               <NestedIncidentsList
                 incidents={incidents}
-                selectedIncident={selectedIncident}
-                onIncidentClicked={(item) => setSelectedIncident(item)}
+                onIncidentClicked={(item) => {
+                  onAddIncident(item);
+                }}
               />
             </div>
           </div>

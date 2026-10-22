@@ -1,3 +1,5 @@
+import TagBadge from "../Tags/TagBadge";
+import type { Tag } from "../../api/tags/types";
 import {
   faXmark,
   faExclamationTriangle,
@@ -6,17 +8,26 @@ import {
   faImages,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { isString } from "lodash";
+import { useQuery } from "@tanstack/react-query";
 import { Report } from "../../api/reports/types";
+import { getTags } from "../../api/tags";
 import { formatText } from "../../utils/format";
+import { detectTextDirection } from "../../utils/format";
+import { formatDateTime, formatTime, UserPreferences } from "../../utils/dateFormat";
+import { useFormatters } from "../../utils/useFormatters";
 import AggieToken from "../AggieToken";
 import DateTime from "../DateTime";
-import GeneratedTagsList from "../GeneratedTagsList";
-import { parseContentType, sanitize } from "../SocialMediaPost/reportParser";
+import {
+  parseContentType,
+  sanitize,
+  signalToNameColor,
+  SIGNAL_BADGE_CLASS,
+} from "../SocialMediaPost/reportParser";
 import SocialMediaIcon from "../SocialMediaPost/SocialMediaIcon";
 import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
 import { parseYoutube } from "../SocialMediaPost/YoutubePost";
-import TagsList from "../Tags/TagsList";
+import { getReportImages } from "../SocialMediaPost/mediaAttachments";
+
 
 interface IProps {
   report: Report;
@@ -25,26 +36,35 @@ interface IProps {
 }
 
 const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
+  const { prefs } = useFormatters();
   const contentType = parseContentType(report);
   const { imagePreview, imagesCount } = renderImage(contentType, report);
-
-  const imageUrl = isString(imagePreview) ? imagePreview : imagePreview?.url;
+  const [signal, bgColor] = signalToNameColor(report?.metadata?.rawAPIResponse?.rawEvent?.datasource);
+  const { data: allTags } = useQuery(["tags"], getTags, { staleTime: 40000 });
+  const reportTags = (report.smtcTags || [])
+    .map((id) => allTags?.find((t) => t._id === id))
+    .filter((tag): tag is Tag => !!tag);
   return (
     <>
-      <header className='flex justify-between mb-2 relative'>
+      <header className='flex justify-between mb-2 relative '>
         <div
-          className={`flex flex-wrap gap-1 text-sm items-baseline ${headerClassName}`}
+          className={`flex flex-wrap gap-1 text-xs items-center ${headerClassName}`}
         >
-          <h1 className={`text-sm text-black mx-1 font-medium `}>
-            <span className='mr-2 text-slate-600 text-xs'>
-              <SocialMediaIcon mediaKey={report._media[0]} />
-            </span>
+          <span className='text-slate-600 dark:text-gray-400'>
+            <SocialMediaIcon mediaKey={report._media[0]} />
+          </span>
+          <h1 className='text-sm text-black font-medium dark:text-gray-300'>
             {renderAuthor(contentType, report)}
           </h1>
-
+          {reportTags.map((tag) => <TagBadge key={tag._id} tag={tag} />)}
+          {signal && (
+            <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
+              {signal}
+            </AggieToken>
+          )}
           {report.irrelevant && report.irrelevant === "true" && (
             <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
-              Irrelevant
+              Ignore
             </AggieToken>
           )}
           {report.irrelevant && report.irrelevant === "false" && (
@@ -53,26 +73,9 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
               icon={faDotCircle}
               className='text-xs'
             >
-              Relevant
+              Investigate
             </AggieToken>
           )}
-
-          {(!report.irrelevant || report.irrelevant !== "true") && (
-            <>
-              {report.red_flag && (
-                <AggieToken
-                  variant='dark:red'
-                  icon={faExclamationTriangle}
-                  className='text-xs'
-                >
-                  Red Flag
-                </AggieToken>
-              )}
-              <GeneratedTagsList tags={report.aitags} report={report} />
-            </>
-          )}
-
-          <TagsList values={report.smtcTags} />
         </div>
         {header || (
           <div className='text-xs '>
@@ -80,19 +83,19 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           </div>
         )}
       </header>
-      <div className='flex gap-1 justify-between'>
+      <div className='flex gap-1 justify-between '>
         <div className='flex gap-2 flex-1 max-w-prose'>
-          {renderText(contentType, report)}
+          {renderText(contentType, report, prefs)}
         </div>
         {imagePreview && (
           <div className='w-24 h-24 flex-0 justify-self-end relative'>
             <img
               loading='lazy'
-              src={imagePreview ? imageUrl : ""}
-              className='w-full rounded h-full object-cover bg-slate-100 border border-slate-200 '
+              src={imagePreview}
+              className='w-full rounded h-full object-cover bg-slate-100 dark:bg-gray-700 border border-slate-200 '
               alt='image preview'
             />
-            <p className='absolute bottom-1 right-1 px-1 rounded-sm bg-black/75 text-xs text-white'>
+            <p className='absolute bottom-1 right-1 px-1 rounded-sm bg-black/75 dark:bg-white/60 text-xs text-white dark:text-gray-300 '>
               <FontAwesomeIcon icon={faImages} /> {imagesCount}
             </p>
           </div>
@@ -118,11 +121,16 @@ function renderAuthor(
   report: Report
 ) {
   switch (type) {
-    case "RSS":
-      const website = new URL(report.url);
-      return <>{website.host}</>;
+    case "ioda":
+      return "IODA";
+    case "cloudflare":
+      return report?.metadata?.rawAPIResponse?.dataSource;
+    case "ooni":
+      return "OONI";
+    case "mastodon":
+      return report.metadata.accountHandle || report.author;
     default:
-      return <>{report.author}</>;
+      return report.author;
   }
 }
 function renderImage(
@@ -135,10 +143,10 @@ function renderImage(
     );
     if (results && results.length > 0) {
       const imagePreview = results[0].url;
-      return { imagePreview, imagesCount: 1 };
+      return { imagePreview, imagesCount: results.length };
     }
     const { imagePreview, imagesCount } = twitterParsing(report);
-    return { imagePreview, imagesCount };
+    return { imagePreview: imagePreview?.url, imagesCount };
   }
   if (type.includes("youtube")) {
     const imagePreview = (report.metadata?.rawAPIResponse?.attributes as any)
@@ -146,23 +154,31 @@ function renderImage(
     const imagesCount = imagePreview ? 1 : 0;
     return { imagePreview, imagesCount };
   }
-  const imagePreview = report.metadata?.mediaUrl;
-  const imagesCount = imagePreview ? 1 : 0;
+  const images = getReportImages(report);
+  const imagePreview = images[0]?.previewUrl;
+  const imagesCount = images.length;
   return { imagePreview, imagesCount };
 }
-function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
+function renderText(
+  type: ReturnType<typeof parseContentType>,
+  report: Report,
+  prefs: UserPreferences
+) {
   switch (type) {
     case "twitter:quoteRetweet": {
       const data = twitterParsing(report);
 
       return (
         <>
-          <div className='grid place-items-center text-slate-600'>
+          <div className='grid place-items-center shrink-0 text-slate-600 dark:text-gray-400'>
             <FontAwesomeIcon icon={faRetweet} />
           </div>
-          <div className=' max-h-[10em] text-black'>
+          <div className=' max-h-[10em] grow min-w-0 text-black dark:text-gray-300'>
             <p className='font-medium text-sm'>{data.author?.name}</p>
-            <p className='text-black line-clamp-2 mb-1'>
+            <p
+              dir={detectTextDirection(data.content)}
+              className='text-black line-clamp-2 mb-1 post-text dark:text-gray-300'
+            >
               {formatText(data.content)}
             </p>
 
@@ -170,7 +186,10 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
               <p className='font-medium text-sm'>
                 {data.innerPost.author?.name}
               </p>
-              <p className='line-clamp-2'>
+              <p
+                dir={detectTextDirection(data.innerPost.content)}
+                className='line-clamp-2 post-text'
+              >
                 {formatText(data.innerPost.content)}
               </p>
             </div>
@@ -183,10 +202,13 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
 
       return (
         <>
-          <div className='grid place-items-center text-slate-600'>
+          <div className='grid place-items-center shrink-0 text-slate-600 dark:text-gray-400'>
             <FontAwesomeIcon icon={faRetweet} />
           </div>
-          <p className=' text-black max-h-[10em] line-clamp-4'>
+          <p
+            dir={detectTextDirection(report.content)}
+            className=' text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
+          >
             {formatText(report.content)}
           </p>
         </>
@@ -196,14 +218,19 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
 
       return (
         <>
-          <div className=' max-h-[10em] text-black'>
-            <p className='text-black line-clamp-2 mb-1'>
+          <div className=' max-h-[10em] grow min-w-0 text-black dark:text-gray-300'>
+            <p
+              dir={detectTextDirection(report.content)}
+              className='text-black line-clamp-2 mb-1 post-text dark:text-gray-300'
+            >
               {formatText(report.content)}
             </p>
 
             <div className='border border-slate-300 rounded-lg py-2 px-3 '>
               <p className='font-medium text-sm'>{data.author?.name}</p>
-              <p className='line-clamp-2'>{formatText(data.content)}</p>
+              <p dir={detectTextDirection(data.content)} className='line-clamp-2 post-text'>
+                {formatText(data.content)}
+              </p>
             </div>
           </div>
         </>
@@ -212,42 +239,97 @@ function renderText(type: ReturnType<typeof parseContentType>, report: Report) {
     case "twitter":
       twitterParsing(report);
       return (
-        <p className=' text-black max-h-[10em] line-clamp-4'>
+        <p
+            dir={detectTextDirection(report.content)}
+            className=' text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
+          >
           {formatText(report.content)}
         </p>
       );
 
-    case "truthsocial":
+    // case "truthsocial":
+    //   return (
+    //     <p
+    //       className='truthsocial text-black line-clamp-4'
+    //       dangerouslySetInnerHTML={{
+    //         __html: sanitize(report.content),
+    //       }}
+    //     ></p>
+    //   );
+    // case "youtube":
+    //   const { title, description } = parseYoutube(report);
+    //   return (
+    //     <p className=' text-black max-h-[10em] line-clamp-4'>
+    //       <span className=''>{title} </span>
+    //     </p>
+    //   );
+    // case "RSS":
+    //   const rawData = report?.metadata?.rawAPIResponse as any;
+    //   return (
+    //     <div>
+    //       {rawData?.title && (
+    //         <p className='text-black font-medium'>{rawData?.title}</p>
+    //       )}
+    //       <p className=' text-black max-h-[10em] line-clamp-2'>
+    //         {formatText(report.content)}
+    //       </p>
+    //     </div>
+    //   );
+    case "ioda": {
+      const iodaRaw = report?.metadata?.rawAPIResponse;
+      const rawStart = iodaRaw?.rawEvent?.start;
+      const start = new Date(rawStart * 1000); // Convert to milliseconds
+
+      // While the outage is ongoing, `rawEvent.duration` only runs up to the last
+      // fetch, so deriving an end from it would show a fake, creeping end time.
+      if (iodaRaw?.isOngoing) {
+        return (
+          <p className="dark:text-gray-300">
+            {report?.author}<br />
+            {formatDateTime(start, prefs)} to Present
+          </p>
+        );
+      }
+
+      const rawDuration = iodaRaw?.rawEvent?.duration;
+      const end = new Date((rawStart + rawDuration) * 1000);
+      const sameDay = start.toDateString() === end.toDateString();
       return (
-        <p
-          className='truthsocial text-black line-clamp-4'
-          dangerouslySetInnerHTML={{
-            __html: sanitize(report.content),
-          }}
-        ></p>
-      );
-    case "youtube":
-      const { title, description } = parseYoutube(report);
-      return (
-        <p className=' text-black max-h-[10em] line-clamp-4'>
-          <span className=''>{title} </span>
+        <p className="dark:text-gray-300">
+          {report?.author}<br />
+          {formatDateTime(start, prefs)} to{" "}
+          {sameDay ? formatTime(end, prefs) : formatDateTime(end, prefs)}
         </p>
       );
-    case "RSS":
-      const rawData = report?.metadata?.rawAPIResponse as any;
+    }
+    case "cloudflare":
+      const endDate =
+        report?.metadata?.rawAPIResponse?.rawEvent?.endDate || "now";
       return (
-        <div>
-          {rawData?.title && (
-            <p className='text-black font-medium'>{rawData?.title}</p>
-          )}
-          <p className=' text-black max-h-[10em] line-clamp-2'>
-            {formatText(report.content)}
-          </p>
-        </div>
+        <p className="dark:text-gray-300">
+          {report?.author}<br />
+          {formatDateTime(report?.authoredAt, prefs)} to{" "}
+          {endDate === "now" ? "now" : formatDateTime(endDate, prefs)}
+        </p>
       );
+    case "ooni": {
+      const windowEnd = report?.metadata?.rawAPIResponse?.windowEnd;
+      return (
+        <p
+          dir={detectTextDirection(report.content)}
+          className='text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
+        >
+          {formatText(report.content)}
+          {windowEnd && <> measured at {formatDateTime(windowEnd, prefs)}.</>}
+        </p>
+      );
+    }
     default:
       return (
-        <p className=' text-black max-h-[10em] line-clamp-4'>
+        <p
+            dir={detectTextDirection(report.content)}
+            className=' text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
+          >
           {formatText(report.content)}
         </p>
       );

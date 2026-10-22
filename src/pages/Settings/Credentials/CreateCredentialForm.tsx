@@ -1,37 +1,227 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Yup from "yup";
-import { newCredential } from "../../../api/credentials";
+import {
+  getCredentials,
+  mastodonAuthStart,
+  mastodonAuthStatus,
+  newCredential,
+  telegramUserAuthStart,
+  telegramUserAuthVerifyCode,
+  telegramUserAuthVerifyPassword,
+} from "../../../api/credentials";
 
 import { Listbox } from "@headlessui/react";
+import AxiosErrorCard from "../../../components/AxiosErrorCard";
+import AggieButton from "../../../components/AggieButton";
 import FormikInput from "../../../components/FormikInput";
 import FormikWithSchema from "../../../components/FormikWithSchema";
 
 import { faChevronDown, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { CredentialOption, CREDENTIAL_OPTIONS } from "../../../api/common";
+import { CredentialOption, CREDENTIAL_OPTIONS, providerLabel } from "../../../api/common";
+import type { Credential } from "../../../api/credentials/types";
 
 // credential type dropdown
 
 interface IProps {
   onClose: () => void;
+  // When set, the type selector is hidden and the form is locked to this type —
+  // used when creating a credential inline from the source form.
+  lockedType?: CredentialOption;
+  // Called with the freshly created credential (used to auto-select it inline).
+  onCreated?: (credential: Credential) => void;
 }
-const CreateCredentialForm = ({ onClose }: IProps) => {
-  const [credentialType, setCredentialType] =
-    useState<CredentialOption>("junkipedia");
+
+type TelegramUserStep = "start" | "code" | "password";
+type MastodonStep = "start" | "authorizing";
+
+const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
+  const [
+    credentialType,
+    setCredentialType
+  ] = useState<CredentialOption>(lockedType ?? "ioda");
+  const [telegramUserStep, setTelegramUserStep] =
+    useState<TelegramUserStep>("start");
+  const [telegramUserName, setTelegramUserName] = useState("");
+  const [telegramAuthRequestId, setTelegramAuthRequestId] = useState("");
+  const [mastodonStep, setMastodonStep] = useState<MastodonStep>("start");
+  const [mastodonCredentialName, setMastodonCredentialName] = useState("");
+  const [mastodonAuthRequestId, setMastodonAuthRequestId] = useState("");
+  const [mastodonServerUrl, setMastodonServerUrl] = useState("");
+  const mastodonPopupRef = useRef<Window | null>(null);
+  const mastodonPollRef = useRef<number | null>(null);
+
+  // Existing credentials, used only to auto-generate a sensible default label
+  // (e.g. "mastodon #2"). The name is a display label, not a functional key.
+  const { data: existingCredentials } = useQuery(["credentials"], getCredentials, {
+    staleTime: 50000,
+  });
+  const defaultCredentialName = useMemo(() => {
+    const count = (existingCredentials || []).filter(
+      (cred) => cred.type === credentialType
+    ).length;
+    return `${providerLabel(credentialType)} #${count + 1}`;
+  }, [existingCredentials, credentialType]);
 
   const queryClient = useQueryClient();
   const doCreateCredential = useMutation(newCredential, {
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries(["credentials"]);
+      onCreated?.(data);
       onClose();
     },
   });
+  const doTelegramUserAuthStart = useMutation(telegramUserAuthStart, {
+    onSuccess: (data) => {
+      setTelegramAuthRequestId(data.authRequestId);
+      setTelegramUserStep("code");
+    },
+  });
+  const doTelegramUserAuthVerifyCode = useMutation(telegramUserAuthVerifyCode, {
+    onSuccess: async (data) => {
+      if (data.status === "PASSWORD_REQUIRED") {
+        setTelegramUserStep("password");
+        return;
+      }
+
+      await doCreateCredential.mutateAsync({
+        credentials: {},
+        name: telegramUserName,
+        type: "telegramUser",
+        authRequestId: telegramAuthRequestId,
+      });
+    },
+  });
+  const doTelegramUserAuthVerifyPassword = useMutation(
+    telegramUserAuthVerifyPassword,
+    {
+      onSuccess: async () => {
+        await doCreateCredential.mutateAsync({
+          credentials: {},
+          name: telegramUserName,
+          type: "telegramUser",
+          authRequestId: telegramAuthRequestId,
+        });
+      },
+    }
+  );
+  const doMastodonAuthStart = useMutation(mastodonAuthStart, {
+    onSuccess: (data) => {
+      setMastodonAuthRequestId(data.authRequestId);
+      setMastodonStep("authorizing");
+
+      mastodonPopupRef.current = window.open(
+        data.authUrl,
+        "aggie-mastodon-auth",
+        "popup=yes,width=640,height=800"
+      );
+    },
+  });
+
+  const resetTelegramUserFlow = () => {
+    setTelegramUserStep("start");
+    setTelegramUserName("");
+    setTelegramAuthRequestId("");
+    doTelegramUserAuthStart.reset();
+    doTelegramUserAuthVerifyCode.reset();
+    doTelegramUserAuthVerifyPassword.reset();
+  };
+
+  const stopMastodonPolling = () => {
+    if (mastodonPollRef.current) {
+      window.clearInterval(mastodonPollRef.current);
+      mastodonPollRef.current = null;
+    }
+  };
+
+  const resetMastodonFlow = () => {
+    stopMastodonPolling();
+    mastodonPopupRef.current?.close();
+    mastodonPopupRef.current = null;
+    setMastodonStep("start");
+    setMastodonCredentialName("");
+    setMastodonAuthRequestId("");
+    setMastodonServerUrl("");
+    doMastodonAuthStart.reset();
+  };
+
+  useEffect(() => {
+    if (!mastodonAuthRequestId) return;
+
+    const checkStatus = async () => {
+      const status = await mastodonAuthStatus(mastodonAuthRequestId);
+      if (status.status !== "AUTHORIZED") return;
+
+      stopMastodonPolling();
+      mastodonPopupRef.current?.close();
+      mastodonPopupRef.current = null;
+
+      await doCreateCredential.mutateAsync({
+        credentials: {},
+        name: mastodonCredentialName,
+        type: "mastodon",
+        authRequestId: mastodonAuthRequestId,
+      });
+    };
+
+    mastodonPollRef.current = window.setInterval(() => {
+      checkStatus().catch(() => {});
+    }, 2000);
+
+    return () => {
+      stopMastodonPolling();
+    };
+  }, [mastodonAuthRequestId, mastodonCredentialName]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "aggie-mastodon-auth-complete") return;
+      if (!event.data?.authRequestId) return;
+      if (event.data.authRequestId !== mastodonAuthRequestId) return;
+
+      mastodonAuthStatus(event.data.authRequestId)
+        .then(async (status) => {
+          if (status.status !== "AUTHORIZED") return;
+
+          stopMastodonPolling();
+          mastodonPopupRef.current?.close();
+          mastodonPopupRef.current = null;
+
+          await doCreateCredential.mutateAsync({
+            credentials: {},
+            name: mastodonCredentialName,
+            type: "mastodon",
+            authRequestId: event.data.authRequestId,
+          });
+        })
+        .catch(() => {});
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [mastodonAuthRequestId, mastodonCredentialName]);
+
+  useEffect(() => {
+    return () => {
+      stopMastodonPolling();
+      mastodonPopupRef.current?.close();
+    };
+  }, []);
+
+  const telegramUserError =
+    doTelegramUserAuthStart.error ||
+    doTelegramUserAuthVerifyCode.error ||
+    doTelegramUserAuthVerifyPassword.error ||
+    doCreateCredential.error;
+  const mastodonError = doMastodonAuthStart.error || doCreateCredential.error;
 
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
   const junkipediaSchema = Yup.object().shape({
-    name: Yup.string().required("Credentials name required"),
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
     junkipediaAPIKey: Yup.string().required("API Token required"),
   });
   type IJunkipediaSchema = Yup.InferType<typeof junkipediaSchema>;
@@ -39,6 +229,8 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
   const junkipediaForm = (
     <FormikWithSchema
       schema={junkipediaSchema}
+      initialValues={{ name: defaultCredentialName, junkipediaAPIKey: "" }}
+      allowPristineSubmit
       onSubmit={(values: IJunkipediaSchema) => {
         doCreateCredential.mutate({
           credentials: {},
@@ -52,27 +244,27 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
       <FormikInput name='junkipediaAPIKey' label='Junkipedia API Token' />
     </FormikWithSchema>
   );
 
-  
-
-  // telegram credential
-  const telegramSchema = Yup.object().shape({
-    name: Yup.string().required("Credentials name required"),
-    botAPIToken: Yup.string().required("API Token required"),
+  const telegramBotSchema = Yup.object().shape({
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
+    botAPIToken: Yup.string().required("Bot API token required"),
   });
-  type ITelegramSchema = Yup.InferType<typeof junkipediaSchema>;
-  const telegramForm = (
+  type ITelegramBotSchema = Yup.InferType<typeof telegramBotSchema>;
+
+  const telegramBotForm = (
     <FormikWithSchema
-      schema={telegramSchema}
-      onSubmit={(values: ITelegramSchema) => {
+      schema={telegramBotSchema}
+      onSubmit={(values: ITelegramBotSchema) => {
         doCreateCredential.mutate({
           credentials: {},
           name: values.name,
-          type: "telegram",
+          type: "telegramBot",
           secrets: {
             botAPIToken: values.botAPIToken,
           },
@@ -81,15 +273,312 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
-      <FormikInput name='botAPIToken' label='Telegram bot API Token' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
+      <FormikInput name='botAPIToken' label='Telegram Bot API Token' />
     </FormikWithSchema>
+  );
+
+  const telegramUserStartSchema = Yup.object().shape({
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
+    apiId: Yup.string().required("Telegram API ID required"),
+    apiHash: Yup.string().required("Telegram API hash required"),
+    phone: Yup.string().required("Telegram phone number required"),
+  });
+  type ITelegramUserStartSchema = Yup.InferType<typeof telegramUserStartSchema>;
+
+  const telegramUserCodeSchema = Yup.object().shape({
+    code: Yup.string().required("Telegram verification code required"),
+  });
+  type ITelegramUserCodeSchema = Yup.InferType<typeof telegramUserCodeSchema>;
+
+  const telegramUserPasswordSchema = Yup.object().shape({
+    password: Yup.string().required("Telegram password required"),
+  });
+  type ITelegramUserPasswordSchema =
+    Yup.InferType<typeof telegramUserPasswordSchema>;
+
+  const telegramUserForm = (
+    <div className='flex flex-col gap-3'>
+      <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+        <p>Telegram User uses your Telegram app API ID, API hash, and phone login.</p>
+        <p>Enter the login code Telegram sends you. If 2FA is enabled, you will be asked for your password next.</p>
+      </div>
+
+      {telegramUserError && <AxiosErrorCard error={telegramUserError} />}
+
+      {telegramUserStep === "start" && (
+        <FormikWithSchema
+          schema={telegramUserStartSchema}
+          initialValues={{
+            name: defaultCredentialName,
+            apiId: "",
+            apiHash: "",
+            phone: "",
+          }}
+          allowPristineSubmit
+          onSubmit={(values: ITelegramUserStartSchema) => {
+            doTelegramUserAuthVerifyCode.reset();
+            doTelegramUserAuthVerifyPassword.reset();
+            setTelegramUserName(values.name);
+            doTelegramUserAuthStart.mutate({
+              apiId: values.apiId,
+              apiHash: values.apiHash,
+              phone: values.phone,
+            });
+          }}
+          loading={doTelegramUserAuthStart.isLoading}
+          onClose={onClose}
+          onSubmitText='Send Code'
+        >
+          <FormikInput name='name' label='Connection name' maxLength={50} />
+          <FormikInput name='apiId' label='Telegram App API ID' />
+          <FormikInput name='apiHash' label='Telegram App API Hash' />
+          <FormikInput
+            name='phone'
+            label='Telegram Phone Number'
+            placeholder='Include country code, e.g. +15551234567'
+          />
+        </FormikWithSchema>
+      )}
+
+      {telegramUserStep === "code" && (
+        <>
+          <div className='rounded border border-slate-300 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+            <p>Connection: <span className='font-medium'>{telegramUserName}</span></p>
+            <p>Auth session created. Enter the Telegram login code to continue.</p>
+          </div>
+          <FormikWithSchema
+            schema={telegramUserCodeSchema}
+            onSubmit={(values: ITelegramUserCodeSchema) => {
+              doTelegramUserAuthVerifyCode.reset();
+              doTelegramUserAuthVerifyCode.mutate({
+                authRequestId: telegramAuthRequestId,
+                code: values.code,
+              });
+            }}
+            loading={
+              doTelegramUserAuthVerifyCode.isLoading ||
+              doCreateCredential.isLoading
+            }
+            onClose={onClose}
+            onSubmitText='Verify Code'
+          >
+            <FormikInput name='code' label='Telegram Verification Code' />
+          </FormikWithSchema>
+          <div className='flex justify-end'>
+            <AggieButton variant='secondary' onClick={resetTelegramUserFlow}>
+              Start Over
+            </AggieButton>
+          </div>
+        </>
+      )}
+
+      {telegramUserStep === "password" && (
+        <>
+          <div className='rounded border border-slate-300 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+            <p>Telegram requires your account password to finish sign-in.</p>
+          </div>
+          <FormikWithSchema
+            schema={telegramUserPasswordSchema}
+            onSubmit={(values: ITelegramUserPasswordSchema) => {
+              doTelegramUserAuthVerifyPassword.reset();
+              doTelegramUserAuthVerifyPassword.mutate({
+                authRequestId: telegramAuthRequestId,
+                password: values.password,
+              });
+            }}
+            loading={
+              doTelegramUserAuthVerifyPassword.isLoading ||
+              doCreateCredential.isLoading
+            }
+            onClose={onClose}
+            onSubmitText='Verify Password'
+          >
+            <FormikInput
+              name='password'
+              label='Telegram 2FA Password'
+              type='password'
+            />
+          </FormikWithSchema>
+          <div className='flex justify-end'>
+            <AggieButton variant='secondary' onClick={resetTelegramUserFlow}>
+              Start Over
+            </AggieButton>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const iodaSchema = Yup.object().shape({
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters")
+  });
+  type IodaSchema = Yup.InferType<typeof iodaSchema>;
+
+  const iodaForm = (
+    <FormikWithSchema
+      schema={iodaSchema}
+      initialValues={{ name: defaultCredentialName }}
+      allowPristineSubmit
+      onSubmit={(values: IodaSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "ioda",
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Connection name' maxLength={50} />
+    </FormikWithSchema>
+  );
+
+  const ooniSchema = Yup.object().shape({
+    name: Yup.string()
+      .required("Credentials name required")
+      .max(50, "Max 50 characters")
+  });
+  type OoniSchema = Yup.InferType<typeof ooniSchema>;
+
+  const ooniForm = (
+    <FormikWithSchema
+      schema={ooniSchema}
+      onSubmit={(values: OoniSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "ooni",
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Credential Name' maxLength={50} />
+    </FormikWithSchema>
+  );
+
+  const cloudflareSchema = Yup.object().shape({
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
+    cloudflareApiToken: Yup.string().required("Cloudflare API Token required."),
+  });
+  type CloudflareSchema = Yup.InferType<typeof cloudflareSchema>;
+
+  const cloudflareForm = (
+    <FormikWithSchema
+      schema={cloudflareSchema}
+      initialValues={{ name: defaultCredentialName, cloudflareApiToken: "" }}
+      allowPristineSubmit
+      onSubmit={(values: CloudflareSchema) => {
+        doCreateCredential.mutate({
+          credentials: {},
+          name: values.name,
+          type: "cloudflare",
+          secrets: {
+            cloudflareApiToken: values.cloudflareApiToken,
+          },
+        });
+      }}
+      loading={doCreateCredential.isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='name' label='Connection name' maxLength={50} />
+      <FormikInput name='cloudflareApiToken' label='Cloudflare API Token' />
+    </FormikWithSchema>
+  );
+
+  const mastodonSchema = Yup.object().shape({
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
+    serverUrl: Yup.string()
+      .url("Enter a valid Mastodon server URL")
+      .required("Mastodon server URL required"),
+  });
+  type IMastodonSchema = Yup.InferType<typeof mastodonSchema>;
+
+  const mastodonForm = (
+    <div className='flex flex-col gap-3'>
+      {/* <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+        <p>Mastodon connections are created through your Mastodon server's OAuth flow.</p>
+        <p>Use the server base URL, for example `https://mastodon.social/@username`.</p>
+      </div> */}
+
+      {mastodonError && <AxiosErrorCard error={mastodonError} />}
+
+      {mastodonStep === "start" && (
+        <FormikWithSchema
+          schema={mastodonSchema}
+          initialValues={{ name: defaultCredentialName, serverUrl: "" }}
+          allowPristineSubmit
+          onSubmit={(values: IMastodonSchema) => {
+            setMastodonCredentialName(values.name);
+            setMastodonServerUrl(values.serverUrl);
+            doMastodonAuthStart.mutate({
+              serverUrl: values.serverUrl,
+            });
+          }}
+          loading={doMastodonAuthStart.isLoading}
+          onClose={onClose}
+          onSubmitText='Authorize Mastodon'
+        >
+          <FormikInput name='name' label='Connection name' maxLength={50} />
+          <FormikInput
+            name='serverUrl'
+            label='Mastodon Server URL'
+            placeholder='e.g., https://mastodon.social/@username'
+          />
+        </FormikWithSchema>
+      )}
+
+      {mastodonStep === "authorizing" && (
+        <>
+          <div className='rounded border border-slate-300 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-slate-600 dark:text-gray-400'>
+            <p>Connection: <span className='font-medium'>{mastodonCredentialName}</span></p>
+            <p>Server: <span className='font-medium'>{mastodonServerUrl}</span></p>
+            <p>Finish authorization in the popup, then this connection will be saved automatically.</p>
+          </div>
+          <div className='flex justify-between'>
+            <AggieButton
+              variant='secondary'
+              type='button'
+              onClick={() => {
+                const popup = mastodonPopupRef.current;
+                if (popup && !popup.closed) {
+                  popup.focus();
+                  return;
+                }
+                if (!doMastodonAuthStart.data?.authUrl) return;
+                mastodonPopupRef.current = window.open(
+                  doMastodonAuthStart.data.authUrl,
+                  "aggie-mastodon-auth",
+                  "popup=yes,width=640,height=800"
+                );
+              }}
+            >
+              Open Authorization Window
+            </AggieButton>
+            <AggieButton variant='secondary' onClick={resetMastodonFlow}>
+              Start Over
+            </AggieButton>
+          </div>
+        </>
+      )}
+    </div>
   );
 
   // rss credential
   // could be cleaner but idk how to work the type inferencing with yup
-  const rssSchema = Yup.object().shape({
-    name: Yup.string().required("Credentials name required")
+  /*const rssSchema = Yup.object().shape({
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters")
   });
   type IRssSchema = Yup.InferType<typeof rssSchema>;
 
@@ -106,11 +595,21 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
     </FormikWithSchema>
   );
+
+  const crowdTangleSchema = Yup.object().shape({
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
+    dashboardAPIToken: Yup.string().required("API Token required"),
+  });
+
   const twitterSchema = Yup.object().shape({
-    name: Yup.string().required("Credentials name required"),
+    name: Yup.string()
+      .required("Connection name required")
+      .max(50, "Max 50 characters"),
     consumerKey: Yup.string().required("Consumer key required."),
     consumerSecret: Yup.string().required("Consumer secret required."),
     accessToken: Yup.string().required("Access Token required."),
@@ -137,58 +636,62 @@ const CreateCredentialForm = ({ onClose }: IProps) => {
       loading={doCreateCredential.isLoading}
       onClose={onClose}
     >
-      <FormikInput name='name' label='Credential Name' />
+      <FormikInput name='name' label='Connection name' maxLength={50} />
       <FormikInput name='consumerKey' label='Twitter API Token' />
       <FormikInput name='consumerSecret' label='Twitter API Token Secret' />
       <FormikInput name='accessToken' label='Twitter Access Token' />
       <FormikInput name='accessTokenSecret' label='Twitter Access Token Secret' />
     </FormikWithSchema>
-  );
-
-  // const crowdTangleSchema = Yup.object().shape({
-  //   name: Yup.string().required("Credentials name required"),
-  //   dashboardAPIToken: Yup.string().required("API Token required"),
-  // });
+  );*/
 
   return (
     <>
-      <label className='text-slate-600'>Credential Type</label>
-      <Listbox
-        value={credentialType}
-        onChange={setCredentialType}
-        as='div'
-        className='relative font-medium mb-3'
-      >
-        <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 border border-slate-300 w-full hover:bg-slate-100 text-left ui-active:bg-slate-200  rounded'>
-          {credentialType || "Select Credential"}
-          <FontAwesomeIcon
-            icon={faChevronDown}
-            className='ui-active:rotate-180 text-slate-400'
-          />
-        </Listbox.Button>
-        <Listbox.Options className='absolute left-0 mt-1 right-0 shadow-md border border-slate-300 bg-white rounded'>
-          {[...CREDENTIAL_OPTIONS].map((item) => (
-            <Listbox.Option
-              key={item}
-              value={item}
-              className='flex justify-between px-3 py-2 hover:bg-slate-100 ui-selected:bg-slate-100 cursor-pointer items-center'
-            >
-              {item}
-
+      {!lockedType && (
+        <>
+          <label className='text-slate-600 dark:text-gray-400'>Source</label>
+          <Listbox
+            value={credentialType}
+            onChange={setCredentialType}
+            as='div'
+            className='relative font-medium mb-3'
+          >
+            <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200  dark:ui-active:bg-gray-600 rounded'>
+              {credentialType ? providerLabel(credentialType) : "Select source"}
               <FontAwesomeIcon
-                icon={faCheck}
-                className={`text-slate-400 ${
-                  item === credentialType ? "" : "hidden"
-                }`}
+                icon={faChevronDown}
+                className='ui-active:rotate-180 text-slate-400 dark:text-gray-400 '
               />
-            </Listbox.Option>
-          ))}
-        </Listbox.Options>
-      </Listbox>
+            </Listbox.Button>
+            <Listbox.Options className='absolute left-0 mt-1 right-0 shadow-md border border-slate-300 bg-white dark:bg-gray-800 rounded'>
+              {[...CREDENTIAL_OPTIONS].map((item) => (
+                <Listbox.Option
+                  key={item}
+                  value={item}
+                  className='flex justify-between px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 ui-selected:bg-slate-100 dark:ui-selected:bg-gray-700 cursor-pointer items-center'
+                >
+                  {providerLabel(item)}
+
+                  <FontAwesomeIcon
+                    icon={faCheck}
+                    className={`text-slate-400 dark:text-gray-400 ${
+                      item === credentialType ? "" : "hidden"
+                    }`}
+                  />
+                </Listbox.Option>
+              ))}
+            </Listbox.Options>
+          </Listbox>
+        </>
+      )}
       {credentialType === "junkipedia" && junkipediaForm}
-      {credentialType === "rss" && rssForm}
-      {credentialType === "twitter" && twitterForm}
-      {/* {credentialType === "telegram" && telegramForm} */}
+      {/* {credentialType === "telegramBot" && telegramBotForm} */}
+      {credentialType === "telegramUser" && telegramUserForm}
+      {credentialType === "mastodon" && mastodonForm}
+      {/*credentialType === "rss" && rssForm*/}
+      {/*credentialType === "twitter" && twitterForm*/}
+      {credentialType === "ioda" && iodaForm}
+      {credentialType === "cloudflare" && cloudflareForm}
+      {credentialType === "ooni" && ooniForm}
     </>
   );
 };

@@ -10,11 +10,15 @@ export interface SocketEvent {
   event: string;
   data: unknown;
 }
-
+/**
+ * register websockets 
+ * @param param0 
+ * @returns 
+ */
 const SocketProvider: React.FC = ({ children }) => {
   const SocketURL =
     process.env.NODE_ENV === "production"
-      ? window.location.host
+      ? process.env.PUBLIC_URL
       : "ws://localhost:3000";
 
   // we use a ref to store the socket as it won't be updated frequently
@@ -54,7 +58,12 @@ const SocketProvider: React.FC = ({ children }) => {
 };
 
 export default SocketProvider;
-// hooks
+
+/**
+ * hook to websocket
+ * @param eventName 
+ * @param eventHandler 
+ */
 export const useSocketSubscribe = (eventName: any, eventHandler: any) => {
   // Get the socket instance
   const { socket } = useContext(SocketContext);

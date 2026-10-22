@@ -1,7 +1,20 @@
 import { hasId } from "../common";
+import { UserPreferences } from "../session/types";
 
-export const USER_ROLES = ["viewer", "monitor", "admin"] as const;
+export const USER_ROLES = ["viewer", "monitor", "admin", "team_lead"] as const;
 export type UserRoles = (typeof USER_ROLES)[number];
+
+export interface UserTeam {
+  _id: string;
+  name: string;
+  description?: string;
+  active?: boolean;
+}
+
+export interface UserTeamMembership {
+  team: UserTeam | string | null;
+  role: "viewer" | "monitor" | "team_lead";
+}
 
 export interface User extends hasId {
   provider: string;
@@ -10,17 +23,42 @@ export interface User extends hasId {
   email: string;
   username: string;
   displayName?: string;
+  teams?: UserTeam[];
+  teamMemberships?: UserTeamMembership[];
   __v: number;
+  createdBy?: string;
+  preferences?: UserPreferences;
+  mfa?: {
+    totp?: {
+      enabled?: boolean;
+      issuer?: string;
+      digits?: number;
+      period?: number;
+      algo?: string;
+    };
+  };
 }
+
+export type TeamMemberCandidate = Pick<
+  User,
+  "_id" | "username" | "displayName" | "role"
+>;
+
+export type UserDirectoryEntry = Pick<
+  User,
+  "_id" | "username" | "displayName"
+>;
 
 export interface UserEditableData {
   username: string;
   displayName?: string;
   email: string;
   role: UserRoles;
+  preferences?: UserPreferences;
   _id?: string;
 }
 
 export interface UserCreationData extends UserEditableData {
   password: string;
+  teams?: string[];
 }

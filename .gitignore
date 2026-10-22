@@ -14,10 +14,6 @@ logs
 results
 tmp
 
-# Python
-venv/
-*.pyc
-
 npm-debug*
 node_modules
 fiddle
@@ -29,18 +25,19 @@ Thumbs.db
 .c9revisions
 .settings
 server-prefs.json
+geoScopes.json
 
 backend/migrations/.migrate
 .migrate
 
 public/css/styles.css
-public/angular/css/app.css
-public/angular/js/app.min.js
-public/angular/translations/locale-debug.json
-backend/translations/locale-debug.json
-backend/hate-speech-api/error.log
+public/uploads
+public/media
+public/ioda-charts-backup
 
-hate-speech-api/*.log
+# Dev media root when MEDIA_ROOT is pointed outside public/ (see .env.example)
+media-store
+
 buildAssets
 docs/_build
 
@@ -48,10 +45,9 @@ NOTES
 
 data
 
-backend/config/secrets.json
 backend/config/cert.pem
 backend/config/key.pem
-backend/config/crowdtangle_list.json
+backend/config/secrets.json
 
 docs/_build
 
@@ -59,3 +55,13 @@ docs/_build
 
 build
 .env
+
+backend/api/uploads
+
+.claude/
+
+# dev-only throwaway scripts + generated fixtures (IODA signal migration)
+# Local runtime media, chart backups, and dev scratch — not source
+media-store
+public/ioda-charts-backup
+scratchpad/

@@ -1,9 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
-import { useQueryParams } from "../../hooks/useQueryParams";
 
-import { IrrelevanceOptions } from "../../api/common";
+import { TernaryOptions } from "../../api/common";
 import {
   setSelectedRead,
   setSelectedIrrelevance,
@@ -14,11 +12,10 @@ import { updateByIds } from "../../utils/immutable";
 import type {
   Reports,
   Report,
-  ReportQueryState,
 } from "../../api/reports/types";
 
 interface IOptions {
-  key: any[];
+  key: readonly unknown[];
 }
 const defaultOptions: IOptions = {
   key: ["reports"],
@@ -28,10 +25,11 @@ export const useReportMutations = (
   userOptions: Partial<IOptions> = defaultOptions
 ) => {
   const queryData = useUpdateQueryData();
-  const navigate = useNavigate();
-  const { searchParams } = useQueryParams<ReportQueryState>();
 
   const options = { ...defaultOptions, ...userOptions };
+  const getReportQueryKey = (reportId: string) =>
+    options.key.includes("batch") ? [...options.key, reportId] : ["reports", reportId];
+  
   // this is an exmaple of optimistic mutation
 
   const setRead = useMutation({
@@ -55,7 +53,7 @@ export const useReportMutations = (
       // update single report
       if (params.currentPageId) {
         contextReport = queryData.update<Report>(
-          [...options.key, params.currentPageId],
+          getReportQueryKey(params.currentPageId),
           (data) => {
             return {
               read: params.read,
@@ -77,7 +75,7 @@ export const useReportMutations = (
       queryData.queryClient.setQueryData(options.key, context.reports);
       if (context.reportId && context.report)
         queryData.queryClient.setQueryData(
-          [...options.key, context.reportId],
+          getReportQueryKey(context.reportId),
           context.report
         );
     },
@@ -86,7 +84,7 @@ export const useReportMutations = (
   const setIrrelevance = useMutation({
     mutationFn: (params: {
       reportIds: string[];
-      irrelevant: IrrelevanceOptions;
+      irrelevant: TernaryOptions;
       currentPageId?: string;
     }) => setSelectedIrrelevance(params.reportIds, params.irrelevant),
     onSuccess: (_, params) => {
@@ -102,7 +100,7 @@ export const useReportMutations = (
       // update single report
       if (params.currentPageId) {
         queryData.update<Report>(
-          [...options.key, params.currentPageId],
+          getReportQueryKey(params.currentPageId),
           (data) => {
             return {
               irrelevant: params.irrelevant,
@@ -135,7 +133,7 @@ export const useReportMutations = (
       // update single report
       if (params.currentPageId) {
         queryData.update<Report>(
-          [...options.key, params.currentPageId],
+          getReportQueryKey(params.currentPageId),
           (data) => {
             return {
               smtcTags: params.tagIds,

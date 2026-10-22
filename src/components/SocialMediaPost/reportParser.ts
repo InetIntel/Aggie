@@ -75,3 +75,148 @@ export function sanitize(string: string) {
   //   },
   //});
 }
+
+// Shared Tailwind classes for the datasource/signal badge (BGP / Active Probing /
+// Telescope) so every render site stays visually consistent. The `bgColor` from
+// signalToNameColor is applied alongside these. SIGNAL_BADGE_BASE omits the text
+// size so compact contexts can override it (e.g. text-xs).
+export const SIGNAL_BADGE_BASE =
+  "font-medium px-1 rounded-lg text-white dark:text-gray-300";
+export const SIGNAL_BADGE_CLASS = `${SIGNAL_BADGE_BASE} text-sm`;
+
+// Raw hex per signal, for contexts that can't use the Tailwind classes below (e.g.
+// recharts SVG line strokes). Keep in sync with the hexes hard-coded in
+// signalToNameColor — Tailwind's JIT needs the class strings to be literal, so the two
+// can't share a computed value.
+export const SIGNAL_HEX: Record<string, string> = {
+  bgp: "#33A02C", // BGP — green
+  "ping-slash24": "#1F78B4", // Active Probing — blue
+  "merit-nt": "#ED9B40", // Telescope — orange
+  mozilla: "#6A3D9A", // Mozilla — purple (completes the ColorBrewer Paired set)
+};
+
+export const SIGNAL_LABEL: Record<string, string> = {
+  bgp: "BGP",
+  "ping-slash24": "Active Probing",
+  "merit-nt": "Telescope",
+  mozilla: "Mozilla",
+};
+
+// Full descriptive labels IODA's dashboard shows in the chart legend (name + the metric
+// each signal measures). Used by IodaChart; the short SIGNAL_LABEL still names the badges.
+export const SIGNAL_CHART_LABEL: Record<string, string> = {
+  "merit-nt": "Telescope (# Unique Source IPs)",
+  bgp: "BGP (#Visible /24s)",
+  "ping-slash24": "Active Probing (#/24s Up)",
+  mozilla: "Mozilla (City Count)",
+};
+
+export function signalToNameColor(rawSignal: string) {
+  switch(rawSignal) {
+    case "bgp":
+      return ["BGP", "bg-[#33A02C] dark:bg-[#33A02C] dark:dark:saturate-[0.6]"];
+    case "ping-slash24":
+      return ["Active Probing", "bg-[#1F78B4] dark:bg-[#1F78B4] dark:dark:saturate-[0.6]"];
+    case "merit-nt":
+      return ["Telescope", "bg-[#ED9B40] dark:bg-[#ED9B40] dark:dark:saturate-[0.6]"];
+    default:
+      return [rawSignal, ""];
+  }
+}
+
+// When the app is deployed under a subpath (e.g. https://host/aggie), media is served
+// by the node app at <base>/media/<key> — a bare "/media/..." would resolve against the
+// origin and bypass the app (nginx returns the SPA), so <img> tags break. Derive the base
+// from PUBLIC_URL exactly like src/index.tsx does for the axios baseURL. Empty at the
+// domain root and in dev.
+const MEDIA_BASE_PATH = (() => {
+  const pub = process.env.PUBLIC_URL;
+  if (!pub) return "";
+  try {
+    return new URL(pub).pathname.replace(/\/$/, "");
+  } catch {
+    // PUBLIC_URL may be a bare path ("/aggie") rather than a full URL.
+    return pub.replace(/\/$/, "");
+  }
+})();
+
+// Resolve a chart image value to a usable <img> src. IODA/Cloudflare charts now live
+// in media storage and the report carries a bare key ("ioda/charts/<hash>.svg"),
+// served by the backend at <base>/media/<key>. Absolute URLs (legacy Cloudflare) and
+// already-rooted paths pass through unchanged.
+export function resolveMediaUrl(value?: string): string {
+  if (!value) return "";
+  if (/^https?:\/\//.test(value) || value.startsWith("/")) return value;
+  return `${MEDIA_BASE_PATH}/media/${value.replace(/^\/+/, "")}`;
+}
+
+// True when the image value is a legacy inline SVG markup string rather than a
+// storage key / URL.
+export function isInlineSvg(value?: string): boolean {
+  return !!value && value.trimStart().startsWith("<");
+}
+
+// For outage alerts (ioda/cloudflare), the distinguishing info is the ASN, network
+// name, and geo scope (country/region) — not the platform. Both channels store
+// entityName as `${networkName} - ${entityScope}`, so we recover the network name by
+// stripping the scope suffix and surface the scope separately. Social reports fall
+// back to author/nickname.
+export const reportNetwork = (
+  report: Report
+): { asn: string; network: string; scope: string } => {
+  const media = report._media?.[0];
+  if (media === "ioda" || media === "cloudflare") {
+    const raw = report.metadata?.rawAPIResponse;
+    const scope = raw?.entityScope ?? "";
+    const entityName = raw?.entityName ?? report.author ?? "";
+    const network =
+      scope && entityName.endsWith(` - ${scope}`)
+        ? entityName.slice(0, entityName.length - ` - ${scope}`.length)
+        : entityName;
+    const asn = report.asn ? report.asn.toUpperCase() : ""; // "as15169" -> "AS15169"
+    return { asn, network, scope };
+  }
+  if (media === "ooni") {
+    const raw = report.metadata?.rawAPIResponse;
+    const asn = raw?.probeASN
+      ? `AS${raw.probeASN}`
+      : report.asn
+      ? report.asn.toUpperCase()
+      : "";
+    return { asn, network: raw?.networkName ?? report.author ?? "", scope: "" };
+  }
+  return {
+    asn: "",
+    network: report._sourceNicknames?.[0] || report.author || "",
+    scope: "",
+  };
+};
+
+// OONI alerts link to the Measurement Aggregation chart for the alert's own
+// network, over the 30 days ending at the alert, so the viewer can see what
+// normal looks like. Built here (not stored) so it also applies to alerts that
+// are already in the database.
+export const reportLink = (report: Report): string | undefined => {
+  if (report._media?.[0] !== "ooni") return report.url;
+  const raw = report.metadata?.rawAPIResponse;
+  const windowEnd = raw?.windowEnd || raw?.triggers?.[0]?.windowEnd;
+  if (!raw?.probeASN || !windowEnd) return report.url;
+
+  const day = String(windowEnd).slice(0, 10);
+  const shift = (offset: number) => {
+    const d = new Date(`${day}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+  const params = new URLSearchParams({
+    test_name: "web_connectivity",
+    axis_x: "measurement_start_day",
+    since: shift(-29),
+    until: shift(1),
+    time_grain: "day",
+    probe_cc: "IR",
+    probe_asn: `AS${raw.probeASN}`,
+    axis_y: "probe_asn",
+  });
+  return `https://explorer.ooni.org/chart/mat?${params}`;
+};

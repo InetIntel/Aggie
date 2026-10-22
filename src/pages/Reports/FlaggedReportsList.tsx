@@ -1,3 +1,5 @@
+// unused artifact from FuCo, used for advanced contextual search
+
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -61,7 +63,7 @@ const FlaggedReportsList = ({}: IProps) => {
   if (!reportsQuery.data)
     return (
       <>
-        <div className='bg-white rounded-lg border border-slate-300 grid place-items-center w-full mt-3'>
+        <div className='bg-white dark:bg-gray-800 rounded-lg border border-slate-300 grid place-items-center w-full mt-3'>
           <Formik
             initialValues={{ keywords: getParam("keywords") }}
             onSubmit={(e) => {
@@ -70,11 +72,11 @@ const FlaggedReportsList = ({}: IProps) => {
           >
             {({ resetForm, values }) => (
               <Form className='flex gap-2 flex-col text-center my-4'>
-                <h1 className='text-xl font-medium'>
+                <h1 className='text-3xl font-medium'>
                   {" "}
                   Advanced Contextual Search
                 </h1>
-                <p className='text-slate-700 mb-2 max-w-md'>
+                <p className='text-slate-700 dark:text-gray-300 mb-2 max-w-md'>
                   {" "}
                   find concepts and ideas that are similar, but not exactly the
                   same to the search term
@@ -83,7 +85,7 @@ const FlaggedReportsList = ({}: IProps) => {
                 <div className='flex items-center focus-within-theme rounded-lg'>
                   <Field
                     name='keywords'
-                    className='focus-theme px-2 py-1 border border-slate-300 bg-white rounded-lg min-w-[20rem] w-full'
+                    className='focus-theme px-2 py-1 border border-slate-300 bg-white dark:bg-gray-800 rounded-lg min-w-[20rem] w-full'
                     placeholder={"what do you want to search for?"}
                   />
                 </div>
@@ -106,7 +108,7 @@ const FlaggedReportsList = ({}: IProps) => {
     );
   return (
     <>
-      <div className='px-1 py-2 bg-gray-50/75 backdrop-blur-sm sticky top-0 z-10 '>
+      <div className='px-1 py-2 bg-gray-50/75 dark:bg-gray-800/75 backdrop-blur-sm sticky top-0 z-10 '>
         <ReportsFilters
           reportCount={reports && reports.total}
           searchPlaceholder='contextual search'
@@ -166,12 +168,13 @@ const FlaggedReportsList = ({}: IProps) => {
                 report={report}
                 isChecked={multiSelect.exists(report)}
                 isSelectMode={multiSelect.isActive}
+                multiSelection={multiSelect.selection}
                 onCheckChange={() => multiSelect.addRemove(report)}
               />
             </div>
           ))
         ) : (
-          <div className='w-full bg-white py-12 grid place-items-center font-medium'>
+          <div className='w-full bg-white dark:bg-gray-800 py-12 grid place-items-center font-medium'>
             <p>
               {reportsQuery.isLoading ? "Loading data..." : "No Results Found"}
             </p>

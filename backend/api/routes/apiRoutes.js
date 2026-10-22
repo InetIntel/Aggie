@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const analyticsRouter = require('./analyticsRoutes');
+const asnRouter = require('./asnRoutes');
 const credentialRouter = require('./credentialsRoutes');
 const csvRouter = require('./csvRoutes');
-const ctListRouter = require('./ctListRoutes');
+const geoScopeRouter = require('./geoScopeRoutes');
 const groupRouter = require('./groupRoutes');
 const reportRouter = require('./reportRoutes');
 const settingRouter = require('./settingRoutes');
@@ -11,11 +13,15 @@ const tagRouter = require('./tagRoutes');
 const userRouter = require('./userRoutes');
 const searchRouter = require('./searchRoutes');
 const visualizationRouter = require('./visualizationRoutes');
+const teamRouter = require('./teamRoutes');
+const permissionRouter = require('./permissionRoutes');
 
 // Add all API routes
+router.use('/analytics', analyticsRouter);
+router.use('/asn', asnRouter);
 router.use('/credential', credentialRouter);
 router.use('/csv', csvRouter);
-router.use('/ctlist', ctListRouter);
+router.use('/geoscope', geoScopeRouter);
 router.use('/group', groupRouter);
 router.use('/report', reportRouter);
 router.use('/setting', settingRouter);
@@ -24,6 +30,7 @@ router.use('/search', searchRouter);
 router.use('/tag', tagRouter);
 router.use('/user', userRouter);
 router.use('/visualization', visualizationRouter);
+router.use('/team', teamRouter);
+router.use('/permission', permissionRouter);
 module.exports = router;
-
 

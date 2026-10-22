@@ -35,9 +35,9 @@ const FetchIndicator = ({ className }: IProps) => {
   }
   return (
     <div className={`w-full  pointer-events-none ${className}`}>
-      <span className='h-[1em] w-full bg-green-600 '></span>
+      <span className='h-[1em] w-full bg-green-600 dark:bg-green-600 dark:saturate-[0.7]'></span>
       <span
-        className='h-[0.12em] absolute top-0 left-0 transition duration-800 bg-green-600'
+        className='h-[0.12em] absolute top-0 left-0 transition duration-800 bg-green-600 dark:bg-green-600 dark:saturate-[0.7]'
         style={{
           width: `${setWidth(isFetching + isMutating, fetchState)}%`,
         }}

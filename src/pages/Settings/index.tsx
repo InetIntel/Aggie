@@ -1,43 +1,92 @@
+import { useEffect } from "react";
 import {
   faCog,
-  faKey,
   faUsersCog,
+  faShieldHalved,
   faTags,
   faCloudArrowDown,
-  faRightFromBracket,
+  faUser,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
-const menuLinks = {
-  Config: { to: "config", icon: faCog },
-  "Manage Users": { to: "users", icon: faUsersCog },
-  "Manage Tags": { to: "tags", icon: faTags },
-  "API Credentials": { to: "credentials", icon: faKey },
-  "Manage Sources": { to: "sources", icon: faCloudArrowDown },
-};
+import { getSession } from "../../api/session";
+
+// Both menus that render these links prefix them with /settings/, so `to` is
+// always relative to that: the navbar builds '/settings/' + to, and the left nav
+// below relies on `user/:id` and friends being children of the /settings route.
+export function menuLinks(
+  role: string | undefined,
+  isTeamLead = false,
+  userId?: string
+) {
+  // Your own profile is not role-dependent, so it sits outside the switch.
+  const profile = userId
+    ? { "My Profile": { to: "user/" + userId, icon: faUser } }
+    : {};
+  return { ...profile, ...roleLinks(role, isTeamLead) };
+}
+
+function roleLinks(role: string | undefined, isTeamLead: boolean) {
+  switch (role) {
+    case "admin":
+      return {
+        "Manage Users": { to: "users", icon: faUsersCog },
+        "Teams": { to: "teams", icon: faShieldHalved },
+        "Tags": { to: "tags", icon: faTags },
+        "Sources and Feeds": { to: "connections", icon: faCloudArrowDown },
+        "KPI tracking": { to: "kpis", icon: faCog },
+      };
+    case "team_lead":
+      return {
+        "Manage Users": { to: "users", icon: faUsersCog },
+        "Teams": { to: "teams", icon: faShieldHalved },
+        "Tags": { to: "tags", icon: faTags },
+        "Sources and Feeds": { to: "connections", icon: faCloudArrowDown },
+      };
+    case "monitor":
+    case "viewer":
+      if (isTeamLead) {
+        return {
+          "Teams": { to: "teams", icon: faShieldHalved },
+          "Tags": { to: "tags", icon: faTags },
+          "Sources": { to: "sources", icon: faCloudArrowDown },
+        };
+      }
+      return {
+        "Tags": { to: "tags", icon: faTags },
+        "Sources and Feeds": { to: "sources", icon: faCloudArrowDown },
+      };
+    default:
+      return {};
+  }
+}
 
 const Settings = () => {
   const location = useLocation();
+  const { data: session } = useQuery(["session"], getSession);
+
+  useEffect(() => {document.title = "Settings - Aggie"}, []);
+
   return (
-    <section className='max-w-screen-xl mx-auto w-full grid grid-cols-5 gap-4'>
-      <nav className='flex flex-col gap-2 mt-3 pr-3 border-r border-slate-300 min-h-[80vh]'>
-        {Object.entries(menuLinks).map(([name, link]) => (
+    <section className='max-w-screen-2xl mx-auto w-full px-4 flex flex-col min-[1080px]:flex-row gap-4'>
+      <nav className='flex flex-wrap min-[1080px]:flex-col gap-2 mt-3 min-[1080px]:pr-3 min-[1080px]:border-r border-slate-300 min-[1080px]:w-[260px] min-[1080px]:shrink-0 min-[1080px]:min-h-[80vh]'>
+        {Object.entries(menuLinks(session?.role, session?.isTeamLead, session?._id)).map(([name, link]) => (
           <Link
             key={name}
-            className={`px-3 py-2 grid grid-cols-[16px_1fr] gap-2 items-center font-medium whitespace-nowrap text-left rounded-lg w-full ${
-              location.pathname.includes(link.to)
-                ? "bg-lime-200 text-green-900 "
-                : "hover:bg-lime-100 hover:text-green-900"
-            }`}
+            className={`px-3 py-2 flex items-center gap-3 font-medium text-left rounded-lg min-[1080px]:w-full ${location.pathname.includes(link.to)
+              ? "bg-lime-200 text-green-900 "
+              : "hover:bg-lime-100 hover:text-green-900"
+              }`}
             to={link.to}
           >
-            <FontAwesomeIcon icon={link.icon} />
-            {name}
+            <FontAwesomeIcon icon={link.icon} className='shrink-0' />
+            <span className='min-w-0 break-words'>{name}</span>
           </Link>
         ))}
       </nav>
-      <div className='col-span-4'>
+      <div className='w-full min-[1080px]:flex-1 min-w-0'>
         <Outlet />
       </div>
     </section>

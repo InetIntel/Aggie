@@ -22,8 +22,6 @@ To play a recording:
 1. Drop sources, groups, reports. Drop other collections if not needed in your experiment.
 1. Load previous reports if needed:
    `mongoimport --db aggie --collection reports --file previous_reports.json`
-1. Set the experimental variables of `secrets.json`: `experiment` to `true`
-   and point `experimentFile` variable to where the json file is, relative to the Aggie folder.
 1. Restore the sources dump to the database:
    `mongorestore --db aggie --collection sources dump/aggie/sources.bson`
 1. Start Aggie.

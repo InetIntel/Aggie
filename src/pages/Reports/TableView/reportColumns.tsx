@@ -1,0 +1,181 @@
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faDotCircle,
+  faExclamationTriangle,
+  faMinusCircle,
+  faXmark,
+} from "@fortawesome/free-solid-svg-icons";
+
+import type { Report } from "../../../api/reports/types";
+import { getGroup } from "../../../api/groups";
+import {
+  signalToNameColor,
+  reportNetwork,
+  SIGNAL_BADGE_BASE,
+} from "../../../components/SocialMediaPost/reportParser";
+
+import type { DataTableColumn } from "../../../components/DataTable/types";
+import SocialMediaIcon from "../../../components/SocialMediaPost/SocialMediaIcon";
+import AggieToken from "../../../components/AggieToken";
+import DateTime from "../../../components/DateTime";
+
+const dash = <span className='text-slate-500 dark:text-gray-400'>—</span>;
+
+// Raw datasource → human label + color, e.g. "bgp" → "BGP".
+export const reportSignal = (report: Report): [string, string] => {
+  const raw = report?.metadata?.rawAPIResponse?.rawEvent?.datasource;
+  if (!raw) return ["", ""];
+  return signalToNameColor(raw) as [string, string];
+};
+
+const PlatformCell = ({ report }: { report: Report }) => (
+  <span className='text-slate-600 dark:text-gray-400'>
+    <SocialMediaIcon mediaKey={report._media?.[0]} />
+  </span>
+);
+
+// ASN emphasized on top, network name below, geo scope (country/region) last.
+const NetworkCell = ({ report }: { report: Report }) => {
+  const { asn, network, scope } = reportNetwork(report);
+  if (!asn && !network && !scope) return dash;
+  return (
+    <div className='flex flex-col items-start leading-tight'>
+      {asn && (
+        <span className='font-medium text-slate-700 dark:text-gray-300'>{asn}</span>
+      )}
+      {network && (
+        <span className='block truncate text-slate-500 dark:text-gray-400'>
+          {network}
+        </span>
+      )}
+      {scope && (
+        <span className='block truncate text-xs text-slate-400 dark:text-gray-500'>
+          {scope}
+        </span>
+      )}
+    </div>
+  );
+};
+
+const StatusCell = ({ report }: { report: Report }) => (
+  <div className='flex flex-col gap-1 items-start'>
+    <span
+      className={
+        report.read
+          ? "text-slate-500 dark:text-gray-400"
+          : "text-blue-700 font-medium dark:text-blue-300"
+      }
+    >
+      {report.read ? "Read" : "Unread"}
+    </span>
+    {report.irrelevant === "true" && (
+      <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
+        Ignore
+      </AggieToken>
+    )}
+    {report.irrelevant === "false" && (
+      <AggieToken variant='light:green' icon={faDotCircle} className='text-xs'>
+        Investigate
+      </AggieToken>
+    )}
+  </div>
+);
+
+const SignalCell = ({ report }: { report: Report }) => {
+  const [signal, bgColor] = reportSignal(report);
+  if (!signal) return dash;
+  return (
+    <AggieToken
+      className={`${bgColor} ${SIGNAL_BADGE_BASE} text-xs px-1.5 py-0.5 whitespace-nowrap`}
+    >
+      {signal}
+    </AggieToken>
+  );
+};
+
+// Linked-incident chip; fetches the group lazily like ReportListItem does.
+const IncidentCell = ({ report }: { report: Report }) => {
+  const { data: incident } = useQuery(
+    ["group", report._group],
+    () => getGroup(report._group),
+    { enabled: !!report._group },
+  );
+
+  if (!report._group || !incident) return dash;
+
+  return (
+    <Link
+      to={`/incidents/${incident._id}`}
+      className={`inline-flex items-center gap-1 max-w-full min-w-0 rounded-lg px-1.5 py-0.5 text-sm border border-slate-300 hover:bg-white dark:hover:bg-gray-800 ${
+        incident.closed
+          ? "bg-purple-50 dark:bg-purple-50 dark:saturate-[0.7] text-purple-700"
+          : "bg-slate-50 dark:bg-gray-900 text-slate-700 dark:text-gray-300"
+      }`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span className='truncate min-w-0 font-medium'>{incident.title}</span>
+      {incident.escalated && (
+        <FontAwesomeIcon icon={faExclamationTriangle} className='text-red-500' />
+      )}
+      {incident.closed && (
+        <FontAwesomeIcon icon={faMinusCircle} className='text-purple-500' />
+      )}
+      <span className='whitespace-nowrap'>#{incident.idnum}</span>
+    </Link>
+  );
+};
+
+// Display order is fixed here; collapse order is encoded independently by
+// `collapsePriority` (higher = more persistent). As the table narrows, columns
+// collapse in this order: signal → status → Incident → date → ASN; platform has
+// no priority so it always stays. Widths are the per-column minimums.
+export const buildReportColumns = (): DataTableColumn<Report>[] => [
+  {
+    id: "platform",
+    header: "Platform",
+    minWidth: 100,
+    tdClassName: "whitespace-nowrap",
+    spilloverLabel: "Platform",
+    cell: (report) => <PlatformCell report={report} />,
+  },
+  {
+    id: "status",
+    header: "Status",
+    minWidth: 140,
+    collapsePriority: 2,
+    cell: (report) => <StatusCell report={report} />,
+  },
+  {
+    id: "date",
+    header: "Date",
+    minWidth: 200,
+    collapsePriority: 4,
+    tdClassName: "whitespace-nowrap text-xs",
+    cell: (report) => <DateTime dateString={report.authoredAt} />,
+  },
+  {
+    id: "source",
+    header: "ASN / Network / Geo Scope",
+    minWidth: 325,
+    collapsePriority: 5,
+    cell: (report) => <NetworkCell report={report} />,
+  },
+  {
+    id: "incident",
+    header: "Incident",
+    minWidth: 200,
+    collapsePriority: 3,
+    grow: true,
+    cell: (report) => <IncidentCell report={report} />,
+  },
+  {
+    id: "signal",
+    header: "Signal",
+    minWidth: 200,
+    collapsePriority: 1,
+    noSpillover: true, // signal already shown by the IODA badge in the expanded detail
+    cell: (report) => <SignalCell report={report} />,
+  },
+];

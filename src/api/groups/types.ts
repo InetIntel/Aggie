@@ -1,5 +1,12 @@
-import { VeracityOptions, hasId, GroupSortBy } from "../common";
+import { hasId, GroupSortBy, TernaryOptions } from "../common";
 import { User } from "../users/types";
+
+export const PUBLISHED_OPTIONS = [
+  "Not Published",
+  "Published",
+  "Shared with Networks",
+] as const;
+export type PublishedOptions = (typeof PUBLISHED_OPTIONS)[number];
 
 interface AssignedToUser extends hasId {
   username: string;
@@ -8,15 +15,25 @@ interface Creator extends hasId {
   username: string;
 }
 
+export type IncidentAccessMode = 'public' | 'restricted';
+
+export interface IncidentAccessPolicy {
+  mode: IncidentAccessMode;
+  teams: Array<string | { _id: string; name?: string }>;
+}
+
 export interface Group extends hasId {
   tags: string[];
   id?: number;
   smtcTags: string[];
   status: string;
-  veracity: VeracityOptions;
+  verification_status: TernaryOptions | boolean | null;
+  confirmation_status: TernaryOptions | boolean | null;
+  publication_status: PublishedOptions[];
   escalated: boolean;
   closed: boolean;
   public: boolean;
+  accessPolicy?: IncidentAccessPolicy;
   _reports: string[];
   title: string;
   assignedTo?: AssignedToUser[] | User[]; // AssignedToUser | AssignedToUser[] <- i dont think its ever not an array
@@ -28,6 +45,14 @@ export interface Group extends hasId {
   notes?: string;
   locationName: string;
   comments?: GroupComment[];
+  incidentStartedAt: Date;
+  incidentEndedAt: Date;
+  incidentDurationSeconds?: number | null; 
+  impactedAsns?: string[]; 
+  impactedGeoScopes?: string[];
+  directPopulationCoverageScore?: number | null;
+  indirectPopulationCoverageScore?: number | null;
+  reportSources?: string[];
 }
 
 export interface Groups {
@@ -38,12 +63,19 @@ export interface Groups {
 export interface GroupEditableData extends Partial<hasId> {
   title: string;
   notes: string;
-  veracity: VeracityOptions;
+  verification_status: boolean;
+  confirmation_status: boolean;
+  publication_status: PublishedOptions[];
   closed: boolean;
   assignedTo: string[];
   locationName: string;
   public: boolean;
   escalated: boolean;
+  accessPolicy?: IncidentAccessPolicy;
+  incidentStartedAt: Date;
+  incidentEndedAt: Date;
+  impactedAsns?: string[]; 
+  impactedGeoScopes?: string[];
 }
 
 export interface GroupCreateData extends GroupEditableData {
@@ -51,9 +83,9 @@ export interface GroupCreateData extends GroupEditableData {
 }
 
 export interface GroupQueryState {
-  veracity?: string;
   escalated?: string | boolean;
   closed?: string | boolean;
+  stages?: string; // comma-separated lifecycle stage keys: verification,confirmation,published
   title?: string;
   totalReports?: string | number;
   assignedTo?: string;
@@ -61,6 +93,8 @@ export interface GroupQueryState {
   after?: string;
   before?: string;
   idnum?: string | number;
+  tags?: string;
+  tagMatch?: "any" | "all";
   locationName?: string;
   page?: string | number;
   sortBy?: GroupSortBy;
@@ -70,9 +104,28 @@ export interface GroupComment extends EditableGroupComment {
   createdAt: string;
   updatedAt: string;
   _id: string;
+  attachmentsToDelete?: string[];
 }
 
 export interface EditableGroupComment {
   data: string;
   author: string;
+  attachments: (GroupCommentAttachment | File)[];
+}
+
+export const MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "text/csv", 
+  "text/plain",
+] as const;
+export type MimeTypes = (typeof MIME_TYPES)[number];
+
+export interface GroupCommentAttachment {
+  _id: string;
+  fileName: string;
+  path: string;
+  mimeType: MimeTypes;
+  fileSize: number;
 }

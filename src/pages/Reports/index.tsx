@@ -1,54 +1,84 @@
-import { useOutlet, useParams, useLocation } from "react-router-dom";
-import { useUpdateQueryData } from "../../hooks/useUpdateQueryData";
-import { SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
-import type { Report, Reports as IReports } from "../../api/reports/types";
-import { updateByIds } from "../../utils/immutable";
+import {
+  useOutlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSocketSubscribe } from "../../hooks/WebsocketProvider";
 
-const Reports = ({ children }: { children: React.ReactNode }) => {
-  const queryData = useUpdateQueryData();
+interface IProps {
+  children: React.ReactNode
+}
+
+const Reports = ({ children }: IProps) => {
+  const queryClient = useQueryClient();
   const location = useLocation();
-  const { id: pageId } = useParams();
+  const navigate = useNavigate();
   const outlet = useOutlet();
-  interface ReportUpdateEvent extends SocketEvent {
-    data: {
-      ids: string[];
-      update: Record<string, any>;
-    };
-  }
-  const handleSocketUpdate = (message: ReportUpdateEvent) => {
-    if (message.event !== "reports:update") return;
-    console.log("sockets", message);
-    const key = location.pathname.includes("batch") ? ["batch"] : ["reports"];
-    queryData.update<IReports>(key, (data) => {
-      const updateData = updateByIds(
-        message.data.ids,
-        data.results,
-        message.data.update
-      );
-      return {
-        results: updateData,
-      };
-    });
-    // update single report
-    if (pageId) {
-      queryData.update<Report>([...key, pageId], (data) => {
-        return message.data.update;
-      });
-    }
+
+  // List view uses a persistent 1/3 right detail panel (the selected report
+  // renders in the outlet). The alerts-only table view shows detail inline, so
+  // there it stays full-width and a deep link to /alerts/:id opens the
+  // standalone detail in a slide-over drawer as a fallback.
+  const hasOutlet = !!outlet && !!outlet.type;
+  const isAlerts = location.pathname.startsWith("/alerts");
+  const basePath = location.pathname.startsWith("/mediaposts")
+    ? "/mediaposts"
+    : "/alerts";
+  const urlView = new URLSearchParams(location.search).get("view");
+  const view = !isAlerts
+    ? "list"
+    : urlView === "table" || urlView === "list"
+    ? urlView
+    : localStorage.getItem("alerts:view") === "table"
+    ? "table"
+    : "list";
+  const listView = view === "list";
+
+  const handleSocketUpdate = () => {
+    queryClient.invalidateQueries(["reports"]);
+    queryClient.invalidateQueries(["batch"]);
   };
   useSocketSubscribe("reports:update", handleSocketUpdate);
+  useSocketSubscribe("reports:create", handleSocketUpdate);
+  useSocketSubscribe("reports:delete", handleSocketUpdate);
+  useSocketSubscribe("reports:read", handleSocketUpdate);
+
+  if (listView) {
+    return (
+      <section className='max-w-screen-2xl mx-auto px-4 grid grid-cols-3 gap-3'>
+        <main className='col-span-2'>{children}</main>
+        <aside className='col-span-1'>
+          {!hasOutlet ? (
+            <p className='grid w-full py-24 px-6 place-items-center text-center font-medium sticky top-2 bg-slate-50 dark:bg-gray-900 rounded-lg mt-4'>
+              {isAlerts
+                ? "Select an alert to view in this window"
+                : "Select a social media post to view in this window"}
+            </p>
+          ) : (
+            outlet
+          )}
+        </aside>
+      </section>
+    );
+  }
+
   return (
-    <section className='max-w-screen-2xl mx-auto px-4 grid grid-cols-3 gap-3'>
-      <main className='col-span-2 '>{children}</main>
-      <aside className='col-span-1'>
-        {!outlet || !outlet.type ? (
-          <p className='grid w-full py-24 place-items-center font-medium sticky top-2 bg-slate-50 rounded-lg mt-4'>
-            Select a report to view in this window
-          </p>
-        ) : (
-          outlet
-        )}
-      </aside>
+    <section className='max-w-screen-2xl mx-auto px-4'>
+      <main>{children}</main>
+      {hasOutlet && (
+        <>
+          <div
+            className='fixed inset-0 bg-black/20 z-20'
+            onClick={() =>
+              navigate({ pathname: basePath, search: location.search })
+            }
+          />
+          <aside className='fixed top-0 right-0 h-full w-full max-w-xl z-30 bg-slate-50 dark:bg-gray-900 shadow-xl overflow-y-auto p-4'>
+            {outlet}
+          </aside>
+        </>
+      )}
     </section>
   );
 };

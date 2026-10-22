@@ -1,5 +1,5 @@
 import { useQueryParams } from "../../../hooks/useQueryParams";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
@@ -18,10 +18,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import CreateEditIncidentForm from "../CreateEditIncidentForm";
 
-interface NewIncidentQueryState {
-  reports?: string;
-  key?: string;
-}
+
 
 const NewIncident = () => {
   const navigate = useNavigate();
@@ -29,6 +26,11 @@ const NewIncident = () => {
   const [reportsData, setReportsData] = useState<Report[]>([]);
   const [showDialog, setShowDialog] = useState(false);
 
+
+  interface NewIncidentQueryState {
+    reports?: string;
+    key?: string;
+  }
   const { searchParams, getParam } = useQueryParams<NewIncidentQueryState>();
 
   const doCreateNewGroup = useMutation({
@@ -42,7 +44,7 @@ const NewIncident = () => {
         return;
       }
       if (!getParam("reports")) {
-        navigate(`/incidents/${data._id}`);
+        navigate(`/incidents/${data._id}`, { replace: true });
         return;
       }
 
@@ -54,6 +56,7 @@ const NewIncident = () => {
   });
 
   useEffect(() => {
+    document.title = "New Incident - Aggie";
     const key = getParam("key") || "reports";
     const data = queryClient.getQueryData<Reports>([key]);
     if (!data) return;
@@ -87,7 +90,7 @@ const NewIncident = () => {
     if (status === "idle")
       return <div className='px-2 py-1 opacity-0'>idle</div>;
     return (
-      <div className='px-2 py-1 border border-slate-200 bg-slate-100 rounded-lg flex gap-1 items-center'>
+      <div className='px-2 py-1 border border-slate-200 bg-slate-100 dark:bg-gray-700 rounded-lg flex gap-1 items-center'>
         {status === "loading" && (
           <FontAwesomeIcon icon={faSpinner} className='animate-spin' />
         )}
@@ -130,9 +133,9 @@ const NewIncident = () => {
         }}
         className='relative z-50'
       >
-        <div className='fixed inset-0 bg-black/30' aria-hidden='true' />
+        <div className='fixed inset-0 bg-black/30 dark:bg-white/20' aria-hidden='true' />
         <div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
-          <Dialog.Panel className='bg-white rounded-xl border border-slate-200 shadow-xl min-w-24 min-h-12 p-4 flex flex-col gap-2'>
+          <Dialog.Panel className='bg-white dark:bg-gray-800 rounded-xl border border-slate-200 shadow-xl min-w-24 min-h-12 p-4 flex flex-col gap-2'>
             <p>Creating incident... Please don't close the page!</p>
             {mutationIndicator(doCreateNewGroup.status, {
               loading: "creating Incident...",

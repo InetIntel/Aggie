@@ -2,21 +2,12 @@
 // Represents a set of credentials that you want to keep protected.
 'use strict';
 
+const credentialsTypes = require('../config/models/credentialsConfigs');
 const database = require('../database');
 const mongoose = database.mongoose;
 const Schema = mongoose.Schema;
 const validator = require('validator');
 
-
-// The types of credentials that are possible.
-// Add more as you see fit.
-const credentialsTypes = [
-  'twitter',
-  'crowdtangle',
-  'telegram',
-  'junkipedia',
-  'rss'
-];
 
 // validates secrete based on their type
 const secretsValidator = function(secrets) {
@@ -39,14 +30,28 @@ const secretsValidator = function(secrets) {
       && isValidString(secrets.accessToken)
       && isValidString(secrets.accessTokenSecret)
     );
-  case 'telegram':
-    return isValidString(secrets.botAPIToken); // bot API token
+  case 'junkipedia':
+    return isValidString(secrets.junkipediaAPIKey);
+  case 'cloudflare':
+    return isValidString(secrets.cloudflareApiToken);
+  case 'telegramBot':
+    return isValidString(secrets.botAPIToken);
+  case 'mastodon':
+    return (
+      isValidString(secrets.serverUrl)
+      && isValidString(secrets.clientId)
+      && isValidString(secrets.clientSecret)
+      && isValidString(secrets.accessToken)
+    );
+  case 'ioda':
+    return true;
   default:
+    return true;
   }
 };
 
 const nameValidator = function(name) {
-  return validator.isLength(name, {min: 1, max: 20});
+  return validator.isLength(name, {min: 1, max: 50});
 }
 
 const credentialsSchema = new Schema({

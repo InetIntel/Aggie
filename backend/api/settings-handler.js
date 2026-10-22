@@ -24,6 +24,17 @@ Streamer.prototype._addSettingListeners = function (emitter) {
     emitter.on('settingsUpdated', function (report) {
         self.resumeQuery();
     });
+
+    emitter.removeAllListeners('fetching:start');
+    emitter.removeAllListeners('fetching:stop');
+
+    emitter.on('fetching:start', () => {
+        self.emit('fetching:start');
+    });
+
+    emitter.on('fetching:stop', () => {
+    self.emit('fetching:stop');
+    });
 };
 
 module.exports = new Streamer();

@@ -8,66 +8,388 @@ var Report = require('../../models/report');
 var batch = require('../../models/batch');
 var ReportQuery = require('../../models/query/report-query');
 var _ = require('lodash');
-var writelog = require('../../writeLog');
 var tags = require('../../shared/tags');
 const Group = require("../../models/group");
 const eventRouter = require('../sockets/event-router');
+const {  recomputeIncidentDurationForGroups } = require('../utils/incidentDuration');
+const { buildMediaUrl } = require('../../fetching/utils/socialImageStorage');
+const {
+  attachReportsToGroup,
+  removeReportsFromGroup,
+  setReportsPinnedInGroup,
+} = require('../utils/reportGroupActions');
+const { resolveUseDedup } = require('../utils/reportCounts');
+
+const Source = require('../../models/source');
+const Team = require('../../models/team');
+const {
+  combineReportFilters,
+  getReportSourceAccessFilter,
+} = require('../utils/reportSourceAccess');
+const { normalizeIds } = require('../../access/teamAccess');
+const {
+  hideRestrictedIncidentReferences,
+} = require('../../access/reportIncidentReferences');
 
 // Determine the search keywords
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
   // Data passed through URL parameters
-  var query = _.pick(queryString, ['keywords', 'status', 'after', 'before', 'media',
-    'sourceId', 'groupId', 'author', 'tags', 'list', 'escalated', 'veracity', 'isRelevantReports', "irrelevant"]);
+  var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before',
+    'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media', 'dataSources', 'entityLevel',
+    'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity',
+    'isRelevantReports', "irrelevant", 'ongoing', 'countries', 'asns', 'regions']);
+
+  if (query.ongoing === 'true') {
+    query.isOutageOngoing = true;
+  } else if (query.ongoing === 'false') {
+    query.isOutageOngoing = false;
+  }
+  delete query.ongoing;
+
+  if (!query.media && query.alerts === 'true') {
+    query.isOutageEvent = true;
+  } else if (!query.media && query.alerts === 'false') {
+    query.isOutageEvent = false;
+  } 
+  
+  
+  if (query.dataSources) query.dataSources = query.dataSources.split(",").filter(Boolean);
+  if (query.entityLevel) query.entityLevel = query.entityLevel.split(',').map(s => s.trim()).filter(Boolean);
+  if (query.reportIds) query.reportIds = query.reportIds.split(',').map(s => s.trim()).filter(Boolean);
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 }
 
-// Get a list of queried Reports
-exports.report_reports = (req, res) => {
-  // Parse query string
+const canModifyReportsWithinScope = async (
+  reportIds,
+  scopedTeamIds,
+  allowUnscoped = false
+) => {
+  const reports = await Report.find({ _id: { $in: reportIds } })
+    .select('_sources _group')
+    .lean();
+  const sourceIds = [...new Set(reports.flatMap((report) => report._sources || []))];
+  const groupIds = [...new Set(
+    reports.map((report) => report._group).filter(Boolean).map(String)
+  )];
+  const allowedTeams = new Set(normalizeIds(scopedTeamIds));
+  const [sources, groups, scopedTeams] = await Promise.all([
+    Source.find({ _id: { $in: sourceIds } })
+      .select('_id accessPolicy countryCodes')
+      .lean(),
+    Group.find({ _id: { $in: groupIds } })
+      .select('_id accessPolicy')
+      .lean(),
+    Team.find({
+      _id: { $in: [...allowedTeams] },
+      active: { $ne: false },
+    })
+      .select('_id countryCodes')
+      .lean(),
+  ]);
+  const scopedTeamCountries = new Map(scopedTeams.map((team) => [
+    String(team._id),
+    new Set((team.countryCodes || []).map((code) => String(code).toUpperCase())),
+  ]));
+  const sourceTeams = new Map(sources.map((source) => [
+    String(source._id),
+    source.accessPolicy && source.accessPolicy.mode === 'country_restricted'
+      ? [...allowedTeams].filter((teamId) => {
+          const teamCountries = scopedTeamCountries.get(teamId) || new Set();
+          return (source.countryCodes || []).some(
+            (code) => teamCountries.has(String(code).toUpperCase())
+          );
+        })
+      : source.accessPolicy && source.accessPolicy.mode !== 'public'
+        ? normalizeIds(source.accessPolicy.teams)
+        : [],
+  ]));
+  const groupTeams = new Map(groups.map((group) => [
+    String(group._id),
+    group.accessPolicy && group.accessPolicy.mode === 'restricted'
+      ? normalizeIds(group.accessPolicy.teams)
+      : [],
+  ]));
+  return reports.length === reportIds.length && reports.every((report) => {
+    const reportTeamIds = [
+      ...(report._sources || []).flatMap(
+        (sourceId) => sourceTeams.get(String(sourceId)) || []
+      ),
+      ...(report._group ? groupTeams.get(String(report._group)) || [] : []),
+    ];
 
-  const queryData = parseQueryData(req.query);
-  if (queryData) {
-    let query = new ReportQuery(queryData);
-    // Query for reports using fti
-    Report.queryReports(query, req.query.page, (err, reports) => {
-      if (err) return res.status(err.status).send(err.message);
-      else {
-        writelog.writeReport(req, reports, 'filter', query);
-        return res.send(reports);
+    if (reportTeamIds.length === 0) return allowUnscoped;
+    return reportTeamIds.some((teamId) => allowedTeams.has(teamId));
+  });
+};
+
+exports.requireReportAccess = async (req, res, next) => {
+  const isMutation = !['GET', 'HEAD'].includes(req.method);
+  if (isMutation && (!req.permissionScope || req.permissionScope.permission !== 'edit data')) {
+    return res.status(403).send('Report permissions have not been checked.');
+  }
+  const requestedIds = [
+    ...(req.params && req.params._id ? [req.params._id] : []),
+    ...(req.body && Array.isArray(req.body.ids) ? req.body.ids : []),
+  ];
+  const ids = [...new Set(requestedIds.filter(Boolean).map(String))];
+
+  if (ids.length === 0) return next();
+
+  try {
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
+    const idFilter = { _id: { $in: ids } };
+    const [existingCount, accessibleCount] = await Promise.all([
+      Report.countDocuments(idFilter).exec(),
+      Report.countDocuments(
+        combineReportFilters(idFilter, sourceAccessFilter)
+      ).exec(),
+    ]);
+
+    if (accessibleCount !== existingCount) {
+      return res.status(403).send('Unauthorized to access one or more reports.');
+    }
+
+    if (
+      isMutation && req.permissionScope.global !== true &&
+      !(await canModifyReportsWithinScope(
+        ids,
+        req.permissionScope.teamIds,
+        req.permissionScope.allowUnscoped
+      ))
+    ) {
+      return res.status(403).send(
+        'Your team role cannot modify one or more reports.'
+      );
+    }
+
+    req.reportSourceAccessFilter = sourceAccessFilter;
+    return next();
+  } catch (err) {
+    if (res.headersSent) return;
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to check report access.');
+  }
+};
+
+// Detemine whether should dedup overlapping reports
+const shouldDedupByEventIdentifier = (entityLevel, groupId) => {
+  if (groupId) return false;
+  if (!entityLevel || entityLevel.length === 0) return true;
+  return entityLevel.includes('AS') && entityLevel.includes('AS - Country');
+};
+
+// `stripChart` drops the (potentially few-KB) IODA signal series from list rows; the
+// detail endpoint keeps it and the frontend lazy-loads it per report.
+const serializeReport = (report, { stripChart = false } = {}) => {
+  if (!report) return report;
+
+  const plainReport = typeof report.toObject === 'function'
+    ? report.toObject()
+    : report;
+
+  const attachments = Array.isArray(plainReport?.metadata?.attachments)
+    ? plainReport.metadata.attachments.map((attachment) => ({
+        ...attachment,
+        // Thumbnail URLs are intended for list/feed cards and should be lazy-loaded by the frontend.
+        thumbnailUrl: buildMediaUrl(attachment.thumbnailKey),
+        // Full image URLs are intended for report detail/full-view rendering.
+        imageUrl: buildMediaUrl(attachment.imageKey),
+      }))
+    : plainReport?.metadata?.attachments;
+
+  // Chart images at metadata.rawAPIResponse.image come in three shapes; expose a URL
+  // the frontend can <img src> against without mangling remote URLs. The shapes are:
+  //   - legacy inline SVG (pre-migration IODA, starts with '<') — no URL, leave as-is
+  //   - absolute remote URL (Cloudflare Radar chart) — pass through unchanged
+  //   - relative media key (post-migration IODA) — resolve to /media/... via buildMediaUrl
+  const rawAPIResponse = plainReport?.metadata?.rawAPIResponse;
+  const chartImage = rawAPIResponse?.image;
+  let imageUrl;
+  if (typeof chartImage === 'string') {
+    const trimmed = chartImage.trimStart();
+    if (trimmed.startsWith('<')) {
+      imageUrl = undefined;
+    } else if (/^https?:\/\//i.test(trimmed)) {
+      imageUrl = chartImage;
+    } else {
+      imageUrl = buildMediaUrl(chartImage);
+    }
+  }
+  let rawAPIResponseWithUrl =
+    imageUrl != null ? { ...rawAPIResponse, imageUrl } : rawAPIResponse;
+
+  if (stripChart && rawAPIResponseWithUrl && rawAPIResponseWithUrl.chart) {
+    const { chart, ...rest } = rawAPIResponseWithUrl;
+    rawAPIResponseWithUrl = rest;
+  }
+
+  return {
+    ...plainReport,
+    metadata: plainReport?.metadata
+      ? {
+          ...plainReport.metadata,
+          attachments,
+          ...(rawAPIResponse ? { rawAPIResponse: rawAPIResponseWithUrl } : {}),
+        }
+      : plainReport?.metadata,
+  };
+};
+
+// Wraps list/feed responses; strips the IODA chart series from each row (detail keeps it).
+const serializeReportResponse = (payload, { stripChart = true } = {}) => {
+  const serializeRow = (row) => serializeReport(row, { stripChart });
+  if (Array.isArray(payload)) {
+    return payload.map(serializeRow);
+  }
+
+  if (payload && Array.isArray(payload.results)) {
+    return {
+      ...payload,
+      results: payload.results.map(serializeRow),
+    };
+  }
+
+  return serializeRow(payload);
+};
+
+const sendReportResponse = async (req, res, payload, status = 200, options = {}) => {
+  try {
+    const serialized = serializeReportResponse(payload, options);
+    const safePayload = await hideRestrictedIncidentReferences(
+      req.accessUser || req.user,
+      serialized
+    );
+    if (res.headersSent) return;
+    return res.status(status).send(safePayload);
+  } catch (err) {
+    if (res.headersSent) return;
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to protect incident references.');
+  }
+};
+
+// Get a list of queried Reports
+exports.report_filter_options = async (req, res) => {
+  try {
+    const { countryExpression, regionExpression } = require('../../shared/alertLocations');
+    const countries = require('i18n-iso-countries');
+    const access = await getReportSourceAccessFilter(req);
+    const rows = await Report.aggregate([
+      { $match: combineReportFilters({ isOutageEvent: true }, access) },
+      { $project: { country: countryExpression, region: regionExpression, asn: 1, geoScope: 1,
+        network: { $ifNull: ['$metadata.rawAPIResponse.networkName', { $ifNull: [
+          '$metadata.rawAPIResponse.rawEvent.asnDetails.name', '$metadata.rawAPIResponse.entityName',
+        ] }] } } },
+      { $group: { _id: { country: '$country', region: '$region', asn: '$asn' }, scope: { $max: '$geoScope' }, network: { $max: '$network' } } },
+    ]);
+    const options = { countries: new Map(), asns: new Map(), regions: new Map() };
+    for (const row of rows) {
+      const { country, region, asn } = row._id;
+      const countryName = country && (countries.getName(country, 'en') || country);
+      if (country) options.countries.set(country, countryName);
+      if (asn) options.asns.set(asn, `${asn.toUpperCase()}${row.network ? ` — ${row.network}` : ''}`);
+      if (region) options.regions.set(region, `${row.scope || region}${countryName ? ` (${countryName})` : ''}`);
+    }
+    res.json(Object.fromEntries(Object.entries(options).map(([kind, values]) => [kind,
+      [...values].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label)),
+    ])));
+  } catch (err) {
+    res.status(err.status || 500).send('Unable to load alert filter options.');
+  }
+};
+
+exports.report_reports = async (req, res) => {
+  try {
+    const queryData = parseQueryData(req.query);
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
+
+    if (queryData) {
+      let query = new ReportQuery(queryData);
+
+      // Determine if we should deduplicate (shared with the analytics metrics endpoint
+      // so counts and list totals stay in parity).
+      const useDedup = resolveUseDedup(queryData, {
+        hideDuplicateASNs: req.query.hideDuplicateASNs,
+      });
+
+      const handler = (err, reports) => {
+        // The timeout middleware may have already responded; never write twice.
+        if (res.headersSent) {
+          if (err) {
+            console.error(
+              'report_reports: response already sent, dropping late error:',
+              err.message
+            );
+          }
+          return;
+        }
+        if (err) return res.status(err.status || 500).send(err.message);
+        return sendReportResponse(req, res, reports);
+      };
+
+      if (useDedup) {
+        Report.queryReportsDeduped(query, req.query.page, handler, sourceAccessFilter);
+      } else {
+        Report.queryReports(query, req.query.page, handler, sourceAccessFilter);
       }
-    });
-  } else {
+
+      return;
+    }
+
     // Return all reports using pagination
-    Report.findSortedPage({}, page, (err, reports) => {
-      if (err) return res.status(err.status).send(err.message);
-      else return res.status(200).send(reports);
+    Report.findSortedPage(sourceAccessFilter, req.query.page, (err, reports) => {
+      if (res.headersSent) return;
+      if (err) return res.status(err.status || 500).send(err.message);
+      return sendReportResponse(req, res, reports);
     });
+  } catch (err) {
+    if (res.headersSent) return;
+
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to fetch reports.');
   }
 }
 
 // Load batch
-exports.report_batch = (req, res) => {
-  batch.load(req.user._id, (err, reports) => {
-    if (err) res.status(err.status).send(err.message);
-    else {
-      writelog.writeBatch(req, 'loadBatch', reports);
-      res.status(200).send({ results: reports, total: reports.length });
-    }
-  });
+exports.report_batch = async (req, res) => {
+  try {
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
+    batch.load(req.user._id, sourceAccessFilter, (err, reports) => {
+      if (res.headersSent) return;
+      if (err) return res.status(err.status || 500).send(err.message);
+      return sendReportResponse(req, res, {
+        results: reports,
+        total: reports.length,
+      });
+    });
+  } catch (err) {
+    if (res.headersSent) return;
+    return res.status(err.status || 500).send(err.message || 'Unable to load batch.');
+  }
 }
 
 // Checkout new batch
-exports.report_batch_new = (req, res) => {
-  const query = new ReportQuery(req.body);
-  batch.checkout(req.user._id, query, (err, reports) => {
-    if (err) res.status(err.status).send(err.message);
-    else {
-      writelog.writeBatch(req, 'getNewBatch', reports);
-      res.status(200).send({ results: reports, total: reports.length });
-    }
-  });
+exports.report_batch_new = async (req, res) => {
+  try {
+    const query = new ReportQuery(req.body);
+    const sourceAccessFilter = await getReportSourceAccessFilter(req);
+    batch.checkout(req.user._id, query, sourceAccessFilter, (err, reports) => {
+      if (res.headersSent) return;
+      if (err) return res.status(err.status || 500).send(err.message);
+      return sendReportResponse(req, res, {
+        results: reports,
+        total: reports.length,
+      });
+    });
+  } catch (err) {
+    if (res.headersSent) return;
+    return res.status(err.status || 500).send(err.message || 'Unable to create batch.');
+  }
 }
 
 // Cancel batch
@@ -75,7 +397,7 @@ exports.report_batch_cancel = (req, res) => {
   batch.cancel(req.user._id, (err) => {
     if (err) res.status(err.status).send(err.message);
     else {
-      writelog.writeBatch(req, 'cancelBatch');
+      
       res.sendStatus(200);
     }
   });
@@ -87,8 +409,8 @@ exports.report_details = (req, res) => {
     if (err) res.status(err.status).send(err.message);
     else if (!report) res.sendStatus(404);
     else {
-      writelog.writeReport(req, report, 'viewReport');
-      res.status(200).send(report);
+      
+      return sendReportResponse(req, res, report, 200, { stripChart: false });
     }
   });
 }
@@ -99,12 +421,13 @@ exports.report_comments = (req, res) => {
   const queryData = { commentTo: req.params._id };
   const query = new ReportQuery(queryData);
   Report.queryReports(query, page, (err, reports) => {
+    if (res.headersSent) return;
     if (err) res.status(err.status).send(err.message);
     else {
-      writelog.writeReport(req, reports, 'filter', query);
-      res.status(200).send(reports);
+      
+      return sendReportResponse(req, res, reports);
     }
-  });
+  }, req.reportSourceAccessFilter);
 }
 
 // Update Report data
@@ -114,7 +437,9 @@ exports.report_update = (req, res) => {
     if (err) return res.status(err.status).send(err.message);
     if (!report) return res.sendStatus(404);
     // Update the actual value
-    _.forEach(_.pick(req.body, ['_group', 'read', 'smtcTags', 'notes', 'escalated', 'veracity', "aitags_feedback"]), (val, key) => {
+    // Incident links are changed only through the dedicated endpoints, which
+    // authorize access to both the report and every affected incident.
+    _.forEach(_.pick(req.body, ['read', 'smtcTags', 'notes', 'escalated', 'veracity', "aitags_feedback"]), (val, key) => {
       report[key] = val;
     });
     if (!report.read) {
@@ -135,7 +460,7 @@ router.delete('/api/report/_all', User.can('edit data'), (req, res) => {
   Report.remove((err) {
     if (err) res.status(err.status).send(err.message);
     else {
-      writelog.writeReport(req, {}, 'deleteAllReports');
+      
       res.sendStatus(200);
     }
   });
@@ -156,7 +481,7 @@ exports.reports_veracity_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'changeVeracityReport');
+        
         if (--remaining === 0) return res.sendStatus(200);
       });
     });
@@ -178,7 +503,7 @@ exports.reports_read_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'markAsRead');
+        
         if (--remaining === 0) {
           eventRouter.publish('reports:update', { ids: req.body.ids, update: { read: req.body.read } }).then(() => {
             return res.sendStatus(200)
@@ -205,7 +530,7 @@ exports.reports_escalated_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'escalatedReport');
+        
         if (--remaining === 0) return res.sendStatus(200);
       });
     });
@@ -226,7 +551,7 @@ exports.reports_irrelevant_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'irreleventReport');
+        
         if (--remaining === 0) {
           eventRouter.publish('reports:update', { ids: req.body.ids, update: { irrelevant: req.body.irrelevance } }).then(() => {
             return res.sendStatus(200)
@@ -239,101 +564,134 @@ exports.reports_irrelevant_update = (req, res) => {
 }
 
 // Link selected reports to one group
-exports.reports_group_update = (req, res) => {
-  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Report.find({ _id: { $in: req.body.ids } }, (err, reports) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (reports.length === 0) return res.sendStatus(200);
-    let remaining = reports.length;
-    reports.forEach((report) => {
-      //  report.read = true;
-      report._group = req.body.group._id;
-      report.save((err) => {
-        if (err) {
-          if (!res.headersSent) return res.status(err.status).send(err.message)
-          return;
-        }
-        Group.findById(req.body.group._id, (err, group) => {
-          if (err) {
-            if (!res.headersSent) {
-              return res.status(err.status).send(err.message);
-            }
-            return;
-          }
-          group._reports.push(report._id);
-          group.save((err) => {
-            if (err) {
-              if (!res.headersSent) return res.status(err.status).send(err.message)
-              return;
-            }
-            if (--remaining === 0) {
-              eventRouter.publish('groups:update', { ids: [req.body.group._id], update: { _reports: group._reports } }).then(() => {
-                return res.sendStatus(200)
-              });
-            }
-          })
-        })
-        writelog.writeReport(req, report, 'addToGroup');
-        if (--remaining === 0) {
-          eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id } }).then(() => {
-            return res.sendStatus(200)
-          });
+exports.reports_group_update = async (req, res) => {
+  try {
+    const ids = req.body.ids;
+    const groupPayload = req.body.group;
 
-        };
-      });
+    if (!ids || !ids.length) return res.sendStatus(200);
+    if (!groupPayload || !groupPayload._id) {
+      return res.status(400).send('Target group is required');
+    }
+    await attachReportsToGroup(ids, groupPayload._id, {
+      markRead: true,
+      addedBy: req.user && req.user._id,
     });
-  });
-}
+    return res.sendStatus(200);
+  } catch (err) {
+    console.error('Error in reports_group_update', err);
+    if (!res.headersSent) {
+      res
+        .status(err.status || 500)
+        .send(err.message || 'Error updating report groups');
+    }
+  }
+};
+
+// Pin or unpin selected reports at the top of their incident's report list
+exports.reports_group_pin = async (req, res) => {
+  try {
+    const ids = req.body.ids;
+    const groupPayload = req.body.group;
+
+    if (!ids || !ids.length) return res.sendStatus(200);
+    if (!groupPayload || !groupPayload._id) {
+      return res.status(400).send('Group is required');
+    }
+
+    await setReportsPinnedInGroup(ids, groupPayload._id, req.body.pinned === true);
+    return res.sendStatus(200);
+  } catch (err) {
+    console.error('Error in reports_group_pin', err);
+    if (!res.headersSent) {
+      res
+        .status(err.status || 500)
+        .send(err.message || 'Error pinning reports');
+    }
+  }
+};
+
 // remove selected reports from one group
-exports.reports_group_remove = (req, res) => {
-  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Report.find({ _id: { $in: req.body.ids } }, (err, reports) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (reports.length === 0) return res.sendStatus(200);
-    let remaining = reports.length;
+exports.reports_group_remove = async (req, res) => {
+  try {
+    const ids = req.body.ids;
+    const groupPayload = req.body.group;
+
+    if (!ids || !ids.length) return res.sendStatus(200);
+    if (!groupPayload || !groupPayload._id) {
+      return res.status(400).send('Group is required');
+    }
+
+    await removeReportsFromGroup(ids, groupPayload._id);
+    return res.sendStatus(200);
+  } catch (err) {
+    console.error('Error in reports_group_remove', err);
+    if (!res.headersSent) {
+      res
+        .status(err.status || 500)
+        .send(err.message || 'Error removing reports from group');
+    }
+  }
+};
 
 
-    reports.forEach((report) => {
-      report._group = undefined;
-      report.save((err) => {
-        if (err) {
-          if (!res.headersSent) return res.status(err.status).send(err.message)
-          return;
-        }
-        Group.findById(req.body.group._id, (err, group) => {
-          if (err) {
-            if (!res.headersSent) {
-              return res.status(err.status).send(err.message);
-            }
-            return;
-          }
-          group._reports = group._reports.filter(i => i.equals(report._id));
+// exports.reports_group_remove = (req, res) => {
+//   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+//   Report.find({ _id: { $in: req.body.ids } }, (err, reports) => {
+//     if (err) return res.status(err.status).send(err.message);
+//     if (reports.length === 0) return res.sendStatus(200);
+//     let remaining = reports.length;
 
-          group.save((err) => {
-            if (err) {
-              if (!res.headersSent) return res.status(err.status).send(err.message)
-              return;
 
-            }
-            if (--remaining === 0) {
-              eventRouter.publish('groups:update', { ids: [req.body.group._id], update: { _reports: group._reports } }).then(() => {
-                return res.sendStatus(200)
-              });
-            }
+//     reports.forEach((report) => {
+//       report._group = undefined;
+//       report.save((err) => {
+//         if (err) {
+//           if (!res.headersSent) return res.status(err.status).send(err.message)
+//           return;
+//         }
+//         Group.findById(req.body.group._id, (err, group) => {
+//           if (err) {
+//             if (!res.headersSent) {
+//               return res.status(err.status).send(err.message);
+//             }
+//             return;
+//           }
+//           group._reports = group._reports.filter(i => i.equals(report._id));
 
-          })
-        })
-        writelog.writeReport(req, report, 'removeFromGroup');
-        if (--remaining === 0) {
-          eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id } }).then(() => {
-            return res.sendStatus(200)
-          });
+//           group.save((err) => {
+//             if (err) {
+//               if (!res.headersSent) return res.status(err.status).send(err.message)
+//               return;
 
-        };
-      });
-    });
-  });
-}
+//             }
+//             if (--remaining === 0) {
+//               eventRouter.publish('groups:update', { 
+//                   ids: [req.body.group._id], 
+//                   update: { 
+//                     _reports: group._reports,
+//                     impactedAsns: group.impactedAsns || [],
+//                     impactedGeoScopes: group.impactedGeoScopes || [],
+//                   } 
+//                 }).then(() => {
+//                 return res.sendStatus(200)
+//               });
+//             }
+
+//           })
+//         })
+        
+//         if (--remaining === 0) {
+//           eventRouter.publish('reports:update', { ids: req.body.ids, update: { _group: req.body.group._id } }).then(() => {
+//             return res.sendStatus(200)
+//           });
+
+//         };
+//       });
+//     });
+//   });
+// }
+
 // Update Notes
 exports.reports_notes_update = (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
@@ -348,7 +706,7 @@ exports.reports_notes_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'updateNotes');
+        
         if (--remaining === 0) return res.sendStatus(200);
       });
     });
@@ -369,7 +727,7 @@ exports.reports_tags_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message)
           return;
         }
-        writelog.writeReport(req, report, 'updateTags');
+        
         if (--remaining === 0) {
           eventRouter.publish('reports:update', { ids: req.body.ids, update: { smtcTags: req.body.tags } }).then(() => {
             return res.sendStatus(200)
@@ -396,7 +754,7 @@ exports.reports_tags_add = (req, res) => {
         }
         report.save((err) => {
           if (err) return res.status(err.status).send(err.message);
-          writelog.writeReport(req, report, 'addTagToReport');
+          
           if (--remaining === 0) return res.sendStatus(200);
         });
       });
@@ -419,7 +777,7 @@ exports.reports_tags_remove = (req, res) => {
         }
         report.save((err) => {
           if (err) return res.status(err.status).send(err.message);
-          writelog.writeReport(req, report, 'removeTagFromReport');
+          
           if (--remaining === 0) return res.sendStatus(200);
         });
       });
@@ -441,12 +799,10 @@ exports.reports_tags_clear = (req, res) => {
             if (!res.headersSent) res.status(err.status).send(err.message)
             return;
           }
-          writelog.writeReport(req, report, 'clearTagsFromReport');
+          
           if (--remaining === 0) return res.sendStatus(200);
         });
       });
     });
   });
 }
-
-

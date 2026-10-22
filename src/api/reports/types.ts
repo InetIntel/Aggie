@@ -2,7 +2,7 @@ import type {
   hasId,
   VeracityOptions,
   MediaOptions,
-  IrrelevanceOptions,
+  TernaryOptions,
 } from "../common";
 
 export interface Report extends hasId {
@@ -13,8 +13,12 @@ export interface Report extends hasId {
   _sources: string[];
   _media: MediaOptions[];
   _sourceNicknames: string[];
+  asn?: string; // outage alerts (ioda/cloudflare), e.g. "as15169"; absent for social/region-scoped
   escalated: boolean;
   _group?: string;
+  addedToGroupAt?: string; // absent on reports linked before tracking existed
+  addedToGroupBy?: (hasId & { username: string }) | null; // populated on incident report lists
+  pinnedInGroupAt?: string; // set while pinned to the top of its incident's report list
   authoredAt: string;
   fetchedAt: string;
   content: string;
@@ -25,7 +29,7 @@ export interface Report extends hasId {
   commentTo: string;
   notes: string;
   originalPost: string;
-  irrelevant?: IrrelevanceOptions;
+  irrelevant?: TernaryOptions;
   __v: number;
   aitags: GeneratedTags;
   aitagnames: string[];
@@ -48,15 +52,27 @@ export interface ReportQueryState {
   keywords?: string;
   author?: string;
   groupId?: string;
-  media?: string;
+  status?: string; // 'Read' or 'Unread'
+  media?: string | string[]; // one platform, or several (serialized comma-separated)
+  dataSources?: string[];
+  entityLevel?: string[];
+  countries?: string[];
+  asns?: string[];
+  regions?: string[];
+  hideDuplicateASNs?: string; // 'true' or 'false'
   sourceId?: string;
   list?: string;
+  reportIds?: string;
   before?: Date | string;
   after?: Date | string;
+  outageAfter?: Date | string;
+  outageBefore?: Date | string;
   tagNames?: string[];
   page?: number;
   batch?: boolean;
   irrelevant?: string;
+  alerts?: boolean;
+  ongoing?: string;
 }
 
 // metadata typed
@@ -66,16 +82,76 @@ export interface BaseMetadata {
   channelId: number;
   accountHandle: string;
   accountUrl: any;
-  mediaUrl: string;
+  mediaUrl: string | null;
+  attachments?: SocialAttachment[];
   actualStatistics: Statistics;
   rawAPIResponse: RawApiResponse;
   testingFlagForPotentialDeletion: boolean;
+}
+
+export interface SocialAttachment {
+  type: string;
+  imageKey?: string;
+  thumbnailKey?: string;
+  mimeType?: string | null;
+  sourcePlatform?: string | null;
+  imageUrl?: string;
+  thumbnailUrl?: string;
+}
+
+// IODA signal series stored inline on the report (replaces the scraped chart SVG).
+// Points are compact [unixSeconds, value|null] pairs; timestamps are reconstructed from
+// each series' own step, so series with different steps coexist.
+export type IodaChartPoint = [number, number | null];
+
+export interface IodaChartSeries {
+  datasource: string; // "bgp" | "ping-slash24" | "merit-nt"
+  step: number; // seconds between points
+  points: IodaChartPoint[];
+}
+
+// OONI alerts store the per-domain measurement counts they were raised against at
+// metadata.rawAPIResponse.chart, so viewing one never calls OONI. The series is 14
+// blocks of 24 hours counted back from where the alert's window ends (the last
+// block is the alert's own window). Older stored charts have a "days" list of
+// calendar days instead of "starts".
+export interface OoniChartData {
+  source: string;
+  granularity?: string; // "hour": each block is the sum of hourly buckets
+  blockHours?: number; // 24
+  from: string; // start of the first block (ISO, UTC)
+  until: string; // end of the last block (ISO, UTC)
+  starts?: string[]; // start of each block (ISO, UTC)
+  days?: string[]; // older shape: YYYY-MM-DD
+  domains: Record<string, number[]>; // watched domain -> count per block
+  fetchedAt?: string;
+}
+
+export interface IodaChartData {
+  from: number; // window fetched (unix seconds)
+  until: number;
+  entity: string; // "region/4442"
+  series: IodaChartSeries[];
+  // gtr-based predicted-normal band; null when the entity has no gtr data.
+  predicted: {
+    step: number;
+    norm: IodaChartPoint[];
+    sarima: IodaChartPoint[];
+  } | null;
 }
 
 interface RawApiResponse {
   id: string;
   type: string;
   attributes: unknown;
+  // IODA/Cloudflare chart: `image` is the media-storage key, `imageUrl` the served URL.
+  // Legacy IODA reports carry `image`; new IODA reports carry `chart` (signal series).
+  image?: string;
+  imageUrl?: string;
+  chart?: IodaChartData;
+  // IODA/Cloudflare outage alerts: entityName is `${networkName} - ${entityScope}`.
+  entityName?: string;
+  entityScope?: string;
   [key: string]: any;
 }
 // i need to redo this...

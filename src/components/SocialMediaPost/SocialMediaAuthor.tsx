@@ -2,6 +2,7 @@ import { faExternalLink } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import DateTime from "../DateTime";
+import { detectTextDirection } from "../../utils/format";
 
 interface IProps {
   name?: string;
@@ -15,9 +16,14 @@ const SocialMediaAuthor = ({ name, username, pfp, createdAt, url }: IProps) => {
   if (!url)
     return (
       <div>
-        <h2 className='font-medium'>{name || username}</h2>
+        <h2
+          dir={detectTextDirection(name || username)}
+          className='font-medium post-text'
+        >
+          {name || username}
+        </h2>
 
-        <p className='text-sm text-slate-700'>
+        <p className='text-sm text-slate-700 dark:text-gray-300'>
           <DateTime dateString={createdAt} />
         </p>
       </div>
@@ -27,14 +33,17 @@ const SocialMediaAuthor = ({ name, username, pfp, createdAt, url }: IProps) => {
       target='_blank'
       href={url}
       title={`open ${username}'s account`}
-      className=' hover:bg-slate-100 block group p-1 pr-6 -m-1 hover:text-blue-600 relative rounded-lg'
+      className=' hover:bg-slate-100 dark:hover:bg-gray-700 block group p-1 pr-6 -m-1 hover:text-blue-600 relative rounded-lg'
     >
       <div>
-        <h2 className='font-medium group-hover:underline'>
+        <h2
+          dir={detectTextDirection(name || username)}
+          className='font-medium group-hover:underline post-text'
+        >
           {name || username}
         </h2>
 
-        <p className='text-sm text-slate-700'>
+        <p className='text-sm text-slate-700 dark:text-gray-300'>
           <DateTime dateString={createdAt} />
         </p>
         <span className='opacity-0 absolute top-1 right-1 group-hover:opacity-100'>

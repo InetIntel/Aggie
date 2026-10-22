@@ -1,0 +1,78 @@
+import axios from "axios";
+import type {
+  AnalyticsOverview,
+  AnalyticsQueryState,
+  CreateNotableActivityIncidentPayload,
+  NotableActivitiesResponse,
+  ReportMetricsResponse,
+  UpdateNotableActivityIncidentPayload,
+} from "./types";
+import type { Group } from "../groups/types";
+
+function buildAnalyticsQuery(params: AnalyticsQueryState = {}) {
+  const searchParams = new URLSearchParams();
+
+  if (params.range) searchParams.set("range", params.range);
+  if (params.bucket) searchParams.set("bucket", params.bucket);
+  if (params.aggregation) searchParams.set("aggregation", params.aggregation);
+  if (typeof params.tolerance === "number") {
+    searchParams.set("tolerance", params.tolerance.toString());
+  }
+  if (params.from) searchParams.set("from", params.from);
+  if (params.to) searchParams.set("to", params.to);
+  if (params.timeZone) searchParams.set("timeZone", params.timeZone);
+  if (typeof params.limit === "number") {
+    searchParams.set("limit", params.limit.toString());
+  }
+
+  return searchParams.toString();
+}
+
+export const getAnalyticsOverview = async (
+  params: AnalyticsQueryState = {}
+) => {
+  const query = buildAnalyticsQuery(params);
+  const url = query ? `/api/analytics/overview?${query}` : "/api/analytics/overview";
+  const { data } = await axios.get<AnalyticsOverview>(url);
+  return data;
+};
+
+export const getNotableActivities = async (
+  params: AnalyticsQueryState = {}
+) => {
+  const query = buildAnalyticsQuery(params);
+  const url = query
+    ? `/api/analytics/notable-activities?${query}`
+    : "/api/analytics/notable-activities";
+  const { data } = await axios.get<NotableActivitiesResponse>(url);
+  return data;
+};
+
+export const getReportMetrics = async (params: AnalyticsQueryState = {}) => {
+  const query = buildAnalyticsQuery(params);
+  const url = query
+    ? `/api/analytics/report-metrics?${query}`
+    : "/api/analytics/report-metrics";
+  const { data } = await axios.get<ReportMetricsResponse>(url);
+  return data;
+};
+
+export const createNotableActivityIncident = async (
+  payload: CreateNotableActivityIncidentPayload
+) => {
+  const { data } = await axios.post<Group>(
+    "/api/analytics/notable-activities/incident",
+    payload
+  );
+  return data;
+};
+
+export const updateNotableActivityIncident = async (
+  payload: UpdateNotableActivityIncidentPayload
+) => {
+  const { data } = await axios.patch<Partial<Group>>(
+    "/api/analytics/notable-activities/incident",
+    payload
+  );
+  return data;
+};

@@ -62,7 +62,7 @@ const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
       {moreTagsLength > 0 && (
         <GeneratedTag
           name={`+${moreTagsLength}`}
-          className='rounded-full hover:bg-purple-100 text-xs text-purple-700 font-medium border border-purple-300'
+          className='rounded-full hover:bg-purple-100 dark:hover:bg-purple-100 dark:saturate-[0.7] text-xs text-purple-700 font-medium border border-purple-300'
         >
           <div className='flex gap-2 flex-col py-2'>
             <div className='flex gap-2 px-2 justify-between items-center text-sm'>
@@ -110,7 +110,7 @@ const GeneratedTagsList = ({ report, tags, showCount = 2 }: IProps) => {
                     <div className='max-w-md w-full'>
                       <span className='flex gap-2 items-center'>
                         {isBoolean(value) ? (
-                          <span className='rounded-full px-2 bg-purple-600 font-medium text-white text-sm'>
+                          <span className='rounded-full px-2 bg-purple-600 dark:bg-purple-600 dark:saturate-[0.7] font-medium text-white dark:text-gray-300 text-sm'>
                             {`${value}`}
                           </span>
                         ) : (

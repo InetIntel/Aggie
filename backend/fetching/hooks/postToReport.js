@@ -1,14 +1,41 @@
 // Converts a Downstream SocialMediaPost to an Aggie Report.
 
 const { getSourceID, getChannel } = require('../sourceToChannel');
-const { parseJunkipediaPostMetadata } = require('../util');
+const { parseJunkipediaPostMetadata } = require('../utils/junkipediaUtils');
+const SMTCTag = require('../../models/tag');
+
+const OONI_TAG_NAME = 'connectivity test';
+
+// Find-or-create so the OONI channel (running unattended, hourly) never needs
+// a human to pre-create this tag in Settings first.
+async function ensureOoniTag() {
+    const existing = await SMTCTag.findOne({ name: OONI_TAG_NAME });
+    if (existing) return existing;
+    try {
+        return await SMTCTag.create({
+            name: OONI_TAG_NAME,
+            description: 'OONI network connectivity measurement alerts',
+        });
+    } catch (err) {
+        // Another concurrent report creation won the race and created it first.
+        return SMTCTag.findOne({ name: OONI_TAG_NAME });
+    }
+}
 
 module.exports = async function postToReport(post, next) {
     const {
         channel: channelID,
         platform,
         raw,
+        isOutageEvent = false,
+        isAsnScoped = false,
+        asn  = null,
+        outageStartedAt = null,
+        outageEndedAt = null,
+        isOutageOngoing = false,
+        geoScope = null,
     } = post;
+
     const channel = getChannel(channelID);
     const sourceID = getSourceID(channelID);
     let isKeywordSearchTwitter = false;
@@ -21,35 +48,30 @@ module.exports = async function postToReport(post, next) {
         post._media = [ 'facebook' ];
     } else if (platform === 'instagramdirect') {
         post._media = [ 'instagram' ];
+    } else if (platform === 'telegramBot') {
+        post._media = [ 'telegram' ];
     } else {
         post._media = [ platform ];
     }
     post.tags = channel.tags;
     post.guid = post.guid || post.link || post.platformID || post.id || null;
 
+    if (platform === 'ooni') {
+        const ooniTag = await ensureOoniTag();
+        if (ooniTag) post.smtcTags = [ooniTag._id];
+    }
+
+    post.isOutageEvent = isOutageEvent;
+    post.isAsnScoped = isAsnScoped;
+    if (asn !== null) {post.asn = asn};
+    if (outageStartedAt !== null) {post.outageStartedAt = outageStartedAt};
+    if (outageEndedAt !== null) {post.outageEndedAt = outageEndedAt};
+    post.isOutageOngoing = isOutageOngoing;
+    if (geoScope !== null) {post.geoScope = geoScope};
+
 
     let metadata;
-    if (platform === 'RSS') {
-        // What do we want here?
-        metadata = {
-            // title: raw.title || null,
-            // description: raw.description || null,
-            // link: raw.link || null,
-            // image: raw.image || null,
-            // date: raw.date || null,
-
-
-            // junkipediaId: id || null,
-            // channelId: channel_id || null,
-            // accountHandle: channel_name || null,
-            // accountUrl: channel_url_external || null,
-            // mediaUrl: thumbnail_url || null,
-            // // TODO: This may need to be adapted. Also, figure out difference between engagement_data and engagement_fields
-            // actualStatistics: engagement_data || null,
-            rawAPIResponse: raw,
-        } 
-        // post.guid = post.guid || post.link || null;
-    } else if (isKeywordSearchTwitter) {
+    if (isKeywordSearchTwitter) {
         const { post, user } = raw;
                 const {
                     id,
@@ -97,120 +119,35 @@ module.exports = async function postToReport(post, next) {
                     likeCount: like_count ? like_count : 0,
                     rawAPIResponse: raw,
                 }
+    } else if (
+        platform === 'ioda' ||
+        platform === 'cloudflare' ||
+        platform === 'telegramBot' ||
+        platform === 'ooni'
+    ) {
+        metadata = {rawAPIResponse: raw} || null;
+    } else if (platform === 'telegramUser') {
+        metadata = {
+            accountHandle: raw?.senderHandle || raw?.chatHandle || null,
+            accountUrl: raw?.senderUrl || raw?.chatUrl || null,
+            rawAPIResponse: raw,
+        };
+        if (Array.isArray(post.attachments) && post.attachments.length > 0) {
+            metadata.attachments = post.attachments;
+        }
+    } else if (platform === 'mastodon') {
+        metadata = {
+            accountHandle: raw?.account?.acct ? `@${raw.account.acct}` : null,
+            accountUrl: raw?.account?.url || null,
+            rawAPIResponse: raw,
+        };
+        if (Array.isArray(post.attachments) && post.attachments.length > 0) {
+            metadata.attachments = post.attachments;
+        }
     } else {
         metadata = parseJunkipediaPostMetadata(raw);
     };
-    // switch (platform) {
-    //     case 'facebook':
-    //     case 'instagram': {
-    //         const {
-    //             caption,
-    //             description,
-    //             imageText,
-    //             id,
-    //             platform: rawPlatform,
-    //             type,
-    //             account,
-    //             media,
-    //             statistics,
-    //             crowdtangleTags,
-    //         } = raw;
 
-    //         metadata = {
-    //             caption: caption || null,
-    //             description: description || null,
-    //             imageText: imageText || null,
-    //             crowdtangleId: id || null,
-    //             platform: rawPlatform || null,
-    //             type: type || null,
-    //             accountVerified: account ? account.verified : false,
-    //             accountHandle: account ? account.handle : null,
-    //             subscriberCount: account ? account.subscriberCount : 0,
-    //             accountUrl: account ? account.url : null,
-    //             mediaUrl: media ? media.map(
-    //                 ({ type, url }) => ({ type, url })
-    //             ) : null,
-    //             actualStatistics: statistics.actual || null,
-    //             expectedStatistics: statistics.expected || null,
-    //             rawAPIResponse: raw,
-    //             ct_tag: crowdtangleTags
-    //         }
-
-    //         switch(platform) {
-    //             case 'facebook':
-    //                 const {
-    //                     brandedContentSponsor,
-    //                     title,
-    //                     link,
-    //                 } = raw;
-
-    //                 metadata = {
-    //                     ...metadata,
-    //                     sponsor: brandedContentSponsor || null,
-    //                     title: title || null,
-    //                     externalUrl: link || null,
-    //                 };
-    //             default:
-    //         }
-    //         break;
-    //     }
-    //     case 'twitter': {
-    //         const { post, user } = raw;
-    //         const {
-    //             id,
-    //             public_metrics: post_public_metrics,
-    //             referenced_tweets = [],
-    //         } = post;
-
-    //         const isRetweet = referenced_tweets.findIndex((t) => t.type === 'retweeted') !== -1;
-            
-    //         const {
-    //             retweet_count,
-    //             like_count
-    //         } = post_public_metrics;
-
-    //         const {
-    //             public_metrics: user_public_metrics
-    //         } = user;
-
-    //         const {
-    //             followers_count,
-    //             following_count,
-    //             verified,
-    //         } = user_public_metrics;
-
-    //         metadata = {
-    //             tweetID: id,
-    //             verified: verified ? verified : false,
-    //             followerCount: followers_count ? followers_count : 0,
-    //             followingCount: following_count ? following_count: 0,
-    //             retweetCount: retweet_count ? retweet_count : 0,
-    //             likeCount: like_count ? like_count : 0,
-    //             rawAPIResponse: raw,
-    //         }
-    //         break;
-    //     }
-    //     // case 'telegram': {
-    //     //     const { chat } = raw;
-    //     //     const chatTitle = chat.title;
-    //     //     const chatType = chat.type;
-
-    //     //     metadata = {
-    //     //         chatTitle,
-    //     //         chatType,
-    //     //         rawAPIResponse: raw,
-    //     //     }
-    //     //     break;
-    //     // }
-    //     case 'junkipedia': {
-    //         metadata = parseJunkipediaPostMetadata(raw);
-    //         metadata.platform = platform || null; 
-    //     }
-    //     default: {
-    //         metadata = {};
-    //         break;
-    //     }
-    // }
     post.metadata = metadata;
 
     await next();

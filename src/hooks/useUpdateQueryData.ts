@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 
 /**
- *
+ * wraps tanstack queryClient with a new update function that updates data in the local cache directly
  * @returns
  */
 export function useUpdateQueryData() {
@@ -14,7 +14,7 @@ export function useUpdateQueryData() {
    * @returns pass reference to old and new data objects
    */
   function update<T extends object>(
-    queryKey: string[],
+    queryKey: readonly unknown[],
     updateFn: (data: T) => { [key in keyof T]?: T[keyof T] }
   ) {
     const previousData = queryClient.getQueryData<T>(queryKey);

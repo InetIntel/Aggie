@@ -1,13 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom";
 
-import { AxiosError } from "axios";
-import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
+import axios, { AxiosError } from "axios";
 import reportWebVitals from "./reportWebVitals";
 
 import "react-day-picker/style.css";
 
-// import "bootstrap/dist/css/bootstrap.min.css";
 import "./index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -15,7 +13,10 @@ import { BrowserRouter } from "react-router-dom";
 import TimeAgo from "javascript-time-ago";
 import en from "javascript-time-ago/locale/en";
 import SocketProvider from "./hooks/WebsocketProvider";
+import ThemeProvider from "./hooks/ThemeProvider";
 import AppRouter from "./AppRouter";
+axios.defaults.withCredentials = true;
+axios.defaults.baseURL = process.env.PUBLIC_URL || 'http://localhost:3000';
 
 //locale for rendering relative time react
 TimeAgo.addDefaultLocale(en);
@@ -28,30 +29,31 @@ const queryClient = new QueryClient({
       staleTime: 10000,
       onError: (err) => {
         const error = err as AxiosError;
+        // const path = window.location.pathname;
         if (error.response && error.response.status === 401) {
           window.location.reload();
+          // const search = new URLSearchParams([['to', path + window.location.search]]).toString();
+          // window.location.assign(`/login?${search}`);
         }
       },
     },
   },
 });
+const url = process.env.PUBLIC_URL && new URL(process.env.PUBLIC_URL).pathname;
 ReactDOM.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={url}>
         <SocketProvider>
-          <AppRouter />
+          <ThemeProvider>
+            <AppRouter />
+          </ThemeProvider>
         </SocketProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,
   document.getElementById("root")
 );
-// React Query in 100 seconds https://www.youtube.com/watch?v=novnyCaa7To
-// If you want your app to work offline and load faster, you can change
-// unregister() to register() below. Note this comes with some pitfalls.
-// Learn more about service workers: https://cra.link/PWA
-serviceWorkerRegistration.unregister();
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))

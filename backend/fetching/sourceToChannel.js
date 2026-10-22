@@ -9,11 +9,16 @@ const Credentials = require('../models/credentials'); // registers the Credentia
 const config = require('../config/secrets');
 const downstream = require('./downstream');
 
-const AggieCrowdTangleChannel = require('./channels/crowdtangle');
-const TelegramChannel = require('./channels/telegram');
 const RSSChannel = require('./channels/rss');
+const IODAChannel = require('./channels/ioda');
+const CloudflareChannel = require('./channels/cloudflare');
+const JunkipediaChannel = require('./channels/junkipedia');
+const TelegramBotChannel = require('./channels/telegramBot');
+const TelegramUserChannel = require('./channels/telegramUser');
+const MastodonChannel = require('./channels/mastodon');
+const OONIChannel = require('./channels/ooni');
 
-const { TwitterPageChannel, JunkipediaChannel } = builtin;
+// const { TwitterPageChannel, JunkipediaChannel } = builtin;
 
 
 // Key: Source ID; Value: Channel ID
@@ -70,7 +75,7 @@ function deleteChannel(source) {
     const { _id: sourceID } = source;
     const channelID = sourceChannelJoin[sourceID];
     downstream.unregister(channelID);
-    delete sourceChannelJoin[sourceChannelJoin];
+    delete sourceChannelJoin[sourceID];
 }
 
 /**
@@ -93,15 +98,15 @@ function createChannel(source) {
 
     let options = {
         lastTimestamp: lastReportDate,
-        onFetch: async (lastTimestamp) => {
+        onFetch: async (updatedTimestamp) => { // update naming to avoid confusion
             return Source.updateOne(
                 { _id },
-                { lastReportDate: lastTimestamp },
+                { lastReportDate: updatedTimestamp },
             ).exec();
         }
     };
 
-    console.log(source)
+    // console.log(source)
     switch(media) {
         case 'facebook':
         case 'instagram':
@@ -141,12 +146,30 @@ function createChannel(source) {
             console.log(options)
             channel = new TwitterPageChannel(options);
             break;
-        case 'telegram':
+        case 'telegramBot':
             options = {
                 ...options,
-                botAPIToken: credentials.secrets.botAPIToken,
+                botAPIToken: credentials,
             };
-            channel = new TelegramChannel(options);
+            channel = new TelegramBotChannel(options);
+            break;
+        case 'telegramUser':
+            options = {
+                ...options,
+                source: source,
+                credentials: credentials,
+                lists: lists,
+            };
+            channel = new TelegramUserChannel(options);
+            break;
+        case 'mastodon':
+            options = {
+                ...options,
+                source: source,
+                credentials: credentials,
+                lists: lists,
+            };
+            channel = new MastodonChannel(options);
             break;
         case 'junkipedia':
             // Special case of 
@@ -162,20 +185,21 @@ function createChannel(source) {
                 queryParams = {
                     lists: lists,
                     keyword: keywords,
-                    // sort_order: "desc"
+                    sort_order: "desc"
                 }
             }
+
             options = {
                 ...options,
-                apiKey: credentials.secrets.junkipediaAPIKey,
+                credentials: credentials,
                 // Reference - https://www.junkipedia.org/apidocs#tag/Posts/paths/~1api~1v1~1posts/get
                 // TODO: Add list or channel specification
                 // interval is set to 3 minutes
-                interval: 6000,
+                interval: 180000,
                 queryParams: queryParams,
             }
-            console.log(credentials)
-            console.log(options)
+            // console.log(credentials)
+            // console.log(options)
             channel = new JunkipediaChannel(options);
             break;
         case 'rss':
@@ -187,7 +211,54 @@ function createChannel(source) {
             };
             channel = new RSSChannel(options);
             break;
+        case 'ioda':
+            options = {
+                ...options,
+                media: media,
+                countryCode: keywords,
+                asns: source.asns,
+                region: source.region,
+                sourceId: _id,
+            };
+            channel = new IODAChannel(options);
+            break;
+        case 'cloudflare':
+            options = {
+                ...options,
+                media: media,
+                countryCode: keywords,
+                credentials: credentials,
+                sourceId: _id,
+            }
+            channel = new CloudflareChannel(options);
+            break;
+        case 'ooni':
+            options = {
+                ...options,
+                asns: lists,
+                probeCC: keywords,
+                testName: source.ooniTestName,
+                // Only override the channel's default domain config when the
+                // source actually specifies domains (or opts into "all domains").
+                // Otherwise leave it undefined so the channel falls back to
+                // backend/fetching/config/ooni.json.
+                domainConfig:
+                    source.ooniUseAllDomains || (source.ooniDomains && source.ooniDomains.length)
+                        ? {
+                            useAllDomains: !!source.ooniUseAllDomains,
+                            domains: source.ooniDomains || [],
+                        }
+                        : undefined,
+            };
+            channel = new OONIChannel(options);
+            break;
         default:
+    }
+
+    if (channel) {
+        console.log(`[Fetching-createChannel] Success - Created channel: ${source.media}.`);
+    } else {
+        console.error(`[Fetching-createChannel] Failed - Creating channel: ${source.media}.`);
     }
 
     channel.enabled = enabled;
@@ -226,7 +297,7 @@ async function initChannels() {
 
     
     console.log("PREPARING ALL ENABLED CHANNELS")
-    // console.log(sources)
+
     // create & start all enabled Channels
     sources.forEach((source) => createChannel(source));
 

@@ -8,6 +8,7 @@ var database = require('../database');
 var mongoose = database.mongoose;
 var validator = require('validator');
 var _ = require('lodash');
+var sourceMediaValues = require('../config/models/sourceConfigs')
 require('../error');
 
 var EVENTS_TO_RETURN = 50;
@@ -25,29 +26,70 @@ var urlValidator = function (url) {
   )
 }
 
-var mediaValues = ['facebook', 'instagram', 'comments', 'elmo', 'twitter', 'rss', 'dummy', 'smsgh', 'whatsapp', 'telegram', 'junkipedia', 'dummy-pull', 'dummy-fast'];
 
 var sourceSchema = new mongoose.Schema({
-  media: { type: String, enum: mediaValues },
+  media: { type: String, enum: sourceMediaValues },
   nickname: { type: String, required: true, validate: lengthValidator, index: true },
   resource_id: String,
   url: { type: String, validate: urlValidator },
   keywords: String,
   regex: String,
   lists: String,
+  // Structured per-media config. These sit alongside the legacy overloaded
+  // keywords/lists/regex fields (which older sources still use) and are all
+  // optional — an empty value means "current/default behavior" so existing
+  // sources are unaffected.
+  asns: { type: [Number], default: [] },   // IODA: narrow outages to these ASNs
+  region: { type: String },                // IODA: narrow outages to this region code
+  ooniTestName: { type: String },          // OONI: measurement test (default web_connectivity)
+  ooniDomains: { type: [String], default: [] }, // OONI: watched domains
+  ooniUseAllDomains: { type: Boolean, default: false }, // OONI: watch all domains instead of the list
   enabled: { type: Boolean, default: true },
   events: { type: Array, default: [] },
   unreadErrorCount: { type: Number, default: 0 },
-  lastReportDate: { type: Date, index: true },
+  lastReportDate: { type: Date, index: true, default: Date.now},
   lastReportDateSavedSearch: { type: Date, index: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   tags: { type: [String], default: [] },
+  countryCodes: {
+    type: [{
+      type: String,
+      uppercase: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 2,
+    }],
+    default: [],
+  },
   credentials: { type: mongoose.Schema.Types.ObjectId, ref: 'Credentials', required: true },
+  accessPolicy: {
+    mode: {
+      type: String,
+      enum: ['public', 'restricted', 'public_until', 'country_restricted'],
+      default: 'public',
+      index: true,
+    },
+    teams: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team',
+      index: true,
+    }],
+    cutoffDate: {
+      type: Date,
+      default: null,
+    },
+  },
 });
 
 sourceSchema.pre('save', function (next) {
   // Do not allow changing media
   if (!this.isNew && this.isModified('media')) return next(new Error.Validation('source_media_change_not_allowed'));
+
+  // The warnings view only uses the latest 50 events.
+  if (this.events && this.events.length > EVENTS_TO_RETURN) {
+    this.events = this.events.slice(-EVENTS_TO_RETURN);
+  }
+
   // Notify when changing error count
   if (!this.isNew && this.isModified('unreadErrorCount')) {
     this._sourceErrorCountUpdated = true;
@@ -106,13 +148,21 @@ sourceSchema.methods.logEvent = function (level, message) {
 
 var Source = mongoose.model('Source', sourceSchema);
 
+// Count the recent events shown in the warnings popup (the most recent 50).
+// The warning badge uses this instead of `unreadErrorCount` (an unbounded
+// cumulative tally) so the badge number matches the popup's list exactly.
+Source.distinctErrorCount = function (events) {
+  if (!events || !events.length) return 0;
+  return events.slice(-EVENTS_TO_RETURN).length;
+};
+
 // Get latest unread error messages
 Source.findByIdWithLatestEvents = function (_id, callback) {
   Source.findById(_id, function (err, source) {
     if (err) return callback(err);
     if (!source) return callback(null, null);
     if (source.events) {
-      source.events = _.chain(source.events).sortBy('datetime').last(EVENTS_TO_RETURN).value();
+      source.events = _.chain(source.events).sortBy('datetime').takeRight(EVENTS_TO_RETURN).value();
     }
     callback(null, source);
   });
@@ -143,6 +193,6 @@ Source.countAllErrors = function (callback) {
 };
 
 Source.getMediaValues = function () {
-  return mediaValues;
+  return sourceMediaValues;
 };
 module.exports = Source;

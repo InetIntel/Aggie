@@ -1,15 +1,21 @@
 import axios from "axios";
 import type { Report, ReportQueryState, Reports } from "./types";
 
-import type { hasId, IrrelevanceOptions, VeracityOptions } from "../common";
+import type { hasId, TernaryOptions, VeracityOptions } from "../common";
+import { ENTITY_LEVEL_OPTIONS } from "../common";
 import { isString } from "lodash";
+
+export const getAlertFilterOptions = async () => {
+  const { data } = await axios.get<Record<"countries" | "asns" | "regions", { key: string; label: string }[]>>("/api/report/filter-options");
+  return data;
+};
 
 export const getReports = async (
   searchState: ReportQueryState,
+  alerts?: boolean,
   tagIds: hasId[] | string[] = [],
-  isRelevantReports = false
 ) => {
-  const urlparams = urlFromReportsQuery(searchState, tagIds);
+  const urlparams = urlFromReportsQuery(searchState, alerts, tagIds);
 
   if (urlparams != "") {
     const { data } = await axios.get<Reports | undefined>(
@@ -70,7 +76,7 @@ export const setSelectedVeracity = async (
 
 export const setSelectedIrrelevance = async (
   reportIds: string[],
-  irrelevance: IrrelevanceOptions | string
+  irrelevance: TernaryOptions | string
 ) => {
   const { data } = await axios.patch("/api/report/_irrelevance", {
     ids: reportIds,
@@ -136,6 +142,22 @@ export const removeReportsFromGroup = async (
   return data;
 };
 
+interface setReportsPinnedInGroupParams {
+  reportIds: string[];
+  groupId: string;
+  pinned: boolean;
+}
+export const setReportsPinnedInGroup = async (
+  params: setReportsPinnedInGroupParams
+) => {
+  const { data } = await axios.patch<null>("/api/report/_group-pin", {
+    ids: params.reportIds,
+    group: { _id: params.groupId },
+    pinned: params.pinned,
+  });
+  return data;
+};
+
 /**
  * todo: get rid of tagId? i dont see why this needs to be separated
  * @param queryState
@@ -143,6 +165,7 @@ export const removeReportsFromGroup = async (
  */
 export function urlFromReportsQuery(
   queryState: ReportQueryState,
+  alerts?: boolean,
   tagIds: hasId[] | string[] = []
 ) {
   const url = new URLSearchParams();
@@ -155,6 +178,21 @@ export function urlFromReportsQuery(
       url.set(key, value);
     }
   });
+  if (!("irrelevant" in queryState)) {
+    url.set("irrelevant", "all");
+  }
+  if (
+    alerts &&
+    (!("entityLevel" in queryState) ||
+      !queryState.entityLevel ||
+      queryState.entityLevel.length === 0)
+  ) {
+    url.set("entityLevel", ENTITY_LEVEL_OPTIONS.join(","));
+  }
+  if (alerts && !("hideDuplicateASNs" in queryState)) {
+    url.set("hideDuplicateASNs", "true");
+  }
+  if (typeof alerts !== "undefined") url.set("alerts", alerts.toString());
   if (tagIds && tagIds.length > 0) {
     if (isString(tagIds[0])) url.set("tags", tagIds.toString());
     else {

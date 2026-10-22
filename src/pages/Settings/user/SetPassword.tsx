@@ -1,12 +1,15 @@
 import * as Yup from "yup";
 
+import { useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { AxiosError } from "axios";
 import { setPassword as setPasswordApi } from "../../../api/users";
 import type { User } from "../../../api/users/types";
 
 import { Formik, Form } from "formik";
 import AggieButton from "../../../components/AggieButton";
 import FormikInput from "../../../components/FormikInput";
+import { Session } from "../../../api/session/types";
 
 const updatePasswordSchema = Yup.object().shape({
   password: Yup.string()
@@ -21,24 +24,43 @@ const updatePasswordSchema = Yup.object().shape({
 type IPasswordSchema = Yup.InferType<typeof updatePasswordSchema>;
 
 interface IProps {
-  user?: User;
+  user?: User | Session;
   onClose: () => void;
 }
 
-const SetPassword = ({ user, onClose }: IProps) => {
-  if (!user) return <></>;
+// Pull the backend's plain-text error message out of an axios error.
+function errorMessage(err: unknown): string {
+  const axiosErr = err as AxiosError;
+  const data = axiosErr?.response?.data;
+  if (typeof data === "string" && data.trim()) return data;
+  return axiosErr?.message || "Could not update the password. Please try again.";
+}
 
+const SetPassword = ({ user, onClose }: IProps) => {
   const doSetPassword = useMutation(setPasswordApi);
+
+  // On success, keep the dialog open briefly so the confirmation message is
+  // visible, then auto-close. Cleanup guards against unmount / re-close.
+  useEffect(() => {
+    if (!doSetPassword.isSuccess) return;
+    const timer = setTimeout(onClose, 1500);
+    return () => clearTimeout(timer);
+  }, [doSetPassword.isSuccess, onClose]);
+
+  if (!user) return <></>;
 
   function onSubmitForm(e: IPasswordSchema, resetForm: () => void) {
     if (!user) return;
     doSetPassword.mutate(
       { _id: user._id, pass: e.password },
       {
+        // Reset the form but keep the dialog open so the success message shows;
+        // the effect above auto-closes it after a short delay.
         onSuccess: () => {
           resetForm();
-          onClose();
         },
+        // Keep the dialog open on failure so the error is visible instead of
+        // silently swallowed (see doSetPassword.isError render below).
       }
     );
   }
@@ -56,6 +78,16 @@ const SetPassword = ({ user, onClose }: IProps) => {
           label='Re-type Password'
           type='password'
         />
+        {doSetPassword.isError && (
+          <p className='text-sm text-red-600' role='alert'>
+            {errorMessage(doSetPassword.error)}
+          </p>
+        )}
+        {doSetPassword.isSuccess && (
+          <p className='text-sm text-green-700' role='status'>
+            Password successfully changed!
+          </p>
+        )}
         <div className='flex justify-between'>
           <AggieButton
             disabled={doSetPassword.isLoading}
@@ -67,7 +99,7 @@ const SetPassword = ({ user, onClose }: IProps) => {
           </AggieButton>
           <AggieButton
             variant='primary'
-            disabled={doSetPassword.isLoading}
+            disabled={doSetPassword.isLoading || doSetPassword.isSuccess}
             loading={doSetPassword.isLoading}
             type={"submit"}
           >

@@ -1,13 +1,19 @@
 // i need to refactor this...
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import type { InfiniteData } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useIncidentMutations } from "../useIncidentMutations";
 
 import {
-  deleteGroup,
   getGroup,
   getGroupReports,
+  setGroupTags,
   setSelectedPublic,
 } from "../../../api/groups";
 import { Group, Groups } from "../../../api/groups/types";
@@ -33,47 +39,62 @@ import {
   faFile,
   faFilePen,
   faXmark,
-  faExternalLinkSquare,
   faExternalLinkSquareAlt,
   faTrash,
-  faFileArchive,
   faFileCircleMinus,
 } from "@fortawesome/free-solid-svg-icons";
 import { faDotCircle, faFileLines } from "@fortawesome/free-regular-svg-icons";
+
 import AggieSwitch from "../../../components/AggieSwitch";
 import { useUpdateQueryData } from "../../../hooks/useUpdateQueryData";
 import CommentTimeline from "./CommentTimeline";
 import IncidentInfo from "./IncidentInfo";
 import ReportFilters from "../../Reports/components/ReportsFilters";
 import { useQueryParams } from "../../../hooks/useQueryParams";
-import { Report, ReportQueryState } from "../../../api/reports/types";
+import { Report, Reports, ReportQueryState } from "../../../api/reports/types";
 import { useMultiSelect } from "../../../hooks/useMultiSelect";
-import GroupReportListItem from "./GoupReportListItem";
+import GroupReportListItem from "./GroupReportListItem";
 import AggieCheck from "../../../components/AggieCheck";
 import AggieDialog from "../../../components/AggieDialog";
 import AddReportsToIncidents from "../../Reports/components/AddReportsToIncident";
 import { useReportMutations } from "../../Reports/useReportMutations";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
+
 import { updateByIds } from "../../../utils/immutable";
+import { TernaryOptions } from "../../../api/common";
 import {
   SocketEvent,
   useSocketSubscribe,
 } from "../../../hooks/WebsocketProvider";
-import { removeReportsFromGroup } from "../../../api/reports";
+import {
+  removeReportsFromGroup,
+  setReportsPinnedInGroup,
+} from "../../../api/reports";
+import { getSession } from "../../../api/session";
+import IncidentTagsDialog from "./IncidentTagsDialog";
 
 const Incident = () => {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { searchParams, getAllParams } = useQueryParams<ReportQueryState>();
-  const { doUpdate, doSetEscalate, doSetClosed } = useIncidentMutations();
+  const { searchParams, getAllParams, getParam, setParams } =
+    useQueryParams<ReportQueryState>();
+  const { doUpdate, doSetClosed } = useIncidentMutations();
   const [deleteModal, setDeleteModal] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
 
   const [removeReports, setRemoveReports] = useState(false);
   const doRemoveReportFromGroup = useMutation(removeReportsFromGroup, {
     onSuccess: () => {
       queryClient.invalidateQueries(["group"]);
       queryClient.invalidateQueries(["groups", "reports"]);
+    },
+  });
+
+  // Pinning re-sorts the list server-side, so refetch rather than patch in place.
+  const doSetPinned = useMutation(setReportsPinnedInGroup, {
+    onSuccess: () => {
+      queryClient.invalidateQueries(["groups", "reports", { groupId: id }]);
     },
   });
 
@@ -90,8 +111,25 @@ const Incident = () => {
     isError,
     data: group,
     error: groupError,
+    refetch: incidentRefetch,
   } = useQuery(["group", id], () => getGroup(id), {
-    onSuccess: (data) => {},
+    onSuccess: (data) => { },
+  });
+  const { data: session } = useQuery(["session"], getSession, {
+    staleTime: 50000,
+  });
+  const canManageTags = session?.permissions?.includes("edit data") === true;
+
+  const doSetTags = useMutation(setGroupTags, {
+    onSuccess: (_, params) => {
+      if (id) {
+        queryData.update<Group>(["group", id], () => ({
+          smtcTags: params.tagIds,
+        }));
+        queryClient.invalidateQueries(["group", id]);
+      }
+      setIsTagsOpen(false);
+    },
   });
 
   const doDelete = useMutation(setSelectedPublic, {
@@ -113,13 +151,64 @@ const Incident = () => {
       });
     },
   });
+  // Reports are loaded page-by-page and appended as the user scrolls, so the
+  // panel reads as one continuous list instead of paginated chunks.
+  const reportsQueryKey = [
+    "groups",
+    "reports",
+    { groupId: id },
+    "infinite",
+    searchParams.toString(),
+  ];
   const {
-    data: groupReports,
+    data: groupReportPages,
     refetch: groupRefetch,
     isFetching: groupIsFetching,
-  } = useQuery(["groups", "reports", { groupId: id }], () =>
-    getGroupReports({ ...getAllParams(searchParams), groupId: id })
-  );
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: reportsQueryKey,
+    queryFn: ({ pageParam = 0 }) =>
+      getGroupReports({
+        ...getAllParams(searchParams),
+        page: pageParam,
+        groupId: id,
+      }),
+    getNextPageParam: (lastPage, allPages) => {
+      // an empty page means there is nothing left, even if total disagrees
+      if (!lastPage || !lastPage.results?.length) return undefined;
+      const loaded = allPages.reduce(
+        (sum, page) => sum + (page?.results?.length || 0),
+        0
+      );
+      return loaded < lastPage.total ? allPages.length : undefined;
+    },
+  });
+
+  const groupReports = useMemo(() => {
+    if (!groupReportPages) return undefined;
+    return {
+      total: groupReportPages.pages[0]?.total || 0,
+      results: groupReportPages.pages.flatMap((page) => page?.results || []),
+    };
+  }, [groupReportPages]);
+
+  // Load the next page once the sentinel at the bottom of the list scrolls in.
+  const scrollContainer = useRef<HTMLDivElement | null>(null);
+  const loadMore = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const node = loadMore.current;
+    if (!node || !hasNextPage) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isFetchingNextPage) fetchNextPage();
+      },
+      { root: scrollContainer.current, rootMargin: "200px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, groupReports?.results.length]);
 
   const multiSelect = useMultiSelect({
     allItems: groupReports?.results,
@@ -127,14 +216,55 @@ const Incident = () => {
   });
 
   useEffect(() => {
-    // refetch on filter change
-    groupRefetch();
+    // the query key carries the filters, so changing them refetches from page 0
+    document.title = `${group?.title ? group.title : "Incident"} - Aggie`;
     multiSelect.set([]);
+    scrollContainer.current?.scrollTo({ top: 0 });
     window.scrollTo({
       top: 0,
       behavior: "smooth",
     });
   }, [searchParams]);
+
+  useEffect(() => {
+    const alerts = getParam("alerts");
+    const hideDuplicateASNs = getParam("hideDuplicateASNs");
+
+    if (!alerts && !hideDuplicateASNs) return;
+
+    setParams({
+      alerts: undefined,
+      hideDuplicateASNs: undefined,
+    });
+  }, [getParam, setParams]);
+
+  // the paged cache the shared mutations write to no longer backs this list, so
+  // patch the loaded pages here instead
+  function patchLoadedReports(reportIds: string[], patch: Partial<Report>) {
+    queryClient.setQueryData<InfiniteData<Reports | undefined>>(
+      reportsQueryKey,
+      (data) => {
+        if (!data) return data;
+        return {
+          ...data,
+          pages: data.pages.map((page) =>
+            page
+              ? { ...page, results: updateByIds(reportIds, page.results, patch) }
+              : page
+          ),
+        };
+      }
+    );
+  }
+
+  function onSetIrrelevance(irrelevant: TernaryOptions) {
+    const reportIds = multiSelect.toIdList();
+    setIrrelevance.mutate(
+      { reportIds, irrelevant },
+      { onSuccess: () => patchLoadedReports(reportIds, { irrelevant }) }
+    );
+  }
+
   function onNewIncidentFromReports() {
     const params = new URLSearchParams({
       reports: multiSelect.selection.map((i) => i._id).join(":"),
@@ -143,25 +273,10 @@ const Incident = () => {
     navigate({ pathname: "/incidents/new", search: params.toString() });
   }
 
-  interface GroupUpdateEvent extends SocketEvent {
-    data: {
-      ids: string[];
-      update: Record<string, any>;
-    };
-  }
-  const handleSocketUpdate = (message: GroupUpdateEvent) => {
+  const handleSocketUpdate = (message: SocketEvent) => {
     if (message.event !== "groups:update") return;
-    console.log("sockets", message);
-
-    // update single report
-    if (id && message.data.ids.includes(id)) {
-      queryData.update<Report>(["group", id], (data) => {
-        return message.data.update;
-      });
-      if ("_reports" in message.data.update) {
-        groupRefetch();
-      }
-    }
+    incidentRefetch();
+    groupRefetch();
   };
   useSocketSubscribe("groups:update", handleSocketUpdate);
 
@@ -186,49 +301,20 @@ const Incident = () => {
           <AggieButton
             variant='transparent'
             className='text-sm'
-            onClick={() => navigate("/incidents")}
+            onClick={() => navigate(-1)}
           >
             <FontAwesomeIcon icon={faArrowLeft} />
             Go Back
           </AggieButton>
           <div className='flex items-center gap-2'>
-            {group && (
-              <div className='flex justify-between items-center px-2 py-1 gap-2 font-medium text-sm bg-white rounded-lg border border-slate-300'>
-                Escalate:
-                <AggieSwitch
-                  checked={group.escalated}
-                  disabled={doSetEscalate.isLoading}
-                  onChange={() =>
-                    doSetEscalate.mutate(
-                      {
-                        ids: [group._id],
-                        escalated: !group.escalated,
-                      },
-                      {
-                        onSuccess: (_, params) => {
-                          // update single report
-                          if (!id) return;
-                          queryData.update<Group>(["group", id], (data) => {
-                            return {
-                              escalated: params.escalated,
-                            };
-                          });
-                        },
-                      }
-                    )
-                  }
-                />
-              </div>
-            )}
-
             <DropdownMenu
               variant='secondary'
-              className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
+              className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300  dark:border-slate-600'
               panelClassName='overflow-hidden right-0'
               buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
             >
               <AggieButton
-                className='w-full px-2 py-1 hover:bg-slate-200  font-medium flex gap-2 text-nowrap items-center flex-grow '
+                className='w-full px-2 py-1 hover:bg-slate-200 dark:hover:bg-gray-600  font-medium flex gap-2 text-nowrap items-center flex-grow'
                 onClick={() => setIsEditOpen(true)}
               >
                 <FontAwesomeIcon icon={faEdit} />
@@ -236,7 +322,7 @@ const Incident = () => {
               </AggieButton>
               {group?.closed ? (
                 <AggieButton
-                  className={`w-full px-2 py-1 hover:bg-green-100 text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+                  className={`w-full px-2 py-1 hover:bg-green-100 text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow dark:hover:bg-green-100 dark:saturate-[0.7]`}
                   onClick={() =>
                     doSetClosed.mutate(
                       {
@@ -263,7 +349,7 @@ const Incident = () => {
                 </AggieButton>
               ) : (
                 <AggieButton
-                  className={`w-full px-2 py-1 hover:bg-red-100 text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+                  className={`w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow`}
                   onClick={() =>
                     doSetClosed.mutate(
                       {
@@ -290,7 +376,7 @@ const Incident = () => {
                 </AggieButton>
               )}
               <AggieButton
-                className={`w-full px-2 py-1 hover:bg-red-100 text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+                className={`w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
                 onClick={() => setDeleteModal(true)}
               >
                 <FontAwesomeIcon icon={faTrash} />
@@ -303,6 +389,11 @@ const Incident = () => {
           group={group}
           isLoading={isLoading}
           onEdit={() => setIsEditOpen(true)}
+          canManageTags={canManageTags}
+          onManageTags={() => {
+            doSetTags.reset();
+            setIsTagsOpen(true);
+          }}
         />
 
         <CommentTimeline group={group} isLoading={isLoading} />
@@ -313,32 +404,23 @@ const Incident = () => {
             as='h2'
             width='7em'
             loading={isLoading}
-            className='text-xl font-medium'
+            className='text-lg font-medium'
           >
             <FontAwesomeIcon icon={faFileLines} size='sm' />{" "}
             {group?._reports?.length}{" "}
             {group?._reports?.length === 1 ? "report" : "reports"} added
           </PlaceholderDiv>
-          <Link
-            to={`/rpt?groupId=${id}`}
-            className='text-sm text-blue-600 hover:underline'
-          >
-            <p>
-              Open List in All Reports Page
-              <FontAwesomeIcon
-                icon={faExternalLinkSquareAlt}
-                size='sm'
-                className='ml-1'
-              />
-            </p>
-          </Link>
         </div>
 
         <ReportFilters
           reportCount={groupReports && groupReports.total}
           fromGroup={id}
           refetch={groupRefetch}
-          isFetching={groupIsFetching}
+          isFetching={groupIsFetching && !isFetchingNextPage}
+          showDedupToggle={false}
+          autoEnableDedup={false}
+          showPagination={false}
+          defaultEntityLevelSelection={[]}
           headerElement={
             multiSelect.isActive ? (
               <AggieButton
@@ -360,9 +442,8 @@ const Incident = () => {
           }
         />
         <div
-          className={`px-1 flex gap-2 text-xs font-medium items-center ${
-            multiSelect.isActive ? "mt-2" : ""
-          }`}
+          className={`px-1 flex gap-2 text-xs font-medium items-center   ${multiSelect.isActive ? "mt-2" : ""
+            }`}
         >
           {multiSelect.isActive && (
             <>
@@ -380,34 +461,24 @@ const Incident = () => {
                   className='rounded-l-lg'
                   disabled={!multiSelect.any() || setIrrelevance.isLoading}
                   icon={faXmark}
-                  onClick={() =>
-                    setIrrelevance.mutate({
-                      reportIds: multiSelect.toIdList(),
-                      irrelevant: "true",
-                    })
-                  }
+                  onClick={() => onSetIrrelevance("true")}
                 >
-                  Not Relevant
+                  Ignore
                 </AggieButton>
                 <AggieButton
                   variant='light:green'
                   className='rounded-r-lg'
                   disabled={!multiSelect.any() || setIrrelevance.isLoading}
                   icon={faDotCircle}
-                  onClick={() =>
-                    setIrrelevance.mutate({
-                      reportIds: multiSelect.toIdList(),
-                      irrelevant: "false",
-                    })
-                  }
+                  onClick={() => onSetIrrelevance("false")}
                 >
-                  Relevant
+                  Investigate
                 </AggieButton>
               </div>
 
               <div className='flex font-medium'>
                 <AggieButton
-                  className='px-2 py-1 rounded-l-lg bg-slate-100 border border-slate-300 hover:bg-slate-200'
+                  className='px-2 py-1 rounded-l-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600 '
                   onClick={() => setAddReportModal(true)}
                   disabled={!multiSelect.any()}
                 >
@@ -427,14 +498,14 @@ const Incident = () => {
                   disabled={!multiSelect.any()}
                 >
                   <AggieButton
-                    className='px-3 py-2 hover:bg-slate-200'
+                    className='px-3 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 '
                     onClick={onNewIncidentFromReports}
                   >
                     <FontAwesomeIcon icon={faFile} />
                     Move to a New Incident
                   </AggieButton>
                   <AggieButton
-                    className='px-3 py-2 hover:bg-slate-200 text-red-800'
+                    className='px-3 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 text-red-800'
                     onClick={() => setRemoveReports(true)}
                   >
                     <FontAwesomeIcon icon={faFileCircleMinus} />
@@ -445,23 +516,47 @@ const Incident = () => {
             </>
           )}
         </div>
-        <div className='overflow-y-auto flex flex-col rounded-lg bg-slate-50 border border-slate-300'>
+        <div
+          ref={scrollContainer}
+          className='overflow-y-auto flex flex-col rounded-lg bg-slate-50 dark:bg-gray-900 border border-slate-300 '
+        >
           {groupReports && groupReports.total > 0 ? (
-            groupReports.results.map((report) => (
-              <div
-                onClick={() => setActivePost(report)}
-                className='cursor-pointer'
-              >
-                <GroupReportListItem
-                  report={report}
-                  isChecked={multiSelect.exists(report)}
-                  isSelectMode={multiSelect.isActive}
-                  onCheckChange={() => multiSelect.addRemove(report)}
-                />
-              </div>
-            ))
+            <>
+              {groupReports.results.map((report) => (
+                <div
+                  key={report._id}
+                  onClick={() => setActivePost(report)}
+                  className='cursor-pointer '
+                >
+                  <GroupReportListItem
+                    report={report}
+                    isChecked={multiSelect.exists(report)}
+                    isSelectMode={multiSelect.isActive}
+                    onCheckChange={() => multiSelect.addRemove(report)}
+                    isPinLoading={
+                      doSetPinned.isLoading &&
+                      doSetPinned.variables?.reportIds.includes(report._id)
+                    }
+                    onTogglePin={() =>
+                      id &&
+                      doSetPinned.mutate({
+                        reportIds: [report._id],
+                        groupId: id,
+                        pinned: !report.pinnedInGroupAt,
+                      })
+                    }
+                  />
+                </div>
+              ))}
+              <div ref={loadMore} />
+              {isFetchingNextPage && (
+                <p className='py-3 text-sm text-center text-slate-500 dark:text-slate-400'>
+                  Loading more reports...
+                </p>
+              )}
+            </>
           ) : (
-            <div className='grid place-items-center py-8 bg-white rounded-lg'>
+            <div className='grid place-items-center py-8 bg-white dark:bg-gray-800 rounded-lg'>
               <p className='font-medium text-center px-3'>No Reports Found</p>
             </div>
           )}
@@ -469,14 +564,14 @@ const Incident = () => {
         {activePost && (
           <section className='absolute inset-0'>
             <div
-              className='absolute inset-0 bg-black/30'
+              className='absolute inset-0 bg-black/30 dark:bg-white/20'
               aria-hidden='true'
               onClick={() => setActivePost(undefined)}
             />
             <div className='absolute p-3 inset-0 h-full w-full overflow-y-auto  grid place-items-center'>
-              <div className='p-3 bg-slate-50 rounded-xl border border-slate-300 shadow-md max-w-md'>
+              <div className='p-3 bg-slate-50 dark:bg-gray-900 rounded-xl border border-slate-300 shadow-md max-w-md'>
                 <header className='flex justify-between items-center mb-2'>
-                  <h2 className='font-medium text-lg'>Preview</h2>
+                  <h2 className='font-medium text-xl'>Preview</h2>
                   <AggieButton
                     variant='secondary'
                     icon={faClose}
@@ -485,7 +580,7 @@ const Incident = () => {
                     close
                   </AggieButton>
                 </header>
-                <SocialMediaPost report={activePost} />
+                <SocialMediaPost report={activePost} showMedia />
               </div>
             </div>
           </section>
@@ -513,6 +608,17 @@ const Incident = () => {
           isLoading={doUpdate.isLoading}
         />
       </AggieDialog>
+      <IncidentTagsDialog
+        isOpen={isTagsOpen}
+        selectedTagIds={group?.smtcTags || []}
+        isSaving={doSetTags.isLoading}
+        saveError={doSetTags.isError}
+        onClose={() => setIsTagsOpen(false)}
+        onSave={(tagIds) => {
+          if (!group?._id) return;
+          doSetTags.mutate({ groupIds: [group._id], tagIds });
+        }}
+      />
       <ConfirmationDialog
         isOpen={deleteModal}
         onClose={() => setDeleteModal(false)}

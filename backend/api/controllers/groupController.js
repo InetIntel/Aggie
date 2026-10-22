@@ -2,11 +2,64 @@
 'use strict';
 
 var Group = require('../../models/group');
+const SMTCTag = require('../../models/tag');
+const mongoose = require('../../database').mongoose;
+const AsnInfo = require('../../models/asnInfo');
 const _ = require('lodash');
-var writelog = require('../../writeLog');
 var tags = require('../../shared/tags');
 const Report = require('../../models/report');
 const eventRouter = require('../sockets/event-router');
+const { saveFile, deleteFile, getUploadDir } = require('../utils/fileStorage');
+const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../../config/models/groupConfigs');
+const path = require('path');
+const { canViewIncident, canModifyIncidentWithScope } = require('../../access/incidentAccess');
+const { clearGroupFromReports } = require('../utils/reportGroupActions');
+
+exports.group_attachment_download = async (req, res) => {
+  const filename = req.params.filename;
+  if (!filename || path.basename(filename) !== filename) {
+    return res.status(400).send('Invalid attachment path.');
+  }
+
+  const publicPath = `/incidents/uploads/${filename}`;
+
+  try {
+    const groups = await Group.find({
+      'comments.attachments.path': publicPath,
+    });
+
+    const accessibleGroup = groups.find((group) =>
+      canViewIncident(
+        req.incidentAccess.user,
+        group,
+        req.incidentAccess.ledTeamIds
+      )
+    );
+
+    if (!accessibleGroup) return res.sendStatus(404);
+
+    const attachment = accessibleGroup.comments
+      .flatMap((comment) => comment.attachments || [])
+      .find((item) => item.path === publicPath);
+
+    if (!attachment) return res.sendStatus(404);
+
+    const uploadRoot = path.resolve(getUploadDir());
+    const serverPath = path.resolve(uploadRoot, filename);
+    if (!serverPath.startsWith(`${uploadRoot}${path.sep}`)) {
+      return res.status(400).send('Invalid attachment storage path.');
+    }
+
+    return res.sendFile(serverPath, (err) => {
+      if (!err || res.headersSent) return;
+      return res.sendStatus(err.statusCode || 404);
+    });
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to download attachment.');
+  }
+};
 
 exports.group_create = (req, res) => {
   req.body.creator = req.user;
@@ -14,7 +67,7 @@ exports.group_create = (req, res) => {
     if (err) {
       res.status(err.status).send(err.message);
     } else {
-      writelog.writeGroup(req, group, 'createGroup');
+      
 
       eventRouter.publish('groups:create', group).then(() => {
         res.status(200).send(group);
@@ -26,7 +79,12 @@ exports.group_create = (req, res) => {
 // lean option means only return name and id
 exports.group_all_groups = (req, res) => {
   const projection = req.query.lean === "true" ? 'title closed escalated idnum' : '';
-  Group.find({ public: true }, projection, {}, (err, groups) => {
+  const accessFilter = req.incidentAccess && req.incidentAccess.filter;
+  const filter = accessFilter && Object.keys(accessFilter).length > 0
+    ? { $and: [{ public: true }, accessFilter] }
+    : { public: true };
+
+  Group.find(filter, projection, {}, (err, groups) => {
     if (err) res.status(err.status).send(err.message);
     else res.status(200).send(groups);
   });
@@ -43,6 +101,10 @@ exports.group_groups = (req, res) => {
     'leastReports': 'reportsLength',
     'mostComments': '-commentsLength',
     'leastComments': 'commentsLength',
+    'descStartDate': '-incidentStartedAt',
+    'ascStartDate': 'incidentStartedAt',
+    'descEndDate': '-incidentEndedAt',
+    'ascEndDate': 'incidentEndedAt',
   }
   const sortBy = sortByKey in sortTable ? sortTable[sortByKey] : defaultSort
 
@@ -56,10 +118,25 @@ exports.group_groups = (req, res) => {
         { path: 'creator', select: 'username' },
         { path: 'assignedTo', select: 'username' },
       ],
+      accessFilter: req.incidentAccess && req.incidentAccess.filter,
     },
-    (err, groups) => {
-      if (err) res.status(err.status).send(err.message);
-      else res.status(200).send(groups);
+    async (err, groups) => {
+      if (err) {
+        res.status(err.status).send(err.message);
+        return;
+      }
+
+      try {
+        const enrichedResults = await addPopulationCoverageToGroups(groups.results || []);
+        const withSources = await addReportSourcesToGroups(enrichedResults);
+        res.status(200).send({
+          ...groups,
+          results: withSources,
+        });
+      } catch (coverageErr) {
+        console.error('Error enriching groups with population coverage:', coverageErr);
+        res.status(200).send(groups);
+      }
     }
   );
 };
@@ -69,66 +146,117 @@ exports.group_details = (req, res) => {
   Group.findById(req.params._id)
     .populate({ path: 'creator', select: 'username' })
     .populate({ path: 'assignedTo', select: 'username' })
-    .exec((err, group) => {
-      if (err) res.status(err.status).send(err.message);
-      else if (!group) res.sendStatus(404);
-      else {
+    .exec(async (err, group) => {
+      if (err) {
+        res.status(err.status).send(err.message);
+      } else if (!group) {
+        res.sendStatus(404);
+      } else {
         if (
           !(referer.split('/')[referer.split('/').length - 1] === 'reports')
         ) {
-          writelog.writeGroup(req, group, 'viewGroup');
+          
         }
-        res.status(200).send(group);
+        try {
+          const [enrichedGroup] = await addPopulationCoverageToGroups([group]);
+          res.status(200).send(enrichedGroup);
+        } catch (coverageErr) {
+          console.error('Error enriching group with population coverage:', coverageErr);
+          res.status(200).send(group);
+        }
       }
     });
 };
 
 // Update a Group
-exports.group_update = (req, res, next) => {
-  // Find group to update
-  Group.findById(req.params._id, (err, group) => {
-    if (err) return res.status(err.status).send(err.message);
+exports.group_update = async (req, res) => {
+  try {
+    const group = await Group.findById(req.params._id);
     if (!group) return res.sendStatus(404);
-    // Update the actual values
 
-    group = _.extend(group, _.omit(req.body, 'creator'));
-    // Save group
-    group.save(function (err, numberAffected) {
-      if (err) {
-        res.status(err.status).send(err.message);
-      } else if (!numberAffected) {
-        res.sendStatus(404);
-      } else {
-        writelog.writeGroup(req, group, 'editGroup');
-        eventRouter.publish('groups:update', { ids: group._id, update: group }).then(() => {
-          res.status(200).send(group);
-        });
-      }
+    const getTimeOrNull = (v) => {
+      if (!v) return null;
+      const d = v instanceof Date ? v : new Date(v);
+      const t = d.getTime();
+      return Number.isNaN(t) ? null : t;
+    };
+
+    const prevStartTs = getTimeOrNull(group.incidentStartedAt);
+    const prevEndTs   = getTimeOrNull(group.incidentEndedAt);
+
+    const safeBody = _.omit(req.body, ['creator', 'incidentDurationMs']);
+    _.extend(group, safeBody);
+
+    const newStartTs = getTimeOrNull(group.incidentStartedAt);
+    const newEndTs   = getTimeOrNull(group.incidentEndedAt);
+
+    let durationSeconds = null;
+    if (newStartTs !== null && newEndTs !== null && newEndTs >= newStartTs) {
+      const durationMs = newEndTs - newStartTs;
+      durationSeconds = Math.floor(durationMs / 1000); 
+    }
+    
+    group.incidentDurationSeconds = durationSeconds;
+
+    const saved = await group.save();
+    if (!saved) {
+      return res.sendStatus(404);
+    }
+
+    await eventRouter.publish('groups:update', {
+      ids: group._id,
+      update: group,   
     });
-  });
+
+    return res.status(200).send(group);
+  } catch (err) {
+    console.error('Error in group_update:', err);
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Error updating group');
+  }
 };
 
+// exports.group_update = (req, res, next) => {
+//   // Find group to update
+//   Group.findById(req.params._id, (err, group) => {
+//     if (err) return res.status(err.status).send(err.message);
+//     if (!group) return res.sendStatus(404);
+//     // Update the actual values
+
+//     group = _.extend(group, _.omit(req.body, 'creator'));
+//     // Save group
+//     group.save(function (err, numberAffected) {
+//       if (err) {
+//         res.status(err.status).send(err.message);
+//       } else if (!numberAffected) {
+//         res.sendStatus(404);
+//       } else {
+        
+//         eventRouter.publish('groups:update', { ids: group._id, update: group }).then(() => {
+//           res.status(200).send(group);
+//         });
+//       }
+//     });
+//   });
+// };
+
 // Delete selected groups
-exports.group_selected_delete = (req, res) => {
+exports.group_selected_delete = async (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, function (err, groups) {
-    if (err) return res.status(err.status).send(err.message);
+
+  try {
+    const groups = await Group.find({ _id: { $in: req.body.ids } });
     if (groups.length === 0) return res.sendStatus(200);
-    var remaining = groups.length;
-    groups.forEach(function (group) {
-      // Delete each group explicitly to catch it in model
-      group.remove((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        writelog.writeGroup(req, group, 'deleteGroup');
-        if (--remaining === 0) {
-          res.sendStatus(200);
-        }
-      });
-    });
-  });
+
+    for (const group of groups) {
+      await deleteGroupAndUnlinkReports(group);
+    }
+
+    return res.sendStatus(200);
+  } catch (err) {
+    return res.status(err.status || 500).send(err.message);
+  }
 };
 
 exports.group_tags_add = (req, res) => {
@@ -150,13 +278,54 @@ exports.group_tags_add = (req, res) => {
           } else if (!numberAffected) {
             res.sendStatus(404);
           } else {
-            writelog.writeGroup(req, group, 'addTagToGroup');
+            
             res.sendStatus(200);
           }
         });
       });
     });
   });
+};
+
+exports.group_tags_update = async (req, res) => {
+  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+  if (!Array.isArray(req.body.tags)) {
+    return res.status(400).send('Tags must be provided as a list.');
+  }
+
+  try {
+    const tagIds = [...new Set(req.body.tags.map((id) => String(id)))];
+    if (tagIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+      return res.status(400).send('One or more tag ids are invalid.');
+    }
+
+    const existingTagCount = await SMTCTag.countDocuments({
+      _id: { $in: tagIds },
+    });
+    if (existingTagCount !== tagIds.length) {
+      return res.status(400).send('One or more selected tags no longer exist.');
+    }
+
+    const groups = req.incidents || await Group.find({
+      _id: { $in: req.body.ids },
+    });
+
+    await Promise.all(groups.map((group) => {
+      group.smtcTags = tagIds;
+      return group.save();
+    }));
+
+    await eventRouter.publish('groups:update', {
+      ids: req.body.ids,
+      update: { smtcTags: tagIds },
+    });
+
+    return res.sendStatus(200);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to update incident tags.');
+  }
 };
 
 exports.group_tags_remove = (req, res) => {
@@ -177,7 +346,7 @@ exports.group_tags_remove = (req, res) => {
           } else if (!numberAffected) {
             res.sendStatus(404);
           } else {
-            writelog.writeGroup(req, group, 'removeTagFromGroup');
+            
             res.sendStatus(200);
           }
         });
@@ -201,7 +370,6 @@ exports.group_escalated_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'escalatedGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { escalated: group.escalated } }).then(() => {
             return res.sendStatus(200)
@@ -226,7 +394,6 @@ exports.group_assigned_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'assignedGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: group._id, update: { assignedTo: group.assignedTo } }).then(() => {
             return res.status(200).send(group);
@@ -251,7 +418,6 @@ exports.group_title_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'titleGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { title: group.title } }).then(() => {
             return res.sendStatus(200)
@@ -277,7 +443,6 @@ exports.group_locationName_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'locationNameGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { locationName: group.locationName } }).then(() => {
             return res.sendStatus(200)
@@ -303,7 +468,6 @@ exports.group_closed_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'notesGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { closed: group.closed } }).then(() => {
             return res.sendStatus(200)
@@ -314,31 +478,7 @@ exports.group_closed_update = (req, res) => {
   });
 };
 
-// Update group veracity
-exports.group_veracity_update = (req, res) => {
-  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (groups.length === 0) return res.sendStatus(200);
-    let remaining = groups.length;
-    groups.forEach((group) => {
-      // Mark each report as escalated to catch it in model
-      group.setVeracity(req.body.veracity);
-      group.save((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        writelog.writeReport(req, group, 'veracityGroup');
-        if (--remaining === 0) {
-          eventRouter.publish('groups:update', { ids: req.body.ids, update: { veracity: group.veracity } }).then(() => {
-            return res.sendStatus(200)
-          });
-        }
-      });
-    });
-  });
-};
+
 
 
 // Update group closed
@@ -356,7 +496,6 @@ exports.group_public_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'publicGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { public: group.public } }).then(() => {
             return res.sendStatus(200)
@@ -383,7 +522,6 @@ exports.group_notes_update = (req, res) => {
           if (!res.headersSent) res.status(err.status).send(err.message);
           return;
         }
-        writelog.writeReport(req, group, 'notesGroup');
         if (--remaining === 0) {
           eventRouter.publish('groups:update', { ids: req.body.ids, update: { note: group.notes } }).then(() => {
             return res.sendStatus(200)
@@ -395,86 +533,204 @@ exports.group_notes_update = (req, res) => {
 };
 
 // add group comment
-exports.group_comment_add = (req, res) => {
+exports.group_comment_add = async (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (groups.length === 0) return res.sendStatus(200);
-    let remaining = groups.length;
-    groups.forEach(async (group) => {
-      group.comments.push(req.body.comment)
+  
+  // parse from multipart/form-data
+  const groupIds = req.body.ids;
+  const comment = req.body.comment;
+  const attachments = req.files;
+  const savedPaths = [];
+  
+  try {
 
-      group.save((err) => {
+    const groups = await Group.find({_id: {$in: groupIds}});
+    if (!groups.length) { return res.status(404).send('Group not found.'); }
+
+    // Upload attachments if any
+    if (!validateAttachments(attachments)) {
+      return res.status(400).send('Bad Request. Invalid Attachments.');
+
+    } else if (attachments.length) {
+      
+      comment.attachments = [];
+
+      for (const attachment of attachments) {
+        const savedPath = await saveFile(attachment.buffer, attachment.originalname);
+
+        if (savedPath) {
+          savedPaths.push(savedPath);
+
+          const publicRefPath = `/incidents/uploads/${path.basename(savedPath)}`;
+
+          comment.attachments.push({
+            fileName: attachment.originalname,
+            path: publicRefPath, // relative path for frontend href
+            serverPath: savedPath, // actual server storage path
+            mimeType: attachment.mimetype,
+            fileSize: attachment.size,
+          });
+
+        }
+      }
+    }
+
+    // save comments
+    let remaining = groups.length;
+    let eventPublished = false;
+
+    for (const group of groups) {
+      group.comments.push(comment);
+      group.save(async (err) => {
         if (err) {
+          await Promise.all(savedPaths.map(deleteFile)); // if err, remove previous uploaded files;
+
           if (!res.headersSent) res.status(err.status).send(err.message);
+
           return;
         }
-        writelog.writeReport(req, group, 'commentAddGroup');
-
-        if (--remaining === 0) {
-          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
-            return res.sendStatus(200)
-          });
+        if (--remaining === 0 && !eventPublished ) {
+          eventPublished = true;
+          eventRouter.publish('groups:update', {
+             ids: req.body.ids, 
+             update: { comments: group.comments } 
+            }).then(() => { return res.sendStatus(200) });
         }
-      });
-    });
-  });
+      })
+    }
+
+  } catch (err) {
+    console.error('[Api-Controller-group_comment_add] Failed adding comment: ', err.message);
+    res.status(err.status || 500).send('Failed adding comment', err.message);
+  }
+
 };
 
 // Update group comment
-exports.group_comment_update = (req, res) => {
-  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (groups.length === 0) return res.sendStatus(200);
-    let remaining = groups.length;
-    groups.forEach((group) => {
-      const newData = req.body.comment
-      const commentToUpdate = group.comments.id(req.body.comment._id)
-      commentToUpdate.data = req.body.comment.data
+exports.group_comment_update = async (req, res) => {
+  if (!req.body.ids || !req.body.ids.length){
+    return res.sendStatus(200);
+  }
 
-      group.save((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        writelog.writeReport(req, group, 'commentEditGroup');
-        if (--remaining === 0) {
-          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
-            return res.sendStatus(200)
-          });
-        }
-      });
+  let groupIds, commentPayload;
+
+  // parse from multipart/form-data
+  try {
+    groupIds = req.body.ids;
+    commentPayload = req.body.comment;
+  } catch (error) {
+    return res.status(400).send('Bad Request. Invalid JSON in group or comment.');
+  }
+
+  const commentId = commentPayload._id;
+  const newData = commentPayload.data;
+  const attachmentsToDelete = commentPayload.attachmentsToDelete || [];
+  const deletedPaths = [];
+  const attachmentsToUpload = req.files;
+  const savedPaths = [];
+
+  try {
+    const group = await Group.findById(groupIds[0]);
+    if (!group) { return res.status(404).send('Group not found.'); };
+
+    const comment = group.comments.id(commentId);
+    if (!comment) { return res.status(404).send('Comment not found.'); };
+
+    // Update comment content
+    comment.data = newData;
+
+    // Delete attachments from document and file system
+    comment.attachments = comment.attachments.filter((att) => {
+      const toDelete = attachmentsToDelete.includes(att._id.toString());
+      if (toDelete) {
+        deletedPaths.push(att.serverPath);
+      }
+      return !toDelete;      
+    })
+
+    await Promise.all(deletedPaths.map(deleteFile));
+
+    // Upload new attachments
+    const totalAttachments = comment.attachments.length + attachmentsToUpload.length;
+
+    if (totalAttachments > MAX_ATTACHMENT_COUNT) {
+      return res.status(400).send(`Bad Request. Max ${MAX_ATTACHMENT_COUNT} attachments.`);
+    } else if (!validateAttachments(attachmentsToUpload)) {
+      return res.status(400).send(`Bad Request. Invalid Attachments. `);
+    } 
+
+    for (const attachment of attachmentsToUpload) {
+
+      const savedPath = await saveFile(attachment.buffer, attachment.originalname);
+
+      if (savedPath) {
+        savedPaths.push(savedPath);
+
+        const publicRefPath = `/incidents/uploads/${path.basename(savedPath)}`;
+
+        comment.attachments.push({
+          fileName: attachment.originalname,
+          path: publicRefPath, // relative path for frontend href
+          serverPath: savedPath, // actual server storage path
+          mimeType: attachment.mimetype,
+          fileSize: attachment.size,
+        });
+
+      }
+    }
+
+    await group.save();
+
+    await eventRouter.publish('groups:update', {
+       ids: req.body.ids, 
+       update: { comments: group.comments } ,
     });
-  });
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.error('[Api-Controller-group_comment_update] Failed updating comment: ', err.message);
+    res.status(err.status || 500).send('Failed updating comment', err.message);
+  }
+
 };
+
 // remove group comment
-exports.group_comment_remove = (req, res) => {
+exports.group_comment_remove = async (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Group.find({ _id: { $in: req.body.ids } }, (err, groups) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (groups.length === 0) return res.sendStatus(200);
-    let remaining = groups.length;
-    groups.forEach((group) => {
 
-      const commentToDelete = group.comments.id(req.body.comment._id).remove()
+  const {ids, commentId} = req.body;
 
+  if (!ids || !ids.length || !commentId) {
+    return res.status(400).send('Bad Request. Misgging group id or comment id.');
+  }
+  
+  try {
+    const group = await Group.findById(ids[0]);
+    if (!group) { return res.status(404).send('Group not found.'); };
 
-      group.save((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        writelog.writeReport(req, group, 'commentRemoveGroup');
-        if (--remaining === 0) {
-          eventRouter.publish('groups:update', { ids: req.body.ids, update: { comments: group.comments } }).then(() => {
-            return res.sendStatus(200)
-          });
-        }
-      });
+    const comment = group.comments.id(commentId);
+    if (!comment) { return res.status(404).send('Comment not found.'); };
+
+    let deletedPaths = [];
+    deletedPaths = comment.attachments.map(att => att.serverPath);
+
+    await Promise.all(deletedPaths.map(deleteFile));
+    await comment.remove();
+    await group.save();
+
+    await eventRouter.publish('groups:update', {
+       ids: req.body.ids, 
+       update: { comments: group.comments } ,
     });
-  });
-};
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.error('[Api-Controller-group_comment_remove] Failed removing comment: ', err.message);
+    res.status(err.status || 500).send('Failed removing comment', err.message);
+  }
+}
 
 exports.group_tags_clear = (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
@@ -494,7 +750,7 @@ exports.group_tags_clear = (req, res) => {
           } else if (!numberAffected) {
             res.sendStatus(404);
           } else {
-            writelog.writeGroup(req, group, 'ClearTagsFromGroup');
+            
             res.sendStatus(200);
           }
         });
@@ -504,52 +760,208 @@ exports.group_tags_clear = (req, res) => {
 };
 
 // Delete an Group
-exports.group_delete = (req, res, next) => {
+exports.group_delete = async (req, res, next) => {
   if (req.params._id === '_all') return next();
-  Group.findById(req.params._id, (err, group) => {
-    if (err) return res.status(err.status).send(err.message);
-    if (!group) return res.sendStatus(404);
-    group.remove((err) => {
-      if (err) {
-        return res.status(err.status).send(err.message);
-      }
-      writelog.writeGroup(req, group, 'deleteGroup');
 
-      eventRouter.publish('groups:delete', group).then(() => {
-        res.sendStatus(200);
-      });
+  try {
+    const group = await Group.findById(req.params._id);
+    if (!group) { return res.status(404).send('Group not found.'); };
+
+    const deletedPaths = group.comments.flatMap(comment => {
+      comment.attachments.map(att => att.path);
     });
-  });
-};
+
+    await Promise.all(deletedPaths.map(deleteFile));
+    await deleteGroupAndUnlinkReports(group);
+    await eventRouter.publish('groups:delete', group);
+    
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.error('[Api-Controller-group_delete] Failed deleting group: ', err.message);
+    res.status(err.status || 500).send('Failed deleting group', err.message);
+  }
+}
+// exports.group_delete = (req, res, next) => {
+//   if (req.params._id === '_all') return next();
+//   Group.findById(req.params._id, (err, group) => {
+//     if (err) return res.status(err.status).send(err.message);
+//     if (!group) return res.sendStatus(404);
+//     group.remove((err) => {
+//       if (err) {
+//         return res.status(err.status).send(err.message);
+//       }
+      
+
+//       eventRouter.publish('groups:delete', group).then(() => {
+//         res.sendStatus(200);
+//       });
+//     });
+//   });
+// };
 
 // Delete all Groups
-exports.group_all_delete = (req, res) => {
-  Group.find(function (err, groups) {
-    if (err) return res.status(err.status).send(err.message);
+exports.group_all_delete = async (req, res) => {
+  if (!req.permissionScope || req.permissionScope.permission !== 'edit data') {
+    return res.status(403).send('Incident permissions have not been checked.');
+  }
+  const accessFilter = req.incidentAccess && req.incidentAccess.filter;
+  try {
+    const groups = await Group.find(accessFilter || {});
+    if (groups.some((group) => !canModifyIncidentWithScope(req.permissionScope, group))) {
+      return res.status(403).send('Your team role cannot delete one or more incidents.');
+    }
     if (groups.length === 0) return res.sendStatus(200);
-    var remaining = groups.length;
-    groups.forEach(function (group) {
-      // Delete each group explicitly to catch it in model
-      group.remove((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message);
-          return;
-        }
-        writelog.writeGroup(req, group, 'deleteGroup');
-        if (--remaining === 0) return res.sendStatus(200);
-      });
-    });
-  });
+
+    for (const group of groups) {
+      await deleteGroupAndUnlinkReports(group);
+    }
+
+    return res.sendStatus(200);
+  } catch (err) {
+    return res.status(err.status || 500).send(err.message);
+  }
 };
 
 const parseQueryData = (queryString) => {
   if (!queryString) return {};
-  if (queryString.before) queryString.storedAt = { $lte: queryString.before };
+  // Filter incidents by when the outage started (incidentStartedAt), not by
+  // ingest time (storedAt). Cast to Date so the Mongo comparison is correct.
+  if (queryString.before)
+    queryString.incidentStartedAt = { $lte: new Date(queryString.before) };
   if (queryString.after)
-    queryString.storedAt = Object.assign({}, queryString.storedAt, {
-      $gte: queryString.after,
+    queryString.incidentStartedAt = Object.assign({}, queryString.incidentStartedAt, {
+      $gte: new Date(queryString.after),
     });
   let query = _.pick(queryString, Group.filterAttributes);
   if (query.tags) query.tags = tags.toArray(query.tags);
   return query;
 };
+
+
+const validateAttachments = (attachments) => {
+    if (
+      !Array.isArray(attachments) || 
+      attachments.length > MAX_ATTACHMENT_COUNT ||
+      attachments.some( file => typeof file.size !== 'number' || file.size > MAX_ATTACHMENT_SIZE)
+    ) {
+      return false;
+    }
+
+    return true;
+}
+
+async function addPopulationCoverageToGroups(groups) {
+  if (!Array.isArray(groups) || groups.length === 0) return groups;
+  const normalizeAsn = (asn) => (typeof asn === 'string' ? asn.trim().toLowerCase() : '');
+
+  const allImpactedAsns = new Set();
+  for (const group of groups) {
+    const impactedAsns = Array.isArray(group.impactedAsns) ? group.impactedAsns : [];
+    for (const asn of impactedAsns) {
+      const normalizedAsn = normalizeAsn(asn);
+      if (normalizedAsn.length > 0) {
+        allImpactedAsns.add(normalizedAsn);
+      }
+    }
+  }
+
+  if (allImpactedAsns.size === 0) {
+    return groups.map((group) => ({
+      ...(typeof group.toObject === 'function' ? group.toObject() : group),
+      directPopulationCoverageScore: null,
+      indirectPopulationCoverageScore: null,
+    }));
+  }
+
+  const asnDocs = await AsnInfo.find({ asn: { $in: Array.from(allImpactedAsns) } })
+    .select('asn populationCoverageDirect populationCoverageIndirect')
+    .lean()
+    .exec();
+
+  const asnCoverageByAsn = new Map();
+  for (const doc of asnDocs) {
+    asnCoverageByAsn.set(normalizeAsn(doc.asn), {
+      direct: typeof doc.populationCoverageDirect === 'number' ? doc.populationCoverageDirect : null,
+      indirect: typeof doc.populationCoverageIndirect === 'number' ? doc.populationCoverageIndirect : null,
+    });
+  }
+
+  return groups.map((group) => {
+    const normalizedGroup = typeof group.toObject === 'function' ? group.toObject() : group;
+    const impactedAsns = Array.isArray(normalizedGroup.impactedAsns) ? normalizedGroup.impactedAsns : [];
+
+    let directTotal = 0;
+    let directCount = 0;
+    let indirectMax = 0;
+    let indirectCount = 0;
+    for (const asn of impactedAsns) {
+      const coverage = asnCoverageByAsn.get(normalizeAsn(asn));
+      if (typeof coverage?.direct === 'number') {
+        directTotal += coverage.direct;
+        directCount += 1;
+      }
+      if (typeof coverage?.indirect === 'number') {
+        indirectMax = Math.max(indirectMax, coverage.indirect);
+        indirectCount += 1;
+      }
+    }
+
+    return {
+      ...normalizedGroup,
+      directPopulationCoverageScore: directCount > 0 ?
+        (directTotal > 1 ? 1 : directTotal) :
+        null,
+      indirectPopulationCoverageScore: indirectCount > 0 ?
+        (indirectMax > 1 ? 1 : indirectMax) :
+        null,
+    };
+  });
+}
+
+async function deleteGroupAndUnlinkReports(group) {
+  const reportIds = Array.isArray(group._reports) ? group._reports : [];
+  if (reportIds.length) {
+    await clearGroupFromReports(reportIds);
+  }
+
+  await group.remove();
+}
+
+// Attaches the distinct set of report source medias (e.g. ['ioda','cloudflare'])
+// to each group as `reportSources`, computed in a single aggregation over the
+// page's group ids. Reports back-reference their incident via `_group` and
+// carry their source(s) in `_media`.
+async function addReportSourcesToGroups(groups) {
+  if (!Array.isArray(groups) || groups.length === 0) return groups;
+
+  const normalize = (group) =>
+    typeof group.toObject === 'function' ? group.toObject() : group;
+
+  const groupObjectIds = groups
+    .map((group) => group._id)
+    .filter((id) => id != null);
+
+  if (groupObjectIds.length === 0) {
+    return groups.map((group) => ({ ...normalize(group), reportSources: [] }));
+  }
+
+  const rows = await Report.aggregate([
+    { $match: { _group: { $in: groupObjectIds } } },
+    { $unwind: '$_media' },
+    { $group: { _id: '$_group', sources: { $addToSet: '$_media' } } },
+  ]);
+
+  const sourcesByGroup = new Map();
+  for (const row of rows) {
+    sourcesByGroup.set(String(row._id), row.sources || []);
+  }
+
+  return groups.map((group) => {
+    const normalizedGroup = normalize(group);
+    return {
+      ...normalizedGroup,
+      reportSources: sourcesByGroup.get(String(normalizedGroup._id)) || [],
+    };
+  });
+}

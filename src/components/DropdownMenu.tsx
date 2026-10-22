@@ -4,8 +4,8 @@ import React, { Children, cloneElement } from "react";
 const styleVariants = {
   secondary: {
     button:
-      "border-slate-300 hover:bg-slate-300 bg-slate-100 ui-open:bg-slate-300 ",
-    panel: "bg-white border border-slate-300 rounded-lg",
+      "border-slate-300 hover:bg-slate-300 dark:hover:bg-gray-500 bg-slate-100 dark:bg-gray-700 ui-open:bg-slate-300 dark:ui-open:bg-gray-500",
+    panel: "bg-white dark:bg-gray-800 border border-slate-300 rounded-lg",
   },
 };
 

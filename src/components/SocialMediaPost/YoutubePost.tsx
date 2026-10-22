@@ -3,6 +3,7 @@ import YouTube, { YouTubeProps } from "react-youtube";
 import Linkify from "linkify-react";
 import { useState } from "react";
 import AggieButton from "../AggieButton";
+import { detectTextDirection } from "../../utils/format";
 
 interface IProps {
   report: Report;
@@ -12,10 +13,13 @@ const YoutubePost = ({ report }: IProps) => {
   const [expand, setExpand] = useState(false);
   return (
     <>
-      <p className='font-medium mb-2'>{title}</p>
+      <p dir={detectTextDirection(title)} className='font-medium mb-2 post-text'>
+        {title}
+      </p>
 
       <p
-        className={`text-slate-900 whitespace-pre-line break-all mb-2 ${
+        dir={detectTextDirection(description)}
+        className={`text-slate-900 whitespace-pre-line mb-2 post-text ${
           expand ? "" : "line-clamp-5"
         }`}
       >
@@ -23,7 +27,7 @@ const YoutubePost = ({ report }: IProps) => {
           key={report._id}
           options={{
             target: "_blank",
-            className: "underline text-blue-600 hover:bg-slate-100 ",
+            className: "underline text-blue-600 hover:bg-slate-100 dark:hover:bg-gray-700",
           }}
         >
           {description}
@@ -32,7 +36,7 @@ const YoutubePost = ({ report }: IProps) => {
       {!expand && description.length > 100 && (
         <AggieButton
           padding='px-0 py-0'
-          className='text-sm underline text-blue-700 hover:bg-slate-200'
+          className='text-sm underline text-blue-700 hover:bg-slate-200 dark:hover:bg-gray-600 '
           onClick={() => setExpand(true)}
         >
           Expand Text

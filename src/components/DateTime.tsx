@@ -1,4 +1,5 @@
 import ReactTimeAgo from "react-time-ago";
+import { useFormatters } from "../utils/useFormatters";
 
 const stringToDate = (str: string) => {
   if (!str) return undefined;
@@ -15,6 +16,7 @@ interface IPropsDate {
 }
 type IProps = IPropsDate | IPropsDateString;
 const DateTime = (props: IProps) => {
+  const { formatDate, formatTime } = useFormatters();
   const date =
     "date" in props && !!props.date
       ? props.date
@@ -24,11 +26,8 @@ const DateTime = (props: IProps) => {
   function timeOrDate(d: Date) {
     const today = new Date();
     if (d.getDate() === today.getDate() && d.getMonth() === today.getMonth())
-      return `ago (${d.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })})`;
-    return d.toLocaleDateString([], { year: "numeric" });
+      return `ago (${formatTime(d)})`;
+    return formatDate(d);
   }
 
   return (

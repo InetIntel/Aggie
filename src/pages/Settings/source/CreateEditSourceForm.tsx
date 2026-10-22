@@ -1,36 +1,524 @@
 import * as Yup from "yup";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useField } from "formik";
 
 import { getCredentials } from "../../../api/credentials";
-import { editSource, newSource } from "../../../api/sources";
-import type { Source } from "../../../api/sources/types";
+import { editSource, getObservedAsns, newSource } from "../../../api/sources";
+import type { Source, SourceAccessMode } from "../../../api/sources/types";
+import { getAsnsByIds } from "../../../api/asn";
 
 import { Listbox } from "@headlessui/react";
+import FormikCombobox from "../../../components/FormikCombobox";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
+import FormikSwitch from "../../../components/FormikSwitch";
 import FormikWithSchema from "../../../components/FormikWithSchema";
+import AxiosErrorCard from "../../../components/AxiosErrorCard";
+import type { Credential } from "../../../api/credentials/types";
+import { COUNTRY_OPTIONS } from "./countryOptions";
+import { OONI_TEST_OPTIONS } from "./ooniTests";
+import AsnChipInput from "./AsnChipInput";
 
-import { faChevronDown, faCheck } from "@fortawesome/free-solid-svg-icons";
+import {
+  faChevronDown,
+  faCheck,
+  faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { CredentialOption, CREDENTIAL_OPTIONS } from "../../../api/common";
+import { CredentialOption, CREDENTIAL_OPTIONS, providerLabel } from "../../../api/common";
 
-
-//   const CrowdTangleFormSchema = Yup.object().shape({
-//     sourceNickname: Yup.string().required("Source name is a required field"),
-//     sourceCredentials: Yup.string().required(
-//       "A credential is required to create a source"
-//     ),
-//   });
+import { getTeams } from "../../../api/teams";
+import type { Team } from "../../../api/teams/types";
+import CountryMultiSelect from "../../../components/CountryMultiSelect";
 
 interface IProps {
   source?: Source;
   onClose: () => void;
+  // Pre-scope a brand-new source form to an API type (e.g. when opened from a
+  // per-type section). Ignored when editing an existing source.
+  defaultType?: CredentialOption;
+  // When false, the connection dropdown is hidden and the provider's single
+  // connection is auto-selected (see the Feeds-page toggle).
+  allowMultipleConnections?: boolean;
 }
-const CreateEditSourceForm = ({ source, onClose }: IProps) => {
+
+// The "Feed name" is just a display label for the feed (the `nickname`
+// field) — it does not affect what gets fetched. Spell that out so users don't
+// confuse it with the account/handle, the connection, or the provider.
+const SourceNameField = () => (
+  <FormikInput
+    name='nickname'
+    label='Feed name'
+    maxLength={80}
+    placeholder="A label for this feed, e.g. 'Elections, Mastodon #wildfire'"
+    hint="A name to identify this feed in your lists; the items it collects appear as Alerts. It's only a label and doesn't change what gets fetched. Pick something recognizable, like the topic plus the account or hashtag."
+  />
+);
+
+// Credential picker: pick an existing credential of this type. Connections are
+// configured ahead of time on the Connections page, so there's no inline "add
+// connection" here — the feed form only chooses among what already exists.
+// When multiple connections per provider are disabled there's only ever one to
+// use, so the dropdown is hidden and the sole connection is auto-selected.
+const CredentialPickerField = ({
+  label,
+  credentialsList,
+  allowMultiple = true,
+}: {
+  label: string;
+  credentialsList?: Credential[];
+  allowMultiple?: boolean;
+}) => {
+  const [, meta, helpers] = useField<string>("credentials");
+
+  const options =
+    credentialsList?.map((cred) => ({ _id: cred._id, label: cred.name })) || [];
+
+  // Convenience: when nothing is selected yet (new source) and credentials of
+  // this type exist, default to the first one. Runs once options are available;
+  // never overrides an explicit choice.
+  const value = meta.value;
+  useEffect(() => {
+    if (!value && options.length) {
+      helpers.setValue(options[0]._id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, options.length]);
+
+  // One connection per provider: skip the picker entirely (value is set above).
+  if (!allowMultiple) return null;
+
+  return (
+    <div className='flex flex-col gap-2'>
+      <FormikDropdown
+        list={
+          options.length
+            ? options
+            : [{ _id: "", label: "No connections yet. Add one in Connections" }]
+        }
+        label={label}
+        name={"credentials"}
+      />
+    </div>
+  );
+};
+
+// Chip input for tracking multiple hashtags at once, backed by the Formik
+// `lists` field as a comma-separated string (the Mastodon channel splits it).
+const MastodonHashtagField = () => {
+  const [field, , helpers] = useField<string>("lists");
+  const [draft, setDraft] = useState("");
+
+  const parse = (raw: string) =>
+    (raw || "")
+      .split(/[\s,]+/)
+      .map((tag) => tag.trim().replace(/^#+/, ""))
+      .filter(Boolean);
+
+  const tags = parse(field.value);
+
+  const commit = (raw: string) => {
+    const next = [...tags];
+    parse(raw).forEach((tag) => {
+      if (!next.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+        next.push(tag);
+      }
+    });
+    helpers.setValue(next.join(", "));
+    setDraft("");
+  };
+
+  const removeTag = (tag: string) => {
+    helpers.setValue(tags.filter((existing) => existing !== tag).join(", "));
+  };
+
+  return (
+    <div className='flex flex-col gap-1'>
+      <span className='text-slate-600 dark:text-gray-400'>
+        {tags.length === 1 ? "Hashtag" : "Hashtags"}
+      </span>
+      <p className='text-xs text-slate-500 dark:text-gray-400'>
+        Type a hashtag and press Enter to add it. Add as many as you want. We'll
+        pull in posts that use any of them, and a post with more than one tag only
+        shows up once.
+      </p>
+      <div className='flex flex-wrap gap-2 items-center px-2 py-2 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900'>
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className='inline-flex items-center gap-1 rounded-full bg-slate-200 dark:bg-gray-600 px-2 py-1 text-sm font-medium'
+          >
+            #{tag}
+            <button
+              type='button'
+              onClick={() => removeTag(tag)}
+              className='text-slate-500 hover:text-slate-800 dark:hover:text-gray-200'
+              aria-label={`Remove ${tag}`}
+            >
+              <FontAwesomeIcon icon={faXmark} size='xs' />
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (/[\s,]$/.test(value)) commit(value);
+            else setDraft(value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              commit(draft);
+            } else if (e.key === "Backspace" && !draft && tags.length) {
+              removeTag(tags[tags.length - 1]);
+            }
+          }}
+          onBlur={() => commit(draft)}
+          placeholder={tags.length ? "Add another…" : "Type a hashtag and press Enter"}
+          className='flex-1 min-w-[8rem] bg-transparent focus:outline-none text-black dark:text-gray-300 px-1 py-1'
+        />
+      </div>
+    </div>
+  );
+};
+
+const MastodonConditionalFields = () => {
+  const [, meta] = useField<string>("keywords");
+  const mode = meta.value;
+
+  return (
+    <>
+      {mode === "hashtag" && <MastodonHashtagField />}
+      {mode === "keyword" && (
+        <FormikInput
+          name='lists'
+          label='Keyword'
+          placeholder='Required for keyword mode'
+        />
+      )}
+      {mode === "public" && (
+        <FormikDropdown
+          list={[
+            { _id: "local", label: "Local public timeline" },
+            { _id: "public", label: "Federated public timeline" },
+          ]}
+          label={"Public Timeline Scope"}
+          name={"regex"}
+        />
+      )}
+    </>
+  );
+};
+
+// Chip input for OONI watched domains, backed by the Formik `ooniDomains` array
+// field. Same interaction as MastodonHashtagField, but stores an array (not a
+// comma-string) to match the structured schema field.
+const OoniDomainsField = () => {
+  const [field, , helpers] = useField<string[]>("ooniDomains");
+  const [draft, setDraft] = useState("");
+
+  const domains = Array.isArray(field.value) ? field.value : [];
+
+  const parse = (raw: string) =>
+    (raw || "")
+      .split(/[\s,]+/)
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+
+  const commit = (raw: string) => {
+    const next = [...domains];
+    parse(raw).forEach((d) => {
+      if (!next.includes(d)) next.push(d);
+    });
+    helpers.setValue(next);
+    setDraft("");
+  };
+
+  const removeDomain = (d: string) => {
+    helpers.setValue(domains.filter((existing) => existing !== d));
+  };
+
+  return (
+    <div className='flex flex-col gap-1'>
+      <span className='text-slate-600 dark:text-gray-400'>Watched domains</span>
+      <p className='text-xs text-slate-500 dark:text-gray-400'>
+        Type a domain and press Enter to add it. We alert when none of these
+        domains were measured on a watched ASN in the last 24 hours. Leave empty
+        and toggle "watch all domains" to alert on total measurement volume
+        instead.
+      </p>
+      <div className='flex flex-wrap gap-2 items-center px-2 py-2 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900'>
+        {domains.map((domain) => (
+          <span
+            key={domain}
+            className='inline-flex items-center gap-1 rounded-full bg-slate-200 dark:bg-gray-600 px-2 py-1 text-sm font-medium'
+          >
+            {domain}
+            <button
+              type='button'
+              onClick={() => removeDomain(domain)}
+              className='text-slate-500 hover:text-slate-800 dark:hover:text-gray-200'
+              aria-label={`Remove ${domain}`}
+            >
+              <FontAwesomeIcon icon={faXmark} size='xs' />
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (/[\s,]$/.test(value)) commit(value);
+            else setDraft(value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              commit(draft);
+            } else if (e.key === "Backspace" && !draft && domains.length) {
+              removeDomain(domains[domains.length - 1]);
+            }
+          }}
+          onBlur={() => commit(draft)}
+          placeholder={
+            domains.length ? "Add another…" : "e.g. twitter.com, signal.org"
+          }
+          className='flex-1 min-w-[8rem] bg-transparent focus:outline-none text-black dark:text-gray-300 px-1 py-1'
+        />
+      </div>
+    </div>
+  );
+};
+
+// OONI domain config: an "all domains" toggle plus the watched-domains editor
+// (hidden when watching all domains, since the list is then ignored).
+const OoniDomainFields = () => {
+  const [, meta] = useField<boolean>("ooniUseAllDomains");
+  return (
+    <div className='flex flex-col gap-2'>
+      <FormikSwitch
+        name='ooniUseAllDomains'
+        label='Watch all domains (alert on total measurement volume)'
+      />
+      {!meta.value && <OoniDomainsField />}
+    </div>
+  );
+};
+
+// Read-only summary of the ASNs a source has actually produced anomaly reports
+// for. Cloudflare collects country-wide, so the ASNs seen aren't a configured
+// input — this shows coverage without letting the user change it.
+const ObservedAsnsPanel = ({ sourceId }: { sourceId: string }) => {
+  const { data: observed, isLoading } = useQuery(
+    ["observed-asns", sourceId],
+    () => getObservedAsns(sourceId),
+    { staleTime: 30000 }
+  );
+
+  const asnKeys = (observed || []).map((o) => o.asn);
+  const { data: asnInfo } = useQuery(
+    ["observed-asns-info", asnKeys.join(",")],
+    () => getAsnsByIds(asnKeys),
+    { enabled: asnKeys.length > 0, staleTime: 60000 }
+  );
+
+  return (
+    <div className='mt-4 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'>
+      <h3 className='font-medium mb-1'>Observed ASNs (last 30 days)</h3>
+      <p className='text-xs text-slate-500 dark:text-gray-400 mb-2'>
+        Cloudflare anomalies are collected for the whole country; these are the
+        networks that have actually produced reports for this feed. Read-only.
+      </p>
+      {isLoading ? (
+        <p className='text-sm text-slate-500 dark:text-gray-400'>Loading…</p>
+      ) : observed && observed.length > 0 ? (
+        <div className='flex flex-col gap-1 max-h-48 overflow-y-auto'>
+          {observed.map((o) => {
+            const name = asnInfo?.[o.asn]?.name;
+            return (
+              <div
+                key={o.asn}
+                className='flex items-center justify-between text-sm gap-2'
+              >
+                <span className='font-medium'>
+                  {o.asn.toUpperCase()}
+                  {name ? (
+                    <span className='font-normal text-slate-500 dark:text-gray-400'>
+                      {" "}
+                      — {name}
+                    </span>
+                  ) : null}
+                </span>
+                <span className='text-slate-500 dark:text-gray-400'>
+                  {o.count} report{o.count === 1 ? "" : "s"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className='text-sm text-slate-500 dark:text-gray-400'>
+          No ASN-scoped reports yet.
+        </p>
+      )}
+    </div>
+  );
+};
+
+//helper for source access control
+//may change the date gating and go back to public vs private with team backing
+
+const getSourceAccessTeamIds = (source?: Source) => {
+  return (source?.accessPolicy?.teams || []).map((team) => {
+    if (typeof team === "string") return team;
+    return team._id;
+  });
+};
+
+const getSourceAccessInitialValues = (source?: Source) => ({
+  countryCodes: source?.countryCodes || [],
+  accessPolicyMode: source?.accessPolicy?.mode || "public",
+  accessPolicyTeams: getSourceAccessTeamIds(source),
+  accessPolicyCutoffDate: source?.accessPolicy?.cutoffDate
+    ? source.accessPolicy.cutoffDate.slice(0, 10)
+    : "",
+});
+
+const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
+  const [modeField] = useField<SourceAccessMode>("accessPolicyMode");
+  const [teamsField, , teamsHelpers] = useField<string[]>("accessPolicyTeams");
+  const [cutoffField] = useField<string>("accessPolicyCutoffDate");
+  const [countriesField, , countriesHelpers] = useField<string[]>("countryCodes");
+
+  const selectedTeamIds = teamsField.value || [];
+  const availableTeams = (teams || []).filter(
+    (team) => team.active !== false || selectedTeamIds.includes(team._id)
+  );
+  const isRestricted =
+    modeField.value === "restricted" || modeField.value === "public_until";
+
+  const toggleTeam = (teamId: string) => {
+    if (selectedTeamIds.includes(teamId)) {
+      teamsHelpers.setValue(selectedTeamIds.filter((id) => id !== teamId));
+      return;
+    }
+
+    teamsHelpers.setValue([...selectedTeamIds, teamId]);
+  };
+
+  return (
+    <div className='mt-4 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'>
+      <h3 className='font-medium mb-1'>Access Policy</h3>
+      <p className='text-xs text-slate-500 dark:text-gray-400 mb-3'>
+        Controls whether this source is broadly visible or restricted to specific teams.
+      </p>
+
+      <div className='mb-3'>
+        <CountryMultiSelect
+          label='Source countries'
+          value={countriesField.value || []}
+          onChange={countriesHelpers.setValue}
+        />
+        <p className='text-xs text-slate-500 dark:text-gray-400 mt-1'>
+          Countries describe the feed. They only limit access when country restriction is selected.
+        </p>
+      </div>
+
+      <FormikDropdown
+        list={[
+          { _id: "public", label: "Public" },
+          { _id: "restricted", label: "Restricted to teams" },
+          { _id: "public_until", label: "Public until cutoff date" },
+          { _id: "country_restricted", label: "Restricted by country" },
+        ]}
+        label={"Access Mode"}
+        name={"accessPolicyMode"}
+      />
+
+      {modeField.value === "public_until" && (
+        <div className='flex flex-col gap-1 mb-3'>
+          <label className='text-slate-600 dark:text-gray-400'>
+            Cutoff Date
+          </label>
+          <p className='text-xs text-slate-500 dark:text-gray-400'>
+            Data before this date is treated as public. Data after this date is restricted to the selected teams.
+          </p>
+          <input
+            {...cutoffField}
+            type='date'
+            className='px-3 py-2 focus-theme bg-white dark:bg-gray-800 border border-slate-300 rounded'
+          />
+        </div>
+      )}
+
+
+      {isRestricted && (
+        <div className='flex flex-col gap-2'>
+          <label className='text-slate-600 dark:text-gray-400'>
+            Allowed Teams
+          </label>
+
+          {availableTeams.length > 0 ? (
+            availableTeams.map((team) => (
+              <label
+                key={team._id}
+                className='flex items-center gap-2 text-sm'
+              >
+                <input
+                  type='checkbox'
+                  checked={selectedTeamIds.includes(team._id)}
+                  onChange={() => toggleTeam(team._id)}
+                />
+                <span>{team.name}{team.active === false ? " (inactive)" : ""}</span>
+              </label>
+            ))
+          ) : (
+            <p className='text-xs text-slate-500 dark:text-gray-400'>
+              No teams available yet.
+            </p>
+          )}
+        </div>
+      )}
+
+      {modeField.value === "country_restricted" &&
+        (countriesField.value || []).length === 0 && (
+          <p className='text-xs text-red-700 dark:text-red-400'>
+            Choose at least one source country before saving.
+          </p>
+        )}
+    </div>
+  );
+};
+
+const CreateEditSourceForm = ({
+  source,
+  onClose,
+  defaultType,
+  allowMultipleConnections = true,
+}: IProps) => {
   const [credentialType, setCredentialType] =
-    useState<CredentialOption>("junkipedia");
+    useState<CredentialOption>(
+      (source?.media as CredentialOption) || defaultType || "ioda"
+    );
+
+  // When editing, `source` can arrive asynchronously (e.g. the details panel's
+  // ["source", id] query resolves after this form mounts). `credentialType` is
+  // seeded only at mount, so without this it stays on the default and the wrong
+  // sub-form renders — the provider-specific fields (like the Telegram
+  // Chats / Channels / Users list) then never appear. Re-sync it whenever the
+  // resolved source's media changes. New feeds have no `source`, so the user's
+  // manual provider choice is untouched.
+  useEffect(() => {
+    if (source?.media) setCredentialType(source.media as CredentialOption);
+  }, [source?.media]);
+
+  // The provider is fixed whenever it's known upfront — editing an existing feed
+  // or adding one from a provider-scoped section. Only a bare "new feed" form
+  // (no source, no defaultType) lets the user pick the provider.
+  const providerLocked = !!source || !!defaultType;
 
   const queryClient = useQueryClient();
 
@@ -38,39 +526,76 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     staleTime: 50000,
   });
 
-  const defaultCredential =
-    credentials && credentials.find((cred) => cred.type === credentialType);
+  const { data: teams } = useQuery(["teams"], getTeams, {
+    staleTime: 50000,
+  });
 
   const credentialsList =
     credentials && credentials.filter((cred) => cred.type === credentialType);
 
-  function onSubmit(data: any) {
-    data = { ...data, media: credentialType };
+  const sourceAccessInitialValues = getSourceAccessInitialValues(source);
 
-    if (!source) {
-      doCreateSource.mutate(data);
-      return;
-    }
-    doEditSource.mutate({ ...data, _id: source._id });
+function onSubmit(data: any) {
+  const {
+    accessPolicyMode,
+    accessPolicyTeams,
+    accessPolicyCutoffDate,
+    ...sourceData
+  } = data;
+
+  const accessPolicy = {
+    mode: accessPolicyMode || "public",
+    teams:
+      accessPolicyMode === "restricted" || accessPolicyMode === "public_until"
+        ? accessPolicyTeams || []
+        : [],
+    cutoffDate:
+      accessPolicyMode === "public_until"
+        ? accessPolicyCutoffDate || null
+        : null,
+  };
+
+  const payload = {
+    ...sourceData,
+    media: credentialType,
+    accessPolicy,
+  };
+
+  if (!source) {
+    doCreateSource.mutate(payload);
+    return;
   }
 
+  doEditSource.mutate({ ...payload, _id: source._id });
+}
+
   const doCreateSource = useMutation(newSource, {
-    onSuccess: () => {
-      onClose();
-      queryClient.invalidateQueries(["sources"]);
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(["sources"]);
     },
   });
   const doEditSource = useMutation(editSource, {
-    onSuccess: () => {
-      onClose();
-      queryClient.invalidateQueries(["sources"]);
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries(["sources"]),
+        queryClient.invalidateQueries(["source", source?._id]),
+      ]);
     },
   });
   const isLoading = doCreateSource.isLoading || doEditSource.isLoading;
+  const saveError = doCreateSource.error || doEditSource.error;
+  const saveSuccess = doCreateSource.isSuccess || doEditSource.isSuccess;
+
+  useEffect(() => {
+    if (!saveSuccess) return;
+    const timer = setTimeout(onClose, 1500);
+    return () => clearTimeout(timer);
+  }, [saveSuccess, onClose]);
+
   // junkpedia credential
   // could be cleaner but idk how to work the type inferencing with yup
   const JunkipediaSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     // sourceKeywords: Yup.string().required(
     //   "Keywords are required to create a Junkipedia source"
     // ),
@@ -78,23 +603,10 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
     //   "Lists are required to create a Junkipedia source"
     // ),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type IJunkipediaSchema = Yup.InferType<typeof JunkipediaSchema>;
-
-
-
-  const RssSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
-    // sourceKeywords: Yup.string().required(
-    //   "Keywords are required to create a Junkipedia source"
-    // ),
-    lists: Yup.string().required(
-      "Lists are required to create a Junkipedia source"
-    ),
-  });
-  type IRssSchema = Yup.InferType<typeof RssSchema>;
 
   const JunkipediaForm = (
     <FormikWithSchema
@@ -104,9 +616,10 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "https://www.junkipedia.com/",
+        ...sourceAccessInitialValues,
       }}
       schema={JunkipediaSchema}
       onSubmit={(values: IJunkipediaSchema) => {
@@ -115,20 +628,390 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
-      <FormikInput name='lists' label='Lists' />
+      <SourceNameField />
+      <FormikInput
+        name='lists'
+        label='Lists'
+        hint={
+          <>
+            Enter a Junkipedia <span className='font-medium'>List ID</span>, a
+            number that points to a monitoring list you've set up in Junkipedia (a
+            saved set of accounts, channels, hashtags, or search terms). Aggie
+            collects the posts from that list as Alerts. Find the ID in Junkipedia
+            under Monitoring → Manage Lists (it's the number in the list's URL). To
+            pull from more than one list, separate the IDs with commas (e.g.
+            1911,4224).
+          </>
+        }
+      />
 
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
+      <SourceAccessPolicyFields teams={teams} />
+    </FormikWithSchema>
+  );
+
+  const telegramBotSchema = Yup.object().shape({
+    nickname: Yup.string().required("Feed name is required"),
+    credentials: Yup.string().required(
+      "A connection is required to create a feed"
+    ),
+  });
+  type ITelegramBotSchema = Yup.InferType<typeof telegramBotSchema>;
+
+  const telegramBotForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || "",
+        sourceURL: source?.url || "",
+        url: "",
+        ...sourceAccessInitialValues,
+      }}
+      schema={telegramBotSchema}
+      onSubmit={(values: ITelegramBotSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <SourceNameField />
       <FormikDropdown
         list={
           credentialsList?.map((i) => {
             return { _id: i._id, label: i.name };
           }) || [{ _id: "", label: "loading" }]
         }
-        label={"API Credentials"}
+        label={"Connection"}
         name={"credentials"}
       />
+      <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
+
+  const telegramUserSchema = Yup.object().shape({
+    nickname: Yup.string().required("Feed name is required"),
+    credentials: Yup.string().required(
+      "A connection is required to create a feed"
+    ),
+    lists: source
+      ? Yup.string()
+      : Yup.string().required(
+          "At least one Telegram chat, channel, or user is required"
+        ),
+  });
+  type ITelegramUserSchema = Yup.InferType<typeof telegramUserSchema>;
+
+  const telegramUserForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || "",
+        sourceURL: source?.url || "",
+        url: "",
+        ...sourceAccessInitialValues,
+      }}
+      schema={telegramUserSchema}
+      onSubmit={(values: ITelegramUserSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <SourceNameField />
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
+      <FormikInput
+        name='lists'
+        label='Chats / Channels / Users'
+        multiline
+        placeholder='Comma-separated Telegram entities, e.g. @channel_one, -1001234567890'
+        hint='Enter the Telegram entities this account can access, such as public usernames like @channel_one or private chat/channel IDs like -1001234567890. Separate multiple entries with commas.'
+      />
+      <SourceAccessPolicyFields teams={teams} />
+    </FormikWithSchema>
+  );
+
+
+  const iodaSchema = Yup.object().shape({
+    nickname: Yup.string().required("Feed name is required"),
+    keywords: Yup.string().required("Country is required"),
+    credentials: Yup.string().required(
+      "A connection is required to create a feed"
+    ),
+  });
+  type IodaSchema = Yup.InferType<typeof iodaSchema>;
+  const iodaForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        asns: (source?.asns || []).map(String),
+        region: source?.region || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || "",
+        sourceURL: source?.url || "",
+        url: "",
+        ...sourceAccessInitialValues,
+      }}
+      schema={iodaSchema}
+      onSubmit={(values: IodaSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <SourceNameField />
+      <FormikCombobox
+        list={COUNTRY_OPTIONS}
+        label={"Country"}
+        name={"keywords"}
+      />
+      <AsnChipInput
+        name='asns'
+        format='array'
+        label='ASNs (optional)'
+        placeholder='e.g. 44244, 58224'
+        hint='Type an ASN number and press Enter to add it. Leave empty to monitor the whole country; add ASNs to narrow outages to specific networks (e.g. a provider in an upstream country).'
+      />
+      <FormikInput
+        name='region'
+        label='Region code (optional)'
+        placeholder='IODA region code, e.g. 1843'
+        hint='Optional. Narrows outages to a single IODA region within the country. Leave empty for the whole country.'
+      />
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
+      <SourceAccessPolicyFields teams={teams} />
+    </FormikWithSchema>
+  );
+
+  const cloudflareSchema = Yup.object().shape({
+    nickname: Yup.string().required("Feed name is required"),
+    keywords: Yup.string().required("Country is required"),
+    credentials: Yup.string().required(
+      "A connection is required to create a feed"
+    ),
+  });
+  type CloudflareSchema = Yup.InferType<typeof cloudflareSchema>;
+  const cloudflareForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || "",
+        sourceURL: source?.url || "",
+        url: "",
+        ...sourceAccessInitialValues,
+      }}
+      schema={cloudflareSchema}
+      onSubmit={(values: CloudflareSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <SourceNameField />
+      <FormikCombobox
+        list={COUNTRY_OPTIONS}
+        label={"Country"}
+        name={"keywords"}
+      />
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
+      {source && <ObservedAsnsPanel sourceId={source._id} />}
+      <SourceAccessPolicyFields teams={teams} />
+    </FormikWithSchema>
+  );
+
+  const ooniSchema = Yup.object().shape({
+    nickname: Yup.string().required("Source Name is required"),
+    credentials: Yup.string().required("OONI credentials are required"),
+    lists: Yup.string()
+      .required("At least one ASN is required")
+      .test(
+        "valid-asns",
+        "Enter positive ASNs separated by spaces or commas",
+        (value) => {
+          const asns = String(value || "").split(/[\s,]+/).filter(Boolean);
+          return asns.length > 0 && asns.every((asn) => /^\d+$/.test(asn) && Number(asn) > 0);
+        },
+      ),
+  });
+  type OoniSchema = Yup.InferType<typeof ooniSchema>;
+  const ooniForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex: source?.regex || "",
+        keywords: source?.keywords || "IR",
+        lists: source?.lists || "44244, 58224",
+        ooniTestName: source?.ooniTestName || "web_connectivity",
+        ooniDomains: source?.ooniDomains || [],
+        ooniUseAllDomains: source?.ooniUseAllDomains || false,
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || "",
+        sourceURL: source?.url || "",
+        url: "",
+        ...sourceAccessInitialValues,
+      }}
+      schema={ooniSchema}
+      onSubmit={(values: OoniSchema) => {
+        onSubmit(values);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <FormikInput name='nickname' label='Source Name' maxLength={80} />
+      <CredentialPickerField
+        label='OONI Credentials'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
+      <FormikCombobox
+        list={COUNTRY_OPTIONS}
+        label={"Country"}
+        name={"keywords"}
+      />
+      <FormikDropdown
+        list={OONI_TEST_OPTIONS}
+        label={"OONI Test"}
+        name={"ooniTestName"}
+      />
+      <AsnChipInput
+        name='lists'
+        format='string'
+        label='Network ASNs'
+        placeholder='44244, 58224'
+        hint='Type an ASN number and press Enter to add it. We watch these networks for zero measurements.'
+      />
+      <OoniDomainFields />
+      <SourceAccessPolicyFields teams={teams} />
+    </FormikWithSchema>
+  );
+
+  const mastodonSchema = Yup.object().shape({
+    nickname: Yup.string().required("Feed name is required"),
+    credentials: Yup.string().required(
+      "A connection is required to create a feed"
+    ),
+    keywords: Yup.string()
+      .oneOf(["public", "home", "hashtag", "keyword"])
+      .required("A Mastodon mode is required"),
+    lists: Yup.string().when("keywords", {
+      is: (value: string) => value === "hashtag" || value === "keyword",
+      then: (schema) =>
+        schema.required("A hashtag or keyword value is required"),
+      otherwise: (schema) => schema.optional(),
+    }),
+    regex: Yup.string().when("keywords", {
+      is: "public",
+      then: (schema) =>
+        schema
+          .oneOf(["local", "public"])
+          .required("A public timeline scope is required"),
+      otherwise: (schema) => schema.optional(),
+    }),
+  });
+  type IMastodonSchema = Yup.InferType<typeof mastodonSchema>;
+
+  const mastodonForm = (
+    <FormikWithSchema
+      initialValues={{
+        nickname: source?.nickname || "",
+        media: source?.media || "",
+        regex:
+          source?.media === "mastodon"
+            ? source?.regex || "local"
+            : "local",
+        keywords:
+          source?.media === "mastodon"
+            ? source?.keywords || "public"
+            : "public",
+        lists: source?.lists || "",
+        tags: source?.tags || "",
+        credentials: source?.credentials._id || "",
+        sourceURL: source?.url || "",
+        url: "",
+        ...sourceAccessInitialValues,
+      }}
+      schema={mastodonSchema}
+      onSubmit={(values: IMastodonSchema) => {
+        const payload = {
+          ...values,
+          lists:
+            values.keywords === "hashtag" || values.keywords === "keyword"
+              ? values.lists
+              : "",
+          regex: values.keywords === "public" ? values.regex : "",
+        };
+        onSubmit(payload);
+      }}
+      loading={isLoading}
+      onClose={onClose}
+    >
+      <SourceNameField />
+      <FormikDropdown
+        list={
+          [
+            { _id: "public", label: "Public timeline" },
+            { _id: "home", label: "Home timeline" },
+            { _id: "hashtag", label: "Hashtag" },
+            { _id: "keyword", label: "Keyword search" },
+          ]
+        }
+        label={"Mastodon Mode"}
+        name={"keywords"}
+      />
+      <MastodonConditionalFields />
+      <CredentialPickerField
+        label='Connection'
+        credentialsList={credentialsList}
+        allowMultiple={allowMultipleConnections}
+      />
+      <SourceAccessPolicyFields teams={teams} />
+    </FormikWithSchema>
+  );
+
+
+  /*const RssSchema = Yup.object().shape({
+    nickname: Yup.string().required("Feed name is required"),
+    // sourceKeywords: Yup.string().required(
+    //   "Keywords are required to create a Junkipedia source"
+    // ),
+    lists: Yup.string().required(
+      "Lists are required to create a Junkipedia source"
+    ),
+  });
+  type IRssSchema = Yup.InferType<typeof RssSchema>;
 
 
   const RSSForm = (
@@ -151,7 +1034,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Source Name' />
+      <SourceNameField />
       <FormikInput name='lists' label='Lists' />
       <FormikInput name='regex' label='regex' />
       <FormikDropdown
@@ -160,21 +1043,19 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
             return { _id: i._id, label: i.name };
           }) || [{ _id: "", label: "loading" }]
         }
-        label={"API Credentials"}
+        label={"Connection"}
         name={"credentials"}
       />
     </FormikWithSchema>
   );
 
-
-
   const twitterSchema = Yup.object().shape({
-    nickname: Yup.string().required("Source name is a required field"),
+    nickname: Yup.string().required("Feed name is required"),
     // regex: Yup.string().required(
     //   "Query is required to create a Twitter source"
     // ),
     credentials: Yup.string().required(
-      "A credential is required to create a source"
+      "A connection is required to create a feed"
     ),
   });
   type ITwitterSchema = Yup.InferType<typeof twitterSchema>;
@@ -188,7 +1069,7 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
         keywords: source?.keywords || "",
         lists: source?.lists || "",
         tags: source?.tags || "",
-        credentials: source?.credentials._id || defaultCredential?._id,
+        credentials: source?.credentials._id || "",
         sourceURL: source?.url || "",
         url: "https://www.x.com/",
       }}
@@ -199,10 +1080,10 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
       loading={isLoading}
       onClose={onClose}
     >
-      <FormikInput name='nickname' label='Credential Name' />
+      <FormikInput name='nickname' label='Feed name' />
 
       <FormikInput name='regex' label='regex' />
-      {/* <FormikInput name='lists' label='Lists' /> */}
+      { /*<FormikInput name='lists' label='Lists' /> }
 
       <FormikDropdown
         list={
@@ -210,90 +1091,66 @@ const CreateEditSourceForm = ({ source, onClose }: IProps) => {
             return { _id: i._id, label: i.name };
           }) || [{ _id: "", label: "loading" }]
         }
-        label={"API Credentials"}
+        label={"Connection"}
         name={"credentials"}
       />
     </FormikWithSchema>
-  );
+  );*/
 
-  // const TelegramSchema = Yup.object().shape({
-  //   nickname: Yup.string().required("Source name is a required field"),
-  //   credentials: Yup.string().required(
-  //     "A credential is required to create a source"
-  //   ),
-  // });
-  // type ITelegramSchema = Yup.InferType<typeof TelegramSchema>;
-
-  // const TelegramForm = (
-  //   <FormikWithSchema
-  //     initialValues={{
-  //       nickname: source?.nickname || "",
-  //       media: source?.media || "",
-  //       keywords: source?.keywords || "",
-  //       lists: source?.lists || "",
-  //       tags: source?.tags || "",
-  //       credentials: source?.credentials._id || defaultCredential?._id,
-  //       sourceURL: source?.url || "",
-  //       url: "https://www.telegram.com/",
-  //     }}
-  //     schema={TelegramSchema}
-  //     onSubmit={(values: ITelegramSchema) => {
-  //       onSubmit(values);
-  //     }}
-  //     loading={isLoading}
-  //     onClose={onClose}
-  //   >
-  //     <FormikInput name='nickname' label='Credential Name' />
-  //     <FormikDropdown
-  //       list={
-  //         credentialsList?.map((i) => {
-  //           return { _id: i._id, label: i.name };
-  //         }) || [{ _id: "", label: "loading" }]
-  //       }
-  //       label={"API Credentials"}
-  //       name={"credentials"}
-  //     />
-  //   </FormikWithSchema>
-  // );
   return (
     <>
-      <label className='text-slate-600'>Credential Type</label>
-      <Listbox
-        value={credentialType}
-        onChange={setCredentialType}
-        as='div'
-        className='relative font-medium mb-3'
-      >
-        <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 border border-slate-300 w-full hover:bg-slate-100 text-left ui-active:bg-slate-200  rounded'>
-          {credentialType || "Select Credential"}
-          <FontAwesomeIcon
-            icon={faChevronDown}
-            className='ui-active:rotate-180 text-slate-400'
-          />
-        </Listbox.Button>
-        <Listbox.Options className='absolute left-0 mt-1 right-0 shadow-md border border-slate-300 bg-white rounded'>
-          {[...CREDENTIAL_OPTIONS].map((item) => (
-            <Listbox.Option
-              key={item}
-              value={item}
-              className='flex justify-between px-3 py-2 hover:bg-slate-100 ui-selected:bg-slate-100 cursor-pointer items-center'
-            >
-              {item}
-
+      {!providerLocked && (
+        <>
+          <label className='text-slate-600 dark:text-gray-400'>Source</label>
+          <Listbox
+            value={credentialType}
+            onChange={setCredentialType}
+            as='div'
+            className='relative z-20 font-medium mb-3'
+          >
+            <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200 dark:ui-active:bg-gray-600  rounded'>
+              {credentialType ? providerLabel(credentialType) : "Select Source"}
               <FontAwesomeIcon
-                icon={faCheck}
-                className={`text-slate-400 ${
-                  item === credentialType ? "" : "hidden"
-                }`}
+                icon={faChevronDown}
+                className='ui-active:rotate-180 text-slate-400 dark:text-gray-400'
               />
-            </Listbox.Option>
-          ))}
-        </Listbox.Options>
-      </Listbox>
+            </Listbox.Button>
+            <Listbox.Options className='absolute left-0 right-0 z-30 mt-1 rounded border border-slate-300 bg-white shadow-md dark:bg-gray-800'>
+              {[...CREDENTIAL_OPTIONS].map((item) => (
+                <Listbox.Option
+                  key={item}
+                  value={item}
+                  className='flex justify-between px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 ui-selected:bg-slate-100 dark:ui-selected:bg-gray-700 cursor-pointer items-center'
+                >
+                  {providerLabel(item)}
+
+                  <FontAwesomeIcon
+                    icon={faCheck}
+                    className={`text-slate-400 dark:text-gray-400${
+                      item === credentialType ? "" : "hidden"
+                    }`}
+                  />
+                </Listbox.Option>
+              ))}
+            </Listbox.Options>
+          </Listbox>
+        </>
+      )}
       {credentialType === "junkipedia" && JunkipediaForm}
-      {credentialType === "rss" && RSSForm}
-      {credentialType === "twitter" && TwitterForm}
-      {/* {credentialType === "telegram" && TelegramForm} */}
+      {/* {credentialType === "telegramBot" && telegramBotForm} */}
+      {credentialType === "telegramUser" && telegramUserForm}
+      {credentialType === "mastodon" && mastodonForm}
+      {/*credentialType === "rss" && RSSForm*/}
+      {/*credentialType === "twitter" && TwitterForm*/}
+      {credentialType === "ioda" && iodaForm}
+      {credentialType === "cloudflare" && cloudflareForm}
+      {credentialType === "ooni" && ooniForm}
+      {saveError && <AxiosErrorCard error={saveError} />}
+      {saveSuccess && (
+        <p className='mt-3 text-sm text-green-700' role='status'>
+          {source ? "Feed updated successfully." : "Feed created successfully."}
+        </p>
+      )}
     </>
   );
 };

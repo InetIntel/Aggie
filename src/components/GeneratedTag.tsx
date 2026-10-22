@@ -37,7 +37,7 @@ const GeneratedTag = ({ name, children, className }: IProps) => {
         {...getReferenceProps()}
         className={`pl-1 pr-2 flex items-center gap-1 font-medium text-xs py-0.5 ${
           className ||
-          " rounded-full bg-purple-100 hover:bg-purple-200 text-purple-600 "
+          " rounded-full bg-purple-100 hover:bg-purple-200 dark:bg-purple-100 dark:hover:bg-purple-200 dark:saturate-[0.7] text-purple-600 "
         }`}
       >
         {starIcon}
@@ -50,7 +50,7 @@ const GeneratedTag = ({ name, children, className }: IProps) => {
             style={floatingStyles}
             {...getFloatingProps()}
             onClick={onClick}
-            className={`max-h-[50vh] shadow-md overflow-y-auto top-full rounded-lg inline-block pointer-events-none z-10 bg-purple-50 border border-purple-400 min-w-20 w-max max-w-md `}
+            className={`max-h-[50vh] shadow-md overflow-y-auto top-full rounded-lg inline-block pointer-events-none z-10 bg-purple-50 dark:bg-purple-50 dark:saturate-[0.7] border border-purple-400 min-w-20 w-max max-w-md `}
           >
             {children}
           </div>

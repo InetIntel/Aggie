@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { deleteUser, getUsers } from "../../../api/users";
+import { deleteUser, getManageableUsers } from "../../../api/users";
 import { Session } from "../../../api/session/types";
 
 import { Link } from "react-router-dom";
@@ -21,13 +21,14 @@ import {
   faTrashAlt,
   faUserShield,
 } from "@fortawesome/free-solid-svg-icons";
+import { UserRoles } from "../../../api/users/types";
 
 interface IProps {
   session?: Session;
 }
 
 const UsersIndex = ({ session }: IProps) => {
-  const { data } = useQuery(["users"], getUsers);
+  const { data } = useQuery(["users"], getManageableUsers);
   const [editUser, setEditUser] = useState("");
   const [removeUser, setRemoveUser] = useState("");
   const [editPassword, setEditPassword] = useState("");
@@ -44,6 +45,16 @@ const UsersIndex = ({ session }: IProps) => {
   }
 
   const userToDelete = userFromId(removeUser);
+  
+  const userToEdit = userFromId(editUser);
+  const canEditRole = 
+    (editUser === "newUser" && session?.role === "admin") || 
+    (!!userToEdit && session?.role === "admin" && userToEdit._id !== session?._id);
+
+      function getTeamNames(user: { teams?: { name?: string }[] }) {
+    if (!user.teams || user.teams.length === 0) return "None";
+    return user.teams.map((team) => team.name || "Unnamed team").join(", ");
+  }
 
   return (
     <div className='w-full mb-16'>
@@ -60,18 +71,31 @@ const UsersIndex = ({ session }: IProps) => {
         </AggieButton>
       </div>
 
-      <div className=' rounded-lg border border-slate-300 bg-white divide-y divide-slate-300'>
-        <div className='grid grid-cols-4 px-3 py-3 font-medium text-sm border-b border-slate-300 items-baseline'>
+      <div className=' rounded-lg border border-slate-300 bg-white dark:bg-gray-800 divide-y divide-slate-300'>
+        <div className='grid grid-cols-5 px-3 py-3 font-medium text-sm border-b border-slate-300 items-baseline'>
           <p>Username</p>
           <p>Role</p>
+          <p>Teams</p>
           <p>Email</p>
           <div className='flex justify-end '></div>
         </div>
         {!!data ? (
-          data.map((user) => (
+          data.map((user) => {
+            const role = session?.role as UserRoles | undefined;
+            const isAdmin = role === 'admin';
+            const isTeamLead = role === 'team_lead';
+            const isSelf = user._id === session?._id;
+            const canEditRow = isAdmin && !isSelf; // edit others (admin only)
+            // Admins can set anyone's password; any user can set their own.
+            const canChangePassword = isAdmin || isSelf;
+            const canDeleteAsAdmin = isAdmin && !isSelf;
+            const canDeleteAsTeamLead = isTeamLead && !isSelf && String(user.createdBy) === String(session?._id);
+            const canDeleteRow = canDeleteAsAdmin || canDeleteAsTeamLead;
+            const showMenuRow = canEditRow || canChangePassword || canDeleteRow;
+            return (
             <article
               key={user._id}
-              className='grid grid-cols-4 px-3 py-3 items-center'
+              className='grid grid-cols-5 px-3 py-3 items-center'
             >
               <div className=''>
                 {!!user.displayName ? (
@@ -95,50 +119,59 @@ const UsersIndex = ({ session }: IProps) => {
                   </p>
                 )}
               </div>
-              <p className='px-2 py-1 bg-slate-200 rounded text-sm w-fit font-medium'>
+              <p className='px-2 py-1 bg-slate-200 dark:bg-gray-600 rounded text-sm w-fit font-medium'>
                 {user.role}
+              </p>
+              <p className='text-sm text-slate-600 dark:text-gray-300'>
+                {getTeamNames(user)}
               </p>
               <p>{user.email}</p>
               <div className='flex justify-end'>
-                {session?.role === "admin" && (
+                {showMenuRow  && (
                   <DropdownMenu
                     variant='secondary'
-                    className='px-2 py-1 rounded-lg bg-slate-100 border border-slate-300'
+                    className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
                     panelClassName='overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
+                  {canEditRow && (
                     <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                      className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => setEditUser(user._id)}
                     >
                       <FontAwesomeIcon icon={faEdit} />
                       Edit
                     </AggieButton>
+                  )}
+                  {canChangePassword && (
                     <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-slate-600 w-full'
+                      className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => setEditPassword(user._id)}
                     >
                       <FontAwesomeIcon icon={faUserShield} />
                       Change Password
                     </AggieButton>
+                  )}
+                  {canDeleteRow && (
                     <AggieButton
-                      className='px-3 py-2 hover:bg-slate-100 text-red-600'
+                      className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-red-600'
                       onClick={() => setRemoveUser(user._id)}
                     >
                       <FontAwesomeIcon icon={faTrashAlt} />
                       Permanently Delete
                     </AggieButton>
+                  )}
                   </DropdownMenu>
                 )}
               </div>
             </article>
-          ))
+          )})
         ) : (
           <article className='grid py-6 font-medium w-full place-items-center'>
             <p className=''>
               <FontAwesomeIcon
                 icon={faRefresh}
-                className='animate-spin text-slate-600'
+                className='animate-spin text-slate-600 dark:text-gray-400'
               />{" "}
               Loading
             </p>
@@ -154,8 +187,10 @@ const UsersIndex = ({ session }: IProps) => {
         }}
       >
         <CreateEditUserForm
-          user={userFromId(editUser)}
+          user={userToEdit}
           onClose={() => setEditUser("")}
+          canEditRole = {!! canEditRole}
+          currentUserRole={session?.role as UserRoles | undefined}
         />
       </AggieDialog>
       <AggieDialog

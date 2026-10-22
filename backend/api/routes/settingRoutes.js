@@ -8,12 +8,6 @@ const User = require('../../models/user');
 // Turn fetching on or off
 router.put('/fetching/:status', User.can('change settings'), settingController.setting_update_fetch);
 
-// Request to update CTLists
-router.put('/updateCTList', User.can('change settings'), settingController.setting_update_ctlist);
-
-// Get Google Places API
-router.get('/gplaces', User.can('change settings'), settingController.setting_gplaces);
-
 // Get a setting
 router.get('/:setting', User.can('change settings'), settingController.setting_setting);
 

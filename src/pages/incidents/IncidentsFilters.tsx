@@ -1,11 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { IuseQueryParams, useQueryParams } from "../../hooks/useQueryParams";
 
-import { getUsers } from "../../api/users";
+import { getUserDirectory } from "../../api/users";
 import {
-  VERACITY_OPTIONS,
-  ESCALATED_OPTIONS,
   GROUP_SORTBY,
+  GROUP_SORTBY_LABELS,
   GroupSortBy,
 } from "../../api/common";
 import type { GroupQueryState } from "../../api/groups/types";
@@ -13,12 +11,11 @@ import type { GroupQueryState } from "../../api/groups/types";
 import { Field, Form, Formik } from "formik";
 import FilterComboBox from "../../components/filters/FilterComboBox";
 import FilterListbox from "../../components/filters/FilterListBox";
-import FilterRadioGroup from "../../components/filters/FilterRadioGroup";
+import FilterDateTime from "../../components/filters/FilterDateTime";
 import AggieButton from "../../components/AggieButton";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faCircleMinus,
   faSearch,
   faWarning,
   faXmarkSquare,
@@ -26,9 +23,15 @@ import {
 import Pagination from "../../components/Pagination";
 import { formatPageCount } from "../../utils/format";
 import { getSession } from "../../api/session";
-import { faCircleDot } from "@fortawesome/free-regular-svg-icons";
+import IncidentTagFilter from "./IncidentTagFilter";
 
-interface IIncidentFilters {
+// Lifecycle-stage filter options. The display label lowercases exactly to the
+// query key sent to the backend (verification/confirmation/published).
+const STAGE_OPTIONS = ["Verification", "Confirmation", "Published"] as const;
+const stageKey = (label: string) => label.toLowerCase();
+const stageLabel = (key: string) => key.charAt(0).toUpperCase() + key.slice(1);
+
+interface IProps {
   isQuery: boolean;
   get: (value: keyof GroupQueryState) => string;
   set: (values: GroupQueryState) => void;
@@ -41,11 +44,13 @@ const IncidentsFilters = ({
   set,
   clearAll,
   isQuery,
-}: IIncidentFilters) => {
-  const { data: users } = useQuery(["users"], getUsers);
+}: IProps) => {
+  const { data: users } = useQuery(["users", "directory"], getUserDirectory);
+
   const { data: session } = useQuery(["session"], getSession, {
     staleTime: 10000,
   });
+
   function usersRemapComboBox(query: typeof users) {
     if (!query) return [];
     const array = query.map((user) => ({
@@ -60,18 +65,19 @@ const IncidentsFilters = ({
   }
   function setParams(values: GroupQueryState) {
     if ("title" in values) {
-      values = { ...values, closed: "all" };
+      // a title search spans all stages + closed, not just the active toggle
+      values = { ...values, closed: "all", stages: undefined };
     }
     if (!("page" in values)) {
       values = { ...values, page: undefined };
     }
     set(values);
   }
-  function onSearch() {}
+  function onSearch() { }
 
   return (
     <>
-      <div className='flex justify-between mb-2 '>
+      <div className='flex flex-wrap justify-between items-center gap-2 mb-2 '>
         <div className='flex gap-1 max-w-[25em] w-full'>
           <Formik
             initialValues={{ title: get("title") }}
@@ -81,19 +87,19 @@ const IncidentsFilters = ({
               <Form className='flex w-full'>
                 <Field
                   name='title'
-                  className='px-2 py-1 border border-r-0 border-slate-300 bg-white rounded-l-lg w-full'
+                  className='px-2 py-1 border border-r-0 border-slate-300 bg-white dark:bg-gray-800 rounded-l-lg w-full '
                   placeholder='search title, location, description, id (with #)'
                 />
                 <button
                   type='submit'
                   onClick={onSearch}
-                  className='px-4 py-1 bg-slate-100 rounded-r-lg border border-slate-300 hover:bg-slate-50'
+                  className='px-4 py-1 bg-slate-100 dark:bg-gray-700 rounded-r-lg border border-slate-300 hover:bg-slate-50 dark:hover:bg-gray-900  '
                 >
                   <FontAwesomeIcon icon={faSearch} />
                 </button>
                 {isQuery && (
                   <AggieButton
-                    className='ml-1 hover:underline hover:bg-slate-100 px-2 py-1 text-sm rounded'
+                    className='ml-1 hover:underline hover:bg-slate-100 dark:hover:bg-gray-700 px-2 py-1 text-sm rounded'
                     onClick={() => {
                       clearAll();
                       resetForm();
@@ -108,7 +114,7 @@ const IncidentsFilters = ({
           </Formik>
         </div>
         <div className='text-xs flex items-center gap-2'>
-          <p className={"font-medium text-slate-600"}>
+          <p className={"font-medium text-slate-600 dark:text-gray-400"}>
             {formatPageCount(Number(get("page")), 50, totalCount)}
           </p>
           <Pagination
@@ -119,61 +125,35 @@ const IncidentsFilters = ({
           />
         </div>
       </div>
-      <div className='flex justify-between mb-2 text-sm'>
-        <div className='flex gap-2'>
-          <FilterRadioGroup
-            options={{
-              false: (
-                <span>
-                  <FontAwesomeIcon
-                    icon={faCircleDot}
-                    className='text-green-700'
-                  />{" "}
-                  Open
-                </span>
-              ),
-              true: (
-                <span>
-                  <FontAwesomeIcon
-                    icon={faCircleMinus}
-                    className='text-purple-500'
-                  />{" "}
-                  Closed
-                </span>
-              ),
-              all: "All",
+      <div className='flex flex-wrap justify-end gap-y-2 mb-2 text-sm'>
+        <div className='flex flex-wrap items-center gap-1'>
+          <FilterListbox
+            label='Stage'
+            options={[...STAGE_OPTIONS]}
+            value={
+              get("stages")
+                ? get("stages").split(",").filter(Boolean).map(stageLabel)
+                : []
+            }
+            onChange={(e) => {
+              const keys = (e as string[]).map(stageKey);
+              setParams({ stages: keys.length ? keys.join(",") : undefined });
             }}
-            value={get("closed")}
-            defaultValue={"false"}
-            onChange={(e) =>
-              setParams({ closed: e === "false" ? undefined : e })
+            isMultiSelect={true}
+            toggleLabel='Include closed'
+            toggleDescription='Also show closed incidents. Hidden by default.'
+            toggleValue={get("closed") === "all"}
+            onToggleChange={(value) =>
+              setParams({ closed: value ? "all" : undefined })
             }
           />
-          {!get("escalated") && (
-            <AggieButton
-              variant='secondary'
-              icon={faWarning}
-              className='text-xs text-orange-700'
-              onClick={() => setParams({ escalated: true })}
-            >
-              Show Only Escalated
-            </AggieButton>
-          )}
-        </div>
-        <div className='flex items-center gap-1'>
-          <FilterListbox
-            label='Veracity'
-            options={[...VERACITY_OPTIONS]}
-            value={get("veracity")}
-            onChange={(e) => setParams({ veracity: e })}
+          <FilterDateTime
+            label='Incident start'
+            before={get("before")}
+            onSetBefore={(d) => setParams({ before: d })}
+            after={get("after")}
+            onSetAfter={(d) => setParams({ after: d })}
           />
-          <FilterListbox
-            label='Escalated'
-            options={[...ESCALATED_OPTIONS]}
-            value={get("escalated")}
-            onChange={(e) => setParams({ escalated: e })}
-          />
-
           <FilterComboBox
             label='Creator'
             list={usersRemapComboBox(users)}
@@ -182,7 +162,7 @@ const IncidentsFilters = ({
                 {i.data?.displayName ? (
                   <>
                     <p className='font-medium'>{i.data?.displayName}</p>
-                    <p className=' text-xs text-slate-700'>
+                    <p className=' text-xs text-slate-700 dark:text-gray-300'>
                       {i.data?.username}
                     </p>
                   </>
@@ -206,7 +186,7 @@ const IncidentsFilters = ({
                 {i.data?.displayName ? (
                   <>
                     <p className='font-medium'>{i.data?.displayName}</p>
-                    <p className=' text-xs text-slate-700'>
+                    <p className=' text-xs text-slate-700 dark:text-gray-300'>
                       {i.data?.username}
                     </p>
                   </>
@@ -226,11 +206,39 @@ const IncidentsFilters = ({
               { key: session?._id || "", value: "Assigned to Me" },
             ]}
           />
+          <IncidentTagFilter
+            selectedIds={get("tags").split(",").filter(Boolean)}
+            matchMode={get("tagMatch") === "all" ? "all" : "any"}
+            onChange={(tagIds) =>
+              setParams({
+                tags: tagIds.length ? tagIds.join(",") : undefined,
+                tagMatch: tagIds.length
+                  ? (get("tagMatch") as "any" | "all") || undefined
+                  : undefined,
+              })
+            }
+            onMatchModeChange={(mode) =>
+              setParams({ tagMatch: mode === "all" ? "all" : undefined })
+            }
+            onReset={() =>
+              setParams({ tags: undefined, tagMatch: undefined })
+            }
+          />
           <FilterListbox
             label='Sort By'
-            options={[...GROUP_SORTBY]}
-            value={get("sortBy")}
-            onChange={(e) => setParams({ sortBy: e as GroupSortBy })}
+            options={GROUP_SORTBY.map((k) => GROUP_SORTBY_LABELS[k])}
+            value={
+              get("sortBy")
+                ? GROUP_SORTBY_LABELS[get("sortBy") as GroupSortBy]
+                : ""
+            }
+            onChange={(e) =>
+              setParams({
+                sortBy: GROUP_SORTBY.find(
+                  (k) => GROUP_SORTBY_LABELS[k] === e
+                ) as GroupSortBy,
+              })
+            }
           />
         </div>
       </div>

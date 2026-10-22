@@ -12,6 +12,7 @@ const validator = require('validator');
 const _ = require('lodash');
 const AutoIncrement = require('mongoose-sequence')(mongoose);
 const Report = require('./report');
+const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../config/models/groupConfigs');
 require('./tag');
 
 require('../error');
@@ -20,6 +21,42 @@ const lengthValidator = function (str) {
   return validator.isLength(str, { min: 0, max: 42 });
 };
 
+const publicationValidator = function (arr) {
+  if (
+    arr.includes("Not Published") && arr.includes("Published")) {
+      return false;
+    }
+  return true;
+}
+
+const Attachment = new mongoose.Schema({
+  fileName: { type: String, required: true},
+  path: { type: String, required: true},
+  serverPath: {type: String, required: true},
+  mimeType: { type: String, required: true},
+  fileSize: {
+    type: Number,
+    required: true,
+    validate: {
+      validator: (size) => size <= MAX_ATTACHMENT_SIZE,
+      message: `Attachment must be less than ${MAX_ATTACHMENT_SIZE / 1024} kb`,
+    }
+  }
+});
+
+const Comment = new mongoose.Schema({
+  data: { type: String, required: true},
+  author: { type: mongoose.Schema.ObjectId, ref: 'User', required: true },
+  attachments: {
+    type: [Attachment],
+    default: [],
+    validate: {
+      validator: (arr) => arr.length <= MAX_ATTACHMENT_COUNT, 
+      message: `Max ${MAX_ATTACHMENT_COUNT} attachments`,
+    }
+  }
+}, {timestamps: true});
+
 let schema = new mongoose.Schema({
   title: { type: String, required: true },
   locationName: String,
@@ -27,6 +64,11 @@ let schema = new mongoose.Schema({
   longitude: Number,
   updatedAt: Date,
   storedAt: { type: Date, index: true },
+  incidentStartedAt: {type: Date, index: true},
+  incidentEndedAt: { type: Date, index: true },
+  incidentDurationSeconds: { type: Number, default: null },
+  impactedAsns: { type: [String], default:[] },
+  impactedGeoScopes:{ type: [String], default:[] },
   tags: { type: [String], default: [] },
   assignedTo: { type: [mongoose.Schema.ObjectId], ref: 'User', index: 1 },
   smtcTags: {
@@ -35,14 +77,34 @@ let schema = new mongoose.Schema({
   },
   creator: { type: mongoose.Schema.ObjectId, ref: 'User', index: 1 },
   status: { type: String, default: 'new', required: true },
-  veracity: {
-    type: String,
-    default: 'Unconfirmed',
-    enum: ['Unconfirmed', 'Confirmed True', 'Confirmed False'],
+  verification_status: { type: String, default: 'maybe', required: true, enum: ['false', 'true', 'maybe'], index: true },
+  confirmation_status: { type: String, default: 'maybe', required: true, enum: ['false', 'true', 'maybe'], index: true },
+  publication_status: {
+    type: [String],
+    default: ['Not Published'],
+    required: true,
+    enum: ['Not Published', 'Published', 'Shared with Networks'],
+    validate: {
+      validator: publicationValidator,
+      message: 'Incident cannot be both Not Published and Published.',
+    },
   },
   escalated: { type: Boolean, default: false, required: true, index: 1 },
   closed: { type: Boolean, default: false, required: true, index: 1 },
   public: { type: Boolean, default: true, required: true, index: 1 },
+  accessPolicy: {
+    mode: {
+      type: String,
+      enum: ['public', 'restricted'],
+      default: 'public',
+      index: true,
+    },
+    teams: [{
+      type: SchemaTypes.ObjectId,
+      ref: 'Team',
+      index: true,
+    }],
+  },
   reportsLength: { type: Number, default: 0, required: true, index: 1 },
   commentsLength: { type: Number, default: 0, required: true, index: 1 },
 
@@ -52,12 +114,7 @@ let schema = new mongoose.Schema({
     default: [],
   },
   notes: String,
-  comments: [new mongoose.Schema({
-
-    data: String,
-    author: { type: mongoose.Schema.ObjectId, ref: 'User' },
-
-  }, { timestamps: true })]
+  comments: [Comment]
 });
 
 schema.plugin(AutoIncrement, { inc_field: 'idnum' });
@@ -75,6 +132,17 @@ schema.pre('save', function (next) {
   }
   if (this.isNew) this.storedAt = new Date();
   this.updatedAt = new Date();
+
+  // validate start date & end date when both provided and valid
+  const isValidDate = (d) => (d instanceof Date && !isNaN(d));
+  if (
+    isValidDate(this.incidentStartedAt) &&
+    isValidDate(this.incidentEndedAt) && 
+    this.incidentStartedAt > this.incidentEndedAt
+  ) {
+    return next(new Error.Validation('Incident start date must be before end date.'));
+  }
+
   if (!_.includes(Group.statusOptions, this.status)) {
     return next(new Error.Validation('status_error'));
   }
@@ -94,14 +162,15 @@ schema.post('remove', function () {
     }
     reports.forEach(function (report) {
       report._group = null;
+      report.addedToGroupAt = undefined;
+      report.addedToGroupBy = undefined;
+      report.pinnedInGroupAt = undefined;
       report.save();
     });
   });
 });
 
-schema.methods.setVeracity = function (veracity) {
-  this.veracity = veracity;
-};
+
 
 schema.methods.setEscalated = function (escalated) {
   this.escalated = escalated;
@@ -169,6 +238,9 @@ schema.methods.clearSMTCTags = function (callback) {
   cb();
 };
 
+schema.plugin(require('./kpiPlugin').kpiPlugin, {
+  entity: 'group', recordEvents: require('../api/utils/kpiTracking').recordEvents,
+});
 var Group = mongoose.model('Group', schema);
 
 /* We need to be able to find Groups by smtcTag Id
@@ -227,15 +299,29 @@ Group.queryGroups = function (query, page, options, callback) {
   }
 
 
-  if (query.veracity === 'confirmed true') filter.veracity = 'Confirmed True';
-  if (query.veracity === 'confirmed false') filter.veracity = 'Confirmed False';
-  if (query.veracity === 'unconfirmed') filter.veracity = 'Unconfirmed';
 
   // default filter open
   filter.closed = false;
   if (query.closed === 'all') delete filter.closed
   if (query.closed === 'true') filter.closed = true;
   delete filter.status;
+
+  // Lifecycle-stage filter (multi-select, OR semantics). Strict pipeline buckets
+  // matching the IncidentStatuses badge precedence: publication > confirmation > verification.
+  const NOT_PUBLISHED = { publication_status: { $nin: ['Published', 'Shared with Networks'] } };
+  const stagePredicates = {
+    verification: { verification_status: { $in: ['maybe'] }, ...NOT_PUBLISHED },
+    confirmation: { verification_status: { $in: ['true', true] }, confirmation_status: { $in: ['maybe'] }, ...NOT_PUBLISHED },
+    published: { publication_status: { $in: ['Published', 'Shared with Networks'] } },
+  };
+  if (typeof query.stages === 'string' && query.stages.length) {
+    const selected = query.stages.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return stagePredicates[s]; });
+    if (selected.length) {
+      // push as an $and clause so we don't clobber the assignedTo `$or` above
+      filter.$and = (filter.$and || []).concat([{ $or: selected.map(function (s) { return stagePredicates[s]; }) }]);
+    }
+  }
+  delete filter.stages;
 
 
   if (query.escalated === 'escalated') filter.escalated = true;
@@ -273,12 +359,19 @@ Group.queryGroups = function (query, page, options, callback) {
 
   // Checking for multiple tags in group
   if (filter.tags) {
-    filter.smtcTags = { $all: filter.tags };
+    const tagOperator = filter.tagMatch === 'all' ? '$all' : '$in';
+    filter.smtcTags = { [tagOperator]: filter.tags };
     delete filter.tags;
   }
+  delete filter.tagMatch;
   // Re-set search timestamp
   query.since = new Date();
   console.log(JSON.stringify(filter))
+  const accessFilter = options.accessFilter;
+  delete options.accessFilter;
+  if (accessFilter && Object.keys(accessFilter).length > 0) {
+    filter = { $and: [filter, accessFilter] };
+  }
   // Just use filters when no keywords are provided
   Group.findPage(filter, page, options, callback);
 };

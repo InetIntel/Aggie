@@ -11,16 +11,59 @@ export type VeracityOptions = (typeof VERACITY_OPTIONS)[number];
 
 export const MEDIA_OPTIONS = [
   "twitter",
-  "tiktok",
-  "instagram",
-  "RSS",
-  // "elmo",
-  // "SMS GH",
-  "truthsocial",
-  "youtube",
-  "facebook",
+  // "tiktok",
+  // "instagram",
+  // "RSS",
+  // "truthsocial",
+  // "youtube",
+  // "facebook",
+  // "telegram",
+  "telegramUser",
+  "mastodon",
+  "ioda",
+  "cloudflare",
+  "ooni",
 ] as const;
 export type MediaOptions = (typeof MEDIA_OPTIONS)[number];
+
+export const SOCIAL_MEDIA_OPTIONS = [
+  "twitter",
+  // "telegram",
+  "telegramUser",
+  "mastodon",
+  // "tiktok",
+  // "instagram",
+  // "RSS",
+  // "truthsocial",
+  // "youtube",
+  // "facebook",
+] as const satisfies readonly MediaOptions[];
+
+export const ALERT_MEDIA_OPTIONS = [
+  "ioda",
+  "cloudflare",
+  "ooni",
+] as const satisfies readonly MediaOptions[];
+
+export const DATA_SOURCE_OPTIONS = [
+  "Active Probing",
+  "BGP",
+  "Telescope",
+  "Cloudflare Traffic",
+  "OONI Web Connectivity",
+] as const;
+export type DataSourceOptions = (typeof DATA_SOURCE_OPTIONS)[number];
+
+export const ENTITY_LEVEL_OPTIONS = [
+  "Region",
+  "AS - Region",
+  "AS - Country",
+  "AS",
+]
+export type ENTITY_LEVEL_OPTIONS = (typeof ENTITY_LEVEL_OPTIONS)[number];
+
+export const OUTAGE_STATUS_OPTIONS = ["All", "Ongoing", "Ended"] as const;
+export type OutageStatusOption = (typeof OUTAGE_STATUS_OPTIONS)[number];
 
 export const ESCALATED_OPTIONS = ["true", "false"] as const;
 export type EscalatedOptions = (typeof ESCALATED_OPTIONS)[number];
@@ -28,16 +71,76 @@ export type EscalatedOptions = (typeof ESCALATED_OPTIONS)[number];
 export const CLOSED_OPTIONS = ["true", "false"] as const;
 export type ClosedOptions = (typeof CLOSED_OPTIONS)[number];
 
-export const IRRELEVANCE_OPTIONS = ["true", "maybe", "false"] as const;
-export type IrrelevanceOptions = (typeof IRRELEVANCE_OPTIONS)[number];
+export const TERNARY_OPTIONS = ["true", "maybe", "false"] as const;
+export type TernaryOptions = (typeof TERNARY_OPTIONS)[number];
 
-export const CREDENTIAL_OPTIONS = ["junkipedia", "rss", "twitter"] as const;
+export const CREDENTIAL_OPTIONS = [
+  "junkipedia",
+  // "telegramBot",
+  "telegramUser",
+  "mastodon",
+  "ioda",
+  "cloudflare",
+  "ooni",
+] as const;
 export type CredentialOption = (typeof CREDENTIAL_OPTIONS)[number];
 
+// Multiple Connections per provider are allowed by default. The gating flag is
+// kept in place (rather than removed) so the one-connection-per-provider cap can
+// be re-enabled later by flipping this back to `false`.
+export const ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER = true;
+
+// The Feeds page lets managers override the cap above per-browser (persisted in
+// localStorage). Read that override anywhere the connection picker needs to know
+// whether multiple connections are allowed — the Feeds page and the edit form
+// reached from a feed's details both rely on this single source of truth.
+export const MULTI_CONNECTION_STORAGE_KEY = "feeds:allowMultipleConnections";
+
+export const getAllowMultipleConnections = (): boolean => {
+  const stored = localStorage.getItem(MULTI_CONNECTION_STORAGE_KEY);
+  return stored === null
+    ? ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER
+    : stored === "true";
+};
+
+// Friendly, user-facing name for each provider type. Use this anywhere a
+// provider/credential type would otherwise be shown as its raw identifier
+// (e.g. "telegramUser", "ioda") in the UI.
+export const PROVIDER_LABELS: Record<string, string> = {
+  junkipedia: "Junkipedia",
+  telegramBot: "Telegram Bot",
+  telegramUser: "Telegram",
+  mastodon: "Mastodon",
+  twitter: "Twitter",
+  ioda: "IODA",
+  cloudflare: "Cloudflare",
+  ooni: "OONI",
+};
+
+// Fall back to the raw value if we don't have a friendly label for it.
+export const providerLabel = (type?: string) =>
+  (type && PROVIDER_LABELS[type]) || type || "";
+
 export const GROUP_SORTBY = [
+  "descStartDate",
+  "ascStartDate",
+  "descEndDate",
+  "ascEndDate",
   "mostComments",
   "leastComments",
   "mostReports",
   "leastReports",
 ] as const;
 export type GroupSortBy = (typeof GROUP_SORTBY)[number];
+
+// Human-readable labels for the Sort By dropdown, keyed by the query value.
+export const GROUP_SORTBY_LABELS: Record<GroupSortBy, string> = {
+  descStartDate: "Start date (newest)",
+  ascStartDate: "Start date (oldest)",
+  descEndDate: "End date (newest)",
+  ascEndDate: "End date (oldest)",
+  mostComments: "Most comments",
+  leastComments: "Fewest comments",
+  mostReports: "Most reports",
+  leastReports: "Fewest reports",
+};

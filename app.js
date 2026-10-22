@@ -18,11 +18,10 @@ process.on('uncaughtException', function (err) {
 
 });
 
-// Begins the three main backend processes API, fetching, and analytics.
+// Begins the three main backend processes API, fetching, and truemedia.
 // See Readme files in backend subdirectores for more on each.
 _fork('API', '/backend/api');
 _fork('FETCH', '/backend/fetching');
-_fork('ANALYTICS', '/backend/analytics');
 // truemedia polling
-_fork('TRUEMEDIA', '/backend/truemedia');
+// _fork('TRUEMEDIA', '/backend/truemedia');
 module.exports = processManager;

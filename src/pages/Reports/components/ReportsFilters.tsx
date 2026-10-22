@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 
+import { getAlertFilterOptions } from "../../../api/reports";
+import LocationFilter from "../../../components/filters/LocationFilter";
 import { getSources } from "../../../api/sources";
-import { MEDIA_OPTIONS } from "../../../api/common";
+import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS, OUTAGE_STATUS_OPTIONS, providerLabel } from "../../../api/common";
 import type { ReportQueryState } from "../../../api/reports/types";
 
 import FilterComboBox from "../../../components/filters/FilterComboBox";
@@ -32,6 +34,15 @@ interface IReportFilters {
   fromGroup?: string;
   refetch: () => void;
   isFetching: boolean;
+  platformOptions?: string[];
+  showEntityLevelFilter?: boolean;
+  showLocationFilters?: boolean;
+  showSignalSourcesFilter?: boolean;
+  showOngoingFilter?: boolean;
+  showDedupToggle?: boolean;
+  autoEnableDedup?: boolean;
+  defaultEntityLevelSelection?: string[];
+  showPagination?: boolean;
 }
 
 const ReportFilters = ({
@@ -42,6 +53,15 @@ const ReportFilters = ({
   fromGroup,
   refetch,
   isFetching,
+  platformOptions = [...MEDIA_OPTIONS],
+  showEntityLevelFilter = true,
+  showLocationFilters = false,
+  showSignalSourcesFilter = true,
+  showOngoingFilter = true,
+  showDedupToggle = true,
+  autoEnableDedup = true,
+  defaultEntityLevelSelection,
+  showPagination = true,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -50,6 +70,7 @@ const ReportFilters = ({
     clearAllParams,
   } = useQueryParams<ReportQueryState>();
   const navigate = useNavigate();
+  const locationOptions = useQuery(["alert-filter-options"], getAlertFilterOptions, { enabled: showLocationFilters });
   const { data: sources } = useQuery(["sources"], getSources);
   function sourcesRemapComboBox(query: typeof sources) {
     if (!query) return [];
@@ -69,28 +90,121 @@ const ReportFilters = ({
       key: group._id,
       value: group.title,
       data: group,
-      searchstring: `${group.title} #${group.idnum} ${
-        group.closed ? "closed" : ""
-      } ${group.escalated ? "escalated" : ""}`,
+      searchstring: `${group.title} #${group.idnum} ${group.closed ? "closed" : ""
+        } ${group.escalated ? "escalated" : ""}`,
     }));
     if (!array) return [];
     return array;
   }
 
+  const entityLevelDefaults = defaultEntityLevelSelection ?? (
+    showEntityLevelFilter ? [...ENTITY_LEVEL_OPTIONS] : []
+  );
+
+  // normalize entity level array and dedup toggle rules
+  const currentEntityLevel = getParam("entityLevel")
+    ? getParam("entityLevel").split(",").filter(Boolean)
+    : entityLevelDefaults;
+
+  const currentHideDuplicateASNs = (() => {
+    const raw = getParam("hideDuplicateASNs");
+    // If user explicitly set it, use that value
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    if (!autoEnableDedup) return false;
+    // Otherwise, auto-default to true if both AS and AS-Country are selected
+    const shouldDefaultOn =
+      currentEntityLevel.includes("AS") &&
+      currentEntityLevel.includes("AS - Country");
+    return shouldDefaultOn;
+  })();
+
+  // 'ongoing' is a tri-state: absent = All, 'true' = still running, 'false' = ended.
+  const currentOutageStatus =
+    getParam("ongoing") === "true"
+      ? "Ongoing"
+      : getParam("ongoing") === "false"
+        ? "Ended"
+        : "All";
+
+  const outageStatusToParam = (status: string) =>
+    status === "Ongoing" ? "true" : status === "Ended" ? "false" : undefined;
+
   function setParams(values: ReportQueryState) {
     if (!("page" in values)) {
       values = { ...values, page: undefined };
     }
-    console.log(values);
-    setParamsQuery(values);
+
+    const formattedValues: ReportQueryState = { ...values };
+
+    // Only normalize entity-level / dedup when the caller is actually changing
+    // one of them. Running this on every filter change (a date/platform/status
+    // tweak, or just opening and closing a dropdown) would materialize the
+    // entity-level defaults into the URL, making the bar think a filter is
+    // active and wrongly surface the "Reset filters" button.
+    const touchingEntityLevel =
+      "entityLevel" in values || "hideDuplicateASNs" in values;
+
+    if (showEntityLevelFilter) {
+      if (touchingEntityLevel) {
+        const requestedEntityLevel =
+          values.entityLevel && Array.isArray(values.entityLevel)
+            ? values.entityLevel
+            : getParam("entityLevel")
+              ? getParam("entityLevel").split(",").filter(Boolean)
+              : entityLevelDefaults;
+
+        const autoHideDuplicate =
+          autoEnableDedup &&
+          requestedEntityLevel.includes("AS") &&
+          requestedEntityLevel.includes("AS - Country");
+
+        let dedupValue = values.hideDuplicateASNs;
+        if (!dedupValue) {
+          dedupValue = autoHideDuplicate ? "true" : "false";
+        }
+
+        formattedValues.entityLevel =
+          requestedEntityLevel.length > 0 ? requestedEntityLevel : undefined;
+        formattedValues.hideDuplicateASNs = dedupValue;
+      }
+      // else: leave entityLevel / hideDuplicateASNs as they are in the URL —
+      // an unrelated filter change must not write their defaults.
+    } else {
+      formattedValues.entityLevel = undefined;
+      formattedValues.hideDuplicateASNs = undefined;
+    }
+
+    if (!showSignalSourcesFilter) {
+      formattedValues.dataSources = undefined;
+    }
+
+    if (!showOngoingFilter) {
+      formattedValues.ongoing = undefined;
+    }
+
+    setParamsQuery(formattedValues);
   }
 
+  // const dataSourceParam = getParam("dataSources");
+  // console.log('debugging- dataSrouceParam: (mid)', dataSourceParam,"(mid).");
+  // if (!dataSourceParam) {
+  //   console.log('debugging-empty dataSourceParam');
+  // }
   const groupsList = useCallback(groupsRemapComboBox, [groups]);
+
+  // The `view` param is the list/table UI toggle, not a filter — exclude it so
+  // switching to the table view doesn't make the bar think a query is active and
+  // surface the "Reset filters" button. Mirrors the Incidents guard
+  // (src/pages/incidents/index.tsx).
+  const hasActiveFilter = Array.from(searchParams.keys()).some(
+    (key) => key !== "view"
+  );
 
   return (
     <>
-      <div className='flex justify-between mb-2'>
-        <div className='flex gap-1'>
+      <div className='flex justify-between items-center gap-2 mb-2'>
+        <div className='flex items-center gap-2 min-w-0'>
           <Formik
             initialValues={{ keywords: getParam("keywords") }}
             onSubmit={(e) => {
@@ -99,147 +213,88 @@ const ReportFilters = ({
             }}
           >
             {({ resetForm, values }) => (
-              <Form className='flex gap-2'>
-                <div className='flex items-center focus-within-theme rounded-lg'>
-                  <div className='group relative'>
+              <Form className='flex items-center gap-2 min-w-0'>
+                <div className='flex items-center focus-within-theme rounded-lg min-w-0'>
+                  <div className='group relative min-w-0'>
                     <Field
                       name='keywords'
-                      className='focus-theme px-2 py-1 border border-slate-300 bg-white rounded-lg min-w-[20rem]'
-                      placeholder={searchPlaceholder || "Keyword Search"}
+                      className='focus-theme px-2 py-1 border border-slate-300 bg-white dark:bg-gray-800 rounded-lg w-[16rem] max-w-full'
+                      placeholder={searchPlaceholder || "Search"}
                     />
-                    <div className='absolute hidden group-focus-within:block py-1 w-[32em] z-10'>
-                      <div
-                        className={`flex rounded-lg border border-slate-300 bg-white shadow-md overflow-hidden ${
-                          !!activeSearch ? "flex-col-reverse" : "flex-col "
-                        }`}
-                      >
-                        <AggieButton
-                          type={!activeSearch ? "submit" : "button"}
-                          className={`px-4 py-2 h-full w-full hover:bg-slate-50 text-left border-l-4 justify-between ${
-                            !activeSearch
-                              ? "border-green-600 "
-                              : "border-transparent "
-                          }`}
-                          title='search'
-                          disabled={!values.keywords}
-                          onClick={() => {
-                            if (!activeSearch) return;
-                            navigate(`/rpt?keywords=${!values.keywords}`);
-                          }}
-                        >
-                          <div className='font-medium text-sm'>
-                            {!activeSearch ? (
-                              <p>
-                                Search for{" "}
-                                {!!values.keywords
-                                  ? `"${values.keywords}"`
-                                  : "Keywords"}{" "}
-                              </p>
-                            ) : (
-                              <p>Search for Keywords</p>
-                            )}
-
-                            <p className='text-slate-600 max-w-lg text-wrap'>
-                              search for exact words and phrases, like "Fulton
-                              County".
-                            </p>
-                          </div>
-                          {!activeSearch && <FontAwesomeIcon icon={faSearch} />}{" "}
-                        </AggieButton>
-                        <AggieButton
-                          type={!!activeSearch ? "submit" : "button"}
-                          className={`px-4 py-2 h-full w-full hover:bg-purple-100 bg-purple-50 text-left border-l-4 justify-between  ${
-                            !!activeSearch
-                              ? "border-green-600 "
-                              : "border-transparent "
-                          }`}
-                          title='search'
-                          disabled={!values.keywords}
-                          onClick={() => {
-                            if (!!activeSearch) return;
-                            navigate(
-                              `/rpt/search?keywords=${values.keywords}${
-                                !!fromGroup ? "&groupId=" + fromGroup : ""
-                              }`
-                            );
-                          }}
-                        >
-                          <div className='font-medium text-sm'>
-                            {!!activeSearch ? (
-                              <p>
-                                Search concepts related to{" "}
-                                {!!values.keywords
-                                  ? `"${values.keywords}"`
-                                  : "Keywords"}{" "}
-                              </p>
-                            ) : (
-                              <p>Advanced Contextual Search</p>
-                            )}
-                            <p className='text-slate-600 max-w-lg text-wrap'>
-                              search through concepts related to the purple AI
-                              generated tags
-                            </p>
-                          </div>
-                          {!!activeSearch && (
-                            <FontAwesomeIcon icon={faSearch} />
-                          )}
-                        </AggieButton>
-                      </div>
-                    </div>
                   </div>
                 </div>
                 <AggieButton
+                  type='button'
                   icon={faRefresh}
-                  variant='transparent'
-                  className='text-slate-700'
-                  title='refresh page'
+                  variant='secondary'
+                  className='px-2 py-1 text-sm shrink-0'
+                  title='Refresh'
                   loading={isFetching}
                   disabled={isFetching}
                   onClick={() => refetch()}
-                ></AggieButton>
-                {!!searchParams.size && (
+                >
+                  Refresh
+                </AggieButton>
+                {hasActiveFilter && (
                   <AggieButton
-                    className='hover:underline hover:bg-slate-100 px-2 py-1 text-sm rounded'
+                    type='button'
+                    variant='secondary'
+                    className='px-2 py-1 text-sm shrink-0'
+                    title='Clear all filters and search'
                     onClick={() => {
                       clearAllParams();
                       resetForm({ values: { keywords: "" } });
                     }}
                   >
                     <FontAwesomeIcon icon={faXmarkSquare} />
-                    Clear All Parameters
+                    Reset filters
                   </AggieButton>
                 )}
               </Form>
             )}
           </Formik>
         </div>
-        <div className='text-xs'>
-          <Pagination
-            currentPage={Number(getParam("page")) || 0}
-            totalCount={reportCount || 0}
-            onPageChange={(num) => setParams({ page: num })}
-            size={0}
-          />
-        </div>
+        {showPagination && (
+          <div className='text-xs shrink-0'>
+            <Pagination
+              currentPage={Number(getParam("page")) || 0}
+              totalCount={reportCount || 0}
+              onPageChange={(num) => setParams({ page: num })}
+              size={0}
+            />
+          </div>
+        )}
       </div>
-      <div className='flex justify-between text-sm'>
-        <div className='flex gap-2 items-center'>
-          {headerElement}
+      <div className='flex flex-wrap justify-between gap-y-2 text-sm'>
+        <div className='flex gap-3 items-center'>
+          {headerElement && (
+            <div className='flex items-center pr-3 border-r border-slate-300 dark:border-gray-600'>
+              {headerElement}
+            </div>
+          )}
           <FilterRadioGroup
             options={{
-              false: "Relevant/Unmarked",
-              true: "Irrelevant",
               all: "All",
+              false: "Investigate",
+              true: "Ignore",
             }}
             value={getParam("irrelevant")}
-            defaultValue={"false"}
+            defaultValue={"all"}
             onChange={(e) =>
-              setParams({ irrelevant: e === "false" ? undefined : e })
+              setParams({ irrelevant: e === "all" ? undefined : e })
             }
           />
         </div>
-        <div className='flex items-center gap-1'>
+        <div className='flex flex-wrap items-center gap-1'>
+          {showLocationFilters && (["countries", "asns", "regions"] as const).map(kind => (
+            <LocationFilter key={kind} label={{ countries: "Countries", asns: "ASNs", regions: "Regions" }[kind]}
+              options={locationOptions.data?.[kind] ?? []}
+              value={getParam(kind).split(",").filter(Boolean)}
+              loading={locationOptions.isLoading} error={locationOptions.isError}
+              onChange={values => setParams({ [kind]: values.length ? values : undefined })} />
+          ))}
           <FilterDateTime
+            label='Outage start'
             before={getParam("before")}
             onSetBefore={(d) => setParams({ before: d })}
             after={getParam("after")}
@@ -247,24 +302,66 @@ const ReportFilters = ({
           />
           <FilterListbox
             label='Platforms'
-            options={[...MEDIA_OPTIONS]}
-            value={getParam("media")}
-            onChange={(e) => setParams({ media: e })}
+            options={platformOptions}
+            value={
+              getParam("media")
+                ? (getParam("media").split(",").filter(Boolean) as string[])
+                : []
+            }
+            onChange={(e) => setParams({ media: e as string[] })}
+            isMultiSelect={true}
+            getOptionLabel={providerLabel}
           />
-          <FilterComboBox
+          {showOngoingFilter && (
+            <FilterListbox
+              label='Status'
+              options={[...OUTAGE_STATUS_OPTIONS]}
+              value={currentOutageStatus === "All" ? "" : currentOutageStatus}
+              onChange={(e) =>
+                setParams({ ongoing: outageStatusToParam(e as string) })
+              }
+            />
+          )}
+          {showEntityLevelFilter && (
+            <FilterListbox
+              label='Entity Level'
+              options={[...ENTITY_LEVEL_OPTIONS]}
+              value={
+                getParam("entityLevel")
+                  ? getParam("entityLevel").split(",").filter(Boolean) as string[]
+                  : currentEntityLevel
+              }
+              onChange={(e) => setParams({ entityLevel: e as string[] })}
+              isMultiSelect={true}
+              toggleLabel={showDedupToggle ? 'Hide Duplicate ASNs' : undefined}
+              toggleDescription={showDedupToggle ? 'Show unique ASNs only. Duplicates shared by AS and AS Country are hidden.' : undefined}
+              toggleValue={showDedupToggle ? currentHideDuplicateASNs : undefined}
+              onToggleChange={showDedupToggle ? (value) => setParams({ hideDuplicateASNs: value ? "true" : "false" }) : undefined}
+            />
+          )}
+          {showSignalSourcesFilter && (
+            <FilterListbox
+              label='Signal Sources'
+              options={[...DATA_SOURCE_OPTIONS]}
+              value={getParam("dataSources") ? getParam("dataSources").split(",") as string[] : []}
+              onChange={(e) => setParams({ dataSources: e as string[]})}
+              isMultiSelect={true}
+            />
+          )}
+          {/* <FilterComboBox
             label='Sources'
             list={sourcesList(sources)}
             onChange={(e) => {
               setParams({ sourceId: e.key });
             }}
             selectedKey={getParam("sourceId")}
-          />
-          {!fromGroup && (
+          /> */}
+          {/* {!fromGroup && (
             <FilterComboBox
               label='Incidents'
               list={groupsList(groups)}
               itemElement={(i) => (
-                <div className='flex gap-1 flex-wrap max-w-prose items-center'>
+                <div className='inline-flex gap-1 flex-wrap max-w-prose text-start items-center'>
                   {i.value}
                   {i.data?.escalated && (
                     <FontAwesomeIcon
@@ -289,7 +386,7 @@ const ReportFilters = ({
                 { key: "none", value: "Not Added to Any Incident" },
               ]}
             />
-          )}
+          )} */}
         </div>
       </div>
     </>

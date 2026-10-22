@@ -5,13 +5,29 @@
 const _ = require('lodash');
 const util = require('util');
 const EventEmitter = require('events').EventEmitter;
+const Report = require('../models/report');
+const { getMaterializedNotableActivities } = require('./utils/analyticsMaterialization');
+const {
+  DEFAULT_AGGREGATION_METHOD,
+  DEFAULT_TIME_ZONE,
+  MAX_RANGE_MS,
+  normalizeAggregationMethod,
+  normalizeStartTimeToleranceMinutes,
+  normalizeTimeZone,
+} = require('./utils/analyticsTime');
 
 const QUERY_INTERVAL = 1000; // 1s
+const ANALYTICS_QUERY_INTERVAL = 60000; // 60s
 
 let Streamer = function () {
   this.queries = [];
+  this.analyticsQueries = {};
   this.status = 'idle';
   this.throttledQuery = _.throttle(this.query, QUERY_INTERVAL);
+  this.throttledRefreshAnalytics = _.throttle(
+    this.refreshDirtyAnalyticsQueries.bind(this),
+    ANALYTICS_QUERY_INTERVAL
+  );
 
   this.bindings = {
     report: this._addReportListeners,
@@ -34,6 +50,87 @@ Streamer.prototype.addQuery = function (query) {
 // Remove query from list
 Streamer.prototype.removeQuery = function (query) {
   this.queries = _.without(this.queries, query);
+};
+
+// Returns false when the subscription is refused (malformed or oversized window).
+Streamer.prototype.addAnalyticsQuery = function (query, clientId) {
+  if (!query || !query.cacheKey) return false;
+
+  const normalized = normalizeAnalyticsQuery(query);
+  if (!normalized) return false;
+
+  const existing = this.analyticsQueries[query.cacheKey];
+  if (existing) {
+    existing.clients = _.union(existing.clients, [clientId]);
+    existing.query = normalized;
+    return true;
+  }
+
+  this.analyticsQueries[query.cacheKey] = {
+    query: normalized,
+    clients: [clientId],
+    dirty: false,
+    refreshing: false,
+  };
+  return true;
+};
+
+Streamer.prototype.removeAnalyticsQuery = function (cacheKey, clientId) {
+  if (!cacheKey || !this.analyticsQueries[cacheKey]) return;
+
+  const analyticsQuery = this.analyticsQueries[cacheKey];
+  analyticsQuery.clients = _.without(analyticsQuery.clients, clientId);
+
+  if (!analyticsQuery.clients.length) {
+    delete this.analyticsQueries[cacheKey];
+  }
+};
+
+Streamer.prototype.markAnalyticsQueryDirty = function (cacheKey) {
+  const analyticsQuery = this.analyticsQueries[cacheKey];
+  if (!analyticsQuery) return;
+  analyticsQuery.dirty = true;
+  this.throttledRefreshAnalytics();
+};
+
+Streamer.prototype.markAllAnalyticsQueriesDirty = function () {
+  _.forEach(this.analyticsQueries, function (analyticsQuery) {
+    analyticsQuery.dirty = true;
+  });
+  this.throttledRefreshAnalytics();
+};
+
+Streamer.prototype.refreshDirtyAnalyticsQueries = function () {
+  var self = this;
+  _.forEach(this.analyticsQueries, function (entry, cacheKey) {
+    if (!entry.dirty || entry.refreshing) return;
+
+    entry.dirty = false;
+    entry.refreshing = true;
+
+    getMaterializedNotableActivities({
+      ...entry.query,
+      timeWindow: entry.query.timeWindow,
+      cacheKey,
+      forceRefresh: true,
+    })
+      .then((data) => {
+        self.emit('analytics:update', {
+          cacheKey,
+          rangePreset: data.rangePreset,
+          bucketPreset: data.bucketPreset,
+          aggregationMethod: data.aggregationMethod,
+          computedAt: data.computedAt,
+        });
+      })
+      .catch((err) => self.emit('error', err))
+      .finally(() => {
+        const latest = self.analyticsQueries[cacheKey];
+        if (!latest) return;
+        latest.refreshing = false;
+        if (latest.dirty) self.throttledRefreshAnalytics();
+      });
+  });
 };
 
 // Run all queries and emit the results
@@ -87,6 +184,7 @@ Streamer.prototype._addGroupListeners = function (emitter) {
   // Listens to new groups being written to the database
   emitter.on('group:save', function (group) {
     self.resumeQuery();
+    self.markAllAnalyticsQueriesDirty();
   });
 };
 
@@ -99,7 +197,91 @@ Streamer.prototype._addReportListeners = function (emitter) {
   // Listens to new reports being written to the database
   emitter.on('report:new', function (report) {
     self.resumeQuery();
+    self.handleAnalyticsReportNew(report);
   });
 };
+
+Streamer.prototype.handleAnalyticsReportNew = function (reportRef) {
+  const reportId = reportRef && reportRef._id;
+  if (!reportId || !Object.keys(this.analyticsQueries).length) return;
+
+  Report.findById(reportId)
+    .select('isOutageEvent outageStartedAt eventAggKeyBase')
+    .lean()
+    .exec((err, report) => {
+      if (err) {
+        this.emit('error', err);
+        return;
+      }
+
+      if (
+        !report ||
+        !report.isOutageEvent ||
+        !report.outageStartedAt ||
+        !report.eventAggKeyBase
+      ) {
+        return;
+      }
+
+      const outageTime = new Date(report.outageStartedAt).getTime();
+      if (Number.isNaN(outageTime)) return;
+
+      _.forEach(this.analyticsQueries, (entry, cacheKey) => {
+        const rangeStart = new Date(entry.query.timeWindow.rangeStartUtc).getTime();
+        const rangeEnd = new Date(entry.query.timeWindow.rangeEndUtc).getTime();
+
+        if (outageTime >= rangeStart && outageTime < rangeEnd) {
+          this.markAnalyticsQueryDirty(cacheKey);
+        }
+      });
+    });
+};
+
+function normalizeAnalyticsQuery(query) {
+  // The grouping has to travel with the subscription: the refresh below recomputes under
+  // this timeWindow and writes back to the client's cacheKey. Dropping it here would let a
+  // socket refresh overwrite a startTime result set with fixed-grid activities.
+  let aggregationMethod = DEFAULT_AGGREGATION_METHOD;
+  let startTimeToleranceMinutes;
+  let timeZone = DEFAULT_TIME_ZONE;
+  try {
+    aggregationMethod = normalizeAggregationMethod(query.aggregationMethod);
+    startTimeToleranceMinutes = normalizeStartTimeToleranceMinutes(
+      query.startTimeToleranceMinutes
+    );
+    timeZone = normalizeTimeZone(query.timeZone);
+  } catch (err) {
+    aggregationMethod = DEFAULT_AGGREGATION_METHOD;
+    startTimeToleranceMinutes = normalizeStartTimeToleranceMinutes(undefined);
+    timeZone = DEFAULT_TIME_ZONE;
+  }
+
+  // The window comes straight from the client and every refresh re-aggregates it, so it
+  // gets the same bounds the REST routes enforce.
+  const rangeStartUtc = new Date(query.rangeStartUtc);
+  const rangeEndUtc = new Date(query.rangeEndUtc);
+  const spanMs = rangeEndUtc.getTime() - rangeStartUtc.getTime();
+  if (!(spanMs > 0 && spanMs <= MAX_RANGE_MS) || !(query.bucketSizeMinutes > 0)) {
+    return null;
+  }
+
+  return {
+    cacheKey: query.cacheKey,
+    range: query.rangePreset || query.range,
+    bucket: query.bucketPreset || query.bucket,
+    aggregationMethod,
+    startTimeToleranceMinutes,
+    timeWindow: {
+      rangePreset: query.rangePreset || query.range,
+      bucketPreset: query.bucketPreset || query.bucket,
+      bucketSizeMinutes: query.bucketSizeMinutes,
+      aggregationMethod,
+      startTimeToleranceMinutes,
+      timeZone,
+      rangeStartUtc,
+      rangeEndUtc,
+    },
+  };
+}
 
 module.exports = new Streamer();

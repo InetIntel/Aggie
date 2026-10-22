@@ -4,11 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useIncidentMutations } from "./useIncidentMutations";
 
 import { getSession } from "../../api/session";
+import { useFormatters } from "../../utils/useFormatters";
 import type { Group } from "../../api/groups/types";
 
 import TagsList from "../../components/Tags/TagsList";
-import VeracityToken from "../../components/VeracityToken";
+import SocialMediaIcon from "../../components/SocialMediaPost/SocialMediaIcon";
+//import VeracityToken from "../../components/VeracityToken";
 import AggieButton from "../../components/AggieButton";
+import MultiSelectListItem from "../../components/MultiSelectListItem";
 import ConfirmationDialog from "../../components/ConfirmationDialog";
 import CreateEditIncidentForm from "./CreateEditIncidentForm";
 import AggieDialog from "../../components/AggieDialog";
@@ -17,14 +20,12 @@ import AggieSwitch from "../../components/AggieSwitch";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faArrowRight,
   faCircleMinus,
-  faCommentAlt,
   faEdit,
   faEllipsis,
-  faFile,
-  faFileAlt,
-  faLocationPin,
   faMinusCircle,
+  faLock,
   faPlus,
   faTrash,
   faUserEdit,
@@ -36,16 +37,27 @@ import {
   faFileLines,
   faMessage,
 } from "@fortawesome/free-regular-svg-icons";
+import { IncidentOverallStatus } from "./IncidentStatuses";
+import { CoverageBadge } from "./IncidentCoverage";
 import UserToken from "../../components/UserToken";
 import { isString } from "lodash";
-import { User } from "../../api/users/types";
 import { hasId } from "../../api/common";
 
 interface IProps {
   item: Group;
+  isChecked?: boolean;
+  isSelectMode?: boolean;
+  onCheckChange?: () => void;
 }
 
-const IncidentListItem = ({ item }: IProps) => {
+const IncidentListItem = ({
+  item,
+  isChecked = false,
+  isSelectMode = false,
+  onCheckChange = () => {},
+}: IProps) => {
+
+  const { formatDateTime } = useFormatters();
   const navigate = useNavigate();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -82,46 +94,84 @@ const IncidentListItem = ({ item }: IProps) => {
     } else return user._id;
   }
   return (
-    <article className='group relative grid grid-cols-4 lg:grid-cols-6 text-sm text-slate-500 border-b border-slate-300 '>
+    <MultiSelectListItem
+      isChecked={isChecked}
+      isSelectMode={isSelectMode}
+      onCheckChange={onCheckChange}
+      className={`group relative border-b border-slate-300 pl-8 text-sm text-slate-500 dark:text-gray-400 ${
+        isChecked && isSelectMode
+          ? "bg-blue-100 dark:bg-gray-600 dark:saturate-[0.7]"
+          : ""
+      }`}
+    >
+      <div className='grid grid-cols-4 lg:grid-cols-6'>
       <div
-        className='col-span-5 grid grid-cols-subgrid hover:bg-slate-300/15 pl-3 py-3 pr-1'
-        onClick={onOpenIncidentPage}
+        className='col-span-5 grid grid-cols-subgrid hover:bg-slate-300/15 dark:hover:bg-gray-500/15 pl-3 py-3 pr-1'
+        onClick={isSelectMode ? onCheckChange : onOpenIncidentPage}
         title={`open incident ${item.title}`}
         role='button'
       >
         <header className='col-span-3 flex flex-col'>
-          <div className='flex gap-1 '>
-            <p className='font-medium'>#{item.idnum}</p>
-            <VeracityToken value={item.veracity} />
-            {item.closed && (
-              <span className='px-1 bg-purple-100 text-purple-700 font-medium flex gap-1 items-center'>
-                <FontAwesomeIcon
-                  icon={faCircleMinus}
-                  className='text-purple-500'
-                />
-                Closed
-              </span>
-            )}
-            {!item.public && (
-              <span className='px-1 bg-red-200 text-red-800 font-medium inline-flex gap-1 items-center'>
-                <FontAwesomeIcon icon={faTrash} />
-                Deleted
-              </span>
-            )}
-            <TagsList values={item.smtcTags} />
+          <div className='flex justify-between'>
+            <div className='flex flex-wrap gap-1'>
+              <p className='font-medium'>#{item.idnum}</p>
+              { /*<VeracityToken value={item.veracity} />*/ }
+              {item.closed && (
+                <span className='px-1 bg-purple-100 dark:bg-purple-100 dark:saturate-[0.7] text-purple-700 font-medium flex gap-1 items-center'>
+                  <FontAwesomeIcon
+                    icon={faCircleMinus}
+                    className='text-purple-500  dark:saturate-[0.7]'
+                  />
+                  Closed
+                </span>
+              )}
+              {!item.public && (
+                <span className='px-1 bg-red-200 dark:bg-red-200 dark:saturate-[0.7] text-red-800 font-medium inline-flex gap-1 items-center'>
+                  <FontAwesomeIcon icon={faTrash} />
+                  Deleted
+                </span>
+              )}
+              {item.accessPolicy?.mode === "restricted" && (
+                <span className='px-1 bg-amber-100 text-amber-800 font-medium inline-flex gap-1 items-center'>
+                  <FontAwesomeIcon icon={faLock} />
+                  Restricted
+                </span>
+              )}
+              <TagsList values={item.smtcTags} maxVisible={2} />
+              {item.reportSources?.map((source) => (
+                <span
+                  key={source}
+                  className='px-1 bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300 rounded inline-flex gap-1 items-center capitalize'
+                  title={`report source: ${source}`}
+                >
+                  <SocialMediaIcon mediaKey={source} />
+                  {source}
+                </span>
+              ))}
+            </div>
+            <div className='text-xs dark:text-gray-300'>
+              {(item.incidentStartedAt || item.incidentEndedAt) && <p>
+                  <span>{formatDateTime(item.incidentStartedAt, "Unknown Date")}</span>
+                  <span>{" "}<FontAwesomeIcon icon={faArrowRight} size="xs" />{" "}</span>
+                  <span>{formatDateTime(item.incidentEndedAt, "Unknown Date")}</span>
+              </p>}
+            </div>
           </div>
-          <h2 className=' text-black items-center font-medium my-1'>
-            <span className='text-lg group-hover:text-blue-600 group-hover:underline'>
+          <h2 className=' text-black items-center font-medium my-1 dark:text-gray-300'>
+            <span className='text-lg group-hover:text-blue-600 group-hover:underline dark:group-hover:text-purple-200'>
               {item.title}{" "}
             </span>
-            {item.escalated && (
-              <span className='px-1 bg-orange-700/90  text-white font-medium text-sm inline-flex gap-1 items-center no-underline w-fit'>
-                <FontAwesomeIcon icon={faWarning} />
-                Escalated
-              </span>
-            )}
+            <IncidentOverallStatus group={item} className='px-1 py-1 rounded-full font-medium text-sm text-slate-600 dark:text-gray-400 inline-flex gap-1 items-center no-underline w-fit'/>
           </h2>
-          <div className='grid grid-cols-4 flex-grow items-end font-medium'>
+          <div className='flex items-center gap-2 text-black dark:text-gray-300 font-medium text-sm'>
+            <span>DPC:</span>
+            <CoverageBadge value={item.directPopulationCoverageScore} />
+          </div>
+          <div className='flex items-center gap-2 text-black dark:text-gray-300 font-medium text-sm mt-1'>
+            <span>IPC:</span>
+            <CoverageBadge value={item.indirectPopulationCoverageScore} />
+          </div>
+          <div className='grid grid-cols-4 flex-grow items-end font-medium mt-2'>
             <p>
               <FontAwesomeIcon icon={faFileLines} size='sm' />{" "}
               {item._reports?.length}{" "}
@@ -143,15 +193,15 @@ const IncidentListItem = ({ item }: IProps) => {
                 </>
               )}
             </p>
-            <p className='text-xs overflow-hidden max-w-full flex gap-1 items-baseline text-ellipsis mr-1'>
+            {/* <p className='text-xs overflow-hidden max-w-full flex gap-1 items-baseline text-ellipsis mr-1'>
               {" "}
               <FontAwesomeIcon icon={faUserEdit} size='sm' />{" "}
               {item.creator && <UserToken id={getUserId(item.creator)} />}
-            </p>
+            </p> */}
           </div>
         </header>
         <div className='hidden lg:block col-span-2 '>
-          <p className='px-2 py-1 text-slate-700 bg-slate-50 h-[6em] overflow-y-auto border border-slate-100 rounded whitespace-pre-line'>
+          <p className='px-2 py-1 text-slate-700 dark:text-gray-300 bg-slate-50 dark:bg-gray-900 h-[6em] overflow-y-auto border border-slate-100 rounded whitespace-pre-line dark:bg-gray-700'>
             {item.notes && item.notes}
           </p>
         </div>
@@ -182,8 +232,8 @@ const IncidentListItem = ({ item }: IProps) => {
         </div>
         <DropdownMenu
           variant='secondary'
-          className='px-2 py-1 hover:bg-slate-200 rounded h-full z-10 pointer-events-auto text-slate-600'
-          panelClassName='right-0 pointer-events-auto text-base'
+          className='px-2 py-1 hover:bg-slate-200 dark:hover:bg-gray-600 rounded h-full z-10 pointer-events-auto text-slate-600 dark:text-gray-400'
+          panelClassName='right-0 pointer-events-auto'
           buttonElement={
             <div className=''>
               <FontAwesomeIcon icon={faEllipsis} />
@@ -204,7 +254,7 @@ const IncidentListItem = ({ item }: IProps) => {
             />
           </div>
           <AggieButton
-            className='w-full px-2 py-1 hover:bg-slate-200  font-medium flex gap-2 text-nowrap items-center flex-grow border-t border-slate-300'
+            className='w-full px-2 py-1 hover:bg-slate-200  dark:hover:bg-gray-600 font-medium flex gap-2 text-nowrap items-center flex-grow border-t border-slate-300'
             onClick={() => setIsEditOpen(true)}
           >
             <FontAwesomeIcon icon={faEdit} />
@@ -212,7 +262,7 @@ const IncidentListItem = ({ item }: IProps) => {
           </AggieButton>
           {item.closed ? (
             <AggieButton
-              className={`w-full px-2 py-1 hover:bg-green-100 text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+              className={`w-full px-2 py-1 hover:bg-green-100 dark:hover:bg-green-100 dark:saturate-[0.7] text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
               onClick={() =>
                 doSetClosed.mutate({
                   ids: [item._id],
@@ -225,7 +275,7 @@ const IncidentListItem = ({ item }: IProps) => {
             </AggieButton>
           ) : (
             <AggieButton
-              className={`w-full px-2 py-1 hover:bg-red-100 text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
+              className={`w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
               onClick={() =>
                 doSetClosed.mutate({
                   ids: [item._id],
@@ -281,7 +331,8 @@ const IncidentListItem = ({ item }: IProps) => {
           isLoading={doUpdate.isLoading}
         />
       </AggieDialog>
-    </article>
+      </div>
+    </MultiSelectListItem>
   );
 };
 

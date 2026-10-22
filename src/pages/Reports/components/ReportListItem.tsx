@@ -1,13 +1,14 @@
 // this component is uh... one of the components of all time
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { Report, ReportQueryState } from "../../../api/reports/types";
 import { getGroup } from "../../../api/groups";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faChevronDown,
   faDotCircle,
   faEnvelope,
   faEnvelopeOpen,
@@ -21,33 +22,44 @@ import DateTime from "../../../components/DateTime";
 import AggieButton from "../../../components/AggieButton";
 import { useReportMutations } from "../useReportMutations";
 import AddReportsToIncidents from "./AddReportsToIncident";
+import ReportDetail from "../Report/ReportDetail";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 import SocialMediaListItem from "../../../components/SocialMediaListItem";
 import MultiSelectListItem from "../../../components/MultiSelectListItem";
 //TODO: refactor and clean up tech debt
 interface IProps {
   report: Report;
+  queryKey?: readonly unknown[];
   isChecked: boolean;
   isSelectMode: boolean;
   onCheckChange: () => void;
   onOpenReportAttachModal?: () => void;
   setSelection?: (i: Report) => void;
+  multiSelection?: Report[];
+  /** When provided, renders a "View details" toggle + inline ReportDetail. */
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 const ReportListItem = ({
   report,
+  queryKey,
   isChecked,
   isSelectMode,
   onCheckChange,
+  isExpanded,
+  onToggleExpand,
+  multiSelection,
 }: IProps) => {
   const { id: currentPageId } = useParams();
 
   const { getParam } = useQueryParams<ReportQueryState>();
 
   const isBatchMode = getParam("batch") === "true";
+  const reportsQueryKey = queryKey ?? (isBatchMode ? ["batch"] : ["reports"]);
 
   const { setRead, setIrrelevance } = useReportMutations({
-    key: isBatchMode ? ["batch"] : ["reports"],
+    key: reportsQueryKey,
   });
 
   const { data: incident } = useQuery(
@@ -56,23 +68,22 @@ const ReportListItem = ({
     { enabled: !!report._group }
   );
 
-  const [openAttachModal, setOpenAttachModal] = useState(false);
+  const [attachSelection, setAttachSelection] = useState<Report[] | null>(null);
+
+  const groupSelection =
+    multiSelection &&
+    multiSelection.length > 1 &&
+    multiSelection.some((i) => i._id === report._id)
+      ? multiSelection
+      : null;
 
   // refactor at some point
   function bgState() {
     if (isChecked && !isSelectMode)
-      return "border-2 border-slate-300 bg-slate-100 rounded-lg ";
-    else if (isChecked && isSelectMode) return "bg-blue-100 ";
-    else if (report.read) return "bg-slate-50 hover:bg-slate-100 ";
-    return "bg-white hover:bg-slate-100";
-  }
-
-  function onAttachedReportClick(
-    e: React.MouseEvent<HTMLDivElement>,
-    id: string
-  ) {
-    e.stopPropagation();
-    window.open(`${window.location.origin}/incidents/${id}`, "_blank");
+      return "border-2 border-slate-300 bg-slate-100 dark:bg-gray-700 rounded-lg";
+    else if (isChecked && isSelectMode) return "bg-blue-100 dark:bg-gray-600";
+    else if (report.read) return "bg-slate-50 dark:bg-gray-900  hover:bg-slate-100 dark:hover:bg-gray-700 ";
+    return "bg-white dark:bg-gray-800 hover:bg-slate-100 dark:hover:bg-gray-700 ";
   }
 
   return (
@@ -82,11 +93,11 @@ const ReportListItem = ({
       onCheckChange={onCheckChange}
       className={`px-2 py-2 pb-4 border-b ${bgState()} ${
         currentPageId === report._id ? "ring-2 ring-inset rounded-lg" : ""
-      } border-slate-300 text-sm text-slate-600 relative`}
+      } border-slate-300 text-sm text-slate-600 dark:text-gray-400 relative`}
     >
-      <div className='grid grid-cols-5 gap-2 text-slate-700 text-sm'>
+      <div className='text-slate-700 dark:text-gray-300 text-sm'>
         <div
-          className={`col-span-4 pl-7  ${
+          className={`pl-7 ${
             report.read ? "" : " border-l-2 border-blue-600 "
           }`}
         >
@@ -95,7 +106,7 @@ const ReportListItem = ({
             report={report}
             header={
               <>
-                <div className='text-xs group-hover:opacity-0'>
+                <div className='text-xs group-hover:opacity-0 dark:text-gray-300'>
                   <DateTime dateString={report.authoredAt} />
                 </div>
                 <div className='flex gap-1 absolute right-0 top-0 text-xs group-hover:opacity-100 opacity-0'>
@@ -115,7 +126,7 @@ const ReportListItem = ({
                     disabled={!report || setRead.isLoading}
                     icon={report.read ? faEnvelopeOpen : faEnvelope}
                   >
-                    {report.read ? <> unread</> : <> read</>}
+                    {report.read ? <> Unread</> : <> Read</>}
                   </AggieButton>
                   <div className='shadow-md rounded-lg border border-slate-300 '>
                     <AggieButton
@@ -125,7 +136,7 @@ const ReportListItem = ({
                         e.stopPropagation();
                         setIrrelevance.mutate({
                           reportIds: [report._id],
-                          irrelevant: "true",
+                          irrelevant: (report.irrelevant && report.irrelevant === "true") ? "maybe" : "true",
                           currentPageId: currentPageId,
                         });
                       }}
@@ -133,7 +144,7 @@ const ReportListItem = ({
                       loading={setIrrelevance.isLoading}
                       disabled={!report || setIrrelevance.isLoading}
                     >
-                      irrelevant
+                      Ignore
                     </AggieButton>
                     <AggieButton
                       variant={"light:green"}
@@ -142,7 +153,7 @@ const ReportListItem = ({
                         e.stopPropagation();
                         setIrrelevance.mutate({
                           reportIds: [report._id],
-                          irrelevant: "false",
+                          irrelevant: (report.irrelevant && report.irrelevant === "false") ? "maybe" : "false",
                           currentPageId: currentPageId,
                         });
                       }}
@@ -150,66 +161,105 @@ const ReportListItem = ({
                       loading={setIrrelevance.isLoading}
                       disabled={!report || setIrrelevance.isLoading}
                     >
-                      relevant
+                      Investigate
                     </AggieButton>
                   </div>
                 </div>
               </>
             }
           />
-        </div>
-
-        <div className='flex flex-col '>
-          {!!report._group && !!incident ? (
-            <div
-              className={`rounded-lg ${
-                incident?.closed
-                  ? "bg-purple-50 text-purple-700"
-                  : "bg-slate-50 text-slate-700"
-              }  px-2 py-1 flex-grow border border-slate-300 hover:cursor-pointer hover:bg-white`}
-              onClick={(e) => onAttachedReportClick(e, incident._id)}
-            >
-              <p className='font-medium flex justify-between'>
-                <span className='line-clamp-3'>
-                  {incident?.title}{" "}
-                  {incident?.escalated && (
-                    <FontAwesomeIcon
-                      icon={faExclamationTriangle}
-                      className='text-red-500'
-                    />
-                  )}{" "}
-                  {incident?.closed && (
-                    <FontAwesomeIcon
-                      icon={faMinusCircle}
-                      className='text-purple-500'
-                    />
-                  )}
-                </span>{" "}
-                <span>#{incident?.idnum}</span>
-              </p>
-              <p>{incident._reports.length} Reports</p>
-            </div>
-          ) : (
-            <AggieButton
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpenAttachModal(true);
-              }}
-              className='rounded-lg flex-grow flex gap-1 bg-slate-50 border border-dashed hover:border-slate-300 border-slate-300 focus-theme hover:bg-white justify-center items-center h-full'
-              icon={faPlus}
-            >
-              Add to Incident
-            </AggieButton>
-          )}
+          <div className='mt-2 flex'>
+            {!!report._group && !!incident ? (
+              <Link
+                to={`/incidents/${incident._id}`}
+                className={`rounded-lg flex items-center gap-1 px-2 py-1 text-xs border border-slate-300 max-w-[24em] whitespace-nowrap hover:cursor-pointer hover:bg-white dark:hover:bg-gray-800 ${
+                  incident?.closed
+                    ? "bg-purple-50 dark:bg-purple-50 dark:saturate-[0.7] text-purple-700 "
+                    : "bg-slate-50 dark:bg-gray-900 text-slate-700 dark:text-gray-300"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className='font-medium truncate min-w-0'>
+                  {incident?.title}
+                </span>
+                <span className='shrink-0'>#{incident?.idnum}</span>
+                {incident?.escalated && (
+                  <FontAwesomeIcon
+                    icon={faExclamationTriangle}
+                    className='text-red-500 shrink-0'
+                  />
+                )}
+                {incident?.closed && (
+                  <FontAwesomeIcon
+                    icon={faMinusCircle}
+                    className='text-purple-500 shrink-0'
+                  />
+                )}
+              </Link>
+            ) : (
+              <AggieButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAttachSelection(groupSelection ?? [report]);
+                }}
+                className='rounded-lg flex gap-1 text-xs bg-slate-50 dark:bg-gray-900 border border-dashed hover:border-slate-300 border-slate-300 focus-theme hover:bg-white dark:hover:bg-gray-800 items-center whitespace-nowrap'
+                icon={faPlus}
+              >
+                Add to Incident
+                {groupSelection && (
+                  <span className='font-normal text-slate-500 dark:text-gray-400'>
+                    ({groupSelection.length})
+                  </span>
+                )}
+              </AggieButton>
+            )}
+          </div>
         </div>
         <AddReportsToIncidents
-          selection={[report]}
-          isOpen={openAttachModal}
-          queryKey={[isBatchMode ? "batch" : "reports"]}
-          onClose={() => setOpenAttachModal(false)}
-          addRemove={() => setOpenAttachModal(false)}
+          selection={attachSelection ?? []}
+          isOpen={!!attachSelection}
+          queryKey={reportsQueryKey}
+          onClose={() => setAttachSelection(null)}
+          addRemove={(removed) =>
+            setAttachSelection((current) => {
+              const next =
+                current?.filter((i) => i._id !== removed._id) ?? [];
+              return next.length ? next : null;
+            })
+          }
         />
       </div>
+
+      {onToggleExpand && (
+        <div className='mt-2'>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand();
+            }}
+            aria-expanded={isExpanded}
+            className='text-blue-700 hover:underline text-sm inline-flex items-center gap-1 dark:text-blue-300'
+          >
+            {isExpanded ? "Hide details" : "View details"}
+            <FontAwesomeIcon
+              icon={faChevronDown}
+              size='sm'
+              className={`transition-transform duration-150 ${
+                isExpanded ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {isExpanded && (
+            <div
+              className='mt-2 rounded-lg border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ReportDetail report={report} listQueryKey={reportsQueryKey} />
+            </div>
+          )}
+        </div>
+      )}
     </MultiSelectListItem>
   );
 };
