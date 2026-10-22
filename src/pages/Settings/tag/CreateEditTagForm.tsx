@@ -1,6 +1,6 @@
 import * as Yup from "yup";
 
-import { Formik, Form } from "formik";
+import { Formik, Form, useFormikContext } from "formik";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -15,6 +15,7 @@ import type { AxiosError } from "axios";
 import AggieButton from "../../../components/AggieButton";
 import FormikDropdown from "../../../components/FormikDropdown";
 import FormikInput from "../../../components/FormikInput";
+import TagColorPicker from "../../../components/Tags/TagColorPicker";
 
 const tagEditSchema = Yup.object().shape({
   name: Yup.string().required("Tag name required"),
@@ -24,7 +25,7 @@ const tagEditSchema = Yup.object().shape({
     .default("measurement"),
   description: Yup.string(),
   isCommentTag: Yup.boolean().default(false),
-  color: Yup.string().required("Required").default("#fff"),
+  color: Yup.string().required("Required").default("#7c3aed"),
 });
 
 type editSchema = Yup.InferType<typeof tagEditSchema>;
@@ -104,6 +105,7 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
         />
         <div>
           <FormikDropdown
+            disabled={tag?.category === "special"}
             label='Category'
             name='category'
             list={TAG_CATEGORIES.map((category) => ({
@@ -123,6 +125,7 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
           rows={3}
         />
 
+        <SpecialTagColor />
         <div className='flex justify-between'>
           <AggieButton
             disabled={isLoading}
@@ -145,5 +148,12 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
     </Formik>
   );
 };
+
+function SpecialTagColor() {
+  const { values, setFieldValue } = useFormikContext<editSchema>();
+  return values.category === "special"
+    ? <TagColorPicker value={values.color}
+        onChange={(color) => setFieldValue("color", color)} /> : null;
+}
 
 export default CreateEditTagForm;

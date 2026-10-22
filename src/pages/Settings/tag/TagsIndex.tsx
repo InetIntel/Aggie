@@ -1,3 +1,5 @@
+import SpecialTagForm from "../../../components/Tags/SpecialTagForm";
+import TagBadge from "../../../components/Tags/TagBadge";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -32,6 +34,7 @@ interface IProps {}
 const TagsIndex = (props: IProps) => {
   const [editOpen, setEditOpen] = useState("");
   const [deleteOpen, setDeleteOpen] = useState("");
+  const [creatingSpecial, setCreatingSpecial] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | TagCategoryGroup>("all");
 
@@ -109,6 +112,12 @@ const TagsIndex = (props: IProps) => {
           </AggieButton>
         }
       </div>
+      <div className='mb-4'>
+        {creatingSpecial ? <SpecialTagForm onCancel={() => setCreatingSpecial(false)}
+          onCreated={() => { setCreatingSpecial(false); setCategory("special"); setSearch(""); }} />
+          : <AggieButton type='button' variant='secondary' onClick={() => setCreatingSpecial(true)}>✦ Create custom tag</AggieButton>}
+        <p className='mt-2 text-sm text-slate-500'>Standard tags are managed centrally. Anyone can create custom tags for everyone to use.</p>
+      </div>
       <div className='mb-3 flex flex-wrap gap-2'>
         <button
           type='button'
@@ -181,7 +190,7 @@ const TagsIndex = (props: IProps) => {
                     className='grid gap-2 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] md:items-center'
                   >
                     <header>
-                      <h3 className='text-lg font-medium'>{tag.name}</h3>
+                      <h3 className='text-lg font-medium'><TagBadge tag={tag} /></h3>
                       <p className='text-xs text-slate-500 dark:text-gray-400'>
                         Created by <UserToken id={tag.user?._id || ""} loading={!data} /> on{" "}
                         <DateTime dateString={tag.storedAt} />
@@ -191,7 +200,7 @@ const TagsIndex = (props: IProps) => {
                       {tag.description || "No description"}
                     </p>
                     <footer className='flex justify-end'>
-                      {canEditTags && (
+                      {(canEditTags || (tag.category === "special" && !!session?._id && tag.user?._id === session._id)) && (
                         <DropdownMenu
                           variant='secondary'
                           className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
@@ -205,7 +214,7 @@ const TagsIndex = (props: IProps) => {
                             <FontAwesomeIcon icon={faEdit} />
                             Edit
                           </AggieButton>
-                          <AggieButton
+                          {canEditTags && <AggieButton
                             className='px-3 py-2 hover:bg-slate-100 text-red-600'
                             onClick={() => {
                               doDeleteTag.reset();
@@ -214,7 +223,7 @@ const TagsIndex = (props: IProps) => {
                           >
                             <FontAwesomeIcon icon={faTrashAlt} />
                             Permanently Delete
-                          </AggieButton>
+                          </AggieButton>}
                         </DropdownMenu>
                       )}
                     </footer>
@@ -225,7 +234,7 @@ const TagsIndex = (props: IProps) => {
           );
         })}
       </div>
-      {canEditTags && <>
+      <>
         <AggieDialog
           isOpen={!!editOpen}
           onClose={() => setEditOpen("")}
@@ -257,7 +266,7 @@ const TagsIndex = (props: IProps) => {
             </p>
           )}
         </ConfirmationDialog>
-      </> }
+      </>
     </div>
   );
 };

@@ -1,3 +1,4 @@
+import TagBadge from "../../components/Tags/TagBadge";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { faCheck } from "@fortawesome/free-solid-svg-icons";
@@ -184,7 +185,7 @@ const IncidentTagFilter = ({
                           <FontAwesomeIcon icon={faCheck} className='text-xs' />
                         )}
                       </span>
-                      <span>{tag.name}</span>
+                      <span><TagBadge tag={tag} /></span>
                     </button>
                   );
                 })}
