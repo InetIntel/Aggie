@@ -203,7 +203,7 @@ class CloudflareChannel extends PollChannel {
             await this.reconcileOngoingReports(seenGuids);
 
         } catch (e) {
-            console.error(`[Fetching-channel-Cloudflare] Failed - Failed parsing and formating data: ${this.options.media}.`);
+            console.error(`[Fetching-channel-Cloudflare] Failed - Failed fetching or processing data: ${this.options.media}.`, e);
         }
 
         this.fetchFromTimestamp = this.fetchToTimestamp;
@@ -303,7 +303,7 @@ class CloudflareChannel extends PollChannel {
                 anomaly = await this.findAnomalyForReport(report);
             } catch (err) {
                 // Can't tell withdrawn from unreachable — leave it for the next poll.
-                console.error(`[Fetching-channel-Cloudflare] Failed - Failed reconciliation lookup for guid ${report.guid}.`);
+                console.error(`[Fetching-channel-Cloudflare] Failed - Failed reconciliation lookup for guid ${report.guid}.`, err);
                 continue;
             }
 
