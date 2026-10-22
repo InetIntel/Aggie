@@ -23,6 +23,7 @@ import { faComment, faCommentAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit, faEllipsisH, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DateTime from "../../../components/DateTime";
+import CommentContent from "./CommentContent";
 import DropdownMenu from "../../../components/DropdownMenu";
 
 interface IProps {
@@ -224,7 +225,7 @@ const Comment = ({ data, groupId }: IProps) => {
         </Formik>
       ) : (
         <div className='bg-white dark:bg-gray-800 flex flex-col gap-3 px-3 py-3 whitespace-pre-line'>
-          <p><Linkify>{data.data}</Linkify></p>
+          <CommentContent text={data.data} />
           <FileChipList
             nameList={nameList}
             pathList={pathList}
