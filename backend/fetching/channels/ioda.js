@@ -673,6 +673,9 @@ class IODAChannel extends PollChannel {
 
         post.isOutageEvent = isOutageEvent;
         post.isAsnScoped = isAsnScoped;
+        if (this.countryCode) post.countryCode = this.countryCode.toUpperCase();
+        const regionCode = this.extractRegionCode(event, queryType);
+        if (regionCode) post.regionId = `ioda:${regionCode}`;
         post.asn = asn;
         post.outageStartedAt = outageStartedAt;
         post.outageEndedAt = outageEndedAt;

@@ -481,6 +481,7 @@ class CloudflareChannel extends PollChannel {
 
         post.isOutageEvent = isOutageEvent;
         post.isAsnScoped = isAsnScoped;
+        if (this.countryCode) post.countryCode = this.countryCode.toUpperCase();
         post.asn = asn;
         post.outageStartedAt = outageStartedAt;
         post.outageEndedAt = outageEndedAt;

@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 
+import { getAlertFilterOptions } from "../../../api/reports";
+import LocationFilter from "../../../components/filters/LocationFilter";
 import { getSources } from "../../../api/sources";
 import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS, OUTAGE_STATUS_OPTIONS, providerLabel } from "../../../api/common";
 import type { ReportQueryState } from "../../../api/reports/types";
@@ -34,6 +36,7 @@ interface IReportFilters {
   isFetching: boolean;
   platformOptions?: string[];
   showEntityLevelFilter?: boolean;
+  showLocationFilters?: boolean;
   showSignalSourcesFilter?: boolean;
   showOngoingFilter?: boolean;
   showDedupToggle?: boolean;
@@ -52,6 +55,7 @@ const ReportFilters = ({
   isFetching,
   platformOptions = [...MEDIA_OPTIONS],
   showEntityLevelFilter = true,
+  showLocationFilters = false,
   showSignalSourcesFilter = true,
   showOngoingFilter = true,
   showDedupToggle = true,
@@ -66,6 +70,7 @@ const ReportFilters = ({
     clearAllParams,
   } = useQueryParams<ReportQueryState>();
   const navigate = useNavigate();
+  const locationOptions = useQuery(["alert-filter-options"], getAlertFilterOptions, { enabled: showLocationFilters });
   const { data: sources } = useQuery(["sources"], getSources);
   function sourcesRemapComboBox(query: typeof sources) {
     if (!query) return [];
@@ -281,6 +286,13 @@ const ReportFilters = ({
           />
         </div>
         <div className='flex flex-wrap items-center gap-1'>
+          {showLocationFilters && (["countries", "asns", "regions"] as const).map(kind => (
+            <LocationFilter key={kind} label={{ countries: "Countries", asns: "ASNs", regions: "Regions" }[kind]}
+              options={locationOptions.data?.[kind] ?? []}
+              value={getParam(kind).split(",").filter(Boolean)}
+              loading={locationOptions.isLoading} error={locationOptions.isError}
+              onChange={values => setParams({ [kind]: values.length ? values : undefined })} />
+          ))}
           <FilterDateTime
             label='Outage start'
             before={getParam("before")}

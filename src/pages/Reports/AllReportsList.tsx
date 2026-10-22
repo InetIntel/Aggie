@@ -338,6 +338,7 @@ const AllReportsList = ({ alerts }: IProps) => {
           isFetching={isFetching}
           refetch={refetch}
           platformOptions={platformOptions}
+          showLocationFilters={alerts}
           showEntityLevelFilter={alerts}
           showSignalSourcesFilter={alerts}
           showOngoingFilter={alerts}

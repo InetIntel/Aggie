@@ -37,7 +37,7 @@ const parseQueryData = (queryString) => {
   var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before',
     'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media', 'dataSources', 'entityLevel',
     'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity',
-    'isRelevantReports', "irrelevant", 'ongoing']);
+    'isRelevantReports', "irrelevant", 'ongoing', 'countries', 'asns', 'regions']);
 
   if (query.ongoing === 'true') {
     query.isOutageOngoing = true;
@@ -256,6 +256,35 @@ const sendReportResponse = async (req, res, payload, status = 200, options = {})
 };
 
 // Get a list of queried Reports
+exports.report_filter_options = async (req, res) => {
+  try {
+    const { countryExpression, regionExpression } = require('../../shared/alertLocations');
+    const countries = require('i18n-iso-countries');
+    const access = await getReportSourceAccessFilter(req);
+    const rows = await Report.aggregate([
+      { $match: combineReportFilters({ isOutageEvent: true }, access) },
+      { $project: { country: countryExpression, region: regionExpression, asn: 1, geoScope: 1,
+        network: { $ifNull: ['$metadata.rawAPIResponse.networkName', { $ifNull: [
+          '$metadata.rawAPIResponse.rawEvent.asnDetails.name', '$metadata.rawAPIResponse.entityName',
+        ] }] } } },
+      { $group: { _id: { country: '$country', region: '$region', asn: '$asn' }, scope: { $max: '$geoScope' }, network: { $max: '$network' } } },
+    ]);
+    const options = { countries: new Map(), asns: new Map(), regions: new Map() };
+    for (const row of rows) {
+      const { country, region, asn } = row._id;
+      const countryName = country && (countries.getName(country, 'en') || country);
+      if (country) options.countries.set(country, countryName);
+      if (asn) options.asns.set(asn, `${asn.toUpperCase()}${row.network ? ` — ${row.network}` : ''}`);
+      if (region) options.regions.set(region, `${row.scope || region}${countryName ? ` (${countryName})` : ''}`);
+    }
+    res.json(Object.fromEntries(Object.entries(options).map(([kind, values]) => [kind,
+      [...values].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label)),
+    ])));
+  } catch (err) {
+    res.status(err.status || 500).send('Unable to load alert filter options.');
+  }
+};
+
 exports.report_reports = async (req, res) => {
   try {
     const queryData = parseQueryData(req.query);
