@@ -15,6 +15,16 @@ const teamSchema = new mongoose.Schema({
     default: '',
     trim: true,
   },
+  countryCodes: {
+    type: [{
+      type: String,
+      uppercase: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 2,
+    }],
+    default: [],
+  },
   active: {
     type: Boolean,
     default: true,

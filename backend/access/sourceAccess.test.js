@@ -23,9 +23,53 @@ const cutoffSource = {
     cutoffDate: '2026-01-01T00:00:00.000Z',
   },
 };
+const countrySource = {
+  _id: 'country-source',
+  countryCodes: ['RU'],
+  accessPolicy: { mode: 'country_restricted', teams: [] },
+};
 
 test('legacy sources without a policy remain public', () => {
   assert.equal(canViewSource({ role: 'viewer', teams: [] }, publicSource), true);
+});
+
+test('source countries do not restrict a public source', () => {
+  assert.equal(
+    canViewSource(
+      { role: 'viewer', teamCountryCodes: [] },
+      { ...publicSource, countryCodes: ['RU'] }
+    ),
+    true
+  );
+});
+
+test('country-restricted sources require a matching team country', () => {
+  assert.equal(
+    canViewSource({ role: 'viewer', teamCountryCodes: ['RU'] }, countrySource),
+    true
+  );
+  assert.equal(
+    canViewSource({ role: 'viewer', teamCountryCodes: ['IR'] }, countrySource),
+    false
+  );
+  assert.equal(
+    canViewSource(
+      { role: 'viewer', teamCountryCodes: ['RU'] },
+      { ...countrySource, countryCodes: [] }
+    ),
+    false
+  );
+});
+
+test('report filters include matching country-restricted sources', () => {
+  const filter = buildReportSourceAccessFilter(
+    { role: 'viewer', teamCountryCodes: ['RU'] },
+    [countrySource]
+  );
+
+  assert.deepEqual(filter.$or[1], {
+    _sources: { $in: ['country-source'] },
+  });
 });
 
 test('restricted sources require an assigned team', () => {
