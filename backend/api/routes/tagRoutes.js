@@ -9,8 +9,10 @@ router.get('', User.can('view data'), tagController.tag_tags);
 
 // Create a new Tag
 router.post('', User.can('edit tags'), tagController.tag_create);
+router.post('/special', User.can('view data'), tagController.tag_create_special);
 
 // Update a Tag
+router.put('/special/:_id', User.can('view data'), tagController.tag_update);
 router.put('/:_id', User.can('edit tags'), tagController.tag_update);
 
 // Delete a tag
