@@ -80,7 +80,7 @@ const SourcesSection = () => {
   return (
     <div>
       <div className='flex justify-between items-center'>
-        <h1 className='font-medium my-3 text-3xl'>Providers and Feeds</h1>
+        <h1 className='font-medium my-3 text-3xl'>Sources and Feeds</h1>
         {isManager && (
           <AggieButton
             onClick={() => setOpenCreate("new")}

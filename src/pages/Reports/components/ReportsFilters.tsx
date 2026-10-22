@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 
+import { getAlertFilterOptions } from "../../../api/reports";
+import LocationFilter from "../../../components/filters/LocationFilter";
 import { getSources } from "../../../api/sources";
-import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS, OUTAGE_STATUS_OPTIONS } from "../../../api/common";
+import { DATA_SOURCE_OPTIONS, ENTITY_LEVEL_OPTIONS, MEDIA_OPTIONS, OUTAGE_STATUS_OPTIONS, providerLabel } from "../../../api/common";
 import type { ReportQueryState } from "../../../api/reports/types";
 
 import FilterComboBox from "../../../components/filters/FilterComboBox";
@@ -36,11 +38,13 @@ interface IReportFilters {
   isFetching: boolean;
   platformOptions?: string[];
   showEntityLevelFilter?: boolean;
+  showLocationFilters?: boolean;
   showSignalSourcesFilter?: boolean;
   showOngoingFilter?: boolean;
   showDedupToggle?: boolean;
   autoEnableDedup?: boolean;
   defaultEntityLevelSelection?: string[];
+  showPagination?: boolean;
 }
 
 // A single removable "chip" showing one active filter. Clicking it clears just
@@ -74,11 +78,13 @@ const ReportFilters = ({
   isFetching,
   platformOptions = [...MEDIA_OPTIONS],
   showEntityLevelFilter = true,
+  showLocationFilters = false,
   showSignalSourcesFilter = true,
   showOngoingFilter = true,
   showDedupToggle = true,
   autoEnableDedup = true,
   defaultEntityLevelSelection,
+  showPagination = true,
 }: IReportFilters) => {
   const {
     searchParams,
@@ -87,8 +93,13 @@ const ReportFilters = ({
     clearAllParams,
   } = useQueryParams<ReportQueryState>();
   const navigate = useNavigate();
-  const { formatDateTime } = useFormatters();
-  const formikRef = useRef<FormikProps<{ keywords: string }>>(null);
+const { formatDateTime } = useFormatters();
+const formikRef = useRef<FormikProps<{ keywords: string }>>(null);
+const locationOptions = useQuery(
+  ["alert-filter-options"],
+  getAlertFilterOptions,
+  { enabled: showLocationFilters }
+);
   const { data: sources } = useQuery(["sources"], getSources);
   function sourcesRemapComboBox(query: typeof sources) {
     if (!query) return [];
@@ -155,27 +166,39 @@ const ReportFilters = ({
 
     const formattedValues: ReportQueryState = { ...values };
 
+    // Only normalize entity-level / dedup when the caller is actually changing
+    // one of them. Running this on every filter change (a date/platform/status
+    // tweak, or just opening and closing a dropdown) would materialize the
+    // entity-level defaults into the URL, making the bar think a filter is
+    // active and wrongly surface the "Reset filters" button.
+    const touchingEntityLevel =
+      "entityLevel" in values || "hideDuplicateASNs" in values;
+
     if (showEntityLevelFilter) {
-      const requestedEntityLevel =
-        values.entityLevel && Array.isArray(values.entityLevel)
-          ? values.entityLevel
-          : getParam("entityLevel")
-            ? getParam("entityLevel").split(",").filter(Boolean)
-            : entityLevelDefaults;
+      if (touchingEntityLevel) {
+        const requestedEntityLevel =
+          values.entityLevel && Array.isArray(values.entityLevel)
+            ? values.entityLevel
+            : getParam("entityLevel")
+              ? getParam("entityLevel").split(",").filter(Boolean)
+              : entityLevelDefaults;
 
-      const autoHideDuplicate =
-        autoEnableDedup &&
-        requestedEntityLevel.includes("AS") &&
-        requestedEntityLevel.includes("AS - Country");
+        const autoHideDuplicate =
+          autoEnableDedup &&
+          requestedEntityLevel.includes("AS") &&
+          requestedEntityLevel.includes("AS - Country");
 
-      let dedupValue = values.hideDuplicateASNs;
-      if (!dedupValue) {
-        dedupValue = autoHideDuplicate ? "true" : "false";
+        let dedupValue = values.hideDuplicateASNs;
+        if (!dedupValue) {
+          dedupValue = autoHideDuplicate ? "true" : "false";
+        }
+
+        formattedValues.entityLevel =
+          requestedEntityLevel.length > 0 ? requestedEntityLevel : undefined;
+        formattedValues.hideDuplicateASNs = dedupValue;
       }
-
-      formattedValues.entityLevel =
-        requestedEntityLevel.length > 0 ? requestedEntityLevel : undefined;
-      formattedValues.hideDuplicateASNs = dedupValue;
+      // else: leave entityLevel / hideDuplicateASNs as they are in the URL —
+      // an unrelated filter change must not write their defaults.
     } else {
       formattedValues.entityLevel = undefined;
       formattedValues.hideDuplicateASNs = undefined;
@@ -272,6 +295,13 @@ const ReportFilters = ({
       onRemove: () => setParams({ dataSources: undefined }),
     });
   }
+  // The `view` param is the list/table UI toggle, not a filter — exclude it so
+  // switching to the table view doesn't make the bar think a query is active and
+  // surface the "Reset filters" button. Mirrors the Incidents guard
+  // (src/pages/incidents/index.tsx).
+  const hasActiveFilter = Array.from(searchParams.keys()).some(
+    (key) => key !== "view"
+  );
 
   return (
     <>
@@ -308,7 +338,7 @@ const ReportFilters = ({
                 >
                   Refresh
                 </AggieButton>
-                {!!searchParams.size && (
+                {hasActiveFilter && (
                   <AggieButton
                     type='button'
                     variant='secondary'
@@ -327,14 +357,16 @@ const ReportFilters = ({
             )}
           </Formik>
         </div>
-        <div className='text-xs shrink-0'>
-          <Pagination
-            currentPage={Number(getParam("page")) || 0}
-            totalCount={reportCount || 0}
-            onPageChange={(num) => setParams({ page: num })}
-            size={0}
-          />
-        </div>
+        {showPagination && (
+          <div className='text-xs shrink-0'>
+            <Pagination
+              currentPage={Number(getParam("page")) || 0}
+              totalCount={reportCount || 0}
+              onPageChange={(num) => setParams({ page: num })}
+              size={0}
+            />
+          </div>
+        )}
       </div>
       {activeFilters.length > 0 && (
         <div className='flex flex-wrap items-center gap-1.5 mb-2 -mt-1'>
@@ -364,6 +396,13 @@ const ReportFilters = ({
           />
         </div>
         <div className='flex flex-wrap items-center gap-1'>
+          {showLocationFilters && (["countries", "asns", "regions"] as const).map(kind => (
+            <LocationFilter key={kind} label={{ countries: "Countries", asns: "ASNs", regions: "Regions" }[kind]}
+              options={locationOptions.data?.[kind] ?? []}
+              value={getParam(kind).split(",").filter(Boolean)}
+              loading={locationOptions.isLoading} error={locationOptions.isError}
+              onChange={values => setParams({ [kind]: values.length ? values : undefined })} />
+          ))}
           <FilterDateTime
             label='Outage start'
             before={getParam("before")}
@@ -374,8 +413,14 @@ const ReportFilters = ({
           <FilterListbox
             label='Platforms'
             options={platformOptions}
-            value={getParam("media") as string}
-            onChange={(e) => setParams({ media: e as string})}
+            value={
+              getParam("media")
+                ? (getParam("media").split(",").filter(Boolean) as string[])
+                : []
+            }
+            onChange={(e) => setParams({ media: e as string[] })}
+            isMultiSelect={true}
+            getOptionLabel={providerLabel}
           />
           {showOngoingFilter && (
             <FilterListbox

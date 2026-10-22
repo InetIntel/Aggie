@@ -8,6 +8,9 @@ interface IProps {
   isSelectMode: boolean;
   onCheckChange: () => void;
   className?: string;
+  // Read-only contexts (e.g. the incidents table's expanded alerts list) render
+  // the item without any checkbox and drop the left gutter reserved for it.
+  hideCheckbox?: boolean;
 }
 
 const MultiSelectListItem = ({
@@ -16,6 +19,7 @@ const MultiSelectListItem = ({
   isSelectMode,
   onCheckChange,
   className,
+  hideCheckbox,
 }: IProps) => {
   // refactor at some point
   function bgState() {
@@ -30,10 +34,12 @@ const MultiSelectListItem = ({
   }
   const customClass =
     className ||
-    `px-2 py-2 pl-8 pb-4 border-b border-slate-300 ${bgState()} relative group`;
+    `px-2 py-2 ${
+      hideCheckbox ? "pl-2" : "pl-8"
+    } pb-4 border-b border-slate-300 ${bgState()} relative group`;
   return (
     <article className={customClass}>
-      {isSelectMode ? (
+      {hideCheckbox ? null : isSelectMode ? (
         <div
           className='flex items-center absolute top-0 bottom-0 left-0 w-12 pointer-events-none '
           onClick={onChange}

@@ -1,24 +1,38 @@
 import type React from "react";
 
-/**
- * Width below which a column is hidden in the table and instead surfaces in the
- * row's "More Info" panel. `undefined` means the column is always visible.
- *
- * Maps to Tailwind v3 breakpoints (md 768 / lg 1024 / xl 1280 / 2xl 1536): a
- * `bucket` of "lg" hides the cell below 1024px (`hidden lg:table-cell`) and
- * shows its spillover block below 1024px (`lg:hidden`). One source of truth
- * drives both, so the cell and its spillover can never drift apart.
- */
-export type ResponsiveBucket = "md" | "lg" | "xl" | "2xl";
-
 export interface DataTableColumn<T> {
   id: string;
   /** Header label. When a string it doubles as the spillover `<dt>` label. */
   header: React.ReactNode;
   cell: (row: T) => React.ReactNode;
-  /** Hide below this breakpoint and surface in "More Info" instead. */
-  bucket?: ResponsiveBucket;
-  /** Extra classes on the `<th>` (width hint, alignment). */
+  /**
+   * Collapse priority. Lower = more persistent (collapses later); columns with a
+   * `collapsePriority` drop into "More Info" as the table narrows, in descending
+   * priority order. Omit for an always-visible column that never collapses.
+   *
+   * DataTable measures its own width and keeps the highest-priority columns whose
+   * `minWidth`s (plus the checkbox and actions columns) still fit, so collapse
+   * tracks the table's real width — including the dynamic select column, which a
+   * pure-CSS breakpoint could not account for. The numeric value only sets order;
+   * spacing between values is irrelevant.
+   */
+  collapsePriority?: number;
+  /**
+   * The column's minimum/target width in px, applied as the `<th>` width basis.
+   * DataTable computes each visible column's width from the measured table width:
+   * columns sit at `minWidth`, the `grow` column absorbs the leftover so the table
+   * fills exactly (no trailing gap), and if the visible set is too wide (narrow
+   * mobile) every width is scaled down so the table still never overflows.
+   */
+  minWidth?: number;
+  /**
+   * Mark the one column that should absorb leftover width so the row fills the
+   * table exactly (others stay at `minWidth`). Without a `grow` column a narrow
+   * set would leave empty space on the right. One per table (the flexible column,
+   * e.g. the incident title).
+   */
+  grow?: boolean;
+  /** Extra classes on the `<th>` (alignment, etc.). */
   thClassName?: string;
   /** Extra classes on the `<td>`. */
   tdClassName?: string;
@@ -47,8 +61,18 @@ export interface DataTableProps<T> {
   getRowKey: (row: T) => string;
   isLoading?: boolean;
   emptyMessage?: React.ReactNode;
-  /** Per-row actions, rendered in a trailing right-aligned Actions column. */
+  /**
+   * Per-row actions, rendered in a single pinned trailing column together with
+   * the expand caret (when `hideExpandBar` is set). Always visible.
+   */
   rowActions?: (row: T) => React.ReactNode;
+  /**
+   * Width (px) of the pinned actions/caret column. Sized to fit the widest action
+   * set plus the caret (its content is not clipped, so an undersized value lets
+   * buttons spill past the table edge). Also reserved by the column measurer so
+   * data columns collapse before crowding it. Defaults to 96.
+   */
+  actionsColWidth?: number;
   /**
    * Extra detail rendered in the expanded row, below the auto-generated
    * spillover blocks for hidden columns (e.g. notes, tags, url).

@@ -35,6 +35,15 @@ var sourceSchema = new mongoose.Schema({
   keywords: String,
   regex: String,
   lists: String,
+  // Structured per-media config. These sit alongside the legacy overloaded
+  // keywords/lists/regex fields (which older sources still use) and are all
+  // optional — an empty value means "current/default behavior" so existing
+  // sources are unaffected.
+  asns: { type: [Number], default: [] },   // IODA: narrow outages to these ASNs
+  region: { type: String },                // IODA: narrow outages to this region code
+  ooniTestName: { type: String },          // OONI: measurement test (default web_connectivity)
+  ooniDomains: { type: [String], default: [] }, // OONI: watched domains
+  ooniUseAllDomains: { type: Boolean, default: false }, // OONI: watch all domains instead of the list
   enabled: { type: Boolean, default: true },
   events: { type: Array, default: [] },
   unreadErrorCount: { type: Number, default: 0 },
@@ -42,11 +51,21 @@ var sourceSchema = new mongoose.Schema({
   lastReportDateSavedSearch: { type: Date, index: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   tags: { type: [String], default: [] },
+  countryCodes: {
+    type: [{
+      type: String,
+      uppercase: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 2,
+    }],
+    default: [],
+  },
   credentials: { type: mongoose.Schema.Types.ObjectId, ref: 'Credentials', required: true },
   accessPolicy: {
     mode: {
       type: String,
-      enum: ['public', 'restricted', 'public_until'],
+      enum: ['public', 'restricted', 'public_until', 'country_restricted'],
       default: 'public',
       index: true,
     },
@@ -65,6 +84,12 @@ var sourceSchema = new mongoose.Schema({
 sourceSchema.pre('save', function (next) {
   // Do not allow changing media
   if (!this.isNew && this.isModified('media')) return next(new Error.Validation('source_media_change_not_allowed'));
+
+  // The warnings view only uses the latest 50 events.
+  if (this.events && this.events.length > EVENTS_TO_RETURN) {
+    this.events = this.events.slice(-EVENTS_TO_RETURN);
+  }
+
   // Notify when changing error count
   if (!this.isNew && this.isModified('unreadErrorCount')) {
     this._sourceErrorCountUpdated = true;

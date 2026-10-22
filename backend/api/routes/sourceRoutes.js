@@ -13,6 +13,9 @@ router.get('', User.can('view data'), sourceController.source_sources);
 // Get a Source by _id
 router.get('/:_id', User.can('view data'), sourceController.source_details);
 
+// Get the ASNs a Source has recently produced reports for (read-only summary)
+router.get('/:_id/observed-asns', User.can('view data'), sourceController.source_observed_asns);
+
 // Update a Source
 router.put('/:_id', User.can('manage sources'), sourceController.source_update);
 

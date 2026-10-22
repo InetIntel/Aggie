@@ -41,7 +41,7 @@ const formatAssignedTo = (group: Group) => {
   if (!group.assignedTo || group.assignedTo.length === 0) return "—";
   return (
     group.assignedTo
-      .map((u) => ("username" in u && u.username) || "")
+      .map((u) => (u && typeof u === "object" && "username" in u && u.username) || "")
       .filter(Boolean)
       .join(", ") || "—"
   );

@@ -13,6 +13,7 @@ import { BrowserRouter } from "react-router-dom";
 import TimeAgo from "javascript-time-ago";
 import en from "javascript-time-ago/locale/en";
 import SocketProvider from "./hooks/WebsocketProvider";
+import ThemeProvider from "./hooks/ThemeProvider";
 import AppRouter from "./AppRouter";
 axios.defaults.withCredentials = true;
 axios.defaults.baseURL = process.env.PUBLIC_URL || 'http://localhost:3000';
@@ -44,7 +45,9 @@ ReactDOM.render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={url}>
         <SocketProvider>
-          <AppRouter />
+          <ThemeProvider>
+            <AppRouter />
+          </ThemeProvider>
         </SocketProvider>
       </BrowserRouter>
     </QueryClientProvider>

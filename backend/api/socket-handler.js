@@ -22,6 +22,9 @@ Socket.prototype.emit = function (event, data) {
   emit.apply(this, arguments);
 };
 
+// Each subscription re-aggregates its window on refresh; the dashboard needs two.
+const MAX_ANALYTICS_SUBSCRIPTIONS_PER_SOCKET = 4;
+
 var SocketHandler = function (app, server, auth) {
   this.app = app;
   this.server = server;
@@ -149,9 +152,9 @@ SocketHandler.prototype._connect = function (socket) {
   // Remove client from query list
   socket.on('disconnect', function () {
     self.removeClient(self.clientQuery, socket.id);
-    if (socket.analyticsCacheKey) {
-      streamer.removeAnalyticsQuery(socket.analyticsCacheKey, socket.id);
-    }
+    (socket.analyticsCacheKeys || []).forEach(function (cacheKey) {
+      streamer.removeAnalyticsQuery(cacheKey, socket.id);
+    });
   });
 };
 
@@ -181,24 +184,27 @@ SocketHandler.prototype._streamerQueryCheck = function (event, QueryType, socket
     if (QueryType.compare(query, new QueryType(clientQuery)) &&
       self.queryGroups[clientQuery.hash] &&
       self.queryGroups[clientQuery.hash].has(socket.id)) {
-      socket.emit(event, data);
+      socket.emit(event, null);
     }
   });
 };
 
+// A client sends its full set of analytics subscriptions each time — one query, an array
+// (the dashboard's chart and cards group differently, so they have separate cache keys),
+// or null to clear them. Each message replaces the previous set.
 SocketHandler.prototype._analyticsListen = function (socket) {
   socket.on('analytics', function (queryData) {
-    if (socket.analyticsCacheKey) {
-      streamer.removeAnalyticsQuery(socket.analyticsCacheKey, socket.id);
-    }
+    (socket.analyticsCacheKeys || []).forEach(function (cacheKey) {
+      streamer.removeAnalyticsQuery(cacheKey, socket.id);
+    });
 
-    if (!queryData || !queryData.cacheKey) {
-      socket.analyticsCacheKey = null;
-      return;
-    }
+    const queries = (Array.isArray(queryData) ? queryData : [queryData])
+      .filter(function (query) { return query && query.cacheKey; })
+      .slice(0, MAX_ANALYTICS_SUBSCRIPTIONS_PER_SOCKET);
 
-    socket.analyticsCacheKey = queryData.cacheKey;
-    streamer.addAnalyticsQuery(queryData, socket.id);
+    socket.analyticsCacheKeys = _.uniq(queries
+      .filter(function (query) { return streamer.addAnalyticsQuery(query, socket.id); })
+      .map(function (query) { return query.cacheKey; }));
   });
 };
 
@@ -247,8 +253,8 @@ SocketHandler.prototype._addSourceListeners = function (emitter) {
 
 SocketHandler.prototype._addReportLocalListeners = function (emitter) {
   var self = this;
-  emitter.on('report:updated', function (report) {
-    self.io.sockets.in('reports').emit('report:updated', report);
+  emitter.on('report:updated', function () {
+    self.io.sockets.in('reports').emit('report:updated', null);
   });
 };
 
@@ -303,9 +309,7 @@ SocketHandler.prototype._addAnalyticsListeners = function (emitter) {
 };
 
 function emitAllSources(emitter) {
-  Source.find({}, '-events', { lean: true }, function (err, sources) {
-    if (!err && sources) emitter.emit('sources', sources);
-  });
+  emitter.emit('sources', null);
 }
 
 function getAnalyticsRoom(cacheKey) {

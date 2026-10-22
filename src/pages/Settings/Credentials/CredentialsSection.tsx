@@ -64,7 +64,7 @@ const CredentialsSection = () => {
         <header
           className={`${grid} px-3 py-3 font-medium text-sm border-b border-slate-300`}
         >
-          <p>Provider</p>
+          <p>Source</p>
           <p>Name</p>
         </header>
         {data ? (

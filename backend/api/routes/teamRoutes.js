@@ -30,6 +30,8 @@ router.put('/:_id/status', teamController.team_update_status);
 
 router.put('/:_id/permissions', teamController.team_update_permission_limits);
 
+router.put('/:_id', teamController.team_update);
+
 // Create a team
 router.post('', teamController.team_create);
 

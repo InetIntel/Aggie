@@ -50,6 +50,7 @@ export const DATA_SOURCE_OPTIONS = [
   "BGP",
   "Telescope",
   "Cloudflare Traffic",
+  "OONI Web Connectivity",
 ] as const;
 export type DataSourceOptions = (typeof DATA_SOURCE_OPTIONS)[number];
 
@@ -84,10 +85,10 @@ export const CREDENTIAL_OPTIONS = [
 ] as const;
 export type CredentialOption = (typeof CREDENTIAL_OPTIONS)[number];
 
-// Temporary product cap: one Connection per provider. The multi-connection UI
-// (the "Connect {provider}" button when a connection already exists) is kept in
-// place and simply gated on this flag — flip to `true` to re-enable it later.
-export const ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER = false;
+// Multiple Connections per provider are allowed by default. The gating flag is
+// kept in place (rather than removed) so the one-connection-per-provider cap can
+// be re-enabled later by flipping this back to `false`.
+export const ALLOW_MULTIPLE_CONNECTIONS_PER_PROVIDER = true;
 
 // The Feeds page lets managers override the cap above per-browser (persisted in
 // localStorage). Read that override anywhere the connection picker needs to know
@@ -110,8 +111,10 @@ export const PROVIDER_LABELS: Record<string, string> = {
   telegramBot: "Telegram Bot",
   telegramUser: "Telegram",
   mastodon: "Mastodon",
+  twitter: "Twitter",
   ioda: "IODA",
   cloudflare: "Cloudflare",
+  ooni: "OONI",
 };
 
 // Fall back to the raw value if we don't have a friendly label for it.

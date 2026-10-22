@@ -113,7 +113,7 @@ const IncidentListItem = ({
       >
         <header className='col-span-3 flex flex-col'>
           <div className='flex justify-between'>
-            <div className='flex gap-1 '>
+            <div className='flex flex-wrap gap-1'>
               <p className='font-medium'>#{item.idnum}</p>
               { /*<VeracityToken value={item.veracity} />*/ }
               {item.closed && (
@@ -137,7 +137,7 @@ const IncidentListItem = ({
                   Restricted
                 </span>
               )}
-              <TagsList values={item.smtcTags} />
+              <TagsList values={item.smtcTags} maxVisible={2} />
               {item.reportSources?.map((source) => (
                 <span
                   key={source}

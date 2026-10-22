@@ -191,3 +191,32 @@ export const reportNetwork = (
     scope: "",
   };
 };
+
+// OONI alerts link to the Measurement Aggregation chart for the alert's own
+// network, over the 30 days ending at the alert, so the viewer can see what
+// normal looks like. Built here (not stored) so it also applies to alerts that
+// are already in the database.
+export const reportLink = (report: Report): string | undefined => {
+  if (report._media?.[0] !== "ooni") return report.url;
+  const raw = report.metadata?.rawAPIResponse;
+  const windowEnd = raw?.windowEnd || raw?.triggers?.[0]?.windowEnd;
+  if (!raw?.probeASN || !windowEnd) return report.url;
+
+  const day = String(windowEnd).slice(0, 10);
+  const shift = (offset: number) => {
+    const d = new Date(`${day}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+  const params = new URLSearchParams({
+    test_name: "web_connectivity",
+    axis_x: "measurement_start_day",
+    since: shift(-29),
+    until: shift(1),
+    time_grain: "day",
+    probe_cc: "IR",
+    probe_asn: `AS${raw.probeASN}`,
+    axis_y: "probe_asn",
+  });
+  return `https://explorer.ooni.org/chart/mat?${params}`;
+};

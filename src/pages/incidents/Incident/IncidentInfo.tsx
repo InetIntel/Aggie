@@ -10,6 +10,7 @@ import {
   faSort,
   faSortDown,
   faSortUp,
+  faTags,
   faTrash,
   faUserEdit,
   faWarning,
@@ -34,8 +35,16 @@ interface IProps {
   group?: Group;
   isLoading: boolean;
   onEdit: () => void;
+  canManageTags: boolean;
+  onManageTags: () => void;
 }
-const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
+const IncidentInfo = ({
+  group,
+  isLoading,
+  onEdit,
+  canManageTags,
+  onManageTags,
+}: IProps) => {
   const { formatDateTime } = useFormatters();
   const [asnSort, setAsnSort] = useState<{
     key: "asn" | "direct" | "indirect";
@@ -231,6 +240,17 @@ const IncidentInfo = ({ group, isLoading, onEdit }: IProps) => {
               </span>
             )}
             <TagsList values={group?.smtcTags} />
+            {canManageTags && group && (
+              <AggieButton
+                type='button'
+                variant='secondary'
+                className='text-xs'
+                icon={faTags}
+                onClick={onManageTags}
+              >
+                {group.smtcTags.length ? "Edit tags" : "Add tags"}
+              </AggieButton>
+            )}
           </div>
           <PlaceholderDiv
             loading={isLoading}

@@ -6,6 +6,7 @@ import {
   formatDate,
   formatDateTime,
   formatTime,
+  formatTimeZone,
 } from "./dateFormat";
 
 type DateInput = string | number | Date | null | undefined;
@@ -30,6 +31,8 @@ export function useFormatters() {
       prefs,
       formatDate: (d: DateInput, empty?: string) => formatDate(d, prefs, empty),
       formatTime: (d: DateInput, empty?: string) => formatTime(d, prefs, empty),
+      formatTimeZone: (d: DateInput, empty?: string) =>
+        formatTimeZone(d, prefs, empty),
       formatDateTime: (d: DateInput, empty?: string) =>
         formatDateTime(d, prefs, empty),
     }),

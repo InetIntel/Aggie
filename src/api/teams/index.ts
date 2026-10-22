@@ -19,6 +19,7 @@ export const getManageableTeams = async () => {
 export const createTeam = async (team: {
   name: string;
   description?: string;
+  countryCodes?: string[];
   active?: boolean;
 }) => {
   const { data } = await axios.post<Team>("/api/team", team);
@@ -93,6 +94,24 @@ export const updateTeamStatus = async (params: {
   const { data } = await axios.put<TeamDetailResponse>(
     "/api/team/" + params.teamId + "/status",
     { active: params.active }
+  );
+
+  return data;
+};
+
+export const updateTeamDetails = async (params: {
+  teamId: string;
+  name: string;
+  description: string;
+  countryCodes?: string[];
+}) => {
+  const { data } = await axios.put<TeamDetailResponse>(
+    "/api/team/" + params.teamId,
+    {
+      name: params.name,
+      description: params.description,
+      countryCodes: params.countryCodes,
+    }
   );
 
   return data;

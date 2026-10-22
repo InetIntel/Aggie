@@ -2,65 +2,63 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faBell,
+  faArrowUpRightFromSquare,
   faFolderPlus,
   faLink,
   faPlus,
+  faRotateLeft,
   faSpinner,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import type { NotableActivity } from "../../../api/analytics/types";
-import { DATA_SOURCE_OPTIONS } from "../../../api/common";
-import { formatActivityWindow } from "../dashboardHelpers";
+import { ALERT_MEDIA_OPTIONS, DATA_SOURCE_OPTIONS } from "../../../api/common";
+import { useDashboardFormatters } from "../dashboardHelpers";
 import NotableActivityTitle from "./NotableActivityTitle";
 
-const notableActivitySourceOptions = ["ioda", "cloudflare"];
 const sourceLabels: Record<string, string> = {
   ioda: "IODA",
   cloudflare: "Cloudflare",
+  ooni: "OONI",
 };
-// Every notable activity card action shares this box so the row of incident
-// buttons stays exactly as tall as the full-width actions above and below it.
+// Every notable activity card action is a full-width row of the same height.
 const cardActionClass =
-  "flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-md text-xs font-medium shadow-sm transition";
-const fullWidthActionClass = `${cardActionClass} w-full gap-2 px-4`;
-const pairedActionClass = `${cardActionClass} w-full min-w-0 gap-1 px-2`;
+  "flex h-9 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-xs font-medium uppercase shadow-sm transition";
 
 function NotableActivityCard({
   activity,
   cacheKey,
+  isDismissed,
   onDismiss,
+  onRestore,
   onCreateIncident,
   onAddToIncident,
   isCreatingIncident,
 }: {
   activity: NotableActivity;
   cacheKey: string;
+  isDismissed: boolean;
   onDismiss: () => void;
+  onRestore: () => void;
   onCreateIncident: () => void;
   onAddToIncident: () => void;
   isCreatingIncident: boolean;
 }) {
-  // One "asn / geoScope" title per impacted ASN. Today the backend returns a
-  // single `asn`, so this is a one-element list; when `asn` becomes an array
-  // (many impacted ASNs) this yields one title per ASN and NotableActivityTitle
-  // concatenates them into the reserved two lines with a "+N more" popover.
-  const asns = Array.isArray(activity.asn)
-    ? activity.asn
-    : activity.asn
-    ? [activity.asn]
-    : [];
-  const titles = (asns.length > 0 ? asns : [undefined]).map((asn) =>
-    [asn, activity.geoScope].filter(Boolean).join(" / ")
-  );
+  const { formatActivityWindow } = useDashboardFormatters();
+  const isStartTimeGrouped = activity.aggregationMethod === "startTime";
+
+  // `locations` is absent on snapshots cached before it existed, hence the fallback.
+  const titles =
+    activity.locations && activity.locations.length > 0
+      ? activity.locations
+      : [[activity.asn, activity.geoScope].filter(Boolean).join(" / ")];
 
   return (
-    <article className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800'>
-      <div className='flex items-start justify-between gap-3'>
-        <div className='flex flex-wrap items-center gap-2'>
+    <article className='rounded-lg border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 dark:bg-gray-800'>
+      <div className='flex items-center justify-between gap-2'>
+        <div className='flex min-w-0 items-center gap-1.5 whitespace-nowrap'>
           <span
             className={[
-              "inline-flex items-center rounded-full px-4 py-1 text-xs font-medium",
+              "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium",
               activity.isHighConfidence
                 ? "border border-red-300 bg-red-100 text-red-700"
                 : "border border-amber-300 bg-amber-100 text-amber-700",
@@ -68,46 +66,65 @@ function NotableActivityCard({
           >
             {activity.isHighConfidence ? "High" : "Medium"}
           </span>
-          <span className='inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200'>
+          <Link
+            to={`/alerts?reportIds=${activity.reportIds.join(",")}&alerts=true`}
+            target='_blank'
+            rel='noopener noreferrer'
+            title='View reports'
+            className='inline-flex items-center gap-1 rounded-full border border-[#CDEAF4] bg-[#EAF6FA] px-2 py-0.5 text-[11px] text-slate-700 transition hover:bg-[#CDEAF4] dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+          >
+            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className='text-[9px]' />
             {activity.totalReports} report{activity.totalReports === 1 ? "" : "s"}
-          </span>
+          </Link>
         </div>
         <button
           type='button'
-          onClick={onDismiss}
-          className='grid h-10 w-10 place-items-center rounded-full bg-white text-lg text-slate-700 shadow-[0_4px_10px_rgba(15,23,42,0.16)] transition hover:bg-slate-100 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-          aria-label='Dismiss activity card'
+          onClick={isDismissed ? onRestore : onDismiss}
+          className='grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-base text-slate-700 shadow-[0_4px_10px_rgba(15,23,42,0.16)] transition hover:bg-slate-100 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+          aria-label={isDismissed ? "Restore activity card" : "Dismiss activity card"}
+          title={isDismissed ? "Restore" : "Dismiss"}
         >
-          <FontAwesomeIcon icon={faXmark} />
+          <FontAwesomeIcon icon={isDismissed ? faRotateLeft : faXmark} />
         </button>
       </div>
 
-      <p className='mt-6 text-sm font-semibold leading-tight text-slate-950 dark:text-white'>
-        {formatActivityWindow(activity.bucketStart, activity.bucketEnd)}
-      </p>
+      <div className='mt-3'>
+        {/* Under start-time grouping the window is the first and last outage start in the
+            cluster, not a grid cell — say so, or the timestamp reads like a bucket. */}
+        {isStartTimeGrouped && (
+          <p className='text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-400'>
+            {activity.bucketStart === activity.bucketEnd
+              ? "Outage start"
+              : "Outage starts"}
+          </p>
+        )}
+        <p className='text-sm font-semibold leading-tight text-slate-950 dark:text-white'>
+          {formatActivityWindow(activity.bucketStart, activity.bucketEnd)}
+        </p>
+      </div>
       <NotableActivityTitle
-        className='mt-3'
+        className='mt-2'
         titles={titles}
         fallback='Location details unavailable'
       />
 
-      <div className='my-5 h-px bg-slate-200 dark:bg-gray-700' />
+      <div className='my-3 h-px bg-slate-200 dark:bg-gray-700' />
 
-      <div className='space-y-4'>
+      <div className='space-y-2.5'>
         <NotableActivityIndicatorRow
-          title='Signals'
-          values={activity.signals}
-          options={[...DATA_SOURCE_OPTIONS]}
+          title='Platforms'
+          values={activity.sources}
+          options={[...ALERT_MEDIA_OPTIONS]}
+          renderLabel={(source) => sourceLabels[source] || source}
         />
         <NotableActivityIndicatorRow
           title='Sources'
-          values={activity.sources}
-          options={notableActivitySourceOptions}
-          renderLabel={(source) => sourceLabels[source] || source}
+          values={activity.signals}
+          options={[...DATA_SOURCE_OPTIONS]}
         />
       </div>
 
-      {/* <div className='my-5 h-px bg-slate-200 dark:bg-gray-700' />
+      {/* <div className='my-3 h-px bg-slate-200 dark:bg-gray-700' />
 
       <div>
         <p className='text-lg font-medium text-slate-900 dark:text-white'>
@@ -127,58 +144,47 @@ function NotableActivityCard({
         </div>
       </div> */}
 
-      <div className='my-5 h-px bg-slate-200 dark:bg-gray-700' />
+      <div className='my-3 h-px bg-slate-200 dark:bg-gray-700' />
 {/* 
       <div className='flex items-center gap-3 text-sm text-slate-700 dark:text-gray-300'>
         <FontAwesomeIcon icon={faCircleExclamation} />
         <span>{locationSummary || "Location details unavailable"}</span>
       </div> */}
 
-      <div className='mt-5 flex flex-col gap-3'>
+      <div className='flex flex-col gap-2'>
         {activity.incidentId ? (
           <Link
             to={`/incidents/${activity.incidentId}`}
-            className={`${fullWidthActionClass} bg-[#1683A3] text-white hover:bg-[#126b85]`}
+            className={`${cardActionClass} bg-[#1683A3] text-white hover:bg-[#126b85]`}
           >
             <FontAwesomeIcon icon={faLink} />
             <span>Open Linked Incident</span>
           </Link>
         ) : (
-          <div className='grid grid-cols-2 items-stretch gap-2'>
+          <>
             <button
               type='button'
               onClick={onCreateIncident}
               disabled={!cacheKey || isCreatingIncident}
-              className={`${pairedActionClass} bg-[#166534] text-white hover:bg-[#14532d] disabled:cursor-not-allowed disabled:opacity-60`}
+              className={`${cardActionClass} bg-[#166534] text-white hover:bg-[#14532d] disabled:cursor-not-allowed disabled:opacity-60`}
             >
               <FontAwesomeIcon
                 icon={isCreatingIncident ? faSpinner : faPlus}
-                className={`shrink-0 ${isCreatingIncident ? "animate-spin" : ""}`}
+                className={isCreatingIncident ? "animate-spin" : ""}
               />
-              <span className='min-w-0 truncate'>
-                {isCreatingIncident ? "Creating" : "New Incident"}
-              </span>
+              <span>{isCreatingIncident ? "Creating" : "New Incident"}</span>
             </button>
             <button
               type='button'
               onClick={onAddToIncident}
               disabled={!cacheKey || isCreatingIncident}
-              className={`${pairedActionClass} border border-[#166534] text-[#166534] hover:bg-[#166534]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-lime-500 dark:text-lime-300 dark:hover:bg-lime-500/10`}
+              className={`${cardActionClass} border border-[#166534] text-[#166534] hover:bg-[#166534]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-lime-500 dark:text-lime-300 dark:hover:bg-lime-500/10`}
             >
-              <FontAwesomeIcon icon={faFolderPlus} className='shrink-0' />
-              <span className='min-w-0 truncate'>Add to Incident</span>
+              <FontAwesomeIcon icon={faFolderPlus} />
+              <span>Add to Incident</span>
             </button>
-          </div>
+          </>
         )}
-        <Link
-          to={`/alerts?reportIds=${activity.reportIds.join(",")}&alerts=true`}
-          target='_blank'
-          rel='noopener noreferrer'
-          className={`${fullWidthActionClass} bg-slate-700 text-white hover:bg-slate-800`}
-        >
-          <FontAwesomeIcon icon={faBell} />
-          <span>View Reports</span>
-        </Link>
       </div>
     </article>
   );
@@ -210,8 +216,10 @@ function NotableActivityIndicatorRow({
 
   return (
     <div>
-      <p className='text-base font-medium text-slate-900 dark:text-white'>{title}</p>
-      <div className='mt-3 flex flex-wrap gap-2'>
+      <p className='text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-400'>
+        {title}
+      </p>
+      <div className='mt-1.5 flex flex-wrap gap-1.5'>
         {displayOptions.map((option) => {
           const isActive = activeValues.has(normalizeActivityIndicatorValue(option));
 
@@ -220,7 +228,7 @@ function NotableActivityIndicatorRow({
               key={option}
               aria-label={`${renderLabel(option)} ${isActive ? "active" : "inactive"}`}
               className={[
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition",
+                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition",
                 isActive
                   ? "border-lime-400 bg-lime-100 text-slate-800 shadow-[0_0_0_1px_rgba(132,204,22,0.25)] dark:border-lime-500 dark:bg-lime-900/40 dark:text-lime-100"
                   : "border-slate-200 bg-slate-50 text-slate-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500",

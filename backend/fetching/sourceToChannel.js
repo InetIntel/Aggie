@@ -216,6 +216,8 @@ function createChannel(source) {
                 ...options,
                 media: media,
                 countryCode: keywords,
+                asns: source.asns,
+                region: source.region,
                 sourceId: _id,
             };
             channel = new IODAChannel(options);
@@ -234,6 +236,19 @@ function createChannel(source) {
             options = {
                 ...options,
                 asns: lists,
+                probeCC: keywords,
+                testName: source.ooniTestName,
+                // Only override the channel's default domain config when the
+                // source actually specifies domains (or opts into "all domains").
+                // Otherwise leave it undefined so the channel falls back to
+                // backend/fetching/config/ooni.json.
+                domainConfig:
+                    source.ooniUseAllDomains || (source.ooniDomains && source.ooniDomains.length)
+                        ? {
+                            useAllDomains: !!source.ooniUseAllDomains,
+                            domains: source.ooniDomains || [],
+                        }
+                        : undefined,
             };
             channel = new OONIChannel(options);
             break;

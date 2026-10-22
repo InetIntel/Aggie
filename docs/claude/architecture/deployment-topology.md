@@ -1,6 +1,6 @@
 # Deployment Topology (ioda-dev / staging)
 
-_Last updated: 2026-07-13_
+_Last updated: 2026-10-02_
 
 Hard-won operational details about how Aggie actually runs on the InetIntel server. None of
 this is in the repo's generic runbooks (`SCRIPTS.md`, `ecosystem.config.js`), which describe a
@@ -34,7 +34,7 @@ PM2 + domain-root setup that does **not** match reality here.
 | `ENVIRONMENT` | `production` | Prod branch in `backend/api.js` (serves `/build`, `/media`, SPA fallback) |
 | `APP_BASE_PATH` | `/aggie` | Backend subpath prefix |
 | `PUBLIC_URL` | `https://ioda-dev.inetintel.cc.gatech.edu/aggie` | Frontend base (axios `baseURL`, asset paths); **baked into the build at `npm run build` time** |
-| `MEDIA_ROOT` | _unset_ | Falls back to `<checkout>/public/media`, i.e. `/home/ioda/Aggie-FuCo/public/media` |
+| `MEDIA_ROOT` | _unset_ | Not used by the running app (media is served from MongoDB). Only read by the one-off `backend/scripts/backfillMediaToMongo.js` to find the legacy disk tree; falls back to `<checkout>/public/media` |
 
 ## nginx / subpath routing
 
@@ -75,17 +75,18 @@ See [media-image-storage.md](./media-image-storage.md) for the storage/serving m
 
 ## Gotchas worth remembering
 
-- **`public/media` is inside the code checkout** (`MEDIA_ROOT` unset). Any deploy strategy that
-  replaces the checkout directory would orphan/wipe existing media. Consider setting `MEDIA_ROOT`
-  to a persistent path outside the checkout.
-- **Legacy IODA chart SVGs need an on-disk backfill in production** —
-  `scripts/migrate-ioda-svg-to-storage.js` moves each pre-migration report's inline SVG out of
-  Mongo and onto disk under `public/media/ioda/charts` (keyed by `sha1(guid)`), replacing the
-  inline string with the media key so old reports render via the `image` fallback. It ran on
-  dev but **not yet in production**. It's idempotent (only touches reports whose `image` is
-  still an inline `<svg…>` string) and safe alongside the new schema (new reports carry
-  `metadata.rawAPIResponse.chart` and no `image`, so they're skipped). Run with
-  `node scripts/migrate-ioda-svg-to-storage.js`. Note: this rewrites the DB (inline SVG → key),
-  so back up `public/media/ioda/charts` before any deploy that could replace the checkout.
-- **`debugging-getMediaRoot:` log line** — `getMediaRoot()` logs the effective media root on every
-  call; grep the app log to confirm where the running process actually serves media from.
+- **Report media lives in MongoDB, not the checkout.** Image bytes are in the `mediaassets`
+  collection (see [media-image-storage.md](./media-image-storage.md)), so a deploy that replaces
+  the checkout no longer affects report media. Any `public/media` or `public/ioda-charts-backup`
+  directories still in the checkout are leftovers from the disk-to-Mongo migration. Confirm
+  `backend/scripts/backfillMediaToMongo.js` has run on this server before deleting them.
+- **Exception: incident comment attachments are still on disk** in `<checkout>/public/uploads`.
+  Normal deploys (`git pull`, rebuild, restart) leave them alone, but moving servers,
+  re-cloning or `git clean -fdx` would delete them. Back that directory up first. See
+  [incident-attachments-on-local-disk.md](../bugs/incident-attachments-on-local-disk.md).
+- **Legacy IODA chart backfill.** New IODA reports store signal JSON
+  (`metadata.rawAPIResponse.chart`); only old reports still carry an SVG `image`. The canonical
+  backfill is `scripts/backfill/backfill-ioda-charts.js`, which re-fetches the signal series
+  from the IODA API. `scripts/backfill-ioda-svg-to-json.js` is a fallback for outages too old
+  for the signals API. `scripts/migrate-ioda-svg-to-storage.js` is superseded by both; don't run
+  it. Production status of these backfills hasn't been verified; check before running.

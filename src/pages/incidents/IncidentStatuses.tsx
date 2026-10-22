@@ -4,6 +4,10 @@ import { isNil } from "lodash";
 interface IncidentStatusProps extends React.ComponentProps<"p"> {
   group: Group,
   className: string,
+  // When true, render a neutral pill (no status color). Used by the incidents
+  // table, where the colliding status colors weren't carrying specific meaning;
+  // the list view keeps the colored badge (default).
+  colorless?: boolean,
 }
 
 const CHIP_COLORS = {
@@ -26,6 +30,7 @@ const isPending = (status: TernaryStatus) => status === "maybe" || isNil(status)
 export function IncidentOverallStatus({
   group,
   className = "",
+  colorless = false,
   ...props
 }: IncidentStatusProps) {
   const {
@@ -57,8 +62,12 @@ export function IncidentOverallStatus({
     label = "Unable to Verify";
   }
 
+  // The incidents table renders a neutral pill (no status color); the list view
+  // keeps the colored badge (default).
+  const neutralCSS = "bg-slate-100 dark:bg-gray-700";
+
   return (
-    <p className={chipClass(color, className)} {...props}>
+    <p className={colorless ? `${neutralCSS} ${className}` : chipClass(color, className)} {...props}>
       {label}
     </p>
   );

@@ -13,6 +13,9 @@ router.post('', User.can('change settings'), credentialsController.credential_cr
 // Delete credentials
 router.delete('/:_id', User.can('change settings'), credentialsController.credential_delete);
 
+// Update a credential's name (label only)
+router.put('/:_id', User.can('change settings'), credentialsController.credential_update);
+
 // Get a set of (stripped) credentials by its ID
 router.get('/:_id', User.can('change settings'), credentialsController.credential_details);
 

@@ -2,6 +2,8 @@
 'use strict';
 
 var Group = require('../../models/group');
+const SMTCTag = require('../../models/tag');
+const mongoose = require('../../database').mongoose;
 const AsnInfo = require('../../models/asnInfo');
 const _ = require('lodash');
 var tags = require('../../shared/tags');
@@ -283,6 +285,47 @@ exports.group_tags_add = (req, res) => {
       });
     });
   });
+};
+
+exports.group_tags_update = async (req, res) => {
+  if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
+  if (!Array.isArray(req.body.tags)) {
+    return res.status(400).send('Tags must be provided as a list.');
+  }
+
+  try {
+    const tagIds = [...new Set(req.body.tags.map((id) => String(id)))];
+    if (tagIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+      return res.status(400).send('One or more tag ids are invalid.');
+    }
+
+    const existingTagCount = await SMTCTag.countDocuments({
+      _id: { $in: tagIds },
+    });
+    if (existingTagCount !== tagIds.length) {
+      return res.status(400).send('One or more selected tags no longer exist.');
+    }
+
+    const groups = req.incidents || await Group.find({
+      _id: { $in: req.body.ids },
+    });
+
+    await Promise.all(groups.map((group) => {
+      group.smtcTags = tagIds;
+      return group.save();
+    }));
+
+    await eventRouter.publish('groups:update', {
+      ids: req.body.ids,
+      update: { smtcTags: tagIds },
+    });
+
+    return res.sendStatus(200);
+  } catch (err) {
+    return res
+      .status(err.status || 500)
+      .send(err.message || 'Unable to update incident tags.');
+  }
 };
 
 exports.group_tags_remove = (req, res) => {

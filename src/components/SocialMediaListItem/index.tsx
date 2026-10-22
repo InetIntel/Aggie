@@ -1,3 +1,5 @@
+import TagBadge from "../Tags/TagBadge";
+import type { Tag } from "../../api/tags/types";
 import {
   faXmark,
   faExclamationTriangle,
@@ -10,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Report } from "../../api/reports/types";
 import { getTags } from "../../api/tags";
 import { formatText } from "../../utils/format";
+import { detectTextDirection } from "../../utils/format";
 import { formatDateTime, formatTime, UserPreferences } from "../../utils/dateFormat";
 import { useFormatters } from "../../utils/useFormatters";
 import AggieToken from "../AggieToken";
@@ -25,10 +28,6 @@ import { parseQuoteRetweet, tweetImages } from "../SocialMediaPost/TwitterPost";
 import { parseYoutube } from "../SocialMediaPost/YoutubePost";
 import { getReportImages } from "../SocialMediaPost/mediaAttachments";
 
-// Sky blue, matching the solid signal-badge style (e.g. IODA's BGP pill) rather
-// than TagsList's neutral gray pill - tags shown here sit right beside the
-// platform name/signal badge, so they need to read as the same kind of chip.
-const TAG_BADGE_CLASS = "bg-sky-500 dark:bg-sky-500 dark:saturate-[0.7]";
 
 interface IProps {
   report: Report;
@@ -42,9 +41,9 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
   const { imagePreview, imagesCount } = renderImage(contentType, report);
   const [signal, bgColor] = signalToNameColor(report?.metadata?.rawAPIResponse?.rawEvent?.datasource);
   const { data: allTags } = useQuery(["tags"], getTags, { staleTime: 40000 });
-  const tagNames = (report.smtcTags || [])
-    .map((id) => allTags?.find((t) => t._id === id)?.name)
-    .filter((name): name is string => !!name);
+  const reportTags = (report.smtcTags || [])
+    .map((id) => allTags?.find((t) => t._id === id))
+    .filter((tag): tag is Tag => !!tag);
   return (
     <>
       <header className='flex justify-between mb-2 relative '>
@@ -57,11 +56,7 @@ const SocialMediaListItem = ({ report, header, headerClassName }: IProps) => {
           <h1 className='text-sm text-black font-medium dark:text-gray-300'>
             {renderAuthor(contentType, report)}
           </h1>
-          {tagNames.map((name) => (
-            <AggieToken key={name} className={`${TAG_BADGE_CLASS} ${SIGNAL_BADGE_CLASS}`}>
-              {name}
-            </AggieToken>
-          ))}
+          {reportTags.map((tag) => <TagBadge key={tag._id} tag={tag} />)}
           {signal && (
             <AggieToken className={`${bgColor} ${SIGNAL_BADGE_CLASS}`}>
               {signal}
@@ -131,7 +126,7 @@ function renderAuthor(
     case "cloudflare":
       return report?.metadata?.rawAPIResponse?.dataSource;
     case "ooni":
-      return report?.metadata?.rawAPIResponse?.networkName || report.author;
+      return "OONI";
     case "mastodon":
       return report.metadata.accountHandle || report.author;
     default:
@@ -175,12 +170,15 @@ function renderText(
 
       return (
         <>
-          <div className='grid place-items-center text-slate-600 dark:text-gray-400'>
+          <div className='grid place-items-center shrink-0 text-slate-600 dark:text-gray-400'>
             <FontAwesomeIcon icon={faRetweet} />
           </div>
-          <div className=' max-h-[10em] text-black dark:text-gray-300'>
+          <div className=' max-h-[10em] grow min-w-0 text-black dark:text-gray-300'>
             <p className='font-medium text-sm'>{data.author?.name}</p>
-            <p className='text-black line-clamp-2 mb-1 dark:text-gray-300'>
+            <p
+              dir={detectTextDirection(data.content)}
+              className='text-black line-clamp-2 mb-1 post-text dark:text-gray-300'
+            >
               {formatText(data.content)}
             </p>
 
@@ -188,7 +186,10 @@ function renderText(
               <p className='font-medium text-sm'>
                 {data.innerPost.author?.name}
               </p>
-              <p className='line-clamp-2'>
+              <p
+                dir={detectTextDirection(data.innerPost.content)}
+                className='line-clamp-2 post-text'
+              >
                 {formatText(data.innerPost.content)}
               </p>
             </div>
@@ -201,10 +202,13 @@ function renderText(
 
       return (
         <>
-          <div className='grid place-items-center text-slate-600 dark:text-gray-400'>
+          <div className='grid place-items-center shrink-0 text-slate-600 dark:text-gray-400'>
             <FontAwesomeIcon icon={faRetweet} />
           </div>
-          <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+          <p
+            dir={detectTextDirection(report.content)}
+            className=' text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
+          >
             {formatText(report.content)}
           </p>
         </>
@@ -214,14 +218,19 @@ function renderText(
 
       return (
         <>
-          <div className=' max-h-[10em] text-black dark:text-gray-300'>
-            <p className='text-black line-clamp-2 mb-1 dark:text-gray-300'>
+          <div className=' max-h-[10em] grow min-w-0 text-black dark:text-gray-300'>
+            <p
+              dir={detectTextDirection(report.content)}
+              className='text-black line-clamp-2 mb-1 post-text dark:text-gray-300'
+            >
               {formatText(report.content)}
             </p>
 
             <div className='border border-slate-300 rounded-lg py-2 px-3 '>
               <p className='font-medium text-sm'>{data.author?.name}</p>
-              <p className='line-clamp-2'>{formatText(data.content)}</p>
+              <p dir={detectTextDirection(data.content)} className='line-clamp-2 post-text'>
+                {formatText(data.content)}
+              </p>
             </div>
           </div>
         </>
@@ -230,7 +239,10 @@ function renderText(
     case "twitter":
       twitterParsing(report);
       return (
-        <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+        <p
+            dir={detectTextDirection(report.content)}
+            className=' text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
+          >
           {formatText(report.content)}
         </p>
       );
@@ -303,7 +315,10 @@ function renderText(
     case "ooni": {
       const windowEnd = report?.metadata?.rawAPIResponse?.windowEnd;
       return (
-        <p className='text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+        <p
+          dir={detectTextDirection(report.content)}
+          className='text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
+        >
           {formatText(report.content)}
           {windowEnd && <> measured at {formatDateTime(windowEnd, prefs)}.</>}
         </p>
@@ -311,7 +326,10 @@ function renderText(
     }
     default:
       return (
-        <p className=' text-black max-h-[10em] line-clamp-4 dark:text-gray-300'>
+        <p
+            dir={detectTextDirection(report.content)}
+            className=' text-black max-h-[10em] line-clamp-4 grow min-w-0 post-text dark:text-gray-300'
+          >
           {formatText(report.content)}
         </p>
       );

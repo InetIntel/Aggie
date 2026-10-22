@@ -51,7 +51,7 @@ const secretsValidator = function(secrets) {
 };
 
 const nameValidator = function(name) {
-  return validator.isLength(name, {min: 1, max: 20});
+  return validator.isLength(name, {min: 1, max: 50});
 }
 
 const credentialsSchema = new Schema({

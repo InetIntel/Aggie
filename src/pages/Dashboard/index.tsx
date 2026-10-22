@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -14,49 +14,85 @@ import {
   getReportMetrics,
 } from "../../api/analytics";
 import type {
-  AnalyticsSocketQuery,
+  AnalyticsQueryState,
   AnalyticsUpdateEvent,
-  AnalyticsBucketPreset,
-  AnalyticsRangePreset,
   NotableActivity,
+} from "../../api/analytics/types";
+import {
+  DEFAULT_START_TIME_TOLERANCE_MINUTES,
+  START_TIME_TOLERANCE_OPTIONS,
 } from "../../api/analytics/types";
 import { SocketContext, SocketEvent, useSocketSubscribe } from "../../hooks/WebsocketProvider";
 import AggieDialog from "../../components/AggieDialog";
 import CreateEditIncidentForm from "../incidents/CreateEditIncidentForm";
 import AlertsTrendChart from "./components/AlertsTrendChart";
 import DashboardAddToIncident from "./components/DashboardAddToIncident";
+import DashboardTimeControls from "./components/DashboardTimeControls";
 import NotableActivityCard from "./components/NotableActivityCard";
-import MetricsList from "./components/MetricsList";
+import MetricsList, { HeadlineMetrics } from "./components/MetricsList";
 import {
-  buildIncidentInitialValues,
-  buildIncidentTitle,
-  formatActivityWindow,
-  formatCompactDateTime,
-  formatRangeLabel,
+  buildAnalyticsSocketQuery,
   getActivityLocationSummary,
   getAnalyticsRoom,
+  useAnalyticsWindow,
+  useDashboardFormatters,
+  useDismissedActivities,
 } from "./dashboardHelpers";
+import type { AnalyticsWindow } from "./dashboardHelpers";
 import type { GroupEditableData } from "../../api/groups/types";
 
-const sectionCardClass =
-  "rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 dark:bg-gray-800";
+const sectionTitleClass =
+  "text-lg font-bold uppercase tracking-wide text-slate-900 dark:text-white";
 
-const rangeOptions: {
-  label: string;
-  value: AnalyticsRangePreset;
-  buckets: AnalyticsBucketPreset[];
-}[] = [
-  { label: "Today", value: "today", buckets: ["30m", "1h", "6h"] },
-  { label: "Last 24h", value: "last24h", buckets: ["30m", "1h", "6h"] },
-  { label: "Last 7d", value: "last7d", buckets: ["6h", "24h"] },
+const sectionCardClass =
+  "rounded-md border border-[#C5D9E2] bg-white p-5 dark:border-slate-600 dark:bg-gray-800";
+
+// A card's title on the left and its own range picker on the right. In a narrow card the
+// picker wraps under the title.
+function CardHeader({
+  title,
+  timeWindow,
+}: {
+  title: string;
+  timeWindow: AnalyticsWindow;
+}) {
+  return (
+    <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
+      <h2 className={sectionTitleClass}>{title}</h2>
+      <DashboardTimeControls timeWindow={timeWindow} className='ml-auto' />
+    </div>
+  );
+}
+
+// Each metrics card asks for its own window; equal windows share one cached request.
+function useReportMetricsQuery(params: AnalyticsQueryState) {
+  return useQuery({
+    queryKey: ["analytics", "report-metrics", params],
+    queryFn: () => getReportMetrics(params),
+    keepPreviousData: true,
+  });
+}
+
+function formatToleranceLabel(minutes: number) {
+  if (minutes === 0) return "exact";
+  return minutes >= 60 ? `${minutes / 60}h` : `${minutes}m`;
+}
+
+type NotableView = "active" | "dismissed";
+
+const notableViewOptions: { label: string; value: NotableView }[] = [
+  { label: "Notable Activity", value: "active" },
+  { label: "Dismissed Activity", value: "dismissed" },
 ];
 
-const bucketLabels: Record<AnalyticsBucketPreset, string> = {
-  "30m": "30m",
-  "1h": "1h",
-  "6h": "6h",
-  "24h": "24h",
-};
+function notableViewButtonClass(isActive: boolean) {
+  return [
+    "rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition",
+    isActive
+      ? "bg-[#1F5F78] text-white dark:bg-sky-600"
+      : "text-[#1F5F78] hover:bg-[#CDEAF4] dark:text-sky-200 dark:hover:bg-sky-900/40",
+  ].join(" ");
+}
 
 // const maxNotableCards = 6;
 const notableCardsPerPage = 12;
@@ -65,9 +101,30 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { socket } = useContext(SocketContext);
-  const [range, setRange] = useState<AnalyticsRangePreset>("today");
-  const [bucket, setBucket] = useState<AnalyticsBucketPreset>("1h");
-  const [dismissedActivityKeys, setDismissedActivityKeys] = useState<string[]>([]);
+  const {
+    prefs,
+    buildIncidentInitialValues,
+    buildIncidentTitle,
+    formatActivityWindow,
+    formatCompactDateTime,
+    formatRangeLabel,
+  } = useDashboardFormatters();
+  // Every card picks its own time range.
+  const glanceWindow = useAnalyticsWindow(prefs);
+  const alertsWindow = useAnalyticsWindow(prefs);
+  const socialWindow = useAnalyticsWindow(prefs);
+  const trendsWindow = useAnalyticsWindow(prefs);
+  const notableWindow = useAnalyticsWindow(prefs);
+  const [tolerance, setTolerance] = useState<number>(
+    DEFAULT_START_TIME_TOLERANCE_MINUTES
+  );
+  const {
+    dismissedKeys: dismissedActivityKeys,
+    dismiss: dismissActivity,
+    restore: restoreActivity,
+    reset: resetDismissedActivities,
+  } = useDismissedActivities(tolerance);
+  const [notableView, setNotableView] = useState<NotableView>("active");
   const [notablePage, setNotablePage] = useState(0);
   const [activityToPromote, setActivityToPromote] = useState<NotableActivity | null>(
     null
@@ -82,38 +139,51 @@ const Dashboard = () => {
     });
   }, []);
 
-  const selectedRange = useMemo(
-    () => rangeOptions.find((option) => option.value === range) || rangeOptions[0],
-    [range]
-  );
-
-  useEffect(() => {
-    if (!selectedRange.buckets.includes(bucket)) {
-      setBucket(selectedRange.buckets[0]);
-    }
-  }, [bucket, selectedRange]);
-
   useEffect(() => {
     setNotablePage(0);
-  }, [range, bucket]);
+  }, [notableWindow.params, tolerance, notableView]);
+
+  // The chart counts reports on the fixed bucket grid, while the cards group reports
+  // whose outages started within `tolerance` of each other. Each grouping gets its own
+  // request (and cache key) over its own card's window.
+  const overviewParams: AnalyticsQueryState = {
+    ...trendsWindow.params,
+    bucket: trendsWindow.bucket,
+    aggregation: "bucket",
+  };
+  // Start-time grouping ignores the grid, but the backend still validates a bucket and
+  // keys its cache on it.
+  const notableParams: AnalyticsQueryState = {
+    ...notableWindow.params,
+    bucket: notableWindow.bucket,
+    aggregation: "startTime",
+    tolerance,
+  };
 
   const overviewQuery = useQuery({
-    queryKey: ["analytics", "overview", range, bucket],
-    queryFn: () => getAnalyticsOverview({ range, bucket }),
+    queryKey: ["analytics", "overview", overviewParams],
+    queryFn: () => getAnalyticsOverview(overviewParams),
     keepPreviousData: true,
   });
 
   const notableActivitiesQuery = useQuery({
-    queryKey: ["analytics", "notable-activities", range, bucket],
-    queryFn: () => getNotableActivities({ range, bucket }),
+    queryKey: ["analytics", "notable-activities", notableParams],
+    queryFn: () => getNotableActivities(notableParams),
     keepPreviousData: true,
   });
 
-  const reportMetricsQuery = useQuery({
-    queryKey: ["analytics", "report-metrics", range],
-    queryFn: () => getReportMetrics({ range }),
-    keepPreviousData: true,
-  });
+  const glanceMetricsQuery = useReportMetricsQuery(glanceWindow.params);
+  const alertsMetricsQuery = useReportMetricsQuery(alertsWindow.params);
+  const socialMetricsQuery = useReportMetricsQuery(socialWindow.params);
+  const metricCategoryCards = [
+    { key: "alerts", title: "Alerts", timeWindow: alertsWindow, query: alertsMetricsQuery },
+    {
+      key: "social",
+      title: "Social Media Posts",
+      timeWindow: socialWindow,
+      query: socialMetricsQuery,
+    },
+  ] as const;
 
   const createIncidentMutation = useMutation({
     mutationFn: createNotableActivityIncident,
@@ -127,51 +197,57 @@ const Dashboard = () => {
     },
   });
 
+  const overviewCacheKey = overviewQuery.data?.cacheKey;
+  const notableCacheKey = notableActivitiesQuery.data?.cacheKey;
+
   const handleAnalyticsUpdate = useCallback(
     (message: (SocketEvent & { data: AnalyticsUpdateEvent }) | AnalyticsUpdateEvent) => {
       const payload = "data" in message && "event" in message ? message.data : message;
       if (!payload?.cacheKey) return;
-      if (payload.cacheKey !== notableActivitiesQuery.data?.cacheKey) return;
 
-      queryClient.invalidateQueries({ queryKey: ["analytics", "overview", range, bucket] });
-      queryClient.invalidateQueries({
-        queryKey: ["analytics", "notable-activities", range, bucket],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["analytics", "report-metrics", range],
-      });
+      const isOverview = payload.cacheKey === overviewCacheKey;
+      const isNotable = payload.cacheKey === notableCacheKey;
+      if (!isOverview && !isNotable) return;
+
+      // Only active queries refetch, so the prefix reaches just the one on screen.
+      if (isOverview) {
+        queryClient.invalidateQueries({ queryKey: ["analytics", "overview"] });
+      }
+      if (isNotable) {
+        queryClient.invalidateQueries({ queryKey: ["analytics", "notable-activities"] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["analytics", "report-metrics"] });
     },
-    [bucket, notableActivitiesQuery.data?.cacheKey, queryClient, range]
+    [overviewCacheKey, notableCacheKey, queryClient]
   );
 
   useSocketSubscribe("analytics:update", handleAnalyticsUpdate);
 
+  // Subscribe the chart's and the cards' results together: the server replaces a
+  // socket's whole subscription set with each "analytics" message.
   useEffect(() => {
-    const data = notableActivitiesQuery.data;
-    if (!socket || !data?.cacheKey) return;
+    if (!socket) return;
+    const subscriptions = [overviewQuery.data, notableActivitiesQuery.data]
+      .filter((data): data is NonNullable<typeof data> => !!data?.cacheKey)
+      .map(buildAnalyticsSocketQuery);
+    if (!subscriptions.length) return;
 
-    const room = getAnalyticsRoom(data.cacheKey);
-    const analyticsQuery: AnalyticsSocketQuery = {
-      cacheKey: data.cacheKey,
-      rangePreset: data.rangePreset,
-      bucketPreset: data.bucketPreset,
-      bucketSizeMinutes: data.bucketSizeMinutes,
-      rangeStartUtc: data.rangeStartUtc,
-      rangeEndUtc: data.rangeEndUtc,
-    };
-
-    socket.emit("join", room);
-    socket.emit("analytics", analyticsQuery);
+    const rooms = Array.from(
+      new Set(subscriptions.map((query) => getAnalyticsRoom(query.cacheKey)))
+    );
+    rooms.forEach((room) => socket.emit("join", room));
+    socket.emit("analytics", subscriptions);
 
     return () => {
-      socket.emit("leave", room);
+      rooms.forEach((room) => socket.emit("leave", room));
       socket.emit("analytics", null);
     };
-  }, [notableActivitiesQuery.data, socket]);
+  }, [overviewQuery.data, notableActivitiesQuery.data, socket]);
 
   const liveNotableActivities = notableActivitiesQuery.data?.notableActivities || [];
+  const isDismissedView = notableView === "dismissed";
   const visibleLiveNotableActivities = liveNotableActivities.filter(
-    (activity) => !dismissedActivityKeys.includes(activity.eventAggKey)
+    (activity) => dismissedActivityKeys.has(activity.eventAggKey) === isDismissedView
   );
   const activeNotableActivityCount = visibleLiveNotableActivities.length;
   const notablePageCount = Math.max(
@@ -190,19 +266,13 @@ const Dashboard = () => {
     notablePageStart + notableCardsPerPage,
     activeNotableActivityCount
   );
-  const hasDismissedActivities = dismissedActivityKeys.length > 0;
+  const hasDismissedActivities = dismissedActivityKeys.size > 0;
 
   useEffect(() => {
     if (notablePage >= notablePageCount) {
       setNotablePage(notablePageCount - 1);
     }
   }, [notablePage, notablePageCount]);
-
-  function dismissActivity(activityKey: string) {
-    setDismissedActivityKeys((currentKeys) =>
-      currentKeys.includes(activityKey) ? currentKeys : [...currentKeys, activityKey]
-    );
-  }
 
   function createIncidentFromActivity(values: Partial<GroupEditableData>) {
     const cacheKey = notableActivitiesQuery.data?.cacheKey;
@@ -220,169 +290,181 @@ const Dashboard = () => {
 
   return (
     <section className='mx-auto max-w-[1400px] px-4 py-6'>
-      <div className='mb-5 flex flex-wrap items-center justify-center gap-3'>
-        <div
-          role='group'
-          aria-label='Time range'
-          className='inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800'
-        >
-          {rangeOptions.map((option) => (
-            <button
-              key={option.value}
-              type='button'
-              onClick={() => setRange(option.value)}
-              aria-pressed={range === option.value}
-              className={[
-                "rounded-full px-4 py-1.5 text-sm font-medium transition",
-                range === option.value
-                  ? "bg-[#166534] text-white"
-                  : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
-              ].join(" ")}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <div
-          role='group'
-          aria-label='Bucket size'
-          className='inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-[0_2px_8px_rgba(15,23,42,0.08)] dark:border-gray-600 dark:bg-gray-800'
-        >
-          {selectedRange.buckets.map((bucketOption) => (
-            <button
-              key={bucketOption}
-              type='button'
-              onClick={() => setBucket(bucketOption)}
-              aria-pressed={bucket === bucketOption}
-              className={[
-                "rounded-full px-4 py-1.5 text-sm font-medium transition",
-                bucket === bucketOption
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                  : "text-slate-700 hover:bg-slate-100 dark:text-gray-200 dark:hover:bg-gray-700",
-              ].join(" ")}
-            >
-              {bucketLabels[bucketOption]}
-            </button>
-          ))}
-        </div>
-      </div>
+      <header className='mb-4'>
+        <h1 className='text-3xl font-medium'>Dashboard</h1>
+      </header>
 
-      <div className='grid gap-4 xl:grid-cols-[1fr_1.15fr]'>
-        <section className={`${sectionCardClass} flex h-full flex-col p-4`}>
-          <h1 className='text-xl font-semibold text-slate-900 dark:text-white'>
-            Metrics
-          </h1>
-          <MetricsList
-            data={reportMetricsQuery.data}
-            isLoading={reportMetricsQuery.isLoading}
+      <section className={`${sectionCardClass} mb-5 p-4`}>
+        <CardHeader title='Reports at a glance' timeWindow={glanceWindow} />
+        <div className='mt-3'>
+          <HeadlineMetrics
+            data={glanceMetricsQuery.data}
+            isLoading={glanceMetricsQuery.isLoading}
           />
-        </section>
+        </div>
+      </section>
+
+      <div className='grid gap-5 xl:grid-cols-[17rem_minmax(0,1fr)]'>
+        <div className='grid content-start gap-5 sm:grid-cols-2 xl:grid-cols-1'>
+          {metricCategoryCards.map(({ key, title, timeWindow, query }) => (
+            <section key={key} className={`${sectionCardClass} p-4`}>
+              <CardHeader title={title} timeWindow={timeWindow} />
+              <div className='mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 dark:bg-gray-800'>
+                <MetricsList
+                  category={query.data?.categories.find(
+                    (category) => category.key === key
+                  )}
+                  isLoading={query.isLoading}
+                />
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <div className='flex min-w-0 flex-col gap-5'>
+          <section className={`${sectionCardClass} p-4`}>
+            <CardHeader title='Trends' timeWindow={trendsWindow} />
+
+            <div className='mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-gray-400'>
+              <span>
+                {overviewQuery.data
+                  ? `Showing ${formatRangeLabel(overviewQuery.data)}`
+                  : "Loading trend data"}
+              </span>
+              <span>
+                {overviewQuery.isFetching
+                  ? "Refreshing..."
+                  : overviewQuery.isError
+                    ? "Live data unavailable"
+                    : overviewQuery.data
+                      ? `Updated ${formatCompactDateTime(overviewQuery.data.computedAt)}`
+                      : ""}
+              </span>
+            </div>
+
+            <div className='mt-4 grid gap-4 md:grid-cols-2'>
+              <AlertsTrendChart overview={overviewQuery.data} variant='total' />
+              <AlertsTrendChart overview={overviewQuery.data} variant='bySource' />
+            </div>
+          </section>
 
         <section className={`${sectionCardClass} p-4`}>
-          <div className='flex flex-wrap items-center justify-between gap-4'>
-            <h2 className='text-xl font-semibold text-slate-900 dark:text-white'>
-              Trends
-            </h2>
-          </div>
-
-          <div className='mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-gray-400'>
-            <span>
-              {overviewQuery.data
-                ? `Showing ${formatRangeLabel(overviewQuery.data)}`
-                : "Loading trend data"}
-            </span>
-            <span>
-              {overviewQuery.isFetching
-                ? "Refreshing..."
-                : overviewQuery.isError
-                  ? "Live data unavailable"
-                  : overviewQuery.data
-                    ? `Updated ${formatCompactDateTime(overviewQuery.data.computedAt)}`
-                    : ""}
-            </span>
-          </div>
-
-          <AlertsTrendChart overview={overviewQuery.data} />
-        </section>
-      </div>
-
-      <section className={`${sectionCardClass} mt-5`}>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <h2 className='text-xl font-semibold text-slate-900 dark:text-white'>
-            Notable Activity
-          </h2>
-          <div className='flex items-center gap-3'>
-            <button
-              type='button'
-              onClick={() => {
-                setDismissedActivityKeys([]);
-                setNotablePage(0);
-              }}
-              disabled={!hasDismissedActivities}
-              className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+          <CardHeader title='Notable Activity' timeWindow={notableWindow} />
+          <div className='mt-3 flex flex-wrap items-center justify-between gap-3'>
+            <div
+              role='group'
+              aria-label='Notable activity view'
+              className='flex gap-1 rounded-full border border-[#C5D9E2] p-0.5 dark:border-slate-600'
             >
-              <FontAwesomeIcon icon={faRotateLeft} />
-              <span>Reset</span>
-            </button>
-            <p className='text-xs text-slate-500 dark:text-gray-400'>
-              {notableActivitiesQuery.data
-                ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} activities`
-                : "Loading activities"}
+              {notableViewOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type='button'
+                  onClick={() => setNotableView(option.value)}
+                  aria-pressed={notableView === option.value}
+                  className={notableViewButtonClass(notableView === option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className='flex flex-wrap items-center justify-end gap-3'>
+              <label className='inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-gray-200'>
+                <span>Start-time tolerance</span>
+                <select
+                  value={tolerance}
+                  onChange={(event) => setTolerance(Number(event.target.value))}
+                  title='Largest gap between consecutive outage starts that still counts as one activity'
+                  className='h-6 cursor-pointer rounded border border-slate-200 bg-white px-1.5 py-0 text-[11px] text-slate-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
+                >
+                  {START_TIME_TOLERANCE_OPTIONS.map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {formatToleranceLabel(minutes)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type='button'
+                onClick={() => {
+                  resetDismissedActivities();
+                  setNotableView("active");
+                  setNotablePage(0);
+                }}
+                disabled={!hasDismissedActivities}
+                title='Restore every activity dismissed at this tolerance'
+                className='inline-flex h-6 items-center gap-1.5 rounded bg-[#1F5F78] px-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-[#184c60] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-600 dark:hover:bg-sky-500'
+              >
+                <FontAwesomeIcon icon={faRotateLeft} />
+                <span>Reset</span>
+              </button>
+              <p className='text-xs text-slate-500 dark:text-gray-400'>
+                {notableActivitiesQuery.data
+                  ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} ${
+                      isDismissedView ? "dismissed " : ""
+                    }activities`
+                  : "Loading activities"}
+              </p>
+            </div>
+          </div>
+
+          <div className='mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'>
+            {paginatedLiveNotableActivities.map((activity) => (
+              <NotableActivityCard
+                key={activity.eventAggKey}
+                activity={activity}
+                cacheKey={notableActivitiesQuery.data?.cacheKey || ""}
+                isDismissed={isDismissedView}
+                onDismiss={() => dismissActivity(activity.eventAggKey)}
+                onRestore={() => restoreActivity(activity.eventAggKey)}
+                onCreateIncident={() => setActivityToPromote(activity)}
+                onAddToIncident={() => setActivityToLink(activity)}
+                isCreatingIncident={
+                  createIncidentMutation.isLoading &&
+                  activityToPromote?.eventAggKey === activity.eventAggKey
+                }
+              />
+            ))}
+          </div>
+
+          {notableActivitiesQuery.data && activeNotableActivityCount === 0 && (
+            <p className='mt-5 rounded-md border border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-gray-700 dark:text-gray-400'>
+              {isDismissedView
+                ? "No dismissed activities in this time range."
+                : "No notable activities found."}
             </p>
-          </div>
+          )}
+
+          {notablePageCount > 1 && (
+            <div className='mt-5 flex flex-wrap items-center justify-center gap-3'>
+              <button
+                type='button'
+                onClick={() => setNotablePage((page) => Math.max(page - 1, 0))}
+                disabled={currentNotablePage === 0}
+                className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+              >
+                <FontAwesomeIcon icon={faChevronLeft} />
+                <span>Previous</span>
+              </button>
+              <span className='text-sm font-medium text-slate-700 dark:text-gray-200'>
+                Page {currentNotablePage + 1} of {notablePageCount}
+              </span>
+              <button
+                type='button'
+                onClick={() =>
+                  setNotablePage((page) => Math.min(page + 1, notablePageCount - 1))
+                }
+                disabled={currentNotablePage >= notablePageCount - 1}
+                className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+              >
+                <span>Next</span>
+                <FontAwesomeIcon icon={faChevronRight} />
+              </button>
+            </div>
+          )}
+        </section>
         </div>
-
-        <div className='mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
-          {paginatedLiveNotableActivities.map((activity) => (
-            <NotableActivityCard
-              key={activity.eventAggKey}
-              activity={activity}
-              cacheKey={notableActivitiesQuery.data?.cacheKey || ""}
-              onDismiss={() => dismissActivity(activity.eventAggKey)}
-              onCreateIncident={() => setActivityToPromote(activity)}
-              onAddToIncident={() => setActivityToLink(activity)}
-              isCreatingIncident={
-                createIncidentMutation.isLoading &&
-                activityToPromote?.eventAggKey === activity.eventAggKey
-              }
-            />
-          ))}
-        </div>
-
-        {notableActivitiesQuery.data && activeNotableActivityCount === 0 && (
-          <p className='mt-5 rounded-md border border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-gray-700 dark:text-gray-400'>
-            No notable activities found.
-          </p>
-        )}
-
-        {notablePageCount > 1 && (
-          <div className='mt-5 flex flex-wrap items-center justify-center gap-3'>
-            <button
-              type='button'
-              onClick={() => setNotablePage((page) => Math.max(page - 1, 0))}
-              disabled={currentNotablePage === 0}
-              className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
-            >
-              <FontAwesomeIcon icon={faChevronLeft} />
-              <span>Previous</span>
-            </button>
-            <span className='text-sm font-medium text-slate-700 dark:text-gray-200'>
-              Page {currentNotablePage + 1} of {notablePageCount}
-            </span>
-            <button
-              type='button'
-              onClick={() =>
-                setNotablePage((page) => Math.min(page + 1, notablePageCount - 1))
-              }
-              disabled={currentNotablePage >= notablePageCount - 1}
-              className='inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
-            >
-              <span>Next</span>
-              <FontAwesomeIcon icon={faChevronRight} />
-            </button>
-          </div>
-        )}
-      </section>
+      </div>
 
       <AggieDialog
         isOpen={!!activityToPromote}

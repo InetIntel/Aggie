@@ -5,6 +5,11 @@ import type { hasId, TernaryOptions, VeracityOptions } from "../common";
 import { ENTITY_LEVEL_OPTIONS } from "../common";
 import { isString } from "lodash";
 
+export const getAlertFilterOptions = async () => {
+  const { data } = await axios.get<Record<"countries" | "asns" | "regions", { key: string; label: string }[]>>("/api/report/filter-options");
+  return data;
+};
+
 export const getReports = async (
   searchState: ReportQueryState,
   alerts?: boolean,
@@ -133,6 +138,22 @@ export const removeReportsFromGroup = async (
   const { data } = await axios.patch<null>("/api/report/_group-rm", {
     ids: params.reportIds,
     group: params.groupId,
+  });
+  return data;
+};
+
+interface setReportsPinnedInGroupParams {
+  reportIds: string[];
+  groupId: string;
+  pinned: boolean;
+}
+export const setReportsPinnedInGroup = async (
+  params: setReportsPinnedInGroupParams
+) => {
+  const { data } = await axios.patch<null>("/api/report/_group-pin", {
+    ids: params.reportIds,
+    group: { _id: params.groupId },
+    pinned: params.pinned,
   });
   return data;
 };

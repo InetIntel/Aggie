@@ -31,10 +31,29 @@ export const useIncidentMutations = (
     onSuccess: (_, variables) => {
       queryData.update<Groups>(options.key, (data) => {
         if (!variables._id) return {};
+        // The edit form's assignedTo is an array of raw user IDs, but the cached
+        // Group expects populated user objects (the table reads `.username`).
+        // Map IDs back to directory users before patching so we never write bare
+        // strings into the cache. If the directory hasn't loaded yet, drop
+        // assignedTo from the patch and let onSettled's refetch repopulate it.
+        const { assignedTo, ...rest } = variables;
         return {
-          results: updateByIds([variables._id], data.results, {
-            ...variables,
-          }),
+          results: updateByIds(
+            [variables._id],
+            data.results,
+            Array.isArray(assignedTo) && users
+              ? {
+                  ...rest,
+                  assignedTo: assignedTo.map((entry) => {
+                    // Already a populated user object — keep as-is.
+                    if (entry && typeof entry === "object") return entry;
+                    const user = users.find((user) => user._id === entry);
+                    if (!!user) return user;
+                    else return { _id: "", username: "User not found" };
+                  }),
+                }
+              : rest
+          ),
         };
       });
     },
