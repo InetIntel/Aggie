@@ -18,22 +18,41 @@ rows are that flag split by incident linkage.
 ## The 12 metrics (6 per category)
 
 Sections: **Alerts** (`/alerts`, `isOutageEvent:true`) and **Social Media**
-(`/mediaposts`, `isOutageEvent:false`). Every row carries range bounds
-`after=<rangeStartUtc>&before=<rangeEndUtc>` (→ `authoredAt.$gte/$lte`, cast to real
-`Date`).
+(`/mediaposts`, `isOutageEvent:false`). Every row carries range bounds, cast to real
+`Date`: alert rows use `outageAfter=<rangeStartUtc>&outageBefore=<rangeEndUtc>`
+(→ `outageStartedAt.$gte/$lt`), social rows use `after=<rangeStartUtc>&before=<rangeEndUtc>`
+(→ `authoredAt.$gte/$lte`).
 
 | Row | Deep-link params | Backend filter (via `ReportQuery`) |
 |-----|------------------|-------------------------------------|
 | Read | `status=Read`, `irrelevant=all` | `read:true` |
 | Unread | `status=Unread`, `irrelevant=all` | `read:false` |
-| Linked to incident | `groupId=any`, `irrelevant=all` | `_group:{$nin:[null,'']}` |
-| Unlinked to incident | `groupId=none`, `irrelevant=all` | `_group:{$in:[null,'']}` |
-| Investigate — linked | `groupId=any`, `irrelevant=false` | linked + `irrelevant:{$ne:"true"}` |
-| Investigate — unlinked | `groupId=none`, `irrelevant=false` | unlinked + `irrelevant:{$ne:"true"}` |
+| Linked to incident | `groupId=any`, `irrelevant=all` | `_group:{$ne:null}` |
+| Unlinked to incident | `groupId=none`, `irrelevant=all` | `_group:{$eq:null}` |
+| Investigate — linked | `groupId=any`, `irrelevant=false` | linked + `irrelevant:"false"` |
+| Investigate — unlinked | `groupId=none`, `irrelevant=false` | unlinked + `irrelevant:"false"` |
+
+`_group` is an ObjectId path, so `''` can't be cast; the null-only predicates also match a
+missing field ([report-query.js `_parseGroupId`](../../../backend/models/query/report-query.js)).
 
 Non-Investigate rows use `irrelevant=all` to match the list (which forces `irrelevant=all`
-when absent). Investigate rows use `irrelevant=false`, which falls through to the default
-`{$ne:"true"}` (there is no explicit `false` branch in `report-query.js`).
+when absent). Investigate rows use `irrelevant=false`, an exact match on the Investigate
+state (untriaged `"maybe"` reports are excluded).
+
+### `groupId=any|none` and incident access
+
+The list route runs `requireIncidentQueryAccess`
+([incidentAccessMiddlewares.js](../../../backend/api/middlewares/incidentAccessMiddlewares.js))
+before `report_reports`. It access-checks a real incident id and rejects any other
+non-ObjectId with 400, so it must let the `any` / `none` sentinels through; before it did,
+every linked/unlinked deep link 400'd and the list rendered empty after TanStack Query's
+retries.
+
+Known gap: neither the counts nor the list apply the incident access filter. For a
+non-admin, reports in another team's restricted incident count as "linked" and appear in
+the linked list with `_group` stripped by `hideRestrictedIncidentReferences`, so they look
+unlinked. Resolving this depends on whether reports can belong to multiple incidents
+(pending design).
 
 ## Dedup applies to ALL alert rows
 

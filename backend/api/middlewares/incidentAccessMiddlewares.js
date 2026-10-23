@@ -141,7 +141,7 @@ const requireIncidentBodyAccess = async (req, res, next) => {
 
 const requireIncidentQueryAccess = async (req, res, next) => {
   const incidentId = req.query && req.query.groupId;
-  if (!incidentId) return next();
+  if (!incidentId || incidentId === 'any' || incidentId === 'none') return next();
   if (!mongoose.Types.ObjectId.isValid(incidentId)) {
     return res.status(400).send('Invalid incident identifier.');
   }
