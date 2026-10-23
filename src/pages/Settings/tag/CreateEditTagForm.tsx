@@ -113,9 +113,6 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
               label: TAG_CATEGORY_LABELS[category],
             }))}
           />
-          <p className='mt-1 text-xs text-slate-500 dark:text-gray-400'>
-            This controls where the tag is grouped throughout Aggie.
-          </p>
         </div>
         <FormikInput
           label='Description'

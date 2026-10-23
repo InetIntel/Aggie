@@ -23,7 +23,6 @@ export default function SpecialTagForm({ onCreated, onCancel }: {
   });
   return (
     <div className='space-y-3 rounded border border-slate-300 p-3'>
-      <p className='text-sm'>Create a custom tag that everyone can use.</p>
       <label className='block'>
         Tag name
         <input value={name} maxLength={80} disabled={create.isLoading}
