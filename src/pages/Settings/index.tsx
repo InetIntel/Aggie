@@ -54,8 +54,8 @@ const Settings = () => {
   useEffect(() => {document.title = "Settings - Aggie"}, []);
 
   return (
-    <section className='max-w-screen-xl mx-auto w-full px-4 flex flex-col min-[1080px]:flex-row gap-4'>
-      <nav className='flex flex-wrap min-[1080px]:flex-col gap-2 mt-3 min-[1080px]:pr-3 min-[1080px]:border-r border-slate-300 min-[1080px]:w-[300px] min-[1080px]:shrink-0 min-[1080px]:min-h-[80vh]'>
+    <section className='max-w-screen-2xl mx-auto w-full px-4 flex flex-col min-[1080px]:flex-row gap-4'>
+      <nav className='flex flex-wrap min-[1080px]:flex-col gap-2 mt-3 min-[1080px]:pr-3 min-[1080px]:border-r border-slate-300 min-[1080px]:w-[260px] min-[1080px]:shrink-0 min-[1080px]:min-h-[80vh]'>
         {Object.entries(menuLinks(session?.role, session?.isTeamLead)).map(([name, link]) => (
           <Link
             key={name}

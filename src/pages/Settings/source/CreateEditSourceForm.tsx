@@ -25,6 +25,7 @@ import { CredentialOption, CREDENTIAL_OPTIONS, providerLabel } from "../../../ap
 
 import { getTeams } from "../../../api/teams";
 import type { Team } from "../../../api/teams/types";
+import CountryMultiSelect from "../../../components/CountryMultiSelect";
 
 interface IProps {
   source?: Source;
@@ -217,6 +218,7 @@ const getSourceAccessTeamIds = (source?: Source) => {
 };
 
 const getSourceAccessInitialValues = (source?: Source) => ({
+  countryCodes: source?.countryCodes || [],
   accessPolicyMode: source?.accessPolicy?.mode || "public",
   accessPolicyTeams: getSourceAccessTeamIds(source),
   accessPolicyCutoffDate: source?.accessPolicy?.cutoffDate
@@ -228,6 +230,7 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
   const [modeField] = useField<SourceAccessMode>("accessPolicyMode");
   const [teamsField, , teamsHelpers] = useField<string[]>("accessPolicyTeams");
   const [cutoffField] = useField<string>("accessPolicyCutoffDate");
+  const [countriesField, , countriesHelpers] = useField<string[]>("countryCodes");
 
   const selectedTeamIds = teamsField.value || [];
   const availableTeams = (teams || []).filter(
@@ -252,11 +255,23 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
         Controls whether this source is broadly visible or restricted to specific teams.
       </p>
 
+      <div className='mb-3'>
+        <CountryMultiSelect
+          label='Source countries'
+          value={countriesField.value || []}
+          onChange={countriesHelpers.setValue}
+        />
+        <p className='text-xs text-slate-500 dark:text-gray-400 mt-1'>
+          Countries describe the feed. They only limit access when country restriction is selected.
+        </p>
+      </div>
+
       <FormikDropdown
         list={[
           { _id: "public", label: "Public" },
           { _id: "restricted", label: "Restricted to teams" },
           { _id: "public_until", label: "Public until cutoff date" },
+          { _id: "country_restricted", label: "Restricted by country" },
         ]}
         label={"Access Mode"}
         name={"accessPolicyMode"}
@@ -306,6 +321,13 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
           )}
         </div>
       )}
+
+      {modeField.value === "country_restricted" &&
+        (countriesField.value || []).length === 0 && (
+          <p className='text-xs text-red-700 dark:text-red-400'>
+            Choose at least one source country before saving.
+          </p>
+        )}
     </div>
   );
 };
@@ -362,7 +384,10 @@ function onSubmit(data: any) {
 
   const accessPolicy = {
     mode: accessPolicyMode || "public",
-    teams: accessPolicyMode === "public" ? [] : accessPolicyTeams || [],
+    teams:
+      accessPolicyMode === "restricted" || accessPolicyMode === "public_until"
+        ? accessPolicyTeams || []
+        : [],
     cutoffDate:
       accessPolicyMode === "public_until"
         ? accessPolicyCutoffDate || null
@@ -506,6 +531,7 @@ function onSubmit(data: any) {
         label={"Connection"}
         name={"credentials"}
       />
+      <SourceAccessPolicyFields teams={teams} />
     </FormikWithSchema>
   );
 
