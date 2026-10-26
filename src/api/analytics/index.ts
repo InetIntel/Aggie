@@ -4,6 +4,8 @@ import type {
   AnalyticsQueryState,
   CreateNotableActivityIncidentPayload,
   NotableActivitiesResponse,
+  NotableActivityDismissalPayload,
+  NotableActivityDismissalResponse,
   ReportMetricsResponse,
   UpdateNotableActivityIncidentPayload,
 } from "./types";
@@ -73,6 +75,22 @@ export const updateNotableActivityIncident = async (
   const { data } = await axios.patch<Partial<Group>>(
     "/api/analytics/notable-activities/incident",
     payload
+  );
+  return data;
+};
+
+export const dismissNotableActivity = async (payload: NotableActivityDismissalPayload) => {
+  const { data } = await axios.post<NotableActivityDismissalResponse>(
+    "/api/analytics/notable-activities/dismissal",
+    payload
+  );
+  return data;
+};
+
+export const restoreNotableActivity = async (payload: NotableActivityDismissalPayload) => {
+  const { data } = await axios.delete<NotableActivityDismissalResponse>(
+    "/api/analytics/notable-activities/dismissal",
+    { data: payload }
   );
   return data;
 };

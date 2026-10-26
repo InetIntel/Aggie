@@ -97,5 +97,8 @@ const snapshotMutationAccess = [
 
 router.post('/notable-activities/incident', snapshotMutationAccess, analyticsController.analytics_create_incident);
 router.patch('/notable-activities/incident', snapshotMutationAccess, analyticsController.analytics_update_incident);
+// requireReportAccess refuses unless the caller can see and edit all of its reports.
+router.post('/notable-activities/dismissal', snapshotMutationAccess, analyticsController.analytics_dismiss_activity);
+router.delete('/notable-activities/dismissal', snapshotMutationAccess, analyticsController.analytics_restore_activity);
 
 module.exports = router;

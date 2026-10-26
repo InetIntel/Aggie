@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChevronLeft,
   faChevronRight,
-  faRotateLeft,
+  faWarning,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   createNotableActivityIncident,
@@ -35,8 +35,8 @@ import {
   getActivityLocationSummary,
   getAnalyticsRoom,
   useAnalyticsWindow,
+  useActivityDismissal,
   useDashboardFormatters,
-  useDismissedActivities,
 } from "./dashboardHelpers";
 import type { AnalyticsWindow } from "./dashboardHelpers";
 import type { GroupEditableData } from "../../api/groups/types";
@@ -118,12 +118,6 @@ const Dashboard = () => {
   const [tolerance, setTolerance] = useState<number>(
     DEFAULT_START_TIME_TOLERANCE_MINUTES
   );
-  const {
-    dismissedKeys: dismissedActivityKeys,
-    dismiss: dismissActivity,
-    restore: restoreActivity,
-    reset: resetDismissedActivities,
-  } = useDismissedActivities(tolerance);
   const [notableView, setNotableView] = useState<NotableView>("active");
   const [notablePage, setNotablePage] = useState(0);
   const [activityToPromote, setActivityToPromote] = useState<NotableActivity | null>(
@@ -199,6 +193,18 @@ const Dashboard = () => {
 
   const overviewCacheKey = overviewQuery.data?.cacheKey;
   const notableCacheKey = notableActivitiesQuery.data?.cacheKey;
+  const {
+    dismiss: dismissActivity,
+    restore: restoreActivity,
+    pendingKey: pendingDismissalKey,
+    errorMessage: dismissalErrorMessage,
+    clearError: clearDismissalError,
+  } = useActivityDismissal(notableCacheKey);
+
+  // A failed dismissal is about the view it happened in; drop it once the view changes.
+  useEffect(() => {
+    clearDismissalError();
+  }, [notableWindow.params, tolerance, notableView, clearDismissalError]);
 
   const handleAnalyticsUpdate = useCallback(
     (message: (SocketEvent & { data: AnalyticsUpdateEvent }) | AnalyticsUpdateEvent) => {
@@ -247,7 +253,7 @@ const Dashboard = () => {
   const liveNotableActivities = notableActivitiesQuery.data?.notableActivities || [];
   const isDismissedView = notableView === "dismissed";
   const visibleLiveNotableActivities = liveNotableActivities.filter(
-    (activity) => dismissedActivityKeys.has(activity.eventAggKey) === isDismissedView
+    (activity) => !!activity.dismissal === isDismissedView
   );
   const activeNotableActivityCount = visibleLiveNotableActivities.length;
   const notablePageCount = Math.max(
@@ -266,7 +272,6 @@ const Dashboard = () => {
     notablePageStart + notableCardsPerPage,
     activeNotableActivityCount
   );
-  const hasDismissedActivities = dismissedActivityKeys.size > 0;
 
   useEffect(() => {
     if (notablePage >= notablePageCount) {
@@ -384,20 +389,6 @@ const Dashboard = () => {
                   ))}
                 </select>
               </label>
-              <button
-                type='button'
-                onClick={() => {
-                  resetDismissedActivities();
-                  setNotableView("active");
-                  setNotablePage(0);
-                }}
-                disabled={!hasDismissedActivities}
-                title='Restore every activity dismissed at this tolerance'
-                className='inline-flex h-6 items-center gap-1.5 rounded bg-[#1F5F78] px-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-[#184c60] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-600 dark:hover:bg-sky-500'
-              >
-                <FontAwesomeIcon icon={faRotateLeft} />
-                <span>Reset</span>
-              </button>
               <p className='text-xs text-slate-500 dark:text-gray-400'>
                 {notableActivitiesQuery.data
                   ? `Showing ${notableShowingStart}-${notableShowingEnd} of ${activeNotableActivityCount} ${
@@ -408,15 +399,22 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {dismissalErrorMessage && (
+            <p className='mt-3 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-2 text-xs text-red-700'>
+              <FontAwesomeIcon icon={faWarning} className='mt-0.5' />
+              <span>{dismissalErrorMessage}</span>
+            </p>
+          )}
+
           <div className='mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'>
             {paginatedLiveNotableActivities.map((activity) => (
               <NotableActivityCard
                 key={activity.eventAggKey}
                 activity={activity}
                 cacheKey={notableActivitiesQuery.data?.cacheKey || ""}
-                isDismissed={isDismissedView}
                 onDismiss={() => dismissActivity(activity.eventAggKey)}
                 onRestore={() => restoreActivity(activity.eventAggKey)}
+                isUpdatingDismissal={pendingDismissalKey === activity.eventAggKey}
                 onCreateIncident={() => setActivityToPromote(activity)}
                 onAddToIncident={() => setActivityToLink(activity)}
                 isCreatingIncident={

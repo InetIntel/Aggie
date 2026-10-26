@@ -3,6 +3,7 @@
 const Group = require('../../models/group');
 const Report = require('../../models/report');
 const NotableActivity = require('../../models/notableActivity');
+const ActivityDismissal = require('../../models/activityDismissal');
 const eventRouter = require('../sockets/event-router');
 const {
   getMaterializedNotableActivities,
@@ -69,6 +70,11 @@ exports.analytics_notable_activities = async (req, res) => {
     const data = await applyAccessToActivities(
       req,
       await getMaterializedNotableActivities(options)
+    );
+
+    data.notableActivities = await attachDismissals(data.notableActivities);
+    data.highConfidenceActivities = data.notableActivities.filter(
+      (activity) => activity.isHighConfidence
     );
 
     if (typeof limit === 'number' && limit >= 0) {
@@ -235,6 +241,79 @@ exports.analytics_update_incident = async (req, res) => {
     return handleAnalyticsError(res, err, 'Error updating incident from notable activity');
   }
 };
+
+// Dismissals are shared: hiding an activity hides it for everyone. The route's access
+// chain only lets through a caller who can see and edit every report in the activity, so
+// nobody hides reports they never saw. A dismissal stays put as new reports arrive.
+exports.analytics_dismiss_activity = async (req, res) => {
+  try {
+    const notableActivity = await getNotableActivityFromBody(req.body);
+    const { eventAggKey } = notableActivity;
+
+    try {
+      await ActivityDismissal.updateOne(
+        { eventAggKey },
+        {
+          $setOnInsert: {
+            eventAggKey,
+            dismissedBy: req.user && req.user._id,
+            dismissedAt: new Date(),
+          },
+        },
+        { upsert: true }
+      ).exec();
+    } catch (err) {
+      // Two users dismissing at once race the upsert; the loser's insert hits the
+      // unique index, and the activity is dismissed either way.
+      if (err.code !== 11000) throw err;
+    }
+
+    const dismissal = await ActivityDismissal.findOne({ eventAggKey })
+      .populate({ path: 'dismissedBy', select: 'username' })
+      .lean()
+      .exec();
+    return res.status(200).send({ eventAggKey, dismissal: toDismissalResponse(dismissal) });
+  } catch (err) {
+    return handleAnalyticsError(res, err, 'Error dismissing notable activity');
+  }
+};
+
+exports.analytics_restore_activity = async (req, res) => {
+  try {
+    const { eventAggKey } = await getNotableActivityFromBody(req.body);
+    await ActivityDismissal.deleteOne({ eventAggKey }).exec();
+    return res.status(200).send({ eventAggKey, dismissal: null });
+  } catch (err) {
+    return handleAnalyticsError(res, err, 'Error restoring notable activity');
+  }
+};
+
+// Look dismissals up by the keys already in this caller's results, so a response never
+// reveals dismissals of activities the caller cannot see.
+async function attachDismissals(activities) {
+  if (!activities.length) return activities;
+
+  const keys = [...new Set(activities.map((activity) => activity.eventAggKey))];
+  const dismissals = await ActivityDismissal.find({ eventAggKey: { $in: keys } })
+    .populate({ path: 'dismissedBy', select: 'username' })
+    .lean()
+    .exec();
+  const byKey = new Map(dismissals.map((dismissal) => [dismissal.eventAggKey, dismissal]));
+
+  return activities.map((activity) => ({
+    ...activity,
+    dismissal: toDismissalResponse(byKey.get(activity.eventAggKey)),
+  }));
+}
+
+function toDismissalResponse(dismissal) {
+  if (!dismissal) return null;
+  return {
+    dismissedAt: dismissal.dismissedAt,
+    // Null when the dismissing user has since been deleted.
+    dismissedBy: (dismissal.dismissedBy && dismissal.dismissedBy.username) || null,
+  };
+}
 
 function parseAnalyticsQuery(query = {}, parseOptions = {}) {
   // `aggregation` picks how reports are grouped into an activity ('bucket' | 'startTime');

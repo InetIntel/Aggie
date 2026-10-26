@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import axios from "axios";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { dismissNotableActivity, restoreNotableActivity } from "../../api/analytics";
 import type {
+  ActivityDismissal,
   AnalyticsBucketPreset,
   AnalyticsOverview,
   AnalyticsQueryState,
@@ -170,78 +174,73 @@ export function useAnalyticsWindow(prefs: UserPreferences) {
 
 export type AnalyticsWindow = ReturnType<typeof useAnalyticsWindow>;
 
-// Dismissals are a per-browser convenience, not shared with other users. They are
-// stored per start-time tolerance because activities regroup (and get new keys)
-// whenever the tolerance changes, so each tolerance keeps its own list.
-const DISMISSED_ACTIVITIES_STORAGE_KEY = "dashboard.dismissedNotableActivities";
-// Keys from old windows are never cleaned up on their own, so keep only the newest.
-const MAX_KEYS_PER_TOLERANCE = 500;
-
-type DismissedByTolerance = Record<string, string[]>;
-
-function readStoredDismissals(): DismissedByTolerance {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(DISMISSED_ACTIVITIES_STORAGE_KEY) || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeStoredDismissals(value: DismissedByTolerance) {
-  try {
-    localStorage.setItem(DISMISSED_ACTIVITIES_STORAGE_KEY, JSON.stringify(value));
-  } catch {
-    // Storage is unavailable (private mode, quota): dismissals last for this visit only.
-  }
-}
-
-export function useDismissedActivities(tolerance: number) {
-  const [dismissedByTolerance, setDismissedByTolerance] =
-    useState<DismissedByTolerance>(readStoredDismissals);
-
-  useEffect(() => {
-    writeStoredDismissals(dismissedByTolerance);
-  }, [dismissedByTolerance]);
-
-  const toleranceKey = String(tolerance);
-  const currentKeys = dismissedByTolerance[toleranceKey];
-  const dismissedKeys = useMemo(
-    () => new Set(Array.isArray(currentKeys) ? currentKeys : []),
-    [currentKeys]
-  );
-
-  const updateCurrent = useCallback(
-    (update: (keys: string[]) => string[]) => {
-      setDismissedByTolerance((all) => {
-        const keys = Array.isArray(all[toleranceKey]) ? all[toleranceKey] : [];
-        const next = { ...all, [toleranceKey]: update(keys) };
-        if (next[toleranceKey].length === 0) delete next[toleranceKey];
-        return next;
-      });
+// Dismissals are shared: dismissing an activity hides it from every user's active list.
+// The server only lets a user dismiss or restore an activity if they can see and edit
+// every report in it.
+export function useActivityDismissal(cacheKey: string | undefined) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: ({ eventAggKey, dismiss }: { eventAggKey: string; dismiss: boolean }) => {
+      if (!cacheKey) throw new Error("Notable activities have not loaded yet.");
+      const payload = { cacheKey, eventAggKey };
+      return dismiss ? dismissNotableActivity(payload) : restoreNotableActivity(payload);
     },
-    [toleranceKey]
-  );
+    onSuccess: ({ eventAggKey, dismissal }) => {
+      // The same activity can sit in several cached windows, so update every one.
+      queryClient.setQueriesData<NotableActivitiesResponse>(
+        ["analytics", "notable-activities"],
+        (data) => data && setActivityDismissal(data, eventAggKey, dismissal)
+      );
+    },
+  });
 
+  const { mutate, reset } = mutation;
   const dismiss = useCallback(
-    (activityKey: string) =>
-      updateCurrent((keys) =>
-        keys.includes(activityKey)
-          ? keys
-          : [...keys, activityKey].slice(-MAX_KEYS_PER_TOLERANCE)
-      ),
-    [updateCurrent]
+    (eventAggKey: string) => mutate({ eventAggKey, dismiss: true }),
+    [mutate]
   );
-
   const restore = useCallback(
-    (activityKey: string) => updateCurrent((keys) => keys.filter((key) => key !== activityKey)),
-    [updateCurrent]
+    (eventAggKey: string) => mutate({ eventAggKey, dismiss: false }),
+    [mutate]
   );
 
-  // Clears only the current tolerance; other tolerances keep their dismissals.
-  const reset = useCallback(() => updateCurrent(() => []), [updateCurrent]);
+  return {
+    dismiss,
+    restore,
+    pendingKey: mutation.isLoading ? mutation.variables?.eventAggKey : undefined,
+    errorMessage: mutation.isError ? getDismissalErrorMessage(mutation.error) : null,
+    clearError: reset,
+  };
+}
 
-  return { dismissedKeys, dismiss, restore, reset };
+function setActivityDismissal(
+  data: NotableActivitiesResponse,
+  eventAggKey: string,
+  dismissal: ActivityDismissal | null
+): NotableActivitiesResponse {
+  const update = (activities: NotableActivity[]) =>
+    activities.map((activity) =>
+      activity.eventAggKey === eventAggKey ? { ...activity, dismissal } : activity
+    );
+  return {
+    ...data,
+    notableActivities: update(data.notableActivities),
+    highConfidenceActivities: update(data.highConfidenceActivities),
+  };
+}
+
+function getDismissalErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    if (error.response?.status === 403) {
+      return "You can only dismiss or restore an activity if you can edit every report in it.";
+    }
+    if (typeof error.response?.data === "string" && error.response.data) {
+      return error.response.data;
+    }
+  }
+  return error instanceof Error && error.message
+    ? error.message
+    : "Could not update this activity. Please try again.";
 }
 
 export function getActivityLocationSummary(activity: NotableActivity) {
