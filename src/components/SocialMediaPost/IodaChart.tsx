@@ -78,7 +78,7 @@ function buildNavTicks(from: number, to: number, maxTicks: number) {
     const isMidnight = (((ts % 86400) + 86400) % 86400) === 0;
     const label = isMidnight
       ? fmtUtc(ts, { month: "short", day: "numeric" })
-      : fmtUtc(ts, { hour: "numeric", minute: "2-digit", hour12: true });
+      : fmtUtc(ts, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
     ticks.push({ ts, pct, label });
   }
   return ticks;
@@ -126,7 +126,7 @@ const IodaChart = ({ chart, compact, fill, outageStart, outageEnd }: IProps) => 
   const tickFmt = (ts: number) =>
     span > TWO_DAYS
       ? fmtUtc(ts, { month: "short", day: "numeric" })
-      : fmtUtc(ts, { hour: "numeric", minute: "2-digit", hour12: true });
+      : fmtUtc(ts, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
   const height = compact ? 220 : 308;
   const brushHeight = compact ? 34 : 46;
@@ -298,9 +298,9 @@ const SignalTooltip = ({ payload, label }: TooltipProps<number, string>) => {
           timeZone: "UTC",
           month: "short",
           day: "numeric",
-          hour: "numeric",
+          hour: "2-digit",
           minute: "2-digit",
-          hour12: true,
+          hourCycle: "h23",
         })}{" "}
         UTC
       </div>
