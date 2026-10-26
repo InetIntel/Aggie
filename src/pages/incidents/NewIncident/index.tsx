@@ -1,14 +1,14 @@
 import { useQueryParams } from "../../../hooks/useQueryParams";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 
 import { newGroup } from "../../../api/groups";
-import { setReportsToGroup } from "../../../api/reports";
+import { getReport, setReportsToGroup } from "../../../api/reports";
 import type { Report, Reports } from "../../../api/reports/types";
 
 import { Dialog } from "@headlessui/react";
-import SocialMediaPost from "../../../components/SocialMediaPost";
+import SocialMediaListItem from "../../../components/SocialMediaListItem";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -23,13 +23,11 @@ import CreateEditIncidentForm from "../CreateEditIncidentForm";
 const NewIncident = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [reportsData, setReportsData] = useState<Report[]>([]);
   const [showDialog, setShowDialog] = useState(false);
 
 
   interface NewIncidentQueryState {
     reports?: string;
-    key?: string;
   }
   const { searchParams, getParam } = useQueryParams<NewIncidentQueryState>();
 
@@ -57,13 +55,47 @@ const NewIncident = () => {
 
   useEffect(() => {
     document.title = "New Incident - Aggie";
-    const key = getParam("key") || "reports";
-    const data = queryClient.getQueryData<Reports>([key]);
-    if (!data) return;
-    const ids = paramToArray(getParam("reports"));
-    const selectedReports = data.results.filter((i) => ids.includes(i._id));
-    setReportsData(selectedReports);
-  }, [searchParams]);
+  }, []);
+
+  const reportIds = useMemo(
+    () => paramToArray(getParam("reports")).filter(Boolean),
+    [searchParams]
+  );
+
+  // Callers cache their lists under different keys (e.g. alerts live under
+  // ["reports", "alerts", params]), so scan the whole cache for the selected
+  // reports and only fetch the ones that aren't there (e.g. after a reload).
+  const { data: reportsData = [] } = useQuery(
+    ["new-incident-reports", reportIds],
+    async () => {
+      const found = findCachedReports(reportIds);
+      const missing = reportIds.filter((id) => !found.has(id));
+      const fetched = await Promise.all(missing.map((id) => getReport(id)));
+      fetched.forEach((report) => report && found.set(report._id, report));
+      return reportIds
+        .map((id) => found.get(id))
+        .filter((report): report is Report => !!report);
+    },
+    { enabled: reportIds.length > 0, staleTime: Infinity }
+  );
+
+  function findCachedReports(ids: string[]) {
+    const found = new Map<string, Report>();
+    queryClient
+      .getQueryCache()
+      .getAll()
+      .forEach(({ state }) => {
+        const data = state.data as Reports | Report | undefined;
+        if (!data || typeof data !== "object") return;
+        const items = "results" in data ? data.results : [data];
+        if (!Array.isArray(items)) return;
+        items.forEach((item) => {
+          if (item?._id && ids.includes(item._id) && !found.has(item._id))
+            found.set(item._id, item);
+        });
+      });
+    return found;
+  }
 
   const doAddReports = useMutation({
     mutationFn: setReportsToGroup,
@@ -118,11 +150,15 @@ const NewIncident = () => {
           <h2 className='font-medium text-lg'>
             ({reportsData.length}) Reports to Attach:
           </h2>
-          <div className='max-h-[75vh] overflow-y-scroll flex flex-col gap-1'>
-            {reportsData &&
-              reportsData.map((item) => (
-                <SocialMediaPost report={item} key={item._id} />
-              ))}
+          <div className='max-h-[75vh] overflow-y-auto overflow-x-hidden rounded-lg border border-slate-300'>
+            {reportsData.map((item) => (
+              <div
+                key={item._id}
+                className='bg-white dark:bg-gray-800 border-b last:border-b-0 border-slate-300 p-3 text-sm'
+              >
+                <SocialMediaListItem report={item} />
+              </div>
+            ))}
           </div>
         </div>
       )}
