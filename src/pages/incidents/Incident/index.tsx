@@ -1,3 +1,5 @@
+import { PermissionResourceContext } from "../../../hooks/usePermission";
+import { hasPermission } from "../../../utils/permissions";
 // i need to refactor this...
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -101,7 +103,7 @@ const Incident = () => {
   const { data: session } = useQuery(["session"], getSession, {
     staleTime: 50000,
   });
-  const canManageTags = session?.permissions?.includes("edit data") === true;
+  const canManageTags = !!group && hasPermission(session, "edit data", group);
 
   const doSetTags = useMutation(setGroupTags, {
     onSuccess: (_, params) => {
@@ -189,6 +191,7 @@ const Incident = () => {
     return <AxiosErrorCard error={groupError} />;
   }
   return (
+    <PermissionResourceContext.Provider value={group || {}}>
     <section className='max-w-screen-2xl mx-auto px-4 grid grid-cols-2 pt-6 gap-6 '>
       <AddReportsToIncidents
         selection={multiSelect.selection}
@@ -212,13 +215,13 @@ const Incident = () => {
             Go Back
           </AggieButton>
           <div className='flex items-center gap-2'>
-            <DropdownMenu
+            <DropdownMenu permission="edit data"
               variant='secondary'
               className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300  dark:border-slate-600'
               panelClassName='overflow-hidden right-0'
               buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
             >
-              <AggieButton
+              <AggieButton permission="edit data"
                 className='w-full px-2 py-1 hover:bg-slate-200 dark:hover:bg-gray-600  font-medium flex gap-2 text-nowrap items-center flex-grow'
                 onClick={() => setIsEditOpen(true)}
               >
@@ -226,7 +229,7 @@ const Incident = () => {
                 Edit Incident
               </AggieButton>
               {group?.closed ? (
-                <AggieButton
+                <AggieButton permission="edit data"
                   className={`w-full px-2 py-1 hover:bg-green-100 text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow dark:hover:bg-green-100 dark:saturate-[0.7]`}
                   onClick={() =>
                     doSetClosed.mutate(
@@ -253,7 +256,7 @@ const Incident = () => {
                   Open Incident
                 </AggieButton>
               ) : (
-                <AggieButton
+                <AggieButton permission="edit data"
                   className={`w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow`}
                   onClick={() =>
                     doSetClosed.mutate(
@@ -280,7 +283,7 @@ const Incident = () => {
                   Close Incident
                 </AggieButton>
               )}
-              <AggieButton
+              <AggieButton permission="edit data"
                 className={`w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
                 onClick={() => setDeleteModal(true)}
               >
@@ -360,7 +363,7 @@ const Incident = () => {
                 {multiSelect.selection.length} report{"(s)"}
               </p>
               <div className='flex rounded-lg border border-slate-300'>
-                <AggieButton
+                <AggieButton permission="edit data" permissionResource={{ canEdit: multiSelect.selection.every((report) => report.canEdit === true) }}
                   variant='light:rose'
                   className='rounded-l-lg'
                   disabled={!multiSelect.any() || setIrrelevance.isLoading}
@@ -374,7 +377,7 @@ const Incident = () => {
                 >
                   Ignore
                 </AggieButton>
-                <AggieButton
+                <AggieButton permission="edit data" permissionResource={{ canEdit: multiSelect.selection.every((report) => report.canEdit === true) }}
                   variant='light:green'
                   className='rounded-r-lg'
                   disabled={!multiSelect.any() || setIrrelevance.isLoading}
@@ -391,7 +394,7 @@ const Incident = () => {
               </div>
 
               <div className='flex font-medium'>
-                <AggieButton
+                <AggieButton permission="edit data"
                   className='px-2 py-1 rounded-l-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600 '
                   onClick={() => setAddReportModal(true)}
                   disabled={!multiSelect.any()}
@@ -399,7 +402,7 @@ const Incident = () => {
                   <FontAwesomeIcon icon={faFilePen} />
                   Move to Another Incident
                 </AggieButton>
-                <DropdownMenu
+                <DropdownMenu permission="edit data"
                   variant='secondary'
                   buttonElement={
                     <FontAwesomeIcon
@@ -411,14 +414,15 @@ const Incident = () => {
                   panelClassName='right-0'
                   disabled={!multiSelect.any()}
                 >
-                  <AggieButton
+                  <AggieButton permission="create incident"
                     className='px-3 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 '
+                    permissionResource={{ canEdit: multiSelect.selection.every((report) => report.canEdit === true) }}
                     onClick={onNewIncidentFromReports}
                   >
                     <FontAwesomeIcon icon={faFile} />
                     Move to a New Incident
                   </AggieButton>
-                  <AggieButton
+                  <AggieButton permission="edit data"
                     className='px-3 py-2 hover:bg-slate-200 dark:hover:bg-gray-600 text-red-800'
                     onClick={() => setRemoveReports(true)}
                   >
@@ -559,6 +563,7 @@ const Incident = () => {
         }
       ></ConfirmationDialog>
     </section>
+    </PermissionResourceContext.Provider>
   );
 };
 

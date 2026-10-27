@@ -8,6 +8,36 @@ const {
   getTeamIdsWithPermission,
 } = require('../../access/teamMemberships');
 
+const resolvePermissionScope = async (user, permission) => {
+  if (!user) return { permission, global: false, allowUnscoped: false, teamIds: [] };
+  const hasGlobalPermission = hasPermission(user, permission);
+  if (user.role === 'admin' || user.role === 'team_lead') {
+    return { permission, global: hasGlobalPermission, allowUnscoped: hasGlobalPermission, teamIds: [] };
+  }
+  const ledTeams = await Team.find({ leads: user._id })
+    .select('_id permissionLimits')
+    .lean();
+  const ledTeamIds = ledTeams.map((team) => String(team._id));
+  const candidateTeamIds = [...new Set([
+    ...getMembershipTeamIds(user),
+    ...ledTeamIds,
+  ])];
+  const teams = await Team.find({ _id: { $in: candidateTeamIds } })
+    .select('_id permissionLimits')
+    .lean();
+  const teamSettings = new Map(
+    teams.map((team) => [String(team._id), team])
+  );
+  const teamIds = getTeamIdsWithPermission(
+    user,
+    permission,
+    ledTeamIds,
+    teamSettings
+  );
+
+  return { permission, global: false, allowUnscoped: hasGlobalPermission, teamIds };
+};
+
 const allowGlobalOrScoped = (permission) => async (req, res, next) => {
   if (String(process.env.ADMIN_PARTY).toLowerCase() === 'true') {
     req.accessUser = {
@@ -41,26 +71,8 @@ const allowGlobalOrScoped = (permission) => async (req, res, next) => {
       return next();
     }
 
-    const ledTeams = await Team.find({ leads: user._id })
-      .select('_id permissionLimits')
-      .lean();
-    const ledTeamIds = ledTeams.map((team) => String(team._id));
-    const candidateTeamIds = [...new Set([
-      ...getMembershipTeamIds(user),
-      ...ledTeamIds,
-    ])];
-    const teams = await Team.find({ _id: { $in: candidateTeamIds } })
-      .select('_id permissionLimits')
-      .lean();
-    const teamSettings = new Map(
-      teams.map((team) => [String(team._id), team])
-    );
-    const teamIds = getTeamIdsWithPermission(
-      user,
-      permission,
-      ledTeamIds,
-      teamSettings
-    );
+    const scope = await resolvePermissionScope(user, permission);
+    const teamIds = scope.teamIds;
 
     if (!hasGlobalPermission && teamIds.length === 0) {
       return res.status(403).send(`You are not authorized to ${permission}.`);
@@ -80,4 +92,4 @@ const allowGlobalOrScoped = (permission) => async (req, res, next) => {
   }
 };
 
-module.exports = { allowGlobalOrScoped };
+module.exports = { allowGlobalOrScoped, resolvePermissionScope };

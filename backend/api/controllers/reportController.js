@@ -24,11 +24,14 @@ const Team = require('../../models/team');
 const {
   combineReportFilters,
   getReportSourceAccessFilter,
+  getReportAccessUser,
 } = require('../utils/reportSourceAccess');
 const { normalizeIds } = require('../../access/teamAccess');
 const {
   hideRestrictedIncidentReferences,
 } = require('../../access/reportIncidentReferences');
+
+const { resolvePermissionScope } = require('../middlewares/scopedPermissionMiddlewares');
 
 // Determine the search keywords
 const parseQueryData = (queryString) => {
@@ -60,7 +63,7 @@ const parseQueryData = (queryString) => {
   return query;
 }
 
-const canModifyReportsWithinScope = async (
+const getEditableReportIds = async (
   reportIds,
   scopedTeamIds,
   allowUnscoped = false
@@ -110,7 +113,7 @@ const canModifyReportsWithinScope = async (
       ? normalizeIds(group.accessPolicy.teams)
       : [],
   ]));
-  return reports.length === reportIds.length && reports.every((report) => {
+  return reports.filter((report) => {
     const reportTeamIds = [
       ...(report._sources || []).flatMap(
         (sourceId) => sourceTeams.get(String(sourceId)) || []
@@ -120,7 +123,12 @@ const canModifyReportsWithinScope = async (
 
     if (reportTeamIds.length === 0) return allowUnscoped;
     return reportTeamIds.some((teamId) => allowedTeams.has(teamId));
-  });
+  }).map((report) => String(report._id));
+};
+
+const canModifyReportsWithinScope = async (ids, teamIds, allowUnscoped) => {
+  const editable = await getEditableReportIds(ids, teamIds, allowUnscoped);
+  return editable.length === ids.length;
 };
 
 exports.requireReportAccess = async (req, res, next) => {
@@ -257,6 +265,17 @@ const serializeReportResponse = (payload, { stripChart = true } = {}) => {
 const sendReportResponse = async (req, res, payload, status = 200, options = {}) => {
   try {
     const serialized = serializeReportResponse(payload, options);
+    const rows = Array.isArray(serialized) ? serialized
+      : Array.isArray(serialized?.results) ? serialized.results : [serialized];
+    const user = await getReportAccessUser(req);
+    const scope = await resolvePermissionScope(user, 'edit data');
+    const editableIds = scope.global || (!scope.allowUnscoped && scope.teamIds.length === 0) ? new Set() : new Set(await getEditableReportIds(
+      rows.filter((row) => row?._id).map((row) => String(row._id)),
+      scope.teamIds, scope.allowUnscoped
+    ));
+    rows.forEach((row) => {
+      if (row?._id) row.canEdit = scope.global || editableIds.has(String(row._id));
+    });
     const safePayload = await hideRestrictedIncidentReferences(
       req.accessUser || req.user,
       serialized

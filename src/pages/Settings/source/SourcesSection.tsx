@@ -81,8 +81,8 @@ const SourcesSection = () => {
     <div>
       <div className='flex justify-between items-center'>
         <h1 className='font-medium my-3 text-3xl'>Providers and Feeds</h1>
-        {isManager && (
-          <AggieButton
+        {(
+          <AggieButton permission="manage sources"
             onClick={() => setOpenCreate("new")}
             variant='primary'
             padding='px-3 py-2'
@@ -151,7 +151,7 @@ const SourcesSection = () => {
                   </p>
                 )}
               </div>
-              {isManager && (
+              {(
                 <div className='flex justify-end items-center gap-2'>
                   <p className='text-xs font-medium text-slate-600 dark:text-gray-400'>
                     {source.enabled ? "Enabled" : "Disabled"}
@@ -163,7 +163,7 @@ const SourcesSection = () => {
                         className={"animate-spin"}
                       />
                     )}
-                    <AggieSwitch
+                    <AggieSwitch permission="manage sources"
                       checked={source.enabled}
                       onChange={() => {
                         doEnableSource.mutate({
@@ -176,19 +176,19 @@ const SourcesSection = () => {
                     />
                   </div>
 
-                  <DropdownMenu
+                  <DropdownMenu permission="manage sources"
                     className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-600 dark:text-gray-400'
                     panelClassName='bg-white dark:bg-gray-800 border border-slate-300 rounded-lg overflow-hidden right-0 text-sm'
                     buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                   >
-                    <AggieButton
+                    <AggieButton permission="manage sources"
                       className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-400 w-full'
                       onClick={() => openDetails(source._id, true)}
                     >
                       <FontAwesomeIcon icon={faEdit} />
                       Edit
                     </AggieButton>
-                    <AggieButton
+                    <AggieButton permission="manage sources"
                       className='px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 text-red-600'
                       onClick={() => setDeletionModal(source)}
                     >

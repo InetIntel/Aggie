@@ -8,7 +8,7 @@ import _ from "lodash";
 import { getGroups } from "../../api/groups";
 import type { Group, GroupQueryState } from "../../api/groups/types";
 
-import { Link, useNavigationType } from "react-router-dom";
+import { useNavigate, useNavigationType } from "react-router-dom";
 import IncidentsFilters from "./IncidentsFilters";
 import IncidentListItem from "./IncidentListItem";
 import IncidentsTable from "./TableView/IncidentsTable";
@@ -38,6 +38,7 @@ const MAX_COMPARE = 6;
 const Incidents = () => {
   const { searchParams, getAllParams, getParam, setParams, clearAllParams } =
     useQueryParams<IncidentsQueryState>();
+  const navigate = useNavigate();
   const navigationType = useNavigationType();
 
   // "view" is a UI toggle, not a filter — exclude it so switching to the table
@@ -173,12 +174,13 @@ const Incidents = () => {
             onClick={() => refetch()}
           ></AggieButton>
         </div>
-        <Link
-          to='new'
+        <AggieButton
+          permission="create incident"
+          onClick={() => navigate("new")}
           className='px-3 py-2 flex gap-2 items-center text-sm bg-green-800 hover:text-slate-100 dark:hover:text-gray-300 hover:bg-green-700 text-slate-100 dark:text-gray-300 rounded-lg font-medium dark:bg-green-800 dark:hover:bg-green-700 dark:saturate-[0.7] '
         >
           <FontAwesomeIcon icon={faPlus} /> Create New Incident
-        </Link>
+        </AggieButton>
       </header>
 
       {/* Sticky filters + view-toggle bar: pins to the top of the page scroller

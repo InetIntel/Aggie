@@ -1,3 +1,4 @@
+import { PermissionResourceContext } from "../../hooks/usePermission";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -94,6 +95,7 @@ const IncidentListItem = ({
     } else return user._id;
   }
   return (
+    <PermissionResourceContext.Provider value={item}>
     <MultiSelectListItem
       isChecked={isChecked}
       isSelectMode={isSelectMode}
@@ -219,7 +221,7 @@ const IncidentListItem = ({
               <UserToken id={getUserId(user)} key={getUserId(user)} />
             ))
           ) : (
-            <AggieButton
+            <AggieButton permission="edit data"
               variant='secondary'
               disabled={!session || doSetAssign.isLoading}
               loading={doSetAssign.isLoading}
@@ -230,7 +232,7 @@ const IncidentListItem = ({
             </AggieButton>
           )}
         </div>
-        <DropdownMenu
+        <DropdownMenu permission="edit data"
           variant='secondary'
           className='px-2 py-1 hover:bg-slate-200 dark:hover:bg-gray-600 rounded h-full z-10 pointer-events-auto text-slate-600 dark:text-gray-400'
           panelClassName='right-0 pointer-events-auto'
@@ -242,7 +244,7 @@ const IncidentListItem = ({
         >
           <div className='flex justify-between items-center px-2 py-1 gap-5 font-medium '>
             Escalate:
-            <AggieSwitch
+            <AggieSwitch permission="edit data"
               checked={item.escalated}
               disabled={doSetEscalate.isLoading}
               onChange={() =>
@@ -253,7 +255,7 @@ const IncidentListItem = ({
               }
             />
           </div>
-          <AggieButton
+          <AggieButton permission="edit data"
             className='w-full px-2 py-1 hover:bg-slate-200  dark:hover:bg-gray-600 font-medium flex gap-2 text-nowrap items-center flex-grow border-t border-slate-300'
             onClick={() => setIsEditOpen(true)}
           >
@@ -261,7 +263,7 @@ const IncidentListItem = ({
             Edit Incident
           </AggieButton>
           {item.closed ? (
-            <AggieButton
+            <AggieButton permission="edit data"
               className={`w-full px-2 py-1 hover:bg-green-100 dark:hover:bg-green-100 dark:saturate-[0.7] text-green-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
               onClick={() =>
                 doSetClosed.mutate({
@@ -274,7 +276,7 @@ const IncidentListItem = ({
               Open Incident
             </AggieButton>
           ) : (
-            <AggieButton
+            <AggieButton permission="edit data"
               className={`w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] text-red-700  font-medium flex gap-2 text-nowrap items-center flex-grow `}
               onClick={() =>
                 doSetClosed.mutate({
@@ -333,6 +335,7 @@ const IncidentListItem = ({
       </AggieDialog>
       </div>
     </MultiSelectListItem>
+    </PermissionResourceContext.Provider>
   );
 };
 

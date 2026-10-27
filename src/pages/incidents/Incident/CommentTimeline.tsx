@@ -1,3 +1,4 @@
+import { usePermission } from "../../../hooks/usePermission";
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Formik, Field, FieldProps, Form } from "formik";
@@ -31,6 +32,7 @@ interface IProps {
   isLoading: boolean;
 }
 const CommentTimeline = ({ group, isLoading }: IProps) => {
+  const canEdit = usePermission("edit data");
   const queryClient = useQueryClient();
   const managerRef = useRef(new FilePickerManager());
 
@@ -43,7 +45,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
     formData: { commentdata: string, attachments: (File | GroupCommentAttachment)[] },
     resetForm: () => void
   ) {
-    if (!session || !group) return false;
+    if (!canEdit || !session || !group) return false;
     const post: EditableGroupComment = {
       data: formData.commentdata,
       attachments: formData.attachments,
@@ -106,6 +108,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
                 <h2 className='font-medium'>Add Comment</h2>
               </div>
               <Field
+                disabled={!canEdit}
                 as='textarea'
                 name='commentdata'
                 className='focus-theme px-3 py-1 border-y border-slate-300 bg-white dark:bg-gray-800 w-full min-h-36 dark:bg-gray-600'
@@ -114,7 +117,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
               <Field name='attachments' >
                 {({ form }: FieldProps) => (
                   <div className='px-2 py-1 '>
-                    <FileUploadButton manager={managerRef.current} form={form} />
+                    <fieldset disabled={!canEdit}><FileUploadButton manager={managerRef.current} form={form} /></fieldset>
                     <FileChipList
                       nameList={managerRef.current.getNames()}
                       pathList={managerRef.current.getPaths()}
@@ -129,7 +132,7 @@ const CommentTimeline = ({ group, isLoading }: IProps) => {
                   {errors.commentdata}
                 </p>
               )}
-              <AggieButton
+              <AggieButton permission="edit data"
                 type='submit'
                 variant='primary'
                 className='mb-2 ml-2 mt-1 '

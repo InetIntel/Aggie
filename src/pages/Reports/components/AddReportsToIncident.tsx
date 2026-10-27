@@ -166,6 +166,7 @@ const AddReportsToIncidents = ({
                 className='hover:bg-green-100 active:bg-green-200 border-b border-slate-200 font-medium gap-2 h-16 items-center text-left text-lg w-full dark:hover:bg-green-100 dark:active:bg-green-200 dark:saturate-[0.7]'
                 icon={faFileCirclePlus}
                 padding='px-2 py-2'
+                permission="create incident"
                 onClick={onNewIncidentFromReports}
               >
                 Create new incident

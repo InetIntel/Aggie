@@ -67,7 +67,7 @@ const ReportRowActions = ({
       {/* Add-to-incident is conditional, so keep it left-most: the always-present
           buttons below stay pinned right (justify-end) and align across rows. */}
       {!report._group && (
-        <AggieButton
+        <AggieButton permission="edit data" permissionResource={{ canEdit: (groupSelection ?? [report]).every((item) => item.canEdit === true) }}
           variant='transparent'
           className={`rounded-lg border border-dashed border-slate-300 ${btnSize}`}
           padding={btnPadding}
@@ -77,7 +77,7 @@ const ReportRowActions = ({
           onClick={() => setAttachSelection(groupSelection ?? [report])}
         />
       )}
-      <AggieButton
+      <AggieButton permission="edit data" permissionResource={report}
         variant={report.read ? "light:lime" : "light:amber"}
         className={`rounded-lg border border-slate-300 ${btnSize}`}
         padding={btnPadding}
@@ -94,7 +94,7 @@ const ReportRowActions = ({
           })
         }
       />
-      <AggieButton
+      <AggieButton permission="edit data" permissionResource={report}
         variant='light:rose'
         className={`rounded-lg border border-slate-300 ${btnSize}`}
         padding={btnPadding}
@@ -111,7 +111,7 @@ const ReportRowActions = ({
           })
         }
       />
-      <AggieButton
+      <AggieButton permission="edit data" permissionResource={report}
         variant='light:green'
         className={`rounded-lg border border-slate-300 ${btnSize}`}
         padding={btnPadding}

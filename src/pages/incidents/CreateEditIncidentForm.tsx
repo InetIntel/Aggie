@@ -1,3 +1,5 @@
+import { getIncidentCreationTeamIds } from "../../utils/permissions";
+import { usePermission } from "../../hooks/usePermission";
 import { useQuery } from "@tanstack/react-query";
 import {
   faCircleMinus,
@@ -87,7 +89,7 @@ const getIncidentAccessTeamIds = (group?: Group) => {
   );
 };
 
-const IncidentAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
+const IncidentAccessPolicyFields = ({ teams, allowPublic }: { teams?: Team[]; allowPublic: boolean }) => {
   const [modeField] = useField<IncidentAccessMode>("accessPolicyMode");
   const [teamsField, teamsMeta, teamsHelpers] = useField<string[]>(
     "accessPolicyTeams"
@@ -115,7 +117,7 @@ const IncidentAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
         label='Access Mode'
         icon={faLock}
         list={[
-          { _id: "public", label: "Public" },
+          ...(allowPublic ? [{ _id: "public", label: "Public" }] : []),
           { _id: "restricted", label: "Restricted to teams" },
         ]}
       />
@@ -161,15 +163,14 @@ const CreateEditIncidentForm = ({
   onCancel,
   isLoading,
 }: IProps) => {
+  const canEdit = usePermission(group ? "edit data" : "create incident", group);
   const { data: users } = useQuery(["users", "directory"], getUserDirectory);
   const { data: asns } = useQuery<AsnInfo[]>(["asns"], getAllAsns);
   const { data: geoOptions } = useQuery(["geoScopes"], getGeoScopes);
   const { data: session } = useQuery(["session"], getSession, {
     staleTime: 50000,
   });
-  const canManageIncidentAccess =
-    session?.permissions?.includes("manage incident access") === true ||
-    session?.isTeamLead === true;
+  const canManageIncidentAccess = usePermission("manage incident access", group);
   const { data: incidentAccessTeams } = useQuery(
     ["teams", "incident-access"],
     getIncidentAccessTeams,
@@ -179,9 +180,13 @@ const CreateEditIncidentForm = ({
     }
   );
 
+  const creationTeamIds = getIncidentCreationTeamIds(session);
+  const requiresTeamPolicy = !group && session?.accountPermissions?.includes("edit data") === false;
+
   return (
     <>
       <FormikWithSchema
+        permission={group ? "edit data" : "create incident"}
         initialValues={{
           title: initialValues?.title || group?.title || "",
           locationName: initialValues?.locationName || group?.locationName || "",
@@ -208,11 +213,12 @@ const CreateEditIncidentForm = ({
           impactedAsns: initialValues?.impactedAsns || group?.impactedAsns || [],
           impactedGeoScopes:
             initialValues?.impactedGeoScopes || group?.impactedGeoScopes || [],
-          accessPolicyMode: group?.accessPolicy?.mode || "public",
-          accessPolicyTeams: getIncidentAccessTeamIds(group),
+          accessPolicyMode: group?.accessPolicy?.mode || (requiresTeamPolicy ? "restricted" : "public"),
+          accessPolicyTeams: group ? getIncidentAccessTeamIds(group) : requiresTeamPolicy ? creationTeamIds.slice(0, 1) : [],
         }}
         schema={incidentSchema}
         onSubmit={(values: IncidentFormSubmitValues) => {
+          if (!canEdit) return;
           const {
             accessPolicyMode,
             accessPolicyTeams,
@@ -232,6 +238,7 @@ const CreateEditIncidentForm = ({
 
           onSubmit(payload);
         }}
+        disabled={!canEdit}
         loading={isLoading}
         onSubmitText={!!group ? "Update Incident" : "Create Incident"}
         onClose={onCancel}
@@ -245,7 +252,13 @@ const CreateEditIncidentForm = ({
         </div>
         <FormikInput name='title' label='Title' />
         {canManageIncidentAccess && (
-          <IncidentAccessPolicyFields teams={incidentAccessTeams} />
+          <IncidentAccessPolicyFields
+            allowPublic={session?.accountPermissions?.includes("edit data") === true}
+            teams={incidentAccessTeams?.filter((team) =>
+              session?.role === "admin" || session?.role === "team_lead" ||
+              session?.teamPermissions?.[team._id]?.includes("edit data")
+            )}
+          />
         )}
         <FormikMultiCombobox
           name='assignedTo'

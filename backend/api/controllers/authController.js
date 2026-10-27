@@ -253,6 +253,10 @@ exports.session = async (req, res, next) => {
       email: user.email,
       role: user.role,
       permissions,
+      accountPermissions: getEffectivePermissions(user),
+      teamPermissions: Object.fromEntries(membershipTeamIds.map((teamId) => [
+        teamId, getTeamPermissions(user, teamId, ledTeamIds, teamSettings),
+      ])),
       teamRoles,
       isTeamLead: user.role === 'team_lead' || ledTeamIds.length > 0,
       hasDefaultPassword: user.hasDefaultPassword,

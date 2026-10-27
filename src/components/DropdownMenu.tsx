@@ -1,3 +1,6 @@
+import PermissionHint from "./PermissionHint";
+import { usePermission } from "../hooks/usePermission";
+import { ActionPermission, PermissionResource, permissionMessage } from "../utils/permissions";
 import { Menu } from "@headlessui/react";
 import React, { Children, cloneElement } from "react";
 
@@ -10,6 +13,8 @@ const styleVariants = {
 };
 
 interface IProps {
+  permission?: ActionPermission;
+  permissionResource?: PermissionResource;
   children: React.ReactNode;
   buttonElement: React.ReactNode;
   variant?: keyof typeof styleVariants;
@@ -20,6 +25,8 @@ interface IProps {
 }
 
 const DropdownMenu = ({
+  permission,
+  permissionResource,
   children,
   buttonElement,
   variant,
@@ -28,6 +35,7 @@ const DropdownMenu = ({
   className = "",
   panelClassName = "",
 }: IProps) => {
+  const allowed = usePermission(permission, permissionResource);
   // wrapped in an extra div to make react ref error go away (cloneElement tries to attach a ref to the element, but custom components do not thave that)
   const ChildrenWithProps = Children.map(children, (child) => (
     <Menu.Item>
@@ -35,19 +43,24 @@ const DropdownMenu = ({
     </Menu.Item>
   ));
   const defaultButtonStyle =
-    "focus-theme disabled:opacity-70 disabled:pointer-events-none font-medium";
+    "focus-theme disabled:opacity-70 disabled:cursor-not-allowed font-medium";
 
   const defaultPanelStyle = "absolute top-full mt-1 shadow-md z-10";
   return (
     <Menu as='div' className='relative'>
+      <PermissionHint denied={!allowed}>
       <Menu.Button
         className={`${overrideStyles ? "" : defaultButtonStyle} ${
           variant ? styleVariants[variant].button : ""
         } ${className}`}
-        disabled={disabled}
+        style={!allowed ? { pointerEvents: "none" } : undefined}
+        disabled={disabled || !allowed}
+        aria-label={!allowed ? permissionMessage : undefined}
       >
+        {!allowed && <span aria-hidden="true">🔒 </span>}
         {buttonElement}
       </Menu.Button>
+      </PermissionHint>
       <Menu.Items
         className={`${overrideStyles ? "" : defaultPanelStyle} ${
           variant ? styleVariants[variant].panel : ""

@@ -98,8 +98,7 @@ const TagsIndex = (props: IProps) => {
         </div>
 
         {
-          canEditTags &&
-          <AggieButton
+          <AggieButton permission="edit tags"
             variant='primary'
             padding='px-3 py-2'
             icon={faPlusCircle}

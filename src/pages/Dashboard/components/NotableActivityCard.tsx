@@ -1,3 +1,4 @@
+import AggieButton from "../../../components/AggieButton";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -145,7 +146,7 @@ function NotableActivityCard({
           </Link>
         ) : (
           <div className='grid grid-cols-2 items-stretch gap-2'>
-            <button
+            <AggieButton permission="create incident"
               type='button'
               onClick={onCreateIncident}
               disabled={!cacheKey || isCreatingIncident}
@@ -158,8 +159,8 @@ function NotableActivityCard({
               <span className='min-w-0 truncate'>
                 {isCreatingIncident ? "Creating" : "New Incident"}
               </span>
-            </button>
-            <button
+            </AggieButton>
+            <AggieButton permission="edit data"
               type='button'
               onClick={onAddToIncident}
               disabled={!cacheKey || isCreatingIncident}
@@ -167,7 +168,7 @@ function NotableActivityCard({
             >
               <FontAwesomeIcon icon={faFolderPlus} className='shrink-0' />
               <span className='min-w-0 truncate'>Add to Incident</span>
-            </button>
+            </AggieButton>
           </div>
         )}
         <Link

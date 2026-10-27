@@ -110,7 +110,7 @@ const ReportListItem = ({
                   <DateTime dateString={report.authoredAt} />
                 </div>
                 <div className='flex gap-1 absolute right-0 top-0 text-xs group-hover:opacity-100 opacity-0'>
-                  <AggieButton
+                  <AggieButton permission="edit data" permissionResource={report}
                     variant={report.read ? "light:lime" : "light:amber"}
                     className='rounded-lg border border-slate-300 shadow-md'
                     onClick={(e) => {
@@ -129,7 +129,7 @@ const ReportListItem = ({
                     {report.read ? <> Unread</> : <> Read</>}
                   </AggieButton>
                   <div className='shadow-md rounded-lg border border-slate-300 '>
-                    <AggieButton
+                    <AggieButton permission="edit data" permissionResource={report}
                       variant={"light:rose"}
                       className='rounded-l-lg'
                       onClick={(e) => {
@@ -146,7 +146,7 @@ const ReportListItem = ({
                     >
                       Ignore
                     </AggieButton>
-                    <AggieButton
+                    <AggieButton permission="edit data" permissionResource={report}
                       variant={"light:green"}
                       className='rounded-r-lg'
                       onClick={(e) => {
@@ -202,7 +202,7 @@ const ReportListItem = ({
               <p>{incident._reports.length} Reports</p>
             </Link>
           ) : (
-            <AggieButton
+            <AggieButton permission="edit data" permissionResource={{ canEdit: (groupSelection ?? [report]).every((item) => item.canEdit === true) }}
               onClick={(e) => {
                 e.stopPropagation();
                 setAttachSelection(groupSelection ?? [report]);
