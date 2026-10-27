@@ -30,6 +30,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DateTime from "../../../components/DateTime";
+import CommentContent from "./CommentContent";
 import DropdownMenu from "../../../components/DropdownMenu";
 
 const CommentImagePreview = ({ src, name }: { src: string; name: string }) => {
@@ -296,9 +297,7 @@ const Comment = ({ data, groupId }: IProps) => {
         </Formik>
       ) : (
         <div className="bg-white dark:bg-gray-800 flex flex-col gap-3 px-3 py-3 whitespace-pre-line">
-          <p>
-            <Linkify>{data.data}</Linkify>
-          </p>
+          <CommentContent text={data.data} />
           <FileChipList
             nameList={nameList.filter((_, index) => {
               const attachment = data.attachments[index];
