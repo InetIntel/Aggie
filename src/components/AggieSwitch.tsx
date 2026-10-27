@@ -1,22 +1,29 @@
+import { ActionPermission } from "../utils/permissions";
+import { usePermission } from "../hooks/usePermission";
+import PermissionHint from "./PermissionHint";
 import { Switch } from "@headlessui/react";
 
 interface IProps {
+  permission?: ActionPermission;
   checked: boolean;
   onChange: () => void;
   label?: string;
   disabled?: boolean;
 }
 const AggieSwitch = ({
+  permission,
   checked,
   onChange,
   label = "turn on or off",
   disabled = false,
 }: IProps) => {
+  const allowed = usePermission(permission);
   return (
+    <PermissionHint denied={!allowed}>
     <Switch
       checked={checked}
       onChange={onChange}
-      disabled={disabled}
+      disabled={disabled || !allowed}
       className={`${
         checked ? "bg-blue-600 dark:bg-blue-600 dark:saturate-[0.7]" : "bg-gray-200"
       } relative inline-flex h-6 w-11 items-center rounded-full border border-slate-300 disabled:pointer-events-none disabled:opacity-75`}
@@ -28,6 +35,7 @@ const AggieSwitch = ({
         } inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-800 transition border border-slate-400`}
       />
     </Switch>
+    </PermissionHint>
   );
 };
 

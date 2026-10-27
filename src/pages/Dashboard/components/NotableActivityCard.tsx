@@ -1,3 +1,4 @@
+import AggieButton from "../../../components/AggieButton";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -162,7 +163,7 @@ function NotableActivityCard({
           </Link>
         ) : (
           <>
-            <button
+            <AggieButton permission="create incident"
               type='button'
               onClick={onCreateIncident}
               disabled={!cacheKey || isCreatingIncident}
@@ -173,8 +174,8 @@ function NotableActivityCard({
                 className={isCreatingIncident ? "animate-spin" : ""}
               />
               <span>{isCreatingIncident ? "Creating" : "New Incident"}</span>
-            </button>
-            <button
+            </AggieButton>
+            <AggieButton permission="edit data"
               type='button'
               onClick={onAddToIncident}
               disabled={!cacheKey || isCreatingIncident}
@@ -182,7 +183,7 @@ function NotableActivityCard({
             >
               <FontAwesomeIcon icon={faFolderPlus} />
               <span>Add to Incident</span>
-            </button>
+            </AggieButton>
           </>
         )}
       </div>

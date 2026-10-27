@@ -69,6 +69,8 @@ const ReportsCompareModal = ({
           <div className='flex justify-center'>
             <div className='inline-grid grid-cols-2 gap-2'>
               <AggieButton
+                permission='create incident'
+                permissionResource={{ canEdit: effective.every((report) => report.canEdit === true) }}
                 variant='secondary'
                 className='justify-center px-3 py-1.5 text-sm'
                 icon={faFileCirclePlus}
@@ -79,6 +81,8 @@ const ReportsCompareModal = ({
                 {plural(effective.length)})
               </AggieButton>
               <AggieButton
+                permission='edit data'
+                permissionResource={{ canEdit: effective.every((report) => report.canEdit === true) }}
                 variant='primary'
                 className='justify-center px-3 py-1.5 text-sm'
                 icon={faPlus}

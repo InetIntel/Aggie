@@ -240,8 +240,8 @@ const IncidentInfo = ({
               </span>
             )}
             <TagsList values={group?.smtcTags} />
-            {canManageTags && group && (
-              <AggieButton
+            {group && (
+              <AggieButton permission="edit data"
                 type='button'
                 variant='secondary'
                 className='text-xs'
