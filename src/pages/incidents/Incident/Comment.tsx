@@ -300,24 +300,20 @@ const Comment = ({ data, groupId }: IProps) => {
             <Linkify>{data.data}</Linkify>
           </p>
           <FileChipList
-            nameList={nameList.filter(
-              (_, index) =>
-                !(
-                  !(data.attachments[index] instanceof File) &&
-                  ["image/jpeg", "image/png"].includes(
-                    data.attachments[index].mimeType,
-                  )
-                ),
-            )}
-            pathList={pathList.filter(
-              (_, index) =>
-                !(
-                  !(data.attachments[index] instanceof File) &&
-                  ["image/jpeg", "image/png"].includes(
-                    data.attachments[index].mimeType,
-                  )
-                ),
-            )}
+            nameList={nameList.filter((_, index) => {
+              const attachment = data.attachments[index];
+              return (
+                attachment instanceof File ||
+                !["image/jpeg", "image/png"].includes(attachment.mimeType)
+              );
+            })}
+            pathList={pathList.filter((_, index) => {
+              const attachment = data.attachments[index];
+              return (
+                attachment instanceof File ||
+                !["image/jpeg", "image/png"].includes(attachment.mimeType)
+              );
+            })}
             edit={false}
           />
           <div className="flex flex-wrap gap-2">
