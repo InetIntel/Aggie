@@ -37,18 +37,18 @@ const CommentImagePreview = ({ src, name }: { src: string; name: string }) => {
 
   return (
     <>
-      <div className="flex w-32 flex-col items-center gap-1">
+      <div className="flex w-full flex-col gap-2">
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="overflow-hidden rounded-lg border border-slate-300"
+          className="w-full overflow-hidden rounded-lg border border-slate-300"
           aria-label={`Preview ${name}`}
         >
           <img
             src={src}
             alt={name}
             loading="lazy"
-            className="h-32 w-32 object-cover hover:opacity-80"
+            className="block h-auto w-full object-contain hover:opacity-80"
           />
         </button>
 
@@ -316,7 +316,7 @@ const Comment = ({ data, groupId }: IProps) => {
             })}
             edit={false}
           />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-col gap-4">
             {data.attachments.map((attachment, index) => {
               if (
                 attachment instanceof File ||
