@@ -301,10 +301,22 @@ const Comment = ({ data, groupId }: IProps) => {
           </p>
           <FileChipList
             nameList={nameList.filter(
-              (name) => !/\.(jpg|jpeg|png)$/i.test(name),
+              (_, index) =>
+                !(
+                  !(data.attachments[index] instanceof File) &&
+                  ["image/jpeg", "image/png"].includes(
+                    data.attachments[index].mimeType,
+                  )
+                ),
             )}
             pathList={pathList.filter(
-              (_, index) => !/\.(jpg|jpeg|png)$/i.test(nameList[index] || ""),
+              (_, index) =>
+                !(
+                  !(data.attachments[index] instanceof File) &&
+                  ["image/jpeg", "image/png"].includes(
+                    data.attachments[index].mimeType,
+                  )
+                ),
             )}
             edit={false}
           />
