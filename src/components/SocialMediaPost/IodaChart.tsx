@@ -186,6 +186,7 @@ const IodaChart = ({ chart, compact, fill, outageStart, outageEnd }: IProps) => 
               fill='#ef4444'
               fillOpacity={0.08}
               strokeOpacity={0}
+              ifOverflow='hidden'
             />
           )}
           <XAxis
