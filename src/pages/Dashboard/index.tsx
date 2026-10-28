@@ -252,8 +252,10 @@ const Dashboard = () => {
 
   const liveNotableActivities = notableActivitiesQuery.data?.notableActivities || [];
   const isDismissedView = notableView === "dismissed";
+  // hide single report cards
   const visibleLiveNotableActivities = liveNotableActivities.filter(
-    (activity) => !!activity.dismissal === isDismissedView
+    (activity) =>
+      activity.totalReports > 1 && !!activity.dismissal === isDismissedView
   );
   const activeNotableActivityCount = visibleLiveNotableActivities.length;
   const notablePageCount = Math.max(
