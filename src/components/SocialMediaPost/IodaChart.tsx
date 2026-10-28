@@ -31,7 +31,8 @@ interface IProps {
 }
 
 // One merged row per timestamp: recharts wants a single data array, so we key every
-// series' points by ts and leave gaps null (connectNulls bridges differing steps).
+// series' points by ts, interpolating between a series' own samples (steps differ) and
+// leaving real data gaps null so they render as breaks.
 type Row = { ts: number } & Record<string, number | null>;
 
 const TWO_DAYS = 2 * 24 * 60 * 60;
@@ -101,23 +102,44 @@ const IodaChart = ({ chart, compact, fill, outageStart, outageEnd }: IProps) => 
   }, []);
 
   const { rows, activeDatasources } = useMemo(() => {
-    const byTs = new Map<number, Row>();
-    const active: string[] = [];
+    const active: Array<{ datasource: string; points: Array<[number, number | null]> }> = [];
+    const allTs = new Set<number>();
 
     for (const s of chart.series || []) {
-      const normalized = normalize(s.points);
+      const normalized = normalize(s.points).sort((a, b) => a[0] - b[0]);
       const hasValue = normalized.some(([, v]) => v !== null);
       if (!hasValue) continue;
-      active.push(s.datasource);
-      for (const [ts, v] of normalized) {
-        const row = byTs.get(ts) || ({ ts } as Row);
-        row[s.datasource] = v;
-        byTs.set(ts, row);
+      active.push({ datasource: s.datasource, points: normalized });
+      for (const [ts] of normalized) allTs.add(ts);
+    }
+
+    const sortedTs = Array.from(allTs).sort((a, b) => a - b);
+    const merged: Row[] = sortedTs.map((ts) => ({ ts } as Row));
+
+    // Fill each series at every merged ts. Series sample on different steps, so most rows
+    // fall between a series' own points: interpolate there, but only when both neighbours
+    // have data. IODA's own nulls (and anything bordering one) stay null so they render as
+    // gaps — no connectNulls, which would bridge real outages in the data.
+    for (const { datasource, points } of active) {
+      let i = 0;
+      for (const row of merged) {
+        while (i < points.length && points[i][0] < row.ts) i++;
+        if (i < points.length && points[i][0] === row.ts) {
+          row[datasource] = points[i][1];
+          continue;
+        }
+        const prev = points[i - 1];
+        const next = points[i];
+        if (prev && next && prev[1] !== null && next[1] !== null) {
+          const t = (row.ts - prev[0]) / (next[0] - prev[0]);
+          row[datasource] = prev[1] + t * (next[1] - prev[1]);
+        } else {
+          row[datasource] = null;
+        }
       }
     }
 
-    const sorted = Array.from(byTs.values()).sort((a, b) => a.ts - b.ts);
-    return { rows: sorted, activeDatasources: active };
+    return { rows: merged, activeDatasources: active.map((s) => s.datasource) };
   }, [chart]);
 
   if (!rows.length || !activeDatasources.length) return null;
@@ -193,13 +215,12 @@ const IodaChart = ({ chart, compact, fill, outageStart, outageEnd }: IProps) => 
           {activeDatasources.map((ds) => (
             <Line
               key={ds}
-              type='monotone'
+              type='linear'
               dataKey={ds}
               name={SIGNAL_CHART_LABEL[ds] || SIGNAL_LABEL[ds] || ds}
               stroke={SIGNAL_HEX[ds] || "#64748b"}
               strokeWidth={2}
               dot={false}
-              connectNulls
               isAnimationActive={false}
             />
           ))}
