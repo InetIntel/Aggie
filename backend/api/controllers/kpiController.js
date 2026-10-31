@@ -13,36 +13,38 @@ async function report(req, res, exporting = false) {
   let range;
   try { range = resolveRange(req.query); }
   catch (error) { return res.status(400).send(error.message); }
-  const teamId = req.query.team;
-  if (teamId !== undefined && (typeof teamId !== 'string' || !/^(unknown|unassigned|[a-f0-9]{24})$/.test(teamId))) {
-    return res.status(400).send('Choose a valid team.');
+  const input = req.query.team;
+  const requestedIds = input === undefined ? [] : typeof input === 'string' ? input.split(',') : input;
+  if (!Array.isArray(requestedIds) || requestedIds.some((id) => typeof id !== 'string' || !/^(unknown|unassigned|[a-f0-9]{24})$/.test(id))) {
+    return res.status(400).send('Choose valid teams.');
   }
-  if (teamId && !access.global && !access.teamIds.includes(teamId)) return res.sendStatus(403);
-  const canExport = canExportKpis(access, teamId);
+  const selectedIds = [...new Set(requestedIds)];
+  if (!access.global && selectedIds.some((id) => !access.teamIds.includes(id))) return res.sendStatus(403);
+  const canExport = canExportKpis(access, selectedIds);
   if (exporting && !canExport) return res.sendStatus(403);
   const scope = access.global ? undefined : access.teamIds;
   try {
     await tracking.ready;
     const [aggregates, marker, teamAggregates, teamMarker] = await Promise.all([
-      KpiEvent.aggregate(buildPipeline(range, scope)).exec(),
+      KpiEvent.aggregate(buildPipeline(range, selectedIds.length ? selectedIds : scope)).exec(),
       KpiEvent.findById('tracking-started').lean().exec(),
       KpiEvent.aggregate(buildTeamPipeline(range, scope)).exec(),
       KpiEvent.findById('team-tracking-started').lean().exec(),
     ]);
     const teamReports = formatTeams(range, teamAggregates, req.kpiTeams, marker?.at || null, teamMarker?.at || null)
       .filter((team) => access.global || access.teamIds.includes(team.id));
-    const selected = teamId && teamReports.find((team) => team.id === teamId);
-    if (teamId && !selected) return res.status(400).send('Team is not available in this date range.');
-    const overview = selected || formatReport(range, aggregates, (access.global ? marker?.at : teamMarker?.at) || null);
+    if (selectedIds.some((id) => !teamReports.some((team) => team.id === id))) return res.status(400).send('A selected team is not available in this date range.');
+    const includeHistory = selectedIds.length ? selectedIds.includes('unknown') : access.global;
+    const overview = formatReport(range, aggregates, (includeHistory ? marker?.at : teamMarker?.at) || null);
     res.set('Cache-Control', 'no-store');
     const result = {
       ...overview,
-      selectedTeam: teamId || null,
+      selectedTeams: selectedIds,
       globalAccess: access.global,
       canExport,
       teamTrackingStartedAt: teamMarker?.at || null,
       teamOptions: teamReports.map(({ id, name }) => ({ id, name })),
-      teams: (selected ? [selected] : teamReports).map(({ id, name, totals, shared, days, trackingStartedAt }) => ({
+      teams: teamReports.filter((team) => !selectedIds.length || selectedIds.includes(team.id)).map(({ id, name, totals, shared, days, trackingStartedAt }) => ({
         id, name, totals, shared, trackingStartedAt,
         coverage: days.every((day) => day.coverage === 'unavailable') ? 'unavailable'
           : days.every((day) => day.coverage === 'complete') ? 'complete' : 'partial',
@@ -51,7 +53,7 @@ async function report(req, res, exporting = false) {
     };
     if (exporting) {
       res.set('Content-Type', 'text/csv; charset=utf-8');
-      res.set('Content-Disposition', `attachment; filename="aggie-kpis-${teamId || 'all-accessible-teams'}-${range.start.toISOString().slice(0, 10)}.csv"`);
+      res.set('Content-Disposition', `attachment; filename="aggie-kpis-${selectedIds.length ? 'selected-teams' : 'all-accessible-teams'}-${range.start.toISOString().slice(0, 10)}.csv"`);
       return res.send(reportCsv(result, range));
     }
     return res.json(result);
