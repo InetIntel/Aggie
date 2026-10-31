@@ -22,6 +22,13 @@ By default, viewers can read, monitors can read and edit, legacy team leads keep
 | Configure sources | Yes | Only with an override | Only with an override | Only with an override | No |
 | View global visualization totals | Yes | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` |
 | Edit permission overrides | Yes | No | No | No | No |
+| View team KPIs | All teams | Teams led or granted | Teams led or granted | Only with an exception | Only with an exception |
+| View platform-wide KPIs | Yes | Only with `view all kpis` | Only with `view all kpis` | Only with `view all kpis` | Only with `view all kpis` |
+| Export KPIs | Yes | Accessible teams with export permission | Accessible teams with export permission | Only with view and export permissions | Only with view and export permissions |
+
+Account permissions are on the user's profile. Team permissions are under Teams → Advanced. Both are grouped by what they control.
+
+For KPIs, `view team kpis` covers the user's own teams; `view all kpis` covers the whole platform. Exporting needs its own permission. Denies and team limits block team access, but don't override a separate platform-wide grant.
 
 ## Access modes
 

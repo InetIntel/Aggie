@@ -24,9 +24,11 @@ function resolveRange(query, now = new Date()) {
   return { start, end: new Date(end.getTime() + DAY) };
 }
 
-function buildPipeline({ start, end }) {
+function buildPipeline({ start, end }, teamIds) {
   return [
-    { $match: { at: { $gte: start, $lt: end }, kind: { $ne: 'tracking_started' } } },
+    { $match: { at: { $gte: start, $lt: end }, kind: { $nin: ['tracking_started', 'team_tracking_started'] },
+      ...(teamIds ? { teamIds: { $in: teamIds } } : {}),
+    } },
     { $group: {
       _id: { date: { $dateToString: { format: '%Y-%m-%d', date: '$at', timezone: 'UTC' } },
         kind: '$kind', category: '$category', subject: '$subject' },

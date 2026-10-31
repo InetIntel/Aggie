@@ -24,7 +24,7 @@ function kpiPlugin(schema, { entity, recordEvents }) {
   schema.post('save', async function () {
     const events = this.$locals.kpiEvents || [];
     this.$locals.kpiEvents = [];
-    await recordEvents(events);
+    await recordEvents(events, entity === 'user' ? this : undefined);
   });
 }
 

@@ -10,12 +10,14 @@ const TEAM_PERMISSION_KEYS = Object.freeze([
   'view data',
   'edit data',
   'manage incident access',
+  'view team kpis',
+  'export kpis',
 ]);
 
 const TEAM_ROLE_PERMISSIONS = Object.freeze({
   viewer: ['view data'],
   monitor: ['view data', 'edit data'],
-  team_lead: ['view data', 'edit data', 'manage incident access'],
+  team_lead: ['view data', 'edit data', 'manage incident access', 'view team kpis', 'export kpis'],
 });
 
 const normalizeId = (value) => {
