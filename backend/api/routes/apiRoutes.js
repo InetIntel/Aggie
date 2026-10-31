@@ -17,6 +17,7 @@ const teamRouter = require('./teamRoutes');
 const permissionRouter = require('./permissionRoutes');
 
 // Add all API routes
+router.use(require('../utils/kpiContext').middleware);
 router.use('/analytics', analyticsRouter);
 router.use('/asn', asnRouter);
 router.use('/credential', credentialRouter);

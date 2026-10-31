@@ -1,6 +1,8 @@
 import { hasId } from "../common";
 
 export type TeamPermission =
+  | "view team kpis"
+  | "export kpis"
   | "view data"
   | "edit data"
   | "manage incident access";

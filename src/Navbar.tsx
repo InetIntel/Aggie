@@ -205,7 +205,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
                 </Menu.Item>
               ))}
             </div>
-            {Object.entries(menuLinks(session?.role, session?.isTeamLead, session?._id)).map(([name, link]) => (
+            {Object.entries(menuLinks(session?.role, session?.isTeamLead, session?._id, session?.kpiAccess?.canView)).map(([name, link]) => (
               <Menu.Item key={name}>
                 {({ active }) => (
                   <Link

@@ -20,6 +20,7 @@ export interface Session extends hasId {
   permissions?: Permission[];
   teamRoles?: Record<string, "viewer" | "monitor" | "team_lead">;
   isTeamLead?: boolean;
+  kpiAccess?: { canView: boolean; global: boolean; globalExport: boolean; teamIds: string[]; exportTeamIds: string[] };
   username: string;
   mfa?: boolean;              // session is MFA-verified
   mfa_enrolled?: boolean;     // account has at least one WebAuthn / TOTP credential
@@ -96,6 +97,9 @@ export interface TotpRecoveryCodesResponse {
 }
 
 export type Permission =
+  | "view team kpis"
+  | "view all kpis"
+  | "export kpis"
   | "manage trends"
   | "view data"
   | "edit data"

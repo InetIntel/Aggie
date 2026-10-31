@@ -8,11 +8,14 @@ const { mongoose } = require('../database');
 const schema = new mongoose.Schema({
   _id: { type: String, default: randomUUID },
   kind: { type: String, required: true, enum: [
-    'tracking_started', 'signup', 'login', 'incident_created',
+    'tracking_started', 'team_tracking_started', 'signup', 'login', 'incident_created',
     'assigned', 'investigate', 'ignore',
   ] },
   at: { type: Date, default: Date.now, required: true },
   subject: String,
+  actor: String,
+  // Missing means unknown; an empty array means the user had no active team.
+  teamIds: { type: [String], default: undefined },
   category: { type: String, enum: ['alerts', 'social'] },
 });
 schema.index({ at: 1, kind: 1 });
