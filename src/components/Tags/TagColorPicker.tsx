@@ -1,11 +1,14 @@
 import { Popover } from "@headlessui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HexColorPicker } from "react-colorful";
+import TagBadge from "./TagBadge";
 
-export default function TagColorPicker({ value, onChange, disabled = false }: {
+export default function TagColorPicker({ value, onChange, disabled = false, previewName, onPreviewChange }: {
   value: string;
   onChange: (color: string) => void;
   disabled?: boolean;
+  previewName?: string;
+  onPreviewChange?: (color: string) => void;
 }) {
   const color = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#7c3aed";
   const [draft, setDraft] = useState(color);
@@ -13,14 +16,16 @@ export default function TagColorPicker({ value, onChange, disabled = false }: {
   const rgb = [1, 3, 5].map((index) => parseInt((valid ? draft : color).slice(index, index + 2), 16));
   return (
     <Popover className='relative text-slate-600 dark:text-gray-400'>
+      {({ open }) => <>
+      <ColorPreviewSync color={open && valid ? draft : color} onChange={onPreviewChange} />
       <span className='mb-1 block'>Color</span>
       <div className='flex items-center gap-3'>
         <Popover.Button type='button' disabled={disabled} aria-label='Choose tag color'
           onClick={() => setDraft(color)}
           className='focus-theme h-10 w-16 shrink-0 rounded border border-slate-300 bg-slate-50 p-1 disabled:opacity-60 dark:bg-gray-900'>
-          <span className='block h-full w-full rounded-sm' style={{ backgroundColor: color }} />
+          <span className='block h-full w-full rounded-sm' style={{ backgroundColor: open && valid ? draft : color }} />
         </Popover.Button>
-        <span className='font-mono text-sm'>{color.toUpperCase()}</span>
+        <span className='font-mono text-sm'>{(open && valid ? draft : color).toUpperCase()}</span>
       </div>
       <Popover.Panel className='absolute left-0 z-20 mt-2 w-64 max-w-full space-y-3 rounded-lg border border-slate-300 bg-white p-3 shadow-lg dark:bg-gray-800'>
         {({ close }) => <>
@@ -49,9 +54,10 @@ export default function TagColorPicker({ value, onChange, disabled = false }: {
               className='focus-theme mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1 font-mono dark:bg-gray-900' />
           </label>
           {!valid && <p className='text-xs text-red-700 dark:text-red-300'>Use a color like #7C3AED.</p>}
+          <div aria-label='Tag preview' aria-live='polite'>
+            <TagBadge tag={{ name: previewName?.trim() || "Tag name", category: "special", color: valid ? draft : color }} />
+          </div>
           <div className='flex items-center gap-2'>
-            <span aria-label='Color preview' className='h-7 w-7 rounded border border-slate-300'
-              style={{ backgroundColor: valid ? draft : color }} />
             <button type='button' disabled={!valid || disabled}
               onClick={() => { onChange(draft.toLowerCase()); close(); }}
               className='focus-theme rounded bg-sky-700 px-3 py-1 text-sm text-white disabled:opacity-50'>Save color</button>
@@ -60,6 +66,12 @@ export default function TagColorPicker({ value, onChange, disabled = false }: {
           </div>
         </>}
       </Popover.Panel>
+      </>}
     </Popover>
   );
+}
+
+function ColorPreviewSync({ color, onChange }: { color: string; onChange?: (color: string) => void }) {
+  useEffect(() => { onChange?.(color); }, [color, onChange]);
+  return null;
 }

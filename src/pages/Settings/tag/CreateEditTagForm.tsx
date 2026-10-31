@@ -149,7 +149,7 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
 function SpecialTagColor() {
   const { values, setFieldValue } = useFormikContext<editSchema>();
   return values.category === "special"
-    ? <TagColorPicker value={values.color}
+    ? <TagColorPicker value={values.color} previewName={values.name}
         onChange={(color) => setFieldValue("color", color)} /> : null;
 }
 
