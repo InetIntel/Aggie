@@ -10,7 +10,14 @@ type TeamSummary = {
   id: string; name: string; coverage: string; trackingStartedAt: string | null;
   totals: Record<string, number | null>; shared: Record<string, number | null>;
 };
+type Inventory = {
+  available: boolean; asOf: string; global: boolean;
+  users: number; incidents: number; sources: number; enabledSources: number;
+  policies: Record<string, number>;
+  bySource: { id: string; name: string; media: string; alerts: number; social: number }[];
+};
 type KpiReport = {
+  inventory?: Inventory;
   columns: { key: string; label: string }[];
   days: Day[];
   totals: Record<string, number | null>;
@@ -65,6 +72,7 @@ export default function Kpis({ accessKey = '' }: { accessKey?: string }) {
   const [teamOptions, setTeamOptions] = useState<{ id: string; name: string }[]>([]);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+  const [moreTotals, setMoreTotals] = useState(false);
   useEffect(() => { setTeams([]); setTeamOptions([]); setTeamSearch(''); }, [accessKey]);
   useEffect(() => { document.title = 'KPI tracking - Aggie'; }, []);
   const valid = !!start && !!end && start <= end && end <= isoDate(new Date()) &&
@@ -75,6 +83,12 @@ export default function Kpis({ accessKey = '' }: { accessKey?: string }) {
     { enabled: valid, retry: false }
   );
   useEffect(() => { if (data) setTeamOptions(data.teamOptions); }, [data]);
+  const inventoryQuery = useQuery<KpiReport>(
+    ['kpis', accessKey, start, end, teams, 'inventory'],
+    async () => (await axios.get('/api/analytics/kpis', { params: { start, end, team: teams.length ? teams.join(',') : undefined, details: '1' } })).data,
+    { enabled: valid && moreTotals, retry: false }
+  );
+  const inventory = inventoryQuery.data?.inventory;
   const presets = [{ days: 7, label: 'Past week (7 days)' }, { days: 30, label: 'Past month (30 days)' }, { days: 90, label: 'Past quarter (90 days)' }];
   const today = isoDate(new Date());
   const preset = end === today ? presets.find(({ days }) => Date.parse(today) - Date.parse(start) === (days - 1) * 86400000)?.days : undefined;
@@ -128,7 +142,7 @@ export default function Kpis({ accessKey = '' }: { accessKey?: string }) {
       }}><option value="custom">Custom dates</option>{presets.map(({ days, label }) => <option key={days} value={days}>{label}</option>)}</select></label>
       <label className={dateControlClass}><span className="font-medium text-slate-700 dark:text-gray-200">Start date (UTC)</span><input className={dateInputClass} type="date" value={start} max={end} onChange={(event) => { setStart(event.target.value); setCustomRange(true); }} /></label>
       <label className={dateControlClass}><span className="font-medium text-slate-700 dark:text-gray-200">End date (UTC)</span><input className={dateInputClass} type="date" value={end} min={start} max={isoDate(new Date())} onChange={(event) => { setEnd(event.target.value); setCustomRange(true); }} /></label>
-      <button className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.08)] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" disabled={!valid || isFetching} onClick={() => refetch()}><FontAwesomeIcon icon={faRotateRight} className="h-4 w-4 shrink-0" aria-hidden />Refresh</button>
+      <button className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.08)] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" disabled={!valid || isFetching} onClick={() => { refetch(); if (moreTotals) inventoryQuery.refetch(); }}><FontAwesomeIcon icon={faRotateRight} className="h-4 w-4 shrink-0" aria-hidden />Refresh</button>
       {data?.canExport && <button className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-[#166534] px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50" disabled={!valid || isFetching || isError || exporting} onClick={exportCsv}><FontAwesomeIcon icon={faDownload} className="h-4 w-4 shrink-0" aria-hidden />{exporting ? 'Exporting…' : 'Export CSV'}</button>}
     </div>
     {!valid && <p role="alert">Choose a valid date range of up to 366 days ending today or earlier.</p>}
@@ -176,6 +190,32 @@ export default function Kpis({ accessKey = '' }: { accessKey?: string }) {
           </table>
         </div>
         <p className="mt-3 text-xs text-slate-500 dark:text-gray-400">Shared counts are included in each team’s total. {data.globalAccess ? 'Overall' : 'Accessible-team'} totals count each activity once.{!data.globalAccess && ' Shared counts only include teams you can access.'}</p>
+      </section>
+      <section className={sectionCardClass}>
+        <button type="button" className={`flex w-full items-center justify-between gap-3 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-600 text-xl font-semibold`} aria-expanded={moreTotals} aria-controls="kpi-more-totals" onClick={() => setMoreTotals(!moreTotals)}>
+          More totals<FontAwesomeIcon icon={faChevronDown} className={`h-4 w-4 transition-transform ${moreTotals ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+        {moreTotals && <div id="kpi-more-totals" className="mt-4 space-y-4">
+          {inventoryQuery.isFetching && <p role="status">Loading totals…</p>}
+          {inventoryQuery.isError && <p role="alert">Unable to load totals. <button type="button" className="underline" onClick={() => inventoryQuery.refetch()}>Try again</button></p>}
+          {!inventoryQuery.isError && inventory && <>{!inventory.available ? <p className="text-sm text-slate-500 dark:text-gray-400">Choose named teams or all teams to see current totals. Historical activity buckets do not have current totals.</p> : <>
+            <h2 className="text-[11px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-400">Current totals</h2>
+            <p className="text-sm text-slate-500 dark:text-gray-400">Current records, regardless of date range.{!inventory.global && ' Users belong to the selected teams; incidents and sources are available to those teams, including public content.'}</p>
+            <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {[['Users', inventory.users], ['Incidents', inventory.incidents], ['Sources / feeds', inventory.sources], ['Enabled sources / feeds', inventory.enabledSources]].map(([label, value]) => <div key={label} className="rounded-[10px] bg-white px-3 py-2 shadow-[0_4px_10px_rgba(0,0,0,0.2)] dark:bg-gray-700"><dt className="text-sm text-slate-600 dark:text-gray-300">{label}</dt><dd className="text-[15px] font-bold tabular-nums text-slate-900 dark:text-white">{display(value)}</dd></div>)}
+            </dl>
+            <p className="text-sm text-slate-600 dark:text-gray-300">Source access: {display(inventory.policies.public)} public · {display(inventory.policies.restricted)} team-restricted · {display(inventory.policies.country_restricted)} country-restricted · {display(inventory.policies.public_until)} date-limited</p>
+            <h3 id="kpi-sources-heading" className="text-[11px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-400">Reports by source</h3>
+            <p className="text-sm text-slate-500 dark:text-gray-400">Current sources, with reports received during the selected dates (UTC). Reports in multiple sources count once in each source.</p>
+            <div className="max-h-80 overflow-auto rounded-lg border border-slate-200 dark:border-gray-700">
+              <table className="w-full text-right text-sm tabular-nums" aria-labelledby="kpi-sources-heading">
+                <thead className="sticky top-0 bg-slate-50 text-slate-700 dark:bg-gray-700 dark:text-gray-200"><tr><th scope="col" className="p-3 text-left">Source / feed</th><th scope="col" className="p-3">Alerts</th><th scope="col" className="p-3">Social posts</th></tr></thead>
+                <tbody>{inventory.bySource.map((source) => <tr key={source.id} className="border-t border-slate-200 text-slate-700 dark:border-gray-700 dark:text-gray-200"><th scope="row" className="p-3 text-left font-medium break-words">{source.name}<span className="block text-xs font-normal text-slate-500 dark:text-gray-400">{source.media}</span></th><td className="p-3">{display(source.alerts)}</td><td className="p-3">{display(source.social)}</td></tr>)}</tbody>
+              </table>
+              {!inventory.bySource.length && <p className="p-3 text-sm">No sources available.</p>}
+            </div>
+          </>}</>}
+        </div>}
       </section>
     </>}
   </section>;
