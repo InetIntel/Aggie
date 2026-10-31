@@ -10,7 +10,7 @@ async function requireKpiAccess(req, res, next) {
     const user = await User.findById(req.user._id || req.user.id)
       .select('_id role active teams teamMemberships permissionOverrides').lean().exec();
     if (!user || user.active === false) return res.sendStatus(401);
-    const teams = await Team.find({}).select('_id name active leads permissionLimits').lean().exec();
+    const teams = await Team.find({}).select('_id name active leads permissionLimits countryCodes').lean().exec();
     const ledIds = teams.filter((team) => (team.leads || []).some((id) => String(id) === String(user._id))).map((team) => String(team._id));
     req.kpiAccess = getKpiAccess(user, teams, ledIds);
     if (!req.kpiAccess.canView) return res.sendStatus(403);
