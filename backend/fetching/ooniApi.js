@@ -1,11 +1,19 @@
 const AGGREGATION_URL = 'https://api.ooni.org/api/v1/aggregation';
 const MEASUREMENTS_URL = 'https://api.ooni.org/api/v1/measurements';
 
-async function hasMeasurements({ asn, since, until, domain, fetchImpl = fetch }) {
+async function hasMeasurements({
+  asn,
+  since,
+  until,
+  domain,
+  probeCC = 'IR',
+  testName = 'web_connectivity',
+  fetchImpl = fetch,
+}) {
   const params = new URLSearchParams({
-    probe_cc: 'IR',
+    probe_cc: probeCC,
     probe_asn: `AS${asn}`,
-    test_name: 'web_connectivity',
+    test_name: testName,
     since,
     until,
     limit: '1',
@@ -29,16 +37,22 @@ async function fetchDailyMeasurements({
   since,
   until,
   axisX = 'measurement_start_day',
+  axisY,
+  timeGrain,
+  probeCC = 'IR',
+  testName = 'web_connectivity',
   fetchImpl = fetch,
 }) {
   const params = new URLSearchParams({
-    probe_cc: 'IR',
+    probe_cc: probeCC,
     probe_asn: String(asn),
-    test_name: 'web_connectivity',
+    test_name: testName,
     axis_x: axisX,
     since,
     until,
   });
+  if (axisY) params.set('axis_y', axisY);
+  if (timeGrain) params.set('time_grain', timeGrain);
   const url = `${AGGREGATION_URL}?${params}`;
   const response = await fetchImpl(url, {
     headers: { accept: 'application/json' },

@@ -17,6 +17,20 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+ /*
+  * Apply to any element rendering user-generated post text (report content,
+  * author names, notes), together with `dir={detectTextDirection(text)}` from
+  * `src/utils/format.tsx`.
+  */
+ .post-text {
+   text-align: start;
+   overflow-wrap: break-word;
+   word-break: normal;
+ }
+}
+
+
 @layer defaults {
   /* todo: switch to tailwind ring-* implementatino (conflicts with bootstrap rightno) */
   .focus-theme-base {
@@ -31,6 +45,7 @@
   .focus-within-theme .focus-theme {
     @apply focus-theme-base;
   }
+
 }
 
 body {

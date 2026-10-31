@@ -211,7 +211,7 @@ function DataTableRowInner<T>({
             {spilledColumns.length > 0 && (
               <dl className='flex flex-col'>
                 {spilledColumns.map((col) => (
-                  <div key={col.id} className='mb-1 flex gap-1'>
+                  <div key={col.id} className='mb-1 flex items-center gap-1'>
                     <dt className='font-semibold text-slate-700 dark:text-gray-300 shrink-0'>
                       {col.spilloverLabel ??
                         (typeof col.header === "string"

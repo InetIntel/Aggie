@@ -7,6 +7,14 @@ const util = require('util');
 const EventEmitter = require('events').EventEmitter;
 const Report = require('../models/report');
 const { getMaterializedNotableActivities } = require('./utils/analyticsMaterialization');
+const {
+  DEFAULT_AGGREGATION_METHOD,
+  DEFAULT_TIME_ZONE,
+  MAX_RANGE_MS,
+  normalizeAggregationMethod,
+  normalizeStartTimeToleranceMinutes,
+  normalizeTimeZone,
+} = require('./utils/analyticsTime');
 
 const QUERY_INTERVAL = 1000; // 1s
 const ANALYTICS_QUERY_INTERVAL = 60000; // 60s
@@ -44,22 +52,27 @@ Streamer.prototype.removeQuery = function (query) {
   this.queries = _.without(this.queries, query);
 };
 
+// Returns false when the subscription is refused (malformed or oversized window).
 Streamer.prototype.addAnalyticsQuery = function (query, clientId) {
-  if (!query || !query.cacheKey) return;
+  if (!query || !query.cacheKey) return false;
+
+  const normalized = normalizeAnalyticsQuery(query);
+  if (!normalized) return false;
 
   const existing = this.analyticsQueries[query.cacheKey];
   if (existing) {
     existing.clients = _.union(existing.clients, [clientId]);
-    existing.query = normalizeAnalyticsQuery(query);
-    return;
+    existing.query = normalized;
+    return true;
   }
 
   this.analyticsQueries[query.cacheKey] = {
-    query: normalizeAnalyticsQuery(query),
+    query: normalized,
     clients: [clientId],
     dirty: false,
     refreshing: false,
   };
+  return true;
 };
 
 Streamer.prototype.removeAnalyticsQuery = function (cacheKey, clientId) {
@@ -106,6 +119,7 @@ Streamer.prototype.refreshDirtyAnalyticsQueries = function () {
           cacheKey,
           rangePreset: data.rangePreset,
           bucketPreset: data.bucketPreset,
+          aggregationMethod: data.aggregationMethod,
           computedAt: data.computedAt,
         });
       })
@@ -224,16 +238,48 @@ Streamer.prototype.handleAnalyticsReportNew = function (reportRef) {
 };
 
 function normalizeAnalyticsQuery(query) {
+  // The grouping has to travel with the subscription: the refresh below recomputes under
+  // this timeWindow and writes back to the client's cacheKey. Dropping it here would let a
+  // socket refresh overwrite a startTime result set with fixed-grid activities.
+  let aggregationMethod = DEFAULT_AGGREGATION_METHOD;
+  let startTimeToleranceMinutes;
+  let timeZone = DEFAULT_TIME_ZONE;
+  try {
+    aggregationMethod = normalizeAggregationMethod(query.aggregationMethod);
+    startTimeToleranceMinutes = normalizeStartTimeToleranceMinutes(
+      query.startTimeToleranceMinutes
+    );
+    timeZone = normalizeTimeZone(query.timeZone);
+  } catch (err) {
+    aggregationMethod = DEFAULT_AGGREGATION_METHOD;
+    startTimeToleranceMinutes = normalizeStartTimeToleranceMinutes(undefined);
+    timeZone = DEFAULT_TIME_ZONE;
+  }
+
+  // The window comes straight from the client and every refresh re-aggregates it, so it
+  // gets the same bounds the REST routes enforce.
+  const rangeStartUtc = new Date(query.rangeStartUtc);
+  const rangeEndUtc = new Date(query.rangeEndUtc);
+  const spanMs = rangeEndUtc.getTime() - rangeStartUtc.getTime();
+  if (!(spanMs > 0 && spanMs <= MAX_RANGE_MS) || !(query.bucketSizeMinutes > 0)) {
+    return null;
+  }
+
   return {
     cacheKey: query.cacheKey,
     range: query.rangePreset || query.range,
     bucket: query.bucketPreset || query.bucket,
+    aggregationMethod,
+    startTimeToleranceMinutes,
     timeWindow: {
       rangePreset: query.rangePreset || query.range,
       bucketPreset: query.bucketPreset || query.bucket,
       bucketSizeMinutes: query.bucketSizeMinutes,
-      rangeStartUtc: new Date(query.rangeStartUtc),
-      rangeEndUtc: new Date(query.rangeEndUtc),
+      aggregationMethod,
+      startTimeToleranceMinutes,
+      timeZone,
+      rangeStartUtc,
+      rangeEndUtc,
     },
   };
 }

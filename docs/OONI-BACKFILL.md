@@ -52,6 +52,9 @@ directly. It logs `Inserted: X, skipped: Y` when done — skipped means
 those guids already existed (e.g. the live channel already created them),
 which is expected and safe.
 
+Imported alerts have no 14-day chart - only new alerts get one going forward.
+See docs/OONI.md, "14-day chart on the alert".
+
 ## Notes
 
 - Guids are deterministic (`ooni:<asn>:<mode>:<date>`), matching what the

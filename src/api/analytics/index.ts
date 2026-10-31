@@ -14,6 +14,13 @@ function buildAnalyticsQuery(params: AnalyticsQueryState = {}) {
 
   if (params.range) searchParams.set("range", params.range);
   if (params.bucket) searchParams.set("bucket", params.bucket);
+  if (params.aggregation) searchParams.set("aggregation", params.aggregation);
+  if (typeof params.tolerance === "number") {
+    searchParams.set("tolerance", params.tolerance.toString());
+  }
+  if (params.from) searchParams.set("from", params.from);
+  if (params.to) searchParams.set("to", params.to);
+  if (params.timeZone) searchParams.set("timeZone", params.timeZone);
   if (typeof params.limit === "number") {
     searchParams.set("limit", params.limit.toString());
   }

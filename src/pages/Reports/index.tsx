@@ -50,8 +50,10 @@ const Reports = ({ children }: IProps) => {
         <main className='col-span-2'>{children}</main>
         <aside className='col-span-1'>
           {!hasOutlet ? (
-            <p className='grid w-full py-24 place-items-center font-medium sticky top-2 bg-slate-50 dark:bg-gray-900 rounded-lg mt-4'>
-              Select a report to view in this window
+            <p className='grid w-full py-24 px-6 place-items-center text-center font-medium sticky top-2 bg-slate-50 dark:bg-gray-900 rounded-lg mt-4'>
+              {isAlerts
+                ? "Select an alert to view in this window"
+                : "Select a social media post to view in this window"}
             </p>
           ) : (
             outlet

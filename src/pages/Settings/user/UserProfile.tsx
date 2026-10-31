@@ -413,11 +413,11 @@ const UserProfile = ({ session }: IProps) => {
         onClose={() => setOpenEditPassword(false)}
         className='px-3 py-4 w-full max-w-lg'
         data={{
-          title: `Change password`,
+          title: `Change password for: ${data?.username || ""}`,
         }}
       >
         <SetPassword
-          user={session}
+          user={data}
           onClose={() => setOpenEditPassword(false)}
         />
       </AggieDialog>

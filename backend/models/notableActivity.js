@@ -13,10 +13,21 @@ const notableActivitySchema = new Schema({
   rangeEnd: { type: Date, required: true, index: true },
 
   eventAggKey: { type: String, required: true, index: true },
+  // Under `startTime` this is the '*' sentinel: such activities span many keys, listed in
+  // eventAggKeyBases, because grouping is on outage start alone.
   eventAggKeyBase: { type: String, required: true, index: true },
+  eventAggKeyBases: { type: [String], default: [] },
   bucketStart: { type: Date, required: true, index: true },
   bucketEnd: { type: Date, required: true, index: true },
   bucketSizeMinutes: { type: Number, required: true, index: true },
+
+  // Which grouping produced this snapshot — 'bucket' (fixed grid) or 'startTime'
+  // (clustered outage starts). Part of cacheKey too, so the two never mix in one result set.
+  aggregationMethod: { type: String, default: 'bucket', index: true },
+  startTimeToleranceMinutes: { type: Number },
+  // IANA zone the bucket grid was laid out in, so a later re-projection of this snapshot
+  // (per-user access filtering) floors reports onto the same grid.
+  timeZone: { type: String, default: 'UTC' },
 
   sourceCnt: { type: Number, required: true, default: 0 },
   sources: { type: [String], default: [] },
@@ -43,11 +54,17 @@ const notableActivitySchema = new Schema({
 
   asn: { type: String },
   geoScope: { type: String },
+  // Full lists behind the single-valued asn/geoScope above, which are only set when the
+  // activity covers exactly one. `locations` holds "asn / region" labels, paired per report.
+  asns: { type: [String], default: [] },
+  locations: { type: [String], default: [] },
 
   incidentId: { type: SchemaTypes.ObjectId, ref: 'Group', default: null, index: true },
 
   computedAt: { type: Date, required: true, default: Date.now, index: true },
-  expiresAt: { type: Date, required: true, index: true },
+  // No `index: true` here: it would claim the { expiresAt: 1 } key pattern before the TTL
+  // index below, which Mongo then rejects as an options conflict, so nothing expires.
+  expiresAt: { type: Date, required: true },
 });
 
 notableActivitySchema.index(

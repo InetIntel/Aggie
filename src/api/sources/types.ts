@@ -37,10 +37,16 @@ export interface Source extends hasId {
   user: {
     _id: string;
     username: string;
-  };
+  } | null;
   keywords?: string;
   regex?: string;
   lists?: string;
+  // Structured per-media config (sits alongside the legacy keywords/lists/regex).
+  asns?: number[];              // IODA: ASN filter
+  region?: string;              // IODA: region code filter
+  ooniTestName?: string;        // OONI: measurement test
+  ooniDomains?: string[];       // OONI: watched domains
+  ooniUseAllDomains?: boolean;  // OONI: watch all domains instead of the list
   accessPolicy?: SourceAccessPolicy;
   __v: number;
   lastReportDate?: string;
@@ -53,6 +59,19 @@ export interface EditableSource extends hasId {
   url: string;
   keywords?: string;
   lists?: string;
+  asns?: number[];
+  region?: string;
+  ooniTestName?: string;
+  ooniDomains?: string[];
+  ooniUseAllDomains?: boolean;
   countryCodes?: string[];
   accessPolicy?: SourceAccessPolicy;
+}
+
+// One ASN a source has recently produced reports for (read-only summary).
+export interface ObservedAsn {
+  asn: string;        // "as13335"
+  count: number;
+  lastSeen?: string;
+  geoScope?: string;
 }

@@ -230,6 +230,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
     <FormikWithSchema
       schema={junkipediaSchema}
       initialValues={{ name: defaultCredentialName, junkipediaAPIKey: "" }}
+      allowPristineSubmit
       onSubmit={(values: IJunkipediaSchema) => {
         doCreateCredential.mutate({
           credentials: {},
@@ -316,6 +317,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
             apiHash: "",
             phone: "",
           }}
+          allowPristineSubmit
           onSubmit={(values: ITelegramUserStartSchema) => {
             doTelegramUserAuthVerifyCode.reset();
             doTelegramUserAuthVerifyPassword.reset();
@@ -421,6 +423,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
     <FormikWithSchema
       schema={iodaSchema}
       initialValues={{ name: defaultCredentialName }}
+      allowPristineSubmit
       onSubmit={(values: IodaSchema) => {
         doCreateCredential.mutate({
           credentials: {},
@@ -471,6 +474,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
     <FormikWithSchema
       schema={cloudflareSchema}
       initialValues={{ name: defaultCredentialName, cloudflareApiToken: "" }}
+      allowPristineSubmit
       onSubmit={(values: CloudflareSchema) => {
         doCreateCredential.mutate({
           credentials: {},
@@ -512,6 +516,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
         <FormikWithSchema
           schema={mastodonSchema}
           initialValues={{ name: defaultCredentialName, serverUrl: "" }}
+          allowPristineSubmit
           onSubmit={(values: IMastodonSchema) => {
             setMastodonCredentialName(values.name);
             setMastodonServerUrl(values.serverUrl);
@@ -643,7 +648,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
     <>
       {!lockedType && (
         <>
-          <label className='text-slate-600 dark:text-gray-400'>Provider</label>
+          <label className='text-slate-600 dark:text-gray-400'>Source</label>
           <Listbox
             value={credentialType}
             onChange={setCredentialType}
@@ -651,7 +656,7 @@ const CreateCredentialForm = ({ onClose, lockedType, onCreated }: IProps) => {
             className='relative font-medium mb-3'
           >
             <Listbox.Button className='px-3 py-2 focus-theme flex justify-between items-center bg-slate-50 dark:bg-gray-900 border border-slate-300 w-full hover:bg-slate-100 dark:hover:bg-gray-700 text-left ui-active:bg-slate-200  dark:ui-active:bg-gray-600 rounded'>
-              {credentialType ? providerLabel(credentialType) : "Select provider"}
+              {credentialType ? providerLabel(credentialType) : "Select source"}
               <FontAwesomeIcon
                 icon={faChevronDown}
                 className='ui-active:rotate-180 text-slate-400 dark:text-gray-400 '

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Report } from "../../api/reports/types";
 import { getTags } from "../../api/tags";
 import { useFormatters } from "../../utils/useFormatters";
+import OoniChart from "./OoniChart";
 
 
 const OoniEvent = ({ report }: { report: Report }) => {
@@ -54,6 +55,11 @@ const OoniEvent = ({ report }: { report: Report }) => {
           <dd className='font-medium'>{trigger?.measurementCount ?? 0}</dd>
         </div>
       </dl>
+      {raw?.domainMode === "selected" && (
+        <div className='border-t border-slate-200 pt-3 dark:border-gray-700'>
+          <OoniChart report={report} alertDomains={zeroDomains} />
+        </div>
+      )}
       {raw?.domainMode === "selected" && (
         <div className='border-t border-slate-200 pt-3 text-sm dark:border-gray-700'>
           <p className='text-slate-500 dark:text-gray-400'>Domains with zero measurements at alert time</p>

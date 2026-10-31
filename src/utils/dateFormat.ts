@@ -15,12 +15,22 @@ export const DEFAULT_PREFS: UserPreferences = {
 export const EMPTY_DATE = "—";
 export const UNKNOWN_DATE = "Unknown Date";
 
-type DateInput = string | number | Date | null | undefined;
+export type DateInput = string | number | Date | null | undefined;
 
-function toDate(d: DateInput): Date | null {
+export function toDate(d: DateInput): Date | null {
   if (d === null || d === undefined || d === "") return null;
   const date = d instanceof Date ? d : new Date(d);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * The timezone name to hand `Intl` ("UTC"), or undefined to let it use whatever
+ * zone the viewer's browser is in.
+ */
+export function resolveTimeZone(
+  prefs: UserPreferences = DEFAULT_PREFS
+): string | undefined {
+  return prefs.timeZone === "utc" ? "UTC" : undefined;
 }
 
 function dateOptions(prefs: UserPreferences): Intl.DateTimeFormatOptions {
@@ -29,7 +39,7 @@ function dateOptions(prefs: UserPreferences): Intl.DateTimeFormatOptions {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    timeZone: prefs.timeZone === "utc" ? "UTC" : undefined,
+    timeZone: resolveTimeZone(prefs),
   };
 }
 
@@ -39,12 +49,12 @@ function timeOptions(prefs: UserPreferences): Intl.DateTimeFormatOptions {
     minute: "2-digit",
     // UTC always uses 24-hour time (no AM/PM), regardless of the clock preference.
     hour12: prefs.timeFormat === "12h" && prefs.timeZone !== "utc",
-    timeZone: prefs.timeZone === "utc" ? "UTC" : undefined,
+    timeZone: resolveTimeZone(prefs),
   };
 }
 
 // Locale drives ordering of the numeric date parts: en-GB => DD/MM/YYYY, en-US => MM/DD/YYYY.
-function dateLocale(prefs: UserPreferences): string {
+export function dateLocale(prefs: UserPreferences = DEFAULT_PREFS): string {
   return prefs.dateFormat === "DMY" ? "en-GB" : "en-US";
 }
 
@@ -83,7 +93,7 @@ export function formatTimeZone(
   if (!date) return empty;
   const parts = new Intl.DateTimeFormat(dateLocale(prefs), {
     hour: "2-digit",
-    timeZone: prefs.timeZone === "utc" ? "UTC" : undefined,
+    timeZone: resolveTimeZone(prefs),
     timeZoneName: "short",
   }).formatToParts(date);
   return parts.find((p) => p.type === "timeZoneName")?.value ?? empty;

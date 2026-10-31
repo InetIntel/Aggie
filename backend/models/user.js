@@ -159,6 +159,9 @@ userSchema.plugin(passportLocalMongoose, {
   usernameLowerCase: true,
 });
 
+userSchema.plugin(require('./kpiPlugin').kpiPlugin, {
+  entity: 'user', recordEvents: require('../api/utils/kpiTracking').recordEvents,
+});
 var User = mongoose.model('User', userSchema);
 
 // Kept as a public model property for compatibility with existing callers.
