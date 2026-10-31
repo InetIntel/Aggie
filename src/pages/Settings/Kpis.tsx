@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
+import { Popover } from '@headlessui/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faRightToBracket, faLayerGroup, faLink, faMagnifyingGlass, faBan, faRotateRight, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { faUserPlus, faRightToBracket, faLayerGroup, faLink, faMagnifyingGlass, faBan, faRotateRight, faDownload, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 
 type Day = { date: string; coverage: string } & Record<string, string | number | null>;
 type TeamSummary = {
@@ -58,20 +59,27 @@ const combined = (values: Record<string, number | null>, keys: string[]) =>
 export default function Kpis({ accessKey = '' }: { accessKey?: string }) {
   const [end, setEnd] = useState(() => isoDate(new Date()));
   const [start, setStart] = useState(() => isoDate(new Date(Date.now() - 29 * 86400000)));
-  const [team, setTeam] = useState('');
+  const [teams, setTeams] = useState<string[]>([]);
+  const [teamSearch, setTeamSearch] = useState('');
+  const [customRange, setCustomRange] = useState(false);
   const [teamOptions, setTeamOptions] = useState<{ id: string; name: string }[]>([]);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
-  useEffect(() => { setTeam(''); setTeamOptions([]); }, [accessKey]);
+  useEffect(() => { setTeams([]); setTeamOptions([]); setTeamSearch(''); }, [accessKey]);
   useEffect(() => { document.title = 'KPI tracking - Aggie'; }, []);
   const valid = !!start && !!end && start <= end && end <= isoDate(new Date()) &&
     (Date.parse(end) - Date.parse(start)) / 86400000 < 366;
   const { data, isFetching, isError, refetch } = useQuery<KpiReport>(
-    ['kpis', accessKey, start, end, team],
-    async () => (await axios.get('/api/analytics/kpis', { params: { start, end, team: team || undefined } })).data,
+    ['kpis', accessKey, start, end, teams],
+    async () => (await axios.get('/api/analytics/kpis', { params: { start, end, team: teams.length ? teams.join(',') : undefined } })).data,
     { enabled: valid, retry: false }
   );
   useEffect(() => { if (data) setTeamOptions(data.teamOptions); }, [data]);
+  const presets = [{ days: 7, label: 'Past week (7 days)' }, { days: 30, label: 'Past month (30 days)' }, { days: 90, label: 'Past quarter (90 days)' }];
+  const today = isoDate(new Date());
+  const preset = end === today ? presets.find(({ days }) => Date.parse(today) - Date.parse(start) === (days - 1) * 86400000)?.days : undefined;
+  const allTeamsLabel = data?.globalAccess ? 'All teams' : 'My accessible teams';
+  const teamLabel = !teams.length ? allTeamsLabel : teams.length === 1 ? teamOptions.find(({ id }) => id === teams[0])?.name || '1 team selected' : `${teams.length} teams selected`;
 
   const exportCsv = async () => {
     if (!data?.canExport || exporting) return;
@@ -79,12 +87,12 @@ export default function Kpis({ accessKey = '' }: { accessKey?: string }) {
     setExportError('');
     try {
       const response = await axios.get('/api/analytics/kpis/export', {
-        params: { start, end, team: team || undefined }, responseType: 'blob',
+        params: { start, end, team: teams.length ? teams.join(',') : undefined }, responseType: 'blob',
       });
       const url = URL.createObjectURL(response.data);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `aggie-kpis-${team || 'accessible-teams'}-${start}-${end}.csv`;
+      anchor.download = `aggie-kpis-${teams.length ? 'selected-teams' : 'accessible-teams'}-${start}-${end}.csv`;
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
@@ -95,12 +103,31 @@ export default function Kpis({ accessKey = '' }: { accessKey?: string }) {
   return <section className="py-6 space-y-5 text-slate-900 dark:text-white">
     <h1 className="text-2xl font-semibold">KPI tracking</h1>
     <div className="flex flex-wrap items-center gap-3">
-      <label className={dateControlClass}><span className="font-medium text-slate-700 dark:text-gray-200">Team</span><select className={dateInputClass} value={team} onChange={(event) => setTeam(event.target.value)}>
-        <option value="">{data?.globalAccess ? 'All teams' : 'My accessible teams'}</option>
-        {teamOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-      </select></label>
-      <label className={dateControlClass}><span className="font-medium text-slate-700 dark:text-gray-200">Start date (UTC)</span><input className={dateInputClass} type="date" value={start} max={end} onChange={(event) => setStart(event.target.value)} /></label>
-      <label className={dateControlClass}><span className="font-medium text-slate-700 dark:text-gray-200">End date (UTC)</span><input className={dateInputClass} type="date" value={end} min={start} max={isoDate(new Date())} onChange={(event) => setEnd(event.target.value)} /></label>
+      <Popover className="relative max-w-full">
+        <Popover.Button className={dateControlClass} aria-label={`Teams: ${teamLabel}`}>
+          <span className="font-medium">Teams</span><span className="max-w-[200px] truncate">{teamLabel}</span><FontAwesomeIcon icon={faChevronDown} className="h-3 w-3" aria-hidden />
+        </Popover.Button>
+        <Popover.Panel className="absolute left-0 z-30 mt-2 w-72 max-w-[calc(100vw-3rem)] rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-gray-600 dark:bg-gray-800">
+          <input autoFocus aria-label="Search teams" placeholder="Search teams" value={teamSearch} onChange={(event) => setTeamSearch(event.target.value)} className={`${dateInputClass} w-full mb-2`} />
+          <button type="button" onClick={() => setTeams([])} className="mb-2 text-sm text-green-800 underline dark:text-lime-300">{allTeamsLabel}</button>
+          <div className="max-h-60 overflow-y-auto">
+            {teamOptions.filter(({ name }) => name.toLowerCase().includes(teamSearch.trim().toLowerCase())).map((option) => <label key={option.id} className="flex items-center gap-2 rounded p-2 text-sm hover:bg-slate-100 dark:hover:bg-gray-700">
+              <input type="checkbox" checked={teams.includes(option.id)} onChange={() => setTeams((current) => current.includes(option.id) ? current.filter((id) => id !== option.id) : [...current, option.id].sort())} />
+              <span>{option.name}</span>
+            </label>)}
+            {!teamOptions.some(({ name }) => name.toLowerCase().includes(teamSearch.trim().toLowerCase())) && <p className="p-2 text-sm text-slate-500 dark:text-gray-400">No teams found.</p>}
+          </div>
+        </Popover.Panel>
+      </Popover>
+      <label className={dateControlClass}><span className="font-medium text-slate-700 dark:text-gray-200">Range</span><select className={dateInputClass} value={customRange ? 'custom' : preset || 'custom'} onChange={(event) => {
+        setCustomRange(event.target.value === 'custom');
+        if (event.target.value === 'custom') return;
+        const days = Number(event.target.value);
+        setStart(isoDate(new Date(Date.parse(today) - (days - 1) * 86400000)));
+        setEnd(today);
+      }}><option value="custom">Custom dates</option>{presets.map(({ days, label }) => <option key={days} value={days}>{label}</option>)}</select></label>
+      <label className={dateControlClass}><span className="font-medium text-slate-700 dark:text-gray-200">Start date (UTC)</span><input className={dateInputClass} type="date" value={start} max={end} onChange={(event) => { setStart(event.target.value); setCustomRange(true); }} /></label>
+      <label className={dateControlClass}><span className="font-medium text-slate-700 dark:text-gray-200">End date (UTC)</span><input className={dateInputClass} type="date" value={end} min={start} max={isoDate(new Date())} onChange={(event) => { setEnd(event.target.value); setCustomRange(true); }} /></label>
       <button className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.08)] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" disabled={!valid || isFetching} onClick={() => refetch()}><FontAwesomeIcon icon={faRotateRight} className="h-4 w-4 shrink-0" aria-hidden />Refresh</button>
       {data?.canExport && <button className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-[#166534] px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50" disabled={!valid || isFetching || isError || exporting} onClick={exportCsv}><FontAwesomeIcon icon={faDownload} className="h-4 w-4 shrink-0" aria-hidden />{exporting ? 'Exporting…' : 'Export CSV'}</button>}
     </div>

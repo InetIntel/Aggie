@@ -27,11 +27,11 @@ function getKpiAccess(user, teams, ledTeamIds = []) {
   };
 }
 
-function canExportKpis(access, teamId) {
+function canExportKpis(access, selectedIds = []) {
   if (!access.canView) return false;
   if (access.globalExport) return true;
-  if (!teamId && access.global) return false;
-  const ids = teamId ? [teamId] : access.teamIds;
+  if (!selectedIds.length && access.global) return false;
+  const ids = selectedIds.length ? selectedIds : access.teamIds;
   return ids.length > 0 && ids.every((id) => access.exportTeamIds.includes(id));
 }
 

@@ -25,9 +25,14 @@ function resolveRange(query, now = new Date()) {
 }
 
 function buildPipeline({ start, end }, teamIds) {
+  const teamFilters = teamIds && [
+    { teamIds: { $in: teamIds.filter((id) => !['unknown', 'unassigned'].includes(id)) } },
+    ...(teamIds.includes('unknown') ? [{ teamIds: { $exists: false } }] : []),
+    ...(teamIds.includes('unassigned') ? [{ teamIds: { $size: 0 } }] : []),
+  ];
   return [
     { $match: { at: { $gte: start, $lt: end }, kind: { $nin: ['tracking_started', 'team_tracking_started'] },
-      ...(teamIds ? { teamIds: { $in: teamIds } } : {}),
+      ...(teamFilters ? { $or: teamFilters } : {}),
     } },
     { $group: {
       _id: { date: { $dateToString: { format: '%Y-%m-%d', date: '$at', timezone: 'UTC' } },
