@@ -28,7 +28,8 @@ const {
 //   teamAMonitor:  ignores, investigates, then ignores R1 again (a France alert)
 //   teamABMonitor: investigates R2 (a France alert)
 //   outsider:      ignores R3 (a social post; outsider is on no team)
-//   alpha:         links R4 (a public alert) to the smoke team's incident
+//   alpha:         links R4 (a public alert) to the smoke team's incident, and
+//                  creates an incident restricted to the smoke team
 // Every actor also logs in once.
 
 // Expected change per team in the admin view. `shared` counts actions that
@@ -43,7 +44,7 @@ const TEAM_DELTAS = {
     totals: { login: 1, alerts_investigate: 1 },
     shared: { login: 1, alerts_investigate: 1 },
   },
-  smoke: { totals: { login: 1, alerts_assigned: 1 }, shared: {} },
+  smoke: { totals: { login: 1, alerts_assigned: 1, incident_created: 1 }, shared: {} },
   unassigned: { totals: { login: 1, social_ignore: 1 }, shared: {} },
 };
 
@@ -58,8 +59,9 @@ const ACTOR_TEAMS = {
   alpha: ['smoke'],
 };
 
-// R1 ignore x2 + investigate, R2 investigate, R3 ignore, R4 assigned.
-const TRIAGE_EVENT_COUNT = 6;
+// Events about this run's reports and incident: R1 ignore x2 + investigate,
+// R2 investigate, R3 ignore, R4 assigned, and the new incident.
+const ACTION_EVENT_COUNT = 7;
 
 // The first columns of every KPI CSV row (reportCsv in backend/api/utils/kpiCsv.js).
 const CSV_LEADING_HEADER = [
@@ -168,21 +170,26 @@ const runKpiChecks = async ({ baseUrl, login, fixtures, password }) => {
   try {
     // Log in as admin before the baseline so that login isn't counted.
     const adminCookie = await login(USERS.admin.username, password);
-    const reports = await createRunReports(fixtures, crypto.randomBytes(4).toString('hex'));
+    const runId = crypto.randomBytes(4).toString('hex');
+    const reports = await createRunReports(fixtures, runId);
     const reportIds = Object.values(reports);
 
     const before = { all: await getKpis(adminCookie), ab: await getKpis(adminCookie, { team: teamAB }) };
     const runStart = new Date();
 
+    // Each step is [label, method, path, body]. Returns the cookie and each
+    // step's response body.
     const act = async (userKey, steps) => {
       const cookie = await login(USERS[userKey].username, password);
-      for (const [label, path, body] of steps) {
-        const { status, body: text } = await call(cookie, 'PATCH', path, body);
+      const responses = [];
+      for (const [label, method, path, body] of steps) {
+        const { status, body: text } = await call(cookie, method, path, body);
         check(`${userKey} can ${label}`, status === 200, `HTTP ${status}: ${text.toString().slice(0, 200)}`);
+        responses.push(text.toString());
       }
-      return cookie;
+      return { cookie, responses };
     };
-    const irrelevance = (id, value) => ['/api/report/_irrelevance', { ids: [id], irrelevance: value }];
+    const irrelevance = (id, value) => ['PATCH', '/api/report/_irrelevance', { ids: [id], irrelevance: value }];
     await act('teamAMonitor', [
       ['ignore R1', ...irrelevance(reports.r1, 'true')],
       ['investigate R1', ...irrelevance(reports.r1, 'false')],
@@ -190,16 +197,38 @@ const runKpiChecks = async ({ baseUrl, login, fixtures, password }) => {
     ]);
     await act('teamABMonitor', [['investigate R2', ...irrelevance(reports.r2, 'false')]]);
     await act('outsider', [['ignore R3', ...irrelevance(reports.r3, 'true')]]);
-    const alphaCookie = await act('alpha', [[
-      'link R4 to the smoke team incident',
-      '/api/report/_group',
-      { ids: [reports.r4], group: { _id: fixtures.incidents.restricted } },
-    ]]);
+    const alpha = await act('alpha', [
+      [
+        'link R4 to the smoke team incident',
+        'PATCH',
+        '/api/report/_group',
+        { ids: [reports.r4], group: { _id: fixtures.incidents.restricted } },
+      ],
+      [
+        'create a smoke team incident',
+        'POST',
+        '/api/group',
+        {
+          title: `Access Control Smoke KPI Incident ${runId}`,
+          // The fixture tag lets cleanup find and delete it.
+          tags: [FIXTURE_KEY],
+          accessPolicy: { mode: 'restricted', teams: [fixtures.teams.smoke] },
+        },
+      ],
+    ]);
+    const alphaCookie = alpha.cookie;
+    let incidentId = null;
+    try {
+      incidentId = String(JSON.parse(alpha.responses[1])._id);
+    } catch (err) {
+      // The failed "can create" check above already reports this.
+    }
+    const subjectIds = incidentId ? [...reportIds, incidentId] : reportIds;
 
     // Events are written in save hooks, which can finish just after the response.
     for (let waited = 0; waited < 5000; waited += 250) {
-      const count = await KpiEvent.countDocuments({ subject: { $in: reportIds }, at: { $gte: runStart } });
-      if (count >= TRIAGE_EVENT_COUNT) break;
+      const count = await KpiEvent.countDocuments({ subject: { $in: subjectIds }, at: { $gte: runStart } });
+      if (count >= ACTION_EVENT_COUNT) break;
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
 
@@ -207,15 +236,26 @@ const runKpiChecks = async ({ baseUrl, login, fixtures, password }) => {
     const actorIds = Object.keys(ACTOR_TEAMS).map((key) => fixtures.users[key]);
     const events = await KpiEvent.find({
       at: { $gte: runStart },
-      $or: [{ actor: { $in: actorIds } }, { subject: { $in: reportIds } }],
+      $or: [{ actor: { $in: actorIds } }, { subject: { $in: subjectIds } }],
     }).lean();
-    const triage = events.filter((event) => reportIds.includes(event.subject));
-    const untagged = triage.filter((event) => !event.actor || !Array.isArray(event.teamIds));
-    check(
-      'Triage events record the acting user and their teams',
-      triage.length === TRIAGE_EVENT_COUNT && untagged.length === 0,
-      `${triage.length} of ${TRIAGE_EVENT_COUNT} triage events recorded, ${untagged.length} missing actor or ` +
-        'teamIds (missing teamIds means the request context was lost and they count as "Team not recorded")'
+    const untaggedCheck = (name, list, expectedCount) => {
+      const untagged = list.filter((event) => !event.actor || !Array.isArray(event.teamIds));
+      check(
+        name,
+        list.length === expectedCount && untagged.length === 0,
+        `${list.length} of ${expectedCount} events recorded, ${untagged.length} missing actor or teamIds ` +
+          '(missing teamIds means the request context was lost and they count as "Team not recorded")'
+      );
+    };
+    untaggedCheck(
+      'Report actions (investigate, ignore, link to incident) record the acting user and their teams',
+      events.filter((event) => reportIds.includes(event.subject)),
+      ACTION_EVENT_COUNT - 1
+    );
+    untaggedCheck(
+      'Incident creation records the acting user and their teams',
+      events.filter((event) => event.kind === 'incident_created' && event.subject === incidentId),
+      1
     );
     Object.entries(ACTOR_TEAMS).forEach(([userKey, teamKeys]) => {
       const expected = teamKeys.map((key) => fixtures.teams[key]);

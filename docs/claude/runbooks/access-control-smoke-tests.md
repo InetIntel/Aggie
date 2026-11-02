@@ -129,17 +129,17 @@ After the grid, the matrix acts as four smoke users and checks the results on th
 | `teamAMonitor` | logs in; ignores, investigates, then ignores again a France alert | Team A |
 | `teamABMonitor` | logs in; investigates another France alert | Team A and Team B (shared) |
 | `outsider` | logs in; ignores a social post | No team |
-| `alpha` | logs in; links a public alert to the smoke team's incident | smoke team |
+| `alpha` | logs in; links a public alert to the smoke team's incident; creates an incident restricted to the smoke team | smoke team |
 
 What it checks:
-- **Team tagging:** every KPI event from those actions records the acting user and the right `teamIds`, read straight from MongoDB. Missing `teamIds` means the request context was lost, and the activity would show as "Team not recorded".
+- **Team tagging:** every KPI event from those actions (logins, investigate, ignore, link to incident, incident created) records the acting user and the right `teamIds`, read straight from MongoDB. Missing `teamIds` means the request context was lost, and the activity would show as "Team not recorded".
 - **Counts:** the change in each team's totals and shared counts on the KPI page, a repeated ignore counting once, and Team A + B selected together counting the shared actions once.
 - **Scope:** `alpha` sees only the smoke team.
 - **CSV export:** the BOM and header, Team A's total, shared and daily rows match the JSON, Team A's user count (2), the France source listed and the Mexico source left out, a source name starting with `=` written as text (`'=...`), and "No team" exports with no current totals.
 
 Each run triages its own new fixture reports, because KPI report actions count once per report per day. That makes reruns on the same day safe. Counts are compared before and after the actions, so earlier activity doesn't matter, but don't act as a smoke user or as a user with no team while it runs. A run that crosses midnight UTC fails; rerun it.
 
-`--only=kpi` runs the KPI rows of the grid plus the KPI checks; any other `--only=` filter skips the KPI checks. The screens script runs only the grid, so it never adds KPI data. The KPI checks leave fixture reports and KPI events behind until cleanup.
+`--only=kpi` runs the KPI rows of the grid plus the KPI checks; any other `--only=` filter skips the KPI checks. The screens script runs only the grid, so it never adds KPI data. The KPI checks leave fixture reports, a fixture incident per run, and KPI events behind until cleanup.
 
 ## UI screens
 
