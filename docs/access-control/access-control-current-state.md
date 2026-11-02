@@ -13,7 +13,8 @@ This branch adds team-based access without replacing the roles Aggie already use
 
 ## Sources and reports
 
-- Sources can be public, restricted to selected teams, or public until a chosen date.
+- Sources can be public, restricted to selected teams, public until a chosen date, or restricted by country.
+- Teams can be assigned countries. A country-restricted source is visible to members of any team whose countries overlap the source's. Editing its reports also needs edit rights on one of those teams. A country-restricted source with no countries is visible only to admins.
 - Reports use the access settings from their source.
 - A missing access setting is treated as public, so existing reports do not suddenly become restricted.
 - Report lists, direct links, searches, comments, bulk actions, exports, and incident linking follow the same access rules.

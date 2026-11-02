@@ -14,7 +14,9 @@ Admins still have full access and can set individual permission overrides for a 
 
 ## Sources and reports
 
-A source can be public, restricted to selected teams, or public until a cutoff date. Reports follow the source setting instead of having their own separate access setting.
+A source can be public, restricted to selected teams, public until a cutoff date, or restricted by country. Reports follow the source setting instead of having their own separate access setting.
+
+Teams can be assigned countries. A country-restricted source is visible to members of any team whose countries overlap the source's countries, and editing its reports also needs edit rights on one of those teams. If a country-restricted source has no countries, only admins can see it.
 
 The source rules are used for report lists, direct report links, searches, comments, batches, bulk changes, exports, and links between reports and incidents.
 
