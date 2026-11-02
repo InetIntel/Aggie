@@ -2,7 +2,11 @@
 
 // Logs in as every smoke fixture user, calls each endpoint in CHECKS, and
 // prints a user x check grid comparing the expected outcome to what the API
-// returned. Exits non-zero on any mismatch.
+// returned. Then runs the KPI checks (access-control-kpi.js), which act as a
+// few fixture users and verify KPI team tagging, shared counts and the CSV
+// export. The grid leaves the fixtures unchanged; the KPI checks add fixture
+// reports and KPI events, which cleanup removes. Exits non-zero on any
+// mismatch or failed KPI check.
 //
 // Prerequisites:
 //   ACCESS_CONTROL_SMOKE_FIXTURES=true npm run smoke:access:seed
@@ -10,7 +14,9 @@
 //
 // Usage:
 //   npm run smoke:access:matrix
-//   npm run smoke:access:matrix -- --only=incident   (filter checks by name)
+//   npm run smoke:access:matrix -- --only=incident   (filter checks by name;
+//                                                     skips the KPI checks unless
+//                                                     the filter matches "kpi")
 //   AGGIE_API_URL=http://127.0.0.1:3000 npm run smoke:access:matrix
 
 require('dotenv').config();
@@ -18,6 +24,7 @@ require('dotenv').config();
 const database = require('../database');
 const { hasPermission } = require('../access/permissions');
 const { getTeamPermissions } = require('../access/teamMemberships');
+const { canExportKpis, getKpiAccess } = require('../access/kpiAccess');
 const {
   readPassword,
   PUBLIC_INCIDENT_NOTES,
@@ -230,7 +237,22 @@ const CHECKS = [
     path: (f) => `/api/permission/user/${f.users.admin}`,
     expect: (u) => u.isAdmin,
   },
-  { name: 'KPIs', method: 'GET', path: () => '/api/analytics/kpis', permission: 'admin users' },
+  // KPI access comes from getKpiAccess: admins and holders of 'view all kpis'
+  // see every team; team leads and members granted 'view team kpis' see only
+  // their own teams. Exporting also needs 'export kpis' on every team in scope.
+  { name: 'KPIs', method: 'GET', path: () => '/api/analytics/kpis', expect: (u) => u.kpi.canView },
+  {
+    name: 'Export KPIs',
+    method: 'GET',
+    path: () => '/api/analytics/kpis/export',
+    expect: (u) => u.kpi.canView && canExportKpis(u.kpi, []),
+  },
+  {
+    name: 'KPIs for Team A',
+    method: 'GET',
+    path: (f) => `/api/analytics/kpis?team=${f.teams.teamA}`,
+    expect: (u) => u.kpi.canView && (u.kpi.global || u.kpi.teamIds.includes('teamA')),
+  },
 ];
 
 // Mirrors the fields the access helpers read from a user document, using team
@@ -250,6 +272,7 @@ const buildUserContext = (key) => {
     getTeamPermissions(user, teamKey, ledTeamIds).includes(permission);
   const teamKeysForCountry = (country) =>
     userTeamKeys.filter((teamKey) => TEAMS[teamKey].countryCodes.includes(country));
+  const teamDocs = Object.keys(TEAMS).map((teamKey) => ({ _id: teamKey, active: true }));
 
   return {
     role: user.role,
@@ -268,6 +291,8 @@ const buildUserContext = (key) => {
     // Admins and global team leads act on every team's data at once.
     hasGlobalScope: (permission) =>
       ['admin', 'team_lead'].includes(user.role) && hasPermission(user, permission),
+    // KPI scope: { canView, global, teamIds, exportTeamIds, ... } with team keys as ids.
+    kpi: getKpiAccess(user, teamDocs, ledTeamIds),
   };
 };
 
@@ -403,6 +428,28 @@ const main = async () => {
     process.exitCode = 1;
   } else {
     console.log(`\nAll ${checks.length * userKeys.length} checks match.`);
+  }
+
+  // Kept out of runMatrix so the screens script, which only calls runMatrix,
+  // never creates KPI data.
+  if (filter && !filter.includes('kpi')) return;
+  const { runKpiChecks } = require('./access-control-kpi');
+  const kpiResults = await runKpiChecks({
+    baseUrl: BASE_URL,
+    login,
+    fixtures: await loadFixtureIds(),
+    password: readPassword(),
+  });
+  console.log('\nKPI checks:');
+  kpiResults.forEach(({ name, pass, detail }) => {
+    console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${name}${pass || !detail ? '' : `\n        ${detail}`}`);
+  });
+  const failed = kpiResults.filter(({ pass }) => !pass).length;
+  if (failed > 0) {
+    console.log(`\n${failed} KPI check(s) failed.`);
+    process.exitCode = 1;
+  } else {
+    console.log(`\nAll ${kpiResults.length} KPI checks pass.`);
   }
 };
 
