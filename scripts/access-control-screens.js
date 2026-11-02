@@ -44,6 +44,9 @@ const APP_URL = (process.env.AGGIE_APP_URL || 'http://localhost:8000').replace(/
 const OUTPUT_DIR = path.join(__dirname, '..', 'scratchpad', 'access-control-screens');
 // Users captured at the same time, each in its own browser context.
 const CONCURRENCY = 4;
+const VIEWPORT = { width: 1440, height: 900 };
+// Tallest screenshot, so a very long page doesn't make a huge image.
+const MAX_SCREENSHOT_HEIGHT = 8000;
 
 // Pages to capture. `path` receives the fixture ids from loadFixtureIds.
 const PAGES = [
@@ -52,7 +55,7 @@ const PAGES = [
   { name: 'Alert detail', path: (f) => `/alerts/${f.reports.before}` },
   { name: 'France alert', path: (f) => `/alerts/${f.reports.france}` },
   { name: 'Mexico alert', path: (f) => `/alerts/${f.reports.mexico}` },
-  { name: 'Media posts', path: () => '/mediaposts' },
+  { name: 'Social media posts', path: () => '/mediaposts' },
   { name: 'Incidents', path: () => '/incidents' },
   { name: 'Public incident', path: (f) => `/incidents/${f.incidents.public}` },
   { name: 'Team incident', path: (f) => `/incidents/${f.incidents.restricted}` },
@@ -114,19 +117,56 @@ const trackApiRequests = (page) => {
   page.on('requestfinished', settle);
   page.on('requestfailed', settle);
 
+  // The quiet period starts no earlier than the call, so activity from the
+  // previous page can't count toward it.
   return async ({ quietMs = 500, timeoutMs = 10000 } = {}) => {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
-      if (inFlight === 0 && Date.now() - lastChange >= quietMs) return;
+      if (inFlight === 0 && Date.now() - Math.max(lastChange, start) >= quietMs) return;
       await page.waitForTimeout(100);
     }
   };
 };
 
+// Pages show "Loading..." / "Loading data..." while their queries run.
+const waitForLoadingText = (page) => page.waitForFunction(
+  () => !/Loading( data)?\.\.\./.test(document.body.innerText),
+  null,
+  { timeout: 8000 }
+).catch(() => {});
+
+const waitForImages = (page) => page.waitForFunction(
+  () => [...document.images].every((img) => img.complete),
+  null,
+  { timeout: 5000 }
+).catch(() => {});
+
 const capture = async (page, waitForApiIdle, url, file) => {
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.goto(url, { waitUntil: 'load' });
   await waitForApiIdle();
-  await page.screenshot({ path: file, fullPage: true });
+  await waitForLoadingText(page);
+  await waitForApiIdle();
+
+  // The app fills the window and scrolls inside <main id="main_view">, so a
+  // full-page screenshot only shows one window's worth. Grow the window to
+  // fit the content, let lazy images load, then put it back.
+  const hiddenHeight = await page.evaluate(() => {
+    const main = document.getElementById('main_view');
+    return main ? main.scrollHeight - main.clientHeight : 0;
+  });
+  if (hiddenHeight > 0) {
+    await page.setViewportSize({
+      width: VIEWPORT.width,
+      height: Math.min(VIEWPORT.height + hiddenHeight, MAX_SCREENSHOT_HEIGHT),
+    });
+    await waitForApiIdle({ quietMs: 300 });
+    await waitForImages(page);
+  }
+  try {
+    await page.screenshot({ path: file, fullPage: true });
+  } finally {
+    if (hiddenHeight > 0) await page.setViewportSize(VIEWPORT);
+  }
   return new URL(page.url()).pathname;
 };
 
@@ -259,7 +299,7 @@ const writeIndex = (report) => {
   table { width: 100%; table-layout: fixed; border-collapse: collapse; }
   col.label { width: 160px; }
   th, td { border: 1px solid #ddd; padding: 6px; vertical-align: top; overflow: hidden; }
-  thead th { position: sticky; top: 0; background: #f6f6f6; text-align: left; }
+  thead th { position: sticky; top: 0; z-index: 2; background: #f6f6f6; text-align: left; }
   th small, td small { display: block; font-weight: normal; color: #666; }
   tbody th { text-align: left; }
   img { display: block; width: 100%; max-height: 240px; object-fit: cover; object-position: top; border: 1px solid #eee; }
@@ -432,7 +472,7 @@ const main = async () => {
   const captureUser = async (key) => {
     const context = await browser.newContext({
       ignoreHTTPSErrors: true,
-      viewport: { width: 1440, height: 900 },
+      viewport: VIEWPORT,
     });
     try {
       await login(context, USERS[key].username, password);
