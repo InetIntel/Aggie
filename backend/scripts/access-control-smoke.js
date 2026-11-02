@@ -17,41 +17,26 @@ const Source = require('../models/source');
 const Team = require('../models/team');
 const User = require('../models/user');
 
-const FIXTURE_KEY = 'access-control-smoke-v1';
-const TEAM_NAME = 'Access Control Smoke';
-const CREDENTIAL_NAME = 'Access Smoke';
-const SOURCE_NICKNAME = 'Access Control Smoke Source';
-const PUBLIC_INCIDENT_TITLE = 'Access Control Smoke Public Incident';
-const RESTRICTED_INCIDENT_TITLE = 'Access Control Smoke Restricted Incident';
-const PASSWORD = 'AggieSmokeTest!2026';
-const CUTOFF_DATE = new Date('2026-01-15T00:00:00.000Z');
-
-const USERS = {
-  admin: {
-    username: 'smoke_access_admin',
-    displayName: 'Smoke Test Admin',
-    email: 'smoke-access-admin@example.invalid',
-    role: 'admin',
-  },
-  alpha: {
-    username: 'smoke_access_alpha',
-    displayName: 'Smoke Test Alpha Monitor',
-    email: 'smoke-access-alpha@example.invalid',
-    role: 'monitor',
-  },
-  scopedMonitor: {
-    username: 'smoke_access_scoped_monitor',
-    displayName: 'Smoke Test Team Monitor',
-    email: 'smoke-access-scoped-monitor@example.invalid',
-    role: 'viewer',
-  },
-  outsider: {
-    username: 'smoke_access_outsider',
-    displayName: 'Smoke Test Outside Monitor',
-    email: 'smoke-access-outsider@example.invalid',
-    role: 'monitor',
-  },
-};
+const {
+  COUNTRY_SOURCES,
+  CREDENTIAL_NAME,
+  CUTOFF_DATE,
+  FIXTURE_KEY,
+  PASSWORD_FILE,
+  PUBLIC_INCIDENT_NOTES,
+  PUBLIC_INCIDENT_TITLE,
+  RESTRICTED_INCIDENT_NOTES,
+  RESTRICTED_INCIDENT_TITLE,
+  SOURCE_NICKNAME,
+  TEAMS,
+  TEAM_INCIDENTS,
+  TEAM_LEADS,
+  TEAM_MEMBERSHIPS,
+  USERS,
+  generatePassword,
+  removePassword,
+  savePassword,
+} = require('./access-control-fixtures');
 
 const waitForDatabase = async () => {
   if (database.mongoose.connection.readyState === 1) return;
@@ -62,14 +47,14 @@ const waitForDatabase = async () => {
   });
 };
 
-const registerUser = (userData) => new Promise((resolve, reject) => {
+const registerUser = (userData, password) => new Promise((resolve, reject) => {
   User.register(
     {
       ...userData,
       active: true,
       hasDefaultPassword: false,
     },
-    PASSWORD,
+    password,
     (err, user) => {
       if (err) return reject(err);
       return resolve(user);
@@ -80,12 +65,16 @@ const registerUser = (userData) => new Promise((resolve, reject) => {
 const cleanup = async () => {
   await Group.deleteMany({ tags: FIXTURE_KEY }).exec();
   await Report.deleteMany({ 'metadata.fixture': FIXTURE_KEY }).exec();
-  await Source.deleteMany({ nickname: SOURCE_NICKNAME }).exec();
+  await Source.deleteMany({
+    nickname: {
+      $in: [SOURCE_NICKNAME, ...Object.values(COUNTRY_SOURCES).map((source) => source.nickname)],
+    },
+  }).exec();
   await Credentials.deleteMany({ name: CREDENTIAL_NAME, type: 'ioda' }).exec();
   await User.deleteMany({
     username: { $in: Object.values(USERS).map((user) => user.username) },
   }).exec();
-  await Team.deleteMany({ name: TEAM_NAME }).exec();
+  await Team.deleteMany({ name: { $in: Object.values(TEAMS).map((team) => team.name) } }).exec();
 };
 
 const buildIodaMetadata = (period, start, durationSeconds = 3600) => ({
@@ -110,26 +99,30 @@ const buildIodaMetadata = (period, start, durationSeconds = 3600) => ({
 const seed = async () => {
   await cleanup();
 
-  const team = await Team.create({
-    name: TEAM_NAME,
-    description: 'Disposable team for local access-control smoke testing.',
-  });
+  const password = generatePassword();
+  savePassword(password);
 
-  const admin = await registerUser(USERS.admin);
-  const alpha = await registerUser({
-    ...USERS.alpha,
-    teams: [team._id],
-    teamMemberships: [{ team: team._id, role: 'team_lead' }],
-  });
-  await registerUser({
-    ...USERS.scopedMonitor,
-    teams: [team._id],
-    teamMemberships: [{ team: team._id, role: 'monitor' }],
-  });
-  const outsider = await registerUser(USERS.outsider);
+  const teams = {};
+  for (const [key, { name, description, countryCodes }] of Object.entries(TEAMS)) {
+    teams[key] = await Team.create({ name, description, countryCodes });
+  }
+  const team = teams.smoke;
 
-  team.leads.addToSet(alpha._id);
-  await team.save();
+  const users = {};
+  for (const [key, userData] of Object.entries(USERS)) {
+    const memberships = Object.entries(TEAM_MEMBERSHIPS[key] || {});
+    users[key] = await registerUser({
+      ...userData,
+      teams: memberships.map(([teamKey]) => teams[teamKey]._id),
+      teamMemberships: memberships.map(([teamKey, role]) => ({ team: teams[teamKey]._id, role })),
+    }, password);
+  }
+  const { admin, alpha } = users;
+
+  for (const [teamKey, userKeys] of Object.entries(TEAM_LEADS)) {
+    userKeys.forEach((key) => teams[teamKey].leads.addToSet(users[key]._id));
+    await teams[teamKey].save();
+  }
 
   const credentials = await Credentials.create({
     name: CREDENTIAL_NAME,
@@ -150,6 +143,36 @@ const seed = async () => {
       cutoffDate: null,
     },
   });
+
+  const countrySources = {};
+  const countryReports = {};
+  for (const [key, { nickname, countryCodes }] of Object.entries(COUNTRY_SOURCES)) {
+    countrySources[key] = await Source.create({
+      media: 'ioda',
+      nickname,
+      resource_id: `${FIXTURE_KEY}-${key}`,
+      enabled: false,
+      credentials: credentials._id,
+      user: admin._id,
+      countryCodes,
+      accessPolicy: { mode: 'country_restricted', teams: [], cutoffDate: null },
+    });
+
+    const start = new Date('2026-03-01T12:00:00.000Z');
+    countryReports[key] = await Report.create({
+      authoredAt: start,
+      isOutageEvent: true,
+      fetchedAt: new Date('2026-03-01T12:05:00.000Z'),
+      storedAt: new Date('2026-03-01T12:10:00.000Z'),
+      content: `ACCESS CONTROL SMOKE: ${key} country-restricted report`,
+      author: 'Smoke Fixture',
+      guid: `${FIXTURE_KEY}-${key}`,
+      _sources: [String(countrySources[key]._id)],
+      _sourceNicknames: [nickname],
+      _media: ['ioda'],
+      metadata: buildIodaMetadata(key, start),
+    });
+  }
 
   const beforeReportStart = new Date('2026-01-01T12:00:00.000Z');
   const beforeReport = await Report.create({
@@ -201,7 +224,7 @@ const seed = async () => {
     title: PUBLIC_INCIDENT_TITLE,
     creator: admin._id,
     tags: [FIXTURE_KEY],
-    notes: 'Disposable public incident for access-control smoke testing.',
+    notes: PUBLIC_INCIDENT_NOTES,
     accessPolicy: { mode: 'public', teams: [] },
   });
 
@@ -209,7 +232,7 @@ const seed = async () => {
     title: RESTRICTED_INCIDENT_TITLE,
     creator: admin._id,
     tags: [FIXTURE_KEY],
-    notes: 'Disposable Team Alpha incident for access-control smoke testing.',
+    notes: RESTRICTED_INCIDENT_NOTES,
     _reports: [afterReport._id],
     comments: [{
       data: 'ACCESS CONTROL SMOKE: restricted incident comment',
@@ -221,20 +244,40 @@ const seed = async () => {
   afterReport._group = restrictedIncident._id;
   await afterReport.save();
 
+  const teamIncidents = {};
+  for (const [teamKey, { title, notes }] of Object.entries(TEAM_INCIDENTS)) {
+    teamIncidents[teamKey] = await Group.create({
+      title,
+      creator: admin._id,
+      tags: [FIXTURE_KEY],
+      notes,
+      accessPolicy: { mode: 'restricted', teams: [teams[teamKey]._id] },
+    });
+  }
+
   console.log('Access-control smoke fixtures created.');
-  console.log(`Team: ${TEAM_NAME}`);
+  Object.entries(TEAMS).forEach(([key, { name, countryCodes }]) => {
+    const countries = countryCodes.length > 0 ? `, countries ${countryCodes.join(', ')}` : '';
+    console.log(`Team: ${name} (${teams[key]._id}${countries})`);
+  });
   console.log(`Source: ${SOURCE_NICKNAME} (${source._id})`);
+  Object.entries(COUNTRY_SOURCES).forEach(([key, { nickname, countryCodes }]) => {
+    console.log(`Source: ${nickname} (${countrySources[key]._id}, country_restricted to ${countryCodes.join(', ')})`);
+    console.log(`  Report: ${countryReports[key]._id}`);
+  });
   console.log(`Cutoff to use: ${CUTOFF_DATE.toISOString().slice(0, 10)}`);
   console.log(`Before report: ${beforeReport._id}`);
   console.log(`After report: ${afterReport._id}`);
   console.log(`Comment: ${comment._id}`);
   console.log(`Public incident: ${publicIncident._id}`);
   console.log(`Restricted incident: ${restrictedIncident._id}`);
-  console.log('Users:');
-  console.log(`  ${USERS.admin.username} / ${PASSWORD}`);
-  console.log(`  ${USERS.alpha.username} / ${PASSWORD}`);
-  console.log(`  ${USERS.scopedMonitor.username} / ${PASSWORD}`);
-  console.log(`  ${USERS.outsider.username} / ${PASSWORD}`);
+  Object.entries(TEAM_INCIDENTS).forEach(([teamKey, { title }]) => {
+    console.log(`${title}: ${teamIncidents[teamKey]._id}`);
+  });
+  console.log(`Users (password for all: ${password}, saved to ${PASSWORD_FILE}):`);
+  Object.values(USERS).forEach((user) => {
+    console.log(`  ${user.username}  (${user.displayName})`);
+  });
 };
 
 const main = async () => {
@@ -246,6 +289,7 @@ const main = async () => {
     await seed();
   } else if (command === 'cleanup') {
     await cleanup();
+    removePassword();
     console.log('Access-control smoke fixtures removed.');
   } else {
     throw new Error('Usage: access-control-smoke.js <seed|cleanup>');

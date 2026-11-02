@@ -19,7 +19,9 @@ By default, viewers can read, monitors can read and edit, legacy team leads keep
 | Add or update team members | Yes | Compatibility access | Team led | No | No |
 | Create viewer or monitor accounts | Yes | Yes | For teams led | No | No |
 | Create or delete teams | Yes | Compatibility access | No | No | No |
-| Configure sources | Yes | Only with an override | Only with an override | Only with an override | No |
+| View a country-restricted source and its reports | Yes | Only on a team covering the country | If the team covers the country | If the team covers the country | If the team covers the country |
+| Edit reports from a country-restricted source | Yes | Only with edit rights on a covering team | If the team covers the country | If the team covers the country | No |
+| Configure sources | Yes | Only with an override | Only with an override | Only with an override | Only with an override |
 | View global visualization totals | Yes | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` |
 | Edit permission overrides | Yes | No | No | No | No |
 | View team KPIs | All teams | Teams led or granted | Teams led or granted | Only with an exception | Only with an exception |
@@ -37,6 +39,7 @@ For KPIs, `view team kpis` covers the user's own teams; `view all kpis` covers t
 | Source | `public` | Normal authenticated access |
 | Source | `restricted` | Assigned teams only |
 | Source | `public_until` | Reports before the cutoff stay public; reports on or after it require an assigned team |
+| Source | `country_restricted` | Members of teams whose countries overlap the source's countries; a source with no countries is admin-only |
 | Incident | `public` | Normal authenticated access |
 | Incident | `restricted` | Incident, comments, and attachments require an assigned team |
 
