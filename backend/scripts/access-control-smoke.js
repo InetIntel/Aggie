@@ -12,6 +12,7 @@ if (String(process.env.ACCESS_CONTROL_SMOKE_FIXTURES).toLowerCase() !== 'true') 
 const database = require('../database');
 const Credentials = require('../models/credentials');
 const Group = require('../models/group');
+const KpiEvent = require('../models/kpiEvent');
 const Report = require('../models/report');
 const Source = require('../models/source');
 const Team = require('../models/team');
@@ -22,17 +23,20 @@ const {
   CREDENTIAL_NAME,
   CUTOFF_DATE,
   FIXTURE_KEY,
+  FORMULA_SOURCE_NICKNAME,
   PASSWORD_FILE,
   PUBLIC_INCIDENT_NOTES,
   PUBLIC_INCIDENT_TITLE,
   RESTRICTED_INCIDENT_NOTES,
   RESTRICTED_INCIDENT_TITLE,
   SOURCE_NICKNAME,
+  SOURCE_NICKNAMES,
   TEAMS,
   TEAM_INCIDENTS,
   TEAM_LEADS,
   TEAM_MEMBERSHIPS,
   USERS,
+  buildIodaMetadata,
   generatePassword,
   removePassword,
   savePassword,
@@ -63,38 +67,28 @@ const registerUser = (userData, password) => new Promise((resolve, reject) => {
 });
 
 const cleanup = async () => {
+  // KPI events made by smoke users or about smoke fixtures (signups, logins,
+  // triage from the matrix's KPI checks) would otherwise stay in the KPI totals.
+  const [users, reports, groups] = await Promise.all([
+    User.find({ username: { $in: Object.values(USERS).map((user) => user.username) } }).select('_id').lean(),
+    Report.find({ 'metadata.fixture': FIXTURE_KEY }).select('_id').lean(),
+    Group.find({ tags: FIXTURE_KEY }).select('_id').lean(),
+  ]);
+  const userIds = users.map((user) => String(user._id));
+  const subjectIds = [...users, ...reports, ...groups].map((doc) => String(doc._id));
+  await KpiEvent.deleteMany({
+    $or: [{ actor: { $in: userIds } }, { subject: { $in: subjectIds } }],
+  }).exec();
+
   await Group.deleteMany({ tags: FIXTURE_KEY }).exec();
   await Report.deleteMany({ 'metadata.fixture': FIXTURE_KEY }).exec();
-  await Source.deleteMany({
-    nickname: {
-      $in: [SOURCE_NICKNAME, ...Object.values(COUNTRY_SOURCES).map((source) => source.nickname)],
-    },
-  }).exec();
+  await Source.deleteMany({ nickname: { $in: SOURCE_NICKNAMES } }).exec();
   await Credentials.deleteMany({ name: CREDENTIAL_NAME, type: 'ioda' }).exec();
   await User.deleteMany({
     username: { $in: Object.values(USERS).map((user) => user.username) },
   }).exec();
   await Team.deleteMany({ name: { $in: Object.values(TEAMS).map((team) => team.name) } }).exec();
 };
-
-const buildIodaMetadata = (period, start, durationSeconds = 3600) => ({
-  fixture: FIXTURE_KEY,
-  period,
-  rawAPIResponse: {
-    rawEvent: {
-      start: Math.floor(start.getTime() / 1000),
-      duration: durationSeconds,
-      datasource: 'ping-slash24',
-    },
-    entityLevel: 'AS',
-    entityScope: 'AS64500',
-    entityName: 'Access Control Smoke Network',
-    dataSource: 'Active Probing',
-    started: start.toISOString(),
-    ended: new Date(start.getTime() + durationSeconds * 1000).toISOString(),
-    isOngoing: false,
-  },
-});
 
 const seed = async () => {
   await cleanup();
@@ -142,6 +136,16 @@ const seed = async () => {
       teams: [],
       cutoffDate: null,
     },
+  });
+
+  const formulaSource = await Source.create({
+    media: 'ioda',
+    nickname: FORMULA_SOURCE_NICKNAME,
+    resource_id: `${FIXTURE_KEY}-formula`,
+    enabled: false,
+    credentials: credentials._id,
+    user: admin._id,
+    accessPolicy: { mode: 'public', teams: [], cutoffDate: null },
   });
 
   const countrySources = {};
@@ -261,6 +265,7 @@ const seed = async () => {
     console.log(`Team: ${name} (${teams[key]._id}${countries})`);
   });
   console.log(`Source: ${SOURCE_NICKNAME} (${source._id})`);
+  console.log(`Source: ${FORMULA_SOURCE_NICKNAME} (${formulaSource._id})`);
   Object.entries(COUNTRY_SOURCES).forEach(([key, { nickname, countryCodes }]) => {
     console.log(`Source: ${nickname} (${countrySources[key]._id}, country_restricted to ${countryCodes.join(', ')})`);
     console.log(`  Report: ${countryReports[key]._id}`);

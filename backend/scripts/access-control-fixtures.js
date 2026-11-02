@@ -11,6 +11,9 @@ const path = require('path');
 const FIXTURE_KEY = 'access-control-smoke-v1';
 const CREDENTIAL_NAME = 'Access Smoke';
 const SOURCE_NICKNAME = 'Access Control Smoke Source';
+// Public source whose name starts with "=". The KPI CSV export must write it
+// as text ('=...) so spreadsheets don't run it as a formula.
+const FORMULA_SOURCE_NICKNAME = '=Access Control Smoke Formula Source';
 const PUBLIC_INCIDENT_TITLE = 'Access Control Smoke Public Incident';
 const PUBLIC_INCIDENT_NOTES = 'Disposable public incident for access-control smoke testing.';
 const RESTRICTED_INCIDENT_TITLE = 'Access Control Smoke Restricted Incident';
@@ -179,6 +182,13 @@ const COUNTRY_SOURCES = {
   mexico: { nickname: 'Access Control Smoke Mexico Source', countryCodes: ['MX'] },
 };
 
+// Every fixture source, for lookups and cleanup.
+const SOURCE_NICKNAMES = [
+  SOURCE_NICKNAME,
+  FORMULA_SOURCE_NICKNAME,
+  ...Object.values(COUNTRY_SOURCES).map((source) => source.nickname),
+];
+
 // Access restrictions the smoke tests know about, compared against the schemas
 // by checkAccessCoverage before the matrix runs. `covered` values have
 // fixtures and CHECKS; `knownGaps` are real restrictions with no coverage yet;
@@ -241,6 +251,27 @@ const checkAccessCoverage = () => {
   }
 };
 
+// Report metadata shaped like a fetched IODA event, so fixture reports render
+// like real ones.
+const buildIodaMetadata = (period, start, durationSeconds = 3600) => ({
+  fixture: FIXTURE_KEY,
+  period,
+  rawAPIResponse: {
+    rawEvent: {
+      start: Math.floor(start.getTime() / 1000),
+      duration: durationSeconds,
+      datasource: 'ping-slash24',
+    },
+    entityLevel: 'AS',
+    entityScope: 'AS64500',
+    entityName: 'Access Control Smoke Network',
+    dataSource: 'Active Probing',
+    started: start.toISOString(),
+    ended: new Date(start.getTime() + durationSeconds * 1000).toISOString(),
+    isOngoing: false,
+  },
+});
+
 // "monitor on Team A (FR)" style summary of a user's team roles.
 const describeMemberships = (userKey) => Object.entries(TEAM_MEMBERSHIPS[userKey] || {})
   .map(([teamKey, role]) => `${role} on ${TEAMS[teamKey].label}`)
@@ -256,13 +287,9 @@ const loadFixtureIds = async () => {
   const User = require('../models/user');
 
   const teamNames = Object.values(TEAMS).map((team) => team.name);
-  const sourceNicknames = [
-    SOURCE_NICKNAME,
-    ...Object.values(COUNTRY_SOURCES).map((source) => source.nickname),
-  ];
   const [teams, sources, reports, incidents, users] = await Promise.all([
     Team.find({ name: { $in: teamNames } }).select('_id name').lean(),
-    Source.find({ nickname: { $in: sourceNicknames } }).select('_id nickname').lean(),
+    Source.find({ nickname: { $in: SOURCE_NICKNAMES } }).select('_id nickname').lean(),
     Report.find({ 'metadata.fixture': FIXTURE_KEY }).select('_id guid').lean(),
     Group.find({ tags: FIXTURE_KEY }).select('_id title').lean(),
     User.find({ username: { $in: Object.values(USERS).map((user) => user.username) } })
@@ -282,6 +309,7 @@ const loadFixtureIds = async () => {
       Object.entries(TEAMS).map(([key, team]) => [key, teamIdByName.get(team.name)])
     ),
     source: sourceIdByNickname.get(SOURCE_NICKNAME),
+    formulaSource: sourceIdByNickname.get(FORMULA_SOURCE_NICKNAME),
     countrySources: Object.fromEntries(
       Object.entries(COUNTRY_SOURCES).map(([key, source]) => [key, sourceIdByNickname.get(source.nickname)])
     ),
@@ -308,6 +336,7 @@ const loadFixtureIds = async () => {
   const missing = [
     ...Object.entries(ids.teams).map(([key, id]) => [`team ${key}`, id]),
     ['source', ids.source],
+    ['formula source', ids.formulaSource],
     ...Object.entries(ids.countrySources).map(([key, id]) => [`${key} source`, id]),
     ...Object.entries(ids.reports)
       .filter(([key]) => key !== 'comment')
@@ -334,17 +363,20 @@ module.exports = {
   CREDENTIAL_NAME,
   CUTOFF_DATE,
   FIXTURE_KEY,
+  FORMULA_SOURCE_NICKNAME,
   PASSWORD_FILE,
   PUBLIC_INCIDENT_NOTES,
   PUBLIC_INCIDENT_TITLE,
   RESTRICTED_INCIDENT_NOTES,
   RESTRICTED_INCIDENT_TITLE,
   SOURCE_NICKNAME,
+  SOURCE_NICKNAMES,
   TEAMS,
   TEAM_INCIDENTS,
   TEAM_LEADS,
   TEAM_MEMBERSHIPS,
   USERS,
+  buildIodaMetadata,
   checkAccessCoverage,
   describeMemberships,
   generatePassword,

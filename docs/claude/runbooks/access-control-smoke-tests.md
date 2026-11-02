@@ -39,7 +39,7 @@ The rest of this doc explains the setup, the fixtures, and how to read the outpu
 
 Two scripts that check what each role can do, so per-role QA doesn't mean logging in as every user by hand.
 
-- `npm run smoke:access:matrix` calls the API as every smoke user and prints a pass/fail grid. It covers backend enforcement.
+- `npm run smoke:access:matrix` calls the API as every smoke user and prints a pass/fail grid. It covers backend enforcement. It then runs the [KPI checks](#kpi-checks), which verify KPI team tagging, shared counts and the CSV export.
 - `npm run smoke:access:screens` screenshots each page as every smoke user and builds a side-by-side page. It covers what each role sees.
 
 Both run against a local dev stack and the throwaway smoke fixtures. Never point them at production.
@@ -71,7 +71,7 @@ For the access model itself (account vs team roles, access modes, the per-role p
 
 **Incidents**: `Access Control Smoke Public Incident` is visible to anyone with view data. Each restricted incident is visible only to admins and that team's members, and editable by admins and members whose team role grants edit.
 
-**Sources**: `Access Control Smoke Source` (public), plus `... France Source` (country_restricted to FR) and `... Mexico Source` (country_restricted to MX), each with one report. Members of a team see country-restricted sources whose countries overlap their team's. Editing those reports also needs edit rights on a team that covers the country.
+**Sources**: `Access Control Smoke Source` (public), `=Access Control Smoke Formula Source` (public, no reports; its name checks CSV formula escaping), plus `... France Source` (country_restricted to FR) and `... Mexico Source` (country_restricted to MX), each with one report. Members of a team see country-restricted sources whose countries overlap their team's. Editing those reports also needs edit rights on a team that covers the country.
 
 **Users**
 
@@ -105,7 +105,8 @@ What it checks, for every user:
 - **Editing data:** reports with no team, reports in a team incident, public and team incidents, releasing a report batch
 - **Country access:** viewing the France and Mexico sources, and viewing and editing their reports
 - **Settings and sources:** credentials, settings, deleting sources and tags
-- **Users and teams:** user directory, user list, editing and deleting users, deleting teams, the permissions editor, KPIs
+- **Users and teams:** user directory, user list, editing and deleting users, deleting teams, the permissions editor
+- **KPIs:** viewing KPIs, exporting them, and viewing Team A's KPIs. Expected results come from `getKpiAccess` and `canExportKpis` in `backend/access/kpiAccess.js`.
 
 In the terminal, each cell shows `allow` or `-` (denied) when the result matches what's expected; the HTML report shows `allow` or `deny`. A mismatch shows the actual result in caps with `!` (`ALLOW!`, `DENY!`, `ERROR!`). The mismatches are listed with HTTP status codes under the grid, and the script exits non-zero.
 
@@ -119,6 +120,27 @@ Expected results come from `hasPermission` in `backend/access/permissions.js` an
 
 **Coverage guard:** before it runs, the matrix compares `ACCESS_COVERAGE` in `backend/scripts/access-control-fixtures.js` against the schemas: Source and Group `accessPolicy.mode` values, team membership roles, and Team fields. If you add a restriction (a new mode, or a Team field like `countryCodes`), the matrix stops and names it. To clear it, add fixtures and `CHECKS` for it, update this runbook and `docs/access-control/`, then list it under `covered`. If testing is deferred, list it under `knownGaps` instead, and add it to [Coverage gaps (TODO)](#coverage-gaps-todo); a Team field that doesn't control access goes under `notAccess`.
 
+### KPI checks
+
+After the grid, the matrix acts as four smoke users and checks the results on the KPI page. Each line prints `PASS` or `FAIL` (with the reason), and any failure makes the command exit non-zero. The checks live in `backend/scripts/access-control-kpi.js`.
+
+| User | Action | Counts for |
+|---|---|---|
+| `teamAMonitor` | logs in; ignores, investigates, then ignores again a France alert | Team A |
+| `teamABMonitor` | logs in; investigates another France alert | Team A and Team B (shared) |
+| `outsider` | logs in; ignores a social post | No team |
+| `alpha` | logs in; links a public alert to the smoke team's incident | smoke team |
+
+What it checks:
+- **Team tagging:** every KPI event from those actions records the acting user and the right `teamIds`, read straight from MongoDB. Missing `teamIds` means the request context was lost, and the activity would show as "Team not recorded".
+- **Counts:** the change in each team's totals and shared counts on the KPI page, a repeated ignore counting once, and Team A + B selected together counting the shared actions once.
+- **Scope:** `alpha` sees only the smoke team.
+- **CSV export:** the BOM and header, Team A's total, shared and daily rows match the JSON, Team A's user count (2), the France source listed and the Mexico source left out, a source name starting with `=` written as text (`'=...`), and "No team" exports with no current totals.
+
+Each run triages its own new fixture reports, because KPI report actions count once per report per day. That makes reruns on the same day safe. Counts are compared before and after the actions, so earlier activity doesn't matter, but don't act as a smoke user or as a user with no team while it runs. A run that crosses midnight UTC fails; rerun it.
+
+`--only=kpi` runs the KPI rows of the grid plus the KPI checks; any other `--only=` filter skips the KPI checks. The screens script runs only the grid, so it never adds KPI data. The KPI checks leave fixture reports and KPI events behind until cleanup.
+
 ## UI screens
 
 ```bash
@@ -128,7 +150,7 @@ npm run smoke:access:screens -- --no-open     # don't open the report in a brows
 AGGIE_APP_URL=https://localhost:8000 npm run smoke:access:screens
 ```
 
-It first runs the API matrix (the same checks as `smoke:access:matrix`, against `AGGIE_API_URL`), then captures screenshots 4 users at a time, printing a line per page. When it finishes, it opens the report in your default browser.
+It first runs the API matrix grid (the same checks as `smoke:access:matrix`, against `AGGIE_API_URL`, without the KPI checks), then captures screenshots 4 users at a time, printing a line per page. When it finishes, it opens the report in your default browser.
 
 Output goes to `scratchpad/access-control-screens/` (gitignored), which is wiped at the start of each run. The report is `index.html` there. It's rewritten as each user finishes and on Ctrl+C, so you can open it mid-run. It shows when the run started and finished, then two sections:
 - **Screenshots:** rows are pages, columns are users. Each cell shows the path the page ended on. A redirect (for example, to the default page because the route isn't available to that role) is highlighted in orange.
@@ -180,3 +202,5 @@ The scripts are on `feat/access-smoke-tests` until it merges into `development`.
 ```bash
 ACCESS_CONTROL_SMOKE_FIXTURES=true npm run smoke:access:cleanup
 ```
+
+Cleanup also deletes KPI events made by smoke users or about smoke fixtures (signups, logins, triage from the KPI checks), so test activity doesn't stay in the KPI totals. Seeding runs cleanup first, so reseeding clears them too.
