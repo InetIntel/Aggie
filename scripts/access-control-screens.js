@@ -154,13 +154,15 @@ const renderScreenshots = ({ pages, userKeys, results }) => {
       if (!result) return '<td class="pending">not captured</td>';
       if (result.error) return `<td class="error">${escapeHtml(result.error)}</td>`;
       const redirected = result.finalPath !== result.requestedPath;
-      return `<td><a href="${result.file}" target="_blank"><img src="${result.file}" loading="lazy" alt=""></a>` +
+      const caption = `${page.name}: ${key} (${result.finalPath})`;
+      return `<td><a class="shot" href="${result.file}" data-caption="${escapeHtml(caption)}">` +
+        `<img src="${result.file}" loading="lazy" alt=""></a>` +
         `<span class="${redirected ? 'redirect' : 'path'}">${redirected ? 'redirected to ' : ''}${escapeHtml(result.finalPath)}</span></td>`;
     }).join('');
     return `<tr><th scope="row">${escapeHtml(page.name)}</th>${cells}</tr>`;
   }).join('\n');
 
-  return `<p>Click a screenshot to open it full size. Orange paths mean the page redirected.</p>
+  return `<p>Click a screenshot to view it full size (Esc or click outside it to close). The last one opened stays outlined. Orange paths mean the page redirected.</p>
 <table>
 ${columnGroup(userKeys)}
 <thead><tr><th></th>${userHeaderCells(userKeys)}</tr></thead>
@@ -267,6 +269,14 @@ const writeIndex = (report) => {
   .matrix td.allow { background: #f0fdf4; color: #15803d; }
   .matrix td.deny { color: #999; }
   .matrix td.mismatch { background: #fef2f2; color: #b91c1c; font-weight: 600; }
+  td.selected { outline: 3px solid #2563eb; outline-offset: -3px; background: #eff6ff; }
+  #viewer { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; background: rgba(0, 0, 0, 0.85); }
+  #viewer[hidden] { display: none; }
+  .viewer-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 16px; color: #fff; background: #111; }
+  .viewer-bar span { min-width: 0; overflow-wrap: anywhere; }
+  .viewer-bar button { flex-shrink: 0; font: inherit; padding: 4px 12px; cursor: pointer; }
+  .viewer-body { flex: 1; overflow: auto; padding: 0 16px 16px; }
+  #viewer-img { width: 100%; max-height: none; object-fit: contain; border: 0; }
   .kpi col.result { width: 64px; }
   .kpi col.check { width: 40%; }
   .kpi td, .kpi th { word-break: break-word; }
@@ -283,6 +293,62 @@ ${renderScreenshots(report)}
 ${renderMatrix(report.matrix)}
 <h2>KPI checks</h2>
 ${renderKpi(report.kpi)}
+<div id="viewer" hidden role="dialog" aria-modal="true" aria-labelledby="viewer-caption">
+  <div class="viewer-bar"><span id="viewer-caption"></span><button type="button" id="viewer-close">Close (Esc)</button></div>
+  <div class="viewer-body"><img id="viewer-img" alt=""></div>
+</div>
+<script>
+  // Opens screenshots in an overlay instead of a new window, and outlines the
+  // last one opened. The report is rewritten during a run, so the selection is
+  // kept in sessionStorage to survive a reload.
+  const viewer = document.getElementById('viewer');
+  const viewerImg = document.getElementById('viewer-img');
+  const viewerBody = viewer.querySelector('.viewer-body');
+  const closeButton = document.getElementById('viewer-close');
+  const storageKey = 'access-control-screens:selected';
+  let opener = null;
+
+  const select = (link) => {
+    document.querySelectorAll('td.selected').forEach((cell) => cell.classList.remove('selected'));
+    link.closest('td').classList.add('selected');
+    try { sessionStorage.setItem(storageKey, link.getAttribute('href')); } catch (err) {}
+  };
+  const open = (link) => {
+    select(link);
+    opener = link;
+    viewerImg.src = link.getAttribute('href');
+    document.getElementById('viewer-caption').textContent = link.dataset.caption;
+    viewer.hidden = false;
+    viewerBody.scrollTop = 0;
+    closeButton.focus();
+  };
+  const close = () => {
+    viewer.hidden = true;
+    viewerImg.removeAttribute('src');
+    if (opener) opener.focus();
+  };
+
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('a.shot');
+    // Modified clicks still open the image in a new tab.
+    if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    open(link);
+  });
+  closeButton.addEventListener('click', close);
+  viewer.addEventListener('click', (event) => {
+    if (event.target === viewer || event.target === viewerBody) close();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !viewer.hidden) close();
+  });
+
+  try {
+    const saved = sessionStorage.getItem(storageKey);
+    const link = saved && [...document.querySelectorAll('a.shot')].find((a) => a.getAttribute('href') === saved);
+    if (link) link.closest('td').classList.add('selected');
+  } catch (err) {}
+</script>
 </body>
 </html>
 `;

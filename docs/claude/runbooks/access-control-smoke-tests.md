@@ -153,7 +153,7 @@ AGGIE_APP_URL=https://localhost:8000 npm run smoke:access:screens
 It first runs the API matrix grid (the same checks as `smoke:access:matrix`, against `AGGIE_API_URL`, without the KPI checks), then captures screenshots 4 users at a time, printing a line per page. When it finishes, it opens the report in your default browser.
 
 Output goes to `scratchpad/access-control-screens/` (gitignored), which is wiped at the start of each run. The report is `index.html` there. It's rewritten as each user finishes and on Ctrl+C, so you can open it mid-run. It shows when the run started and finished, then three sections:
-- **Screenshots:** rows are pages, columns are users. Each cell shows the path the page ended on. A redirect (for example, to the default page because the route isn't available to that role) is highlighted in orange.
+- **Screenshots:** rows are pages, columns are users. Click a screenshot to view it full size in the page (Esc or click outside it to close; Cmd/Ctrl-click still opens a new tab). The last one opened stays outlined, even after a reload. Each cell shows the path the page ended on. A redirect (for example, to the default page because the route isn't available to that role) is highlighted in orange.
 - **API permission matrix:** the terminal grid as a table. Mismatches are red and show the expected result and HTTP status.
 - **KPI checks:** the results saved by the last `npm run smoke:access:matrix`, with when it ran. Screens doesn't run the KPI checks itself (they create data), so rerun the matrix to refresh this section. Seeding and cleanup delete the saved results.
 
