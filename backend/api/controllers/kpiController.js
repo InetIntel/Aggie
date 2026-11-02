@@ -6,6 +6,7 @@ const { resolveRange, buildPipeline, formatReport } = require('../utils/kpiRepor
 const { buildTeamPipeline, formatTeams } = require('../utils/kpiTeams');
 const { canExportKpis } = require('../../access/kpiAccess');
 const { reportCsv } = require('../utils/kpiCsv');
+const { getInventory } = require('../utils/kpiInventory');
 
 async function report(req, res, exporting = false) {
   const access = req.kpiAccess;
@@ -51,6 +52,9 @@ async function report(req, res, exporting = false) {
       })),
       writeWarning: tracking.hasWriteFailure(),
     };
+    if (exporting || req.query.details === '1') {
+      result.inventory = await getInventory(access, req.kpiTeams, selectedIds, range);
+    }
     if (exporting) {
       res.set('Content-Type', 'text/csv; charset=utf-8');
       res.set('Content-Disposition', `attachment; filename="aggie-kpis-${selectedIds.length ? 'selected-teams' : 'all-accessible-teams'}-${range.start.toISOString().slice(0, 10)}.csv"`);
