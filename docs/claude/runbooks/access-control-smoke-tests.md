@@ -139,7 +139,7 @@ What it checks:
 
 Each run triages its own new fixture reports, because KPI report actions count once per report per day. That makes reruns on the same day safe. Counts are compared before and after the actions, so earlier activity doesn't matter, but don't act as a smoke user or as a user with no team while it runs. A run that crosses midnight UTC fails; rerun it.
 
-`--only=kpi` runs the KPI rows of the grid plus the KPI checks; any other `--only=` filter skips the KPI checks. The screens script runs only the grid, so it never adds KPI data. The KPI checks leave fixture reports, a fixture incident per run, and KPI events behind until cleanup.
+`--only=kpi` runs the KPI rows of the grid plus the KPI checks; any other `--only=` filter skips the KPI checks. Each run that includes the KPI checks saves their results to `scratchpad/access-control-kpi-results.json` (gitignored), which the screens report shows. The screens script runs only the grid, so it never adds KPI data. The KPI checks leave fixture reports, a fixture incident per run, and KPI events behind until cleanup.
 
 ## UI screens
 
@@ -152,9 +152,10 @@ AGGIE_APP_URL=https://localhost:8000 npm run smoke:access:screens
 
 It first runs the API matrix grid (the same checks as `smoke:access:matrix`, against `AGGIE_API_URL`, without the KPI checks), then captures screenshots 4 users at a time, printing a line per page. When it finishes, it opens the report in your default browser.
 
-Output goes to `scratchpad/access-control-screens/` (gitignored), which is wiped at the start of each run. The report is `index.html` there. It's rewritten as each user finishes and on Ctrl+C, so you can open it mid-run. It shows when the run started and finished, then two sections:
+Output goes to `scratchpad/access-control-screens/` (gitignored), which is wiped at the start of each run. The report is `index.html` there. It's rewritten as each user finishes and on Ctrl+C, so you can open it mid-run. It shows when the run started and finished, then three sections:
 - **Screenshots:** rows are pages, columns are users. Each cell shows the path the page ended on. A redirect (for example, to the default page because the route isn't available to that role) is highlighted in orange.
 - **API permission matrix:** the terminal grid as a table. Mismatches are red and show the expected result and HTTP status.
+- **KPI checks:** the results saved by the last `npm run smoke:access:matrix`, with when it ran. Screens doesn't run the KPI checks itself (they create data), so rerun the matrix to refresh this section. Seeding and cleanup delete the saved results.
 
 To cover a new page, add it to `PAGES` in `scripts/access-control-screens.js`.
 

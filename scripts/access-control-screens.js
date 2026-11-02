@@ -16,7 +16,10 @@
 //   AGGIE_APP_URL=https://localhost:8000 npm run smoke:access:screens
 //
 // The report also includes the API permission matrix from
-// backend/scripts/access-control-matrix.js, run fresh against AGGIE_API_URL.
+// backend/scripts/access-control-matrix.js, run fresh against AGGIE_API_URL,
+// and the KPI check results saved by the last `npm run smoke:access:matrix`.
+// The KPI checks create data, so this script shows the saved results instead
+// of running them.
 
 require('dotenv').config();
 
@@ -27,6 +30,7 @@ const { chromium } = require('playwright');
 
 const database = require('../backend/database');
 const {
+  readKpiResults,
   readPassword,
   TEAMS,
   TEAM_INCIDENTS,
@@ -202,6 +206,33 @@ ${rows}
 </table>`;
 };
 
+const renderKpi = (kpi) => {
+  if (!kpi) {
+    return '<p class="pending">No KPI results yet. Run <code>npm run smoke:access:matrix</code> ' +
+      '(without <code>--only</code>, or with <code>--only=kpi</code>) to generate them.</p>';
+  }
+  const { ranAt, baseUrl, results } = kpi;
+  const failed = results.filter(({ pass }) => !pass).length;
+  const summary = failed === 0
+    ? `<p class="ok">All ${results.length} KPI checks pass.</p>`
+    : `<p class="error">${failed} of ${results.length} KPI checks failed.</p>`;
+  const rows = results.map(({ name, pass, detail }) => `<tr class="${pass ? 'pass' : 'fail'}">` +
+    `<td>${pass ? 'PASS' : 'FAIL'}</td><th scope="row">${escapeHtml(name)}</th>` +
+    `<td>${pass ? '' : escapeHtml(detail || '')}</td></tr>`).join('\n');
+
+  return `<p>From the last <code>npm run smoke:access:matrix</code>, run ` +
+    `${escapeHtml(formatTime(new Date(ranAt)))} against ${escapeHtml(baseUrl)}. ` +
+    'This script doesn\'t run the KPI checks, because they create data. Rerun the matrix to refresh them.</p>' +
+    `${summary}
+<table class="kpi">
+<colgroup><col class="result"><col class="check"><col></colgroup>
+<thead><tr><th>Result</th><th>Check</th><th>Details</th></tr></thead>
+<tbody>
+${rows}
+</tbody>
+</table>`;
+};
+
 const writeIndex = (report) => {
   let timing = `started ${escapeHtml(formatTime(report.startedAt))}`;
   if (report.finishedAt) {
@@ -236,6 +267,11 @@ const writeIndex = (report) => {
   .matrix td.allow { background: #f0fdf4; color: #15803d; }
   .matrix td.deny { color: #999; }
   .matrix td.mismatch { background: #fef2f2; color: #b91c1c; font-weight: 600; }
+  .kpi col.result { width: 64px; }
+  .kpi col.check { width: 40%; }
+  .kpi td, .kpi th { word-break: break-word; }
+  .kpi tr.pass td:first-child { color: #15803d; }
+  .kpi tr.fail td:first-child, .kpi tr.fail td:last-child { color: #b91c1c; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -245,6 +281,8 @@ const writeIndex = (report) => {
 ${renderScreenshots(report)}
 <h2>API permission matrix</h2>
 ${renderMatrix(report.matrix)}
+<h2>KPI checks</h2>
+${renderKpi(report.kpi)}
 </body>
 </html>
 `;
@@ -290,6 +328,7 @@ const main = async () => {
     finishedAt: null,
     stoppedAt: null,
     matrix: { status: 'pending' },
+    kpi: readKpiResults(),
   };
   const { results } = report;
   writeIndex(report);
