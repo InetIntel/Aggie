@@ -58,7 +58,8 @@ build
 
 backend/api/uploads
 
-.claude/
+.claude/*
+!.claude/rules/
 
 # dev-only throwaway scripts + generated fixtures (IODA signal migration)
 # Local runtime media, chart backups, and dev scratch — not source

@@ -27,6 +27,7 @@ const {
   TEAM_LEADS,
   TEAM_MEMBERSHIPS,
   USERS,
+  checkAccessCoverage,
   describeMemberships,
   loadFixtureIds,
 } = require('./access-control-fixtures');
@@ -355,6 +356,8 @@ const runMatrix = async ({ filter = null } = {}) => {
   if (String(process.env.ADMIN_PARTY).toLowerCase() === 'true') {
     throw new Error('ADMIN_PARTY=true bypasses permission checks. Turn it off and restart the backend.');
   }
+
+  checkAccessCoverage();
 
   const checks = filter
     ? CHECKS.filter((check) => check.name.toLowerCase().includes(filter))
