@@ -155,14 +155,16 @@ const renderScreenshots = ({ pages, userKeys, results }) => {
       if (result.error) return `<td class="error">${escapeHtml(result.error)}</td>`;
       const redirected = result.finalPath !== result.requestedPath;
       const caption = `${page.name}: ${key} (${result.finalPath})`;
-      return `<td><a class="shot" href="${result.file}" data-caption="${escapeHtml(caption)}">` +
-        `<img src="${result.file}" loading="lazy" alt=""></a>` +
-        `<span class="${redirected ? 'redirect' : 'path'}">${redirected ? 'redirected to ' : ''}${escapeHtml(result.finalPath)}</span></td>`;
+      // One link holds the screenshot and its path, and stretches over the
+      // whole cell so a click anywhere in it opens the screenshot.
+      return `<td class="shot-cell"><a class="shot" href="${result.file}" data-caption="${escapeHtml(caption)}">` +
+        `<img src="${result.file}" loading="lazy" alt="">` +
+        `<span class="${redirected ? 'redirect' : 'path'}">${redirected ? 'redirected to ' : ''}${escapeHtml(result.finalPath)}</span></a></td>`;
     }).join('');
     return `<tr><th scope="row">${escapeHtml(page.name)}</th>${cells}</tr>`;
   }).join('\n');
 
-  return `<p>Click a screenshot to view it full size (Esc or click outside it to close). The last one opened stays outlined. Orange paths mean the page redirected.</p>
+  return `<p>Click a screenshot or its path to view it full size (Esc or click outside it to close). The last one opened stays outlined. Orange paths mean the page redirected.</p>
 <table>
 ${columnGroup(userKeys)}
 <thead><tr><th></th>${userHeaderCells(userKeys)}</tr></thead>
@@ -269,7 +271,11 @@ const writeIndex = (report) => {
   .matrix td.allow { background: #f0fdf4; color: #15803d; }
   .matrix td.deny { color: #999; }
   .matrix td.mismatch { background: #fef2f2; color: #b91c1c; font-weight: 600; }
-  td.selected { outline: 3px solid #2563eb; outline-offset: -3px; background: #eff6ff; }
+  td.shot-cell { position: relative; padding: 0; }
+  td.shot-cell:hover { background: #f8fafc; }
+  a.shot { display: block; padding: 6px; color: inherit; text-decoration: none; }
+  a.shot::after { content: ''; position: absolute; inset: 0; }
+  td.shot-cell.selected { outline: 3px solid #2563eb; outline-offset: -3px; background: #eff6ff; }
   #viewer { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; background: rgba(0, 0, 0, 0.85); }
   #viewer[hidden] { display: none; }
   .viewer-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 16px; color: #fff; background: #111; }
