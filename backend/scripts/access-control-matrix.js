@@ -27,6 +27,7 @@ const { getTeamPermissions } = require('../access/teamMemberships');
 const { canExportKpis, getKpiAccess } = require('../access/kpiAccess');
 const {
   readPassword,
+  saveKpiResults,
   PUBLIC_INCIDENT_NOTES,
   RESTRICTED_INCIDENT_NOTES,
   TEAMS,
@@ -440,6 +441,7 @@ const main = async () => {
     fixtures: await loadFixtureIds(),
     password: readPassword(),
   });
+  saveKpiResults({ ranAt: new Date().toISOString(), baseUrl: BASE_URL, results: kpiResults });
   console.log('\nKPI checks:');
   kpiResults.forEach(({ name, pass, detail }) => {
     console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${name}${pass || !detail ? '' : `\n        ${detail}`}`);

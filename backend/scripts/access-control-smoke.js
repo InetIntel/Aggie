@@ -38,6 +38,7 @@ const {
   USERS,
   buildIodaMetadata,
   generatePassword,
+  removeKpiResults,
   removePassword,
   savePassword,
 } = require('./access-control-fixtures');
@@ -79,6 +80,8 @@ const cleanup = async () => {
   await KpiEvent.deleteMany({
     $or: [{ actor: { $in: userIds } }, { subject: { $in: subjectIds } }],
   }).exec();
+  // Saved KPI results describe fixtures that are about to be deleted.
+  removeKpiResults();
 
   await Group.deleteMany({ tags: FIXTURE_KEY }).exec();
   await Report.deleteMany({ 'metadata.fixture': FIXTURE_KEY }).exec();

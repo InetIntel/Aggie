@@ -43,6 +43,27 @@ const readPassword = () => {
 };
 
 const removePassword = () => fs.rmSync(PASSWORD_FILE, { force: true });
+
+// The matrix saves its latest KPI check results here so the screens report
+// can show them without running the KPI checks (which create data) itself.
+const KPI_RESULTS_FILE = path.join(__dirname, '..', '..', 'scratchpad', 'access-control-kpi-results.json');
+
+const saveKpiResults = (data) => {
+  fs.mkdirSync(path.dirname(KPI_RESULTS_FILE), { recursive: true });
+  fs.writeFileSync(KPI_RESULTS_FILE, `${JSON.stringify(data, null, 2)}\n`);
+};
+
+// Returns null when the matrix hasn't saved KPI results since the last seed.
+const readKpiResults = () => {
+  try {
+    return JSON.parse(fs.readFileSync(KPI_RESULTS_FILE, 'utf8'));
+  } catch (err) {
+    if (err.code === 'ENOENT') return null;
+    throw err;
+  }
+};
+
+const removeKpiResults = () => fs.rmSync(KPI_RESULTS_FILE, { force: true });
 const CUTOFF_DATE = new Date('2026-01-15T00:00:00.000Z');
 
 const USERS = {
@@ -364,6 +385,7 @@ module.exports = {
   CUTOFF_DATE,
   FIXTURE_KEY,
   FORMULA_SOURCE_NICKNAME,
+  KPI_RESULTS_FILE,
   PASSWORD_FILE,
   PUBLIC_INCIDENT_NOTES,
   PUBLIC_INCIDENT_TITLE,
@@ -381,7 +403,10 @@ module.exports = {
   describeMemberships,
   generatePassword,
   loadFixtureIds,
+  readKpiResults,
   readPassword,
+  removeKpiResults,
   removePassword,
+  saveKpiResults,
   savePassword,
 };
