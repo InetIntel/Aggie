@@ -46,14 +46,14 @@ const OUTPUT_DIR = path.join(__dirname, '..', 'scratchpad', 'access-control-scre
 const CONCURRENCY = 4;
 
 // Pages to capture. `path` receives the fixture ids from loadFixtureIds.
-// `settle` waits for the page's own requests and its "Loading data..." text
-// to finish before the screenshot; the report lists need it.
+// `settle` waits for the page's own requests and its loading text to finish
+// before the screenshot; the report lists and alert details need it.
 const PAGES = [
   { name: 'Dashboard', path: () => '/dashboard' },
   { name: 'Alerts', path: () => '/alerts', settle: true },
-  { name: 'Alert detail', path: (f) => `/alerts/${f.reports.before}` },
-  { name: 'France alert', path: (f) => `/alerts/${f.reports.france}` },
-  { name: 'Mexico alert', path: (f) => `/alerts/${f.reports.mexico}` },
+  { name: 'Alert detail', path: (f) => `/alerts/${f.reports.before}`, settle: true },
+  { name: 'France alert', path: (f) => `/alerts/${f.reports.france}`, settle: true },
+  { name: 'Mexico alert', path: (f) => `/alerts/${f.reports.mexico}`, settle: true },
   { name: 'Social media posts', path: () => '/mediaposts', settle: true },
   { name: 'Incidents', path: () => '/incidents' },
   { name: 'Public incident', path: (f) => `/incidents/${f.incidents.public}` },
@@ -129,10 +129,13 @@ const trackApiRequests = (page) => {
   };
 };
 
-// The report lists show "Loading data..." while their query runs.
+// Shown while a settled page loads: the report list, the alert detail
+// beside it, and the outage chart and OONI history inside the detail.
+const LOADING_TEXTS = ['Loading data...', '...loading', 'Loading…', 'Loading last 14 days…'];
+
 const waitForLoadingText = (page) => page.waitForFunction(
-  () => !document.body.innerText.includes('Loading data...'),
-  null,
+  (texts) => !texts.some((text) => document.body.innerText.includes(text)),
+  LOADING_TEXTS,
   { timeout: 8000 }
 ).catch(() => {});
 
