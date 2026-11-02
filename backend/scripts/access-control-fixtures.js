@@ -179,6 +179,68 @@ const COUNTRY_SOURCES = {
   mexico: { nickname: 'Access Control Smoke Mexico Source', countryCodes: ['MX'] },
 };
 
+// Access restrictions the smoke tests know about, compared against the schemas
+// by checkAccessCoverage before the matrix runs. `covered` values have
+// fixtures and CHECKS; `knownGaps` are real restrictions with no coverage yet;
+// `notAccess` Team fields don't control access. A value in none of the lists
+// stops the matrix, so a new restriction can't land without someone deciding
+// how it is tested.
+const ACCESS_COVERAGE = {
+  sourceModes: {
+    covered: ['public', 'country_restricted'],
+    knownGaps: ['restricted', 'public_until'],
+  },
+  incidentModes: {
+    covered: ['public', 'restricted'],
+    knownGaps: [],
+  },
+  teamRoles: {
+    covered: ['monitor', 'team_lead'],
+    knownGaps: ['viewer'],
+  },
+  teamFields: {
+    covered: ['countryCodes', 'leads'],
+    knownGaps: ['active', 'permissionLimits'],
+    notAccess: ['name', 'description'],
+  },
+};
+
+// Throws if a schema has an access mode, team role or Team field that isn't in
+// ACCESS_COVERAGE.
+const checkAccessCoverage = () => {
+  const Group = require('../models/group');
+  const Source = require('../models/source');
+  const Team = require('../models/team');
+  const { TEAM_MEMBERSHIP_ROLES } = require('../access/teamMemberships');
+
+  const teamFields = [...new Set(Object.keys(Team.schema.paths).map((p) => p.split('.')[0]))]
+    .filter((field) => !['_id', '__v', 'createdAt', 'updatedAt'].includes(field));
+  const actual = {
+    sourceModes: Source.schema.path('accessPolicy.mode').enumValues,
+    incidentModes: Group.schema.path('accessPolicy.mode').enumValues,
+    teamRoles: TEAM_MEMBERSHIP_ROLES,
+    teamFields,
+  };
+
+  const uncovered = Object.entries(actual).flatMap(([kind, values]) => {
+    const { covered, knownGaps, notAccess = [] } = ACCESS_COVERAGE[kind];
+    const known = new Set([...covered, ...knownGaps, ...notAccess]);
+    return values.filter((value) => !known.has(value)).map((value) => `${kind}: ${value}`);
+  });
+
+  if (uncovered.length > 0) {
+    throw new Error(
+      `New access restriction(s) with no smoke coverage: ${uncovered.join(', ')}.\n` +
+      'Add fixtures (backend/scripts/access-control-fixtures.js) and CHECKS ' +
+      '(backend/scripts/access-control-matrix.js) for each, update ' +
+      'docs/claude/runbooks/access-control-smoke-tests.md and docs/access-control/, ' +
+      'then add it to ACCESS_COVERAGE (covered; or knownGaps plus a runbook ' +
+      '"Coverage gaps (TODO)" item if it is deferred; or notAccess for a Team ' +
+      'field that does not control access).'
+    );
+  }
+};
+
 // "monitor on Team A (FR)" style summary of a user's team roles.
 const describeMemberships = (userKey) => Object.entries(TEAM_MEMBERSHIPS[userKey] || {})
   .map(([teamKey, role]) => `${role} on ${TEAMS[teamKey].label}`)
@@ -267,6 +329,7 @@ const loadFixtureIds = async () => {
 };
 
 module.exports = {
+  ACCESS_COVERAGE,
   COUNTRY_SOURCES,
   CREDENTIAL_NAME,
   CUTOFF_DATE,
@@ -282,6 +345,7 @@ module.exports = {
   TEAM_LEADS,
   TEAM_MEMBERSHIPS,
   USERS,
+  checkAccessCoverage,
   describeMemberships,
   generatePassword,
   loadFixtureIds,

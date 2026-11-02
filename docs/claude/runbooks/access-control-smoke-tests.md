@@ -117,6 +117,8 @@ Expected results come from `hasPermission` in `backend/access/permissions.js` an
 - Never add bulk routes like `DELETE /api/source/_all` or `/api/group/_all`, or anything that changes global settings.
 - If a route returns 404 to hide a document the user can't see, set `hidden: true` so a 404 counts as denied.
 
+**Coverage guard:** before it runs, the matrix compares `ACCESS_COVERAGE` in `backend/scripts/access-control-fixtures.js` against the schemas: Source and Group `accessPolicy.mode` values, team membership roles, and Team fields. If you add a restriction (a new mode, or a Team field like `countryCodes`), the matrix stops and names it. To clear it, add fixtures and `CHECKS` for it, update this runbook and `docs/access-control/`, then list it under `covered`. If testing is deferred, list it under `knownGaps` instead, and add it to [Coverage gaps (TODO)](#coverage-gaps-todo); a Team field that doesn't control access goes under `notAccess`.
+
 ## UI screens
 
 ```bash
@@ -154,6 +156,20 @@ API checks while signed in as the outsider. The seed prints the ID as `Restricte
 GET /api/group/RESTRICTED_INCIDENT_ID          # also covered by the matrix
 GET /api/report?groupId=RESTRICTED_INCIDENT_ID
 ```
+
+## Coverage gaps (TODO)
+
+These access rules are enforced in the app but no smoke check tests them, so the matrix reports "All checks match" even if one breaks. The first five are listed in `ACCESS_COVERAGE.knownGaps`. Ordered by risk: the first two silently remove permissions.
+
+- [ ] **Team permission limits** (`Team.permissionLimits.deny`). A team-wide deny list set on the team settings page (`src/pages/Settings/team/TeamDetails.tsx`). Denying `edit data` on a team removes it from every member's team role there, leads included (`getTeamPermissions` in `backend/access/teamMemberships.js`). No fixture team has limits. To cover it: a team with `permissionLimits.deny: ['edit data']`, a monitor and a lead on it, and view/edit checks on its incident.
+- [ ] **Per-team permission overrides** (`User.teamMemberships[].permissionOverrides`, `backend/models/user.js`). Each membership can allow or deny `view data`, `edit data`, or `manage incident access` on that one team, applied in `getTeamPermissions`. No fixture uses them, and the coverage guard doesn't watch this field, so a change here wouldn't trip it. To cover it: a monitor whose membership denies `edit data`, a viewer whose membership allows it, plus a `teamMembershipOverrides` entry in `ACCESS_COVERAGE`.
+- [ ] **Team viewer role** (`teamRoles: viewer`). A team viewer can read the team's restricted data but not edit it. Every fixture team member is a monitor or a lead; the `viewer` user has the global viewer role and no team. To cover it: a user who is `viewer` on the smoke team, so the existing team incident checks pick it up.
+- [ ] **Team-restricted sources** (`sourceModes: restricted`). Only admins and members of the source's teams see its reports. No fixture source uses this mode; the team-restricted checks that exist cover incidents, not sources. To cover it: a source restricted to Team A with one report, and view/edit checks on it.
+- [ ] **Public-until sources** (`sourceModes: public_until`). Public before a cutoff date; reports on or after it are limited to the assigned teams. The seed creates before and after reports and prints a cutoff, but seeds the source as `public`, so the cutoff never applies. To cover it: seed a `public_until` source with `CUTOFF_DATE` and the smoke team, then check that the before report is visible to everyone and the after report only to the team.
+- [ ] **Inactive teams** (`teamFields: active`). An inactive team's countries stop granting access to country-restricted sources (`backend/api/utils/sourceAccessUser.js`), and an incident can't be restricted to one (`backend/api/middlewares/incidentAccessMiddlewares.js`). All fixture teams are active. To cover it: an inactive team covering a country, a member of it, and a check that they can't see that country's source.
+- [ ] **Doc fix:** `docs/access-control/access-control-permissions-matrix.md` says individual overrides "are not per-team overrides." Per-team overrides exist (see above). Update that line.
+
+When an item is covered, move its value from `knownGaps` to `covered` in `ACCESS_COVERAGE`, update the fixture tables and "What it checks" above, and delete the item here.
 
 ## Testing a feature branch
 
