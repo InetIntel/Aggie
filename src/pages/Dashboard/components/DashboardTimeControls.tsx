@@ -22,7 +22,7 @@ function rangeButtonClass(isActive: boolean) {
 }
 
 interface IProps {
-  // The card's own time window, from useAnalyticsWindow.
+  // The card's time window, from useAnalyticsWindow; may be shared with other cards.
   timeWindow: AnalyticsWindow;
   className?: string;
 }

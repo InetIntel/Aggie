@@ -60,6 +60,20 @@ export interface UpdateNotableActivityIncidentPayload
   groupId?: string;
 }
 
+export type NotableActivityDismissalPayload = AnalyticsIncidentBasePayload;
+
+// Shared by every user: a dismissed activity is hidden from everyone's active list.
+export interface ActivityDismissal {
+  dismissedAt: string;
+  // Null when the dismissing user has since been deleted.
+  dismissedBy: string | null;
+}
+
+export interface NotableActivityDismissalResponse {
+  eventAggKey: string;
+  dismissal: ActivityDismissal | null;
+}
+
 export interface AnalyticsSocketQuery {
   cacheKey: string;
   rangePreset: AnalyticsRangePreset;
@@ -173,6 +187,8 @@ export interface NotableActivity {
   // Distinct "asn / region" labels, paired per report.
   locations?: string[];
   incidentId: string | null;
+  // Set on /notable-activities results only; null when the activity is not dismissed.
+  dismissal?: ActivityDismissal | null;
 }
 
 export interface NotableActivitiesResponse {
