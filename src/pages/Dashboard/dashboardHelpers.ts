@@ -127,9 +127,9 @@ const presetBuckets: Record<
 const DEFAULT_CUSTOM_RANGE_DAYS = 7;
 
 /**
- * One card's time window: its range preset, its custom days, and the query params and
- * default bucket they resolve to. Each dashboard card holds its own, so changing one
- * card's range leaves the others alone. Times are laid out in the zone the user reads
+ * A time window: its range preset, its custom days, and the query params and default
+ * bucket they resolve to. Cards that share one window change range together; a card with
+ * its own window changes alone. Times are laid out in the zone the user reads
  * them in, so a 24h bucket runs midnight to midnight for them.
  */
 export function useAnalyticsWindow(prefs: UserPreferences) {

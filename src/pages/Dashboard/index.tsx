@@ -47,30 +47,24 @@ const sectionTitleClass =
 const sectionCardClass =
   "rounded-md border border-[#C5D9E2] bg-white p-5 dark:border-slate-600 dark:bg-gray-800";
 
-// A card's title on the left and its own range picker on the right. In a narrow card the
-// picker wraps under the title.
+// A card's title on the left and, for a card with its own range, that range's picker on
+// the right. In a narrow card the picker wraps under the title. Cards without one follow
+// the page-level picker in the header.
 function CardHeader({
   title,
   timeWindow,
 }: {
   title: string;
-  timeWindow: AnalyticsWindow;
+  timeWindow?: AnalyticsWindow;
 }) {
   return (
     <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
       <h2 className={sectionTitleClass}>{title}</h2>
-      <DashboardTimeControls timeWindow={timeWindow} className='ml-auto' />
+      {timeWindow && (
+        <DashboardTimeControls timeWindow={timeWindow} className='ml-auto' />
+      )}
     </div>
   );
-}
-
-// Each metrics card asks for its own window; equal windows share one cached request.
-function useReportMetricsQuery(params: AnalyticsQueryState) {
-  return useQuery({
-    queryKey: ["analytics", "report-metrics", params],
-    queryFn: () => getReportMetrics(params),
-    keepPreviousData: true,
-  });
 }
 
 function formatToleranceLabel(minutes: number) {
@@ -109,11 +103,7 @@ const Dashboard = () => {
     formatCompactDateTime,
     formatRangeLabel,
   } = useDashboardFormatters();
-  // Every card picks its own time range.
-  const glanceWindow = useAnalyticsWindow(prefs);
-  const alertsWindow = useAnalyticsWindow(prefs);
-  const socialWindow = useAnalyticsWindow(prefs);
-  const trendsWindow = useAnalyticsWindow(prefs);
+  const syncedWindow = useAnalyticsWindow(prefs);
   const notableWindow = useAnalyticsWindow(prefs);
   const [tolerance, setTolerance] = useState<number>(
     DEFAULT_START_TIME_TOLERANCE_MINUTES
@@ -141,8 +131,8 @@ const Dashboard = () => {
   // whose outages started within `tolerance` of each other. Each grouping gets its own
   // request (and cache key) over its own card's window.
   const overviewParams: AnalyticsQueryState = {
-    ...trendsWindow.params,
-    bucket: trendsWindow.bucket,
+    ...syncedWindow.params,
+    bucket: syncedWindow.bucket,
     aggregation: "bucket",
   };
   // Start-time grouping ignores the grid, but the backend still validates a bucket and
@@ -166,17 +156,14 @@ const Dashboard = () => {
     keepPreviousData: true,
   });
 
-  const glanceMetricsQuery = useReportMetricsQuery(glanceWindow.params);
-  const alertsMetricsQuery = useReportMetricsQuery(alertsWindow.params);
-  const socialMetricsQuery = useReportMetricsQuery(socialWindow.params);
+  const metricsQuery = useQuery({
+    queryKey: ["analytics", "report-metrics", syncedWindow.params],
+    queryFn: () => getReportMetrics(syncedWindow.params),
+    keepPreviousData: true,
+  });
   const metricCategoryCards = [
-    { key: "alerts", title: "Alerts", timeWindow: alertsWindow, query: alertsMetricsQuery },
-    {
-      key: "social",
-      title: "Social Media Posts",
-      timeWindow: socialWindow,
-      query: socialMetricsQuery,
-    },
+    { key: "alerts", title: "Alerts" },
+    { key: "social", title: "Social Media Posts" },
   ] as const;
 
   const createIncidentMutation = useMutation({
@@ -297,31 +284,32 @@ const Dashboard = () => {
 
   return (
     <section className='mx-auto max-w-[1400px] px-4 py-6'>
-      <header className='mb-4'>
+      <header className='mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
         <h1 className='text-3xl font-medium'>Dashboard</h1>
+        <DashboardTimeControls timeWindow={syncedWindow} className='ml-auto' />
       </header>
 
       <section className={`${sectionCardClass} mb-5 p-4`}>
-        <CardHeader title='Reports at a glance' timeWindow={glanceWindow} />
+        <CardHeader title='Reports at a glance' />
         <div className='mt-3'>
           <HeadlineMetrics
-            data={glanceMetricsQuery.data}
-            isLoading={glanceMetricsQuery.isLoading}
+            data={metricsQuery.data}
+            isLoading={metricsQuery.isLoading}
           />
         </div>
       </section>
 
       <div className='grid gap-5 xl:grid-cols-[17rem_minmax(0,1fr)]'>
         <div className='grid content-start gap-5 sm:grid-cols-2 xl:grid-cols-1'>
-          {metricCategoryCards.map(({ key, title, timeWindow, query }) => (
+          {metricCategoryCards.map(({ key, title }) => (
             <section key={key} className={`${sectionCardClass} p-4`}>
-              <CardHeader title={title} timeWindow={timeWindow} />
+              <CardHeader title={title} />
               <div className='mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-[0_4px_12px_rgba(15,23,42,0.08)] dark:border-gray-700 dark:bg-gray-800'>
                 <MetricsList
-                  category={query.data?.categories.find(
+                  category={metricsQuery.data?.categories.find(
                     (category) => category.key === key
                   )}
-                  isLoading={query.isLoading}
+                  isLoading={metricsQuery.isLoading}
                 />
               </div>
             </section>
@@ -330,7 +318,7 @@ const Dashboard = () => {
 
         <div className='flex min-w-0 flex-col gap-5'>
           <section className={`${sectionCardClass} p-4`}>
-            <CardHeader title='Trends' timeWindow={trendsWindow} />
+            <CardHeader title='Trends' />
 
             <div className='mt-2 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-gray-400'>
               <span>
