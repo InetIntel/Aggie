@@ -33,6 +33,20 @@ import FormikMultiCombobox from "../../components/FormikMultiCombobox";
 import FormikSwitch from "../../components/FormikSwitch";
 import FormikWithSchema from "../../components/FormikWithSchema";
 import { getGeoScopes } from "../../api/geoscope";
+import CountryMultiSelect from "../../components/CountryMultiSelect";
+
+const IncidentCountryFields = ({ editable }: { editable: boolean }) => {
+  const [field, , helpers] = useField<string[]>("countryCodes");
+  return <div className='rounded border border-slate-300 p-3'>
+    {editable ? <CountryMultiSelect label='Incident countries' value={field.value || []} onChange={(codes) => helpers.setValue(codes)} />
+      : <p>Incident countries: {(field.value || []).join(", ") || "None assigned"}</p>}
+    <p className='text-xs text-slate-500 mt-2'>
+      Assigning countries limits visibility to members of teams matching any assigned country, plus administrators.
+      Without a country or team restriction, the incident is public within Aggie.
+      New incidents created from reports also inherit their source countries.
+    </p>
+  </div>;
+};
 
 export type IncidentFormValues = Partial<
   Omit<GroupEditableData, "verification_status" | "confirmation_status">
@@ -65,6 +79,7 @@ const incidentSchema = Yup.object().shape({
   incidentEndedAt: Yup.date(),
   impactedAsns: Yup.array().of(Yup.string()).optional().default([]),
   impactedGeoScopes: Yup.array().of(Yup.string()).optional().default([]),
+  countryCodes: Yup.array().of(Yup.string()).default([]),
   accessPolicyMode: Yup.string().oneOf(["public", "restricted"]),
   accessPolicyTeams: Yup.array()
     .of(Yup.string())
@@ -104,18 +119,17 @@ const IncidentAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
 
   return (
     <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'>
-      <h3 className='font-medium mb-1'>Incident Access</h3>
+      <h3 className='font-medium mb-1'>Team restriction</h3>
       <p className='text-xs text-slate-500 dark:text-gray-400 mb-3'>
-        Public incidents are available normally. Restricted incidents are visible
-        only to the selected teams and administrators.
+        Optionally limit access to selected teams. Assigned countries still apply.
       </p>
 
       <FormikDropdown
         name='accessPolicyMode'
-        label='Access Mode'
+        label='Allowed teams'
         icon={faLock}
         list={[
-          { _id: "public", label: "Public" },
+          { _id: "public", label: "No additional team restriction" },
           { _id: "restricted", label: "Restricted to teams" },
         ]}
       />
@@ -184,6 +198,7 @@ const CreateEditIncidentForm = ({
       <FormikWithSchema
         initialValues={{
           title: initialValues?.title || group?.title || "",
+          countryCodes: initialValues?.countryCodes || group?.countryCodes || [],
           locationName: initialValues?.locationName || group?.locationName || "",
           closed: initialValues?.closed ?? group?.closed ?? false,
           verification_status:
@@ -229,6 +244,7 @@ const CreateEditIncidentForm = ({
               teams: accessPolicyMode === "restricted" ? accessPolicyTeams : [],
             };
           }
+          if (!canManageIncidentAccess) delete payload.countryCodes;
 
           onSubmit(payload);
         }}
@@ -244,6 +260,7 @@ const CreateEditIncidentForm = ({
           />
         </div>
         <FormikInput name='title' label='Title' />
+        <IncidentCountryFields editable={canManageIncidentAccess} />
         {canManageIncidentAccess && (
           <IncidentAccessPolicyFields teams={incidentAccessTeams} />
         )}

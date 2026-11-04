@@ -55,15 +55,17 @@ const hideRestrictedIncidentReferences = async (user, payload) => {
   const userId = user._id || user.id;
   const [incidents, ledTeams] = await Promise.all([
     Group.find({ _id: { $in: incidentIds } })
-      .select('_id accessPolicy')
+      .select('_id accessPolicy countryCodes')
       .lean(),
     userId
       ? Team.find({ leads: userId }).select('_id').lean()
       : Promise.resolve([]),
   ]);
   const ledTeamIds = ledTeams.map((team) => String(team._id));
+  const { getSourceAccessUser } = require('../api/utils/sourceAccessUser');
+  const accessUser = await getSourceAccessUser({ accessUser: user });
   const accessibleIncidentIds = incidents
-    .filter((incident) => canViewIncident(user, incident, ledTeamIds))
+    .filter((incident) => canViewIncident(accessUser, incident, ledTeamIds))
     .map((incident) => String(incident._id));
 
   return stripIncidentReferences(payload, accessibleIncidentIds);

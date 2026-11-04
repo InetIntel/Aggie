@@ -92,6 +92,11 @@ let schema = new mongoose.Schema({
   escalated: { type: Boolean, default: false, required: true, index: 1 },
   closed: { type: Boolean, default: false, required: true, index: 1 },
   public: { type: Boolean, default: true, required: true, index: 1 },
+  countryCodes: {
+    type: [{ type: String, uppercase: true, trim: true, match: /^[A-Z]{2}$/ }],
+    default: [],
+    index: true,
+  },
   accessPolicy: {
     mode: {
       type: String,
