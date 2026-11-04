@@ -8,8 +8,7 @@ function middleware(req, res, next) {
   context.run({ user: req.user, snapshots: new Map() }, next);
 }
 
-async function attribution(explicitUser) {
-  const store = context.getStore();
+async function attribution(explicitUser, store = context.getStore()) {
   const user = explicitUser || store?.user;
   const id = user?._id || user?.id;
   if (!id) return {};
@@ -29,4 +28,4 @@ async function attribution(explicitUser) {
   return store.snapshots.get(String(id));
 }
 
-module.exports = { middleware, attribution };
+module.exports = { middleware, attribution, capture: () => context.getStore() };
