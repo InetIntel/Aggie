@@ -23,6 +23,7 @@ export interface IncidentAccessPolicy {
 }
 
 export interface Group extends hasId {
+  countryCodes?: string[];
   tags: string[];
   id?: number;
   smtcTags: string[];
@@ -62,6 +63,8 @@ export interface Groups {
 }
 
 export interface GroupEditableData extends Partial<hasId> {
+  countryCodes?: string[];
+  reportIds?: string[];
   title: string;
   notes: string;
   verification_status: boolean;
