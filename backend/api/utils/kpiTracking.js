@@ -4,11 +4,11 @@ const KpiEvent = require('../../models/kpiEvent');
 const { attribution } = require('./kpiContext');
 let writeFailure = false;
 
-async function recordEvents(events, user) {
+async function recordEvents(events, user, context) {
   if (!events.length) return;
   let snapshot = {};
   try {
-    snapshot = await attribution(user);
+    snapshot = await attribution(user, context);
   } catch (error) {
     writeFailure = true;
     console.error('Unable to record KPI team attribution.', error);
