@@ -31,7 +31,9 @@ import { CredentialOption, CREDENTIAL_OPTIONS, providerLabel } from "../../../ap
 
 import { getTeams } from "../../../api/teams";
 import type { Team } from "../../../api/teams/types";
-import CountryMultiSelect from "../../../components/CountryMultiSelect";
+import CountryMultiSelect, { getCountryLabel } from "../../../components/CountryMultiSelect";
+import AggieDialog from "../../../components/AggieDialog";
+import AggieButton from "../../../components/AggieButton";
 
 interface IProps {
   source?: Source;
@@ -387,7 +389,7 @@ const getSourceAccessInitialValues = (source?: Source) => ({
     : "",
 });
 
-const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
+const SourceAccessPolicyEditor = ({ teams }: { teams?: Team[] }) => {
   const [modeField] = useField<SourceAccessMode>("accessPolicyMode");
   const [teamsField, , teamsHelpers] = useField<string[]>("accessPolicyTeams");
   const [cutoffField] = useField<string>("accessPolicyCutoffDate");
@@ -412,9 +414,6 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
   return (
     <div className='mt-4 rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'>
       <h3 className='font-medium mb-1'>Access Policy</h3>
-      <p className='text-xs text-slate-500 dark:text-gray-400 mb-3'>
-        Controls whether this source is broadly visible or restricted to specific teams.
-      </p>
 
       <div className='mb-3'>
         <CountryMultiSelect
@@ -422,9 +421,6 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
           value={countriesField.value || []}
           onChange={countriesHelpers.setValue}
         />
-        <p className='text-xs text-slate-500 dark:text-gray-400 mt-1'>
-          Countries describe the feed. They only limit access when country restriction is selected.
-        </p>
       </div>
 
       <FormikDropdown
@@ -443,9 +439,6 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
           <label className='text-slate-600 dark:text-gray-400'>
             Cutoff Date
           </label>
-          <p className='text-xs text-slate-500 dark:text-gray-400'>
-            Data before this date is treated as public. Data after this date is restricted to the selected teams.
-          </p>
           <input
             {...cutoffField}
             type='date'
@@ -491,6 +484,54 @@ const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
         )}
     </div>
   );
+};
+
+const SourceAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [mode] = useField<SourceAccessMode>("accessPolicyMode");
+  const [countries] = useField<string[]>("countryCodes");
+  const [selectedTeams] = useField<string[]>("accessPolicyTeams");
+  const [cutoff] = useField<string>("accessPolicyCutoffDate");
+  const countryNames = (countries.value || []).map(getCountryLabel);
+  const teamNames = (selectedTeams.value || []).map((id) => teams?.find((team) => team._id === id)?.name || id);
+  const needsTeams = mode.value === "restricted" || mode.value === "public_until";
+  const error = mode.value === "country_restricted" && !countryNames.length
+    ? "Select at least one source country."
+    : needsTeams && !teamNames.length
+      ? "Select at least one allowed team."
+      : mode.value === "public_until" && !cutoff.value
+        ? "Choose a cutoff date."
+        : "";
+  const visibility = mode.value === "country_restricted"
+    ? `Teams assigned to ${countryNames.join(", ") || "a country (not selected)"}, plus administrators`
+    : mode.value === "restricted"
+      ? `Teams: ${teamNames.join(", ") || "None selected"}, plus administrators`
+      : mode.value === "public_until"
+        ? `Public before ${cutoff.value || "a cutoff date (not selected)"}; afterward: ${teamNames.join(", ") || "select teams"}, plus administrators`
+        : "Everyone in Aggie";
+
+  return <>
+    <div className='mt-4 rounded border border-slate-300 p-3 flex flex-wrap items-center justify-between gap-3'>
+      <div className='min-w-0 flex-1'>
+        <h3 className='font-medium'>Access</h3>
+        <p className='text-sm text-slate-600 dark:text-gray-300 break-words'>{visibility}</p>
+        {mode.value !== "country_restricted" && countryNames.length > 0 && (
+          <p className='text-xs text-slate-500 mt-1'>Source countries: {countryNames.join(", ")}</p>
+        )}
+        {error && <p className='text-sm text-orange-600'>{error} Open Manage access to finish.</p>}
+      </div>
+      <AggieButton type='button' variant='secondary' onClick={() => setIsOpen(true)}>Manage access</AggieButton>
+    </div>
+    <AggieDialog isOpen={isOpen} onClose={() => setIsOpen(false)} data={{ title: "Manage source access" }} className='p-4 w-full max-w-lg'>
+      <div className='flex flex-col gap-3'>
+        <SourceAccessPolicyEditor teams={teams} />
+        {error && <p className='text-sm text-orange-600'>{error}</p>}
+        <div className='border-t border-slate-300 pt-3 flex justify-end'>
+          <AggieButton type='button' variant='primary' disabled={!!error} onClick={() => setIsOpen(false)}>Done</AggieButton>
+        </div>
+      </div>
+    </AggieDialog>
+  </>;
 };
 
 const CreateEditSourceForm = ({
