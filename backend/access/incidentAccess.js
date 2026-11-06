@@ -13,6 +13,16 @@ const normalizeIds = (values) => {
 
 const isAdmin = (user) => Boolean(user && user.role === 'admin');
 
+const normalizeCountries = (values) => [...new Set(
+  (Array.isArray(values) ? values : []).filter(Boolean).map((code) => String(code).trim().toUpperCase())
+)];
+
+const matchesIncidentCountries = (countryCodes, incident) => {
+  const countries = normalizeCountries(incident && incident.countryCodes);
+  const allowed = new Set(normalizeCountries(countryCodes));
+  return countries.length === 0 || countries.some((code) => allowed.has(code));
+};
+
 const getIncidentPolicy = (incident) => {
   if (!incident || !incident.accessPolicy) {
     return { mode: 'public', teams: [] };
@@ -40,6 +50,7 @@ const hasTeamOverlap = (firstIds, secondIds) => {
 
 const canViewIncident = (user, incident, explicitlyLedTeamIds = []) => {
   if (isAdmin(user)) return true;
+  if (!matchesIncidentCountries(user && user.teamCountryCodes, incident)) return false;
 
   const policy = getIncidentPolicy(incident);
   if (policy.mode === 'public') return true;
@@ -54,9 +65,10 @@ const canViewIncident = (user, incident, explicitlyLedTeamIds = []) => {
 const canModifyIncidentWithScope = (scope, incident) => {
   if (!scope || scope.permission !== 'edit data' || !incident) return false;
   if (scope.global === true) return true;
+  if (!matchesIncidentCountries(scope.countryCodes, incident)) return false;
 
   const policy = getIncidentPolicy(incident);
-  if (policy.mode === 'public') return scope.allowUnscoped === true;
+  if (policy.mode === 'public') return scope.allowUnscoped === true || normalizeCountries(incident.countryCodes).length > 0;
 
   return policy.mode === 'restricted' && hasTeamOverlap(
     normalizeIds(scope.teamIds),
@@ -80,7 +92,14 @@ const buildIncidentAccessFilter = (user, explicitlyLedTeamIds = []) => {
     });
   }
 
-  return { $or: clauses };
+  return { $and: [
+    { $or: [
+      { countryCodes: { $exists: false } },
+      { countryCodes: { $size: 0 } },
+      { countryCodes: { $in: normalizeCountries(user && user.teamCountryCodes) } },
+    ] },
+    { $or: clauses },
+  ] };
 };
 
 const canSetIncidentPolicy = (
@@ -138,6 +157,8 @@ const canSetIncidentPolicy = (
 };
 
 module.exports = {
+  normalizeCountries,
+  matchesIncidentCountries,
   buildIncidentAccessFilter,
   canModifyIncidentWithScope,
   canSetIncidentPolicy,

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   faCircleMinus,
   faUsers,
@@ -33,6 +34,17 @@ import FormikMultiCombobox from "../../components/FormikMultiCombobox";
 import FormikSwitch from "../../components/FormikSwitch";
 import FormikWithSchema from "../../components/FormikWithSchema";
 import { getGeoScopes } from "../../api/geoscope";
+import CountryMultiSelect, { getCountryLabel } from "../../components/CountryMultiSelect";
+import AggieDialog from "../../components/AggieDialog";
+import AggieButton from "../../components/AggieButton";
+
+const IncidentCountryFields = ({ editable }: { editable: boolean }) => {
+  const [field, , helpers] = useField<string[]>("countryCodes");
+  return <div className='rounded border border-slate-300 p-3'>
+    {editable ? <CountryMultiSelect label='Incident countries' value={field.value || []} onChange={(codes) => helpers.setValue(codes)} />
+      : <p>Incident countries: {(field.value || []).join(", ") || "None assigned"}</p>}
+  </div>;
+};
 
 export type IncidentFormValues = Partial<
   Omit<GroupEditableData, "verification_status" | "confirmation_status">
@@ -65,6 +77,7 @@ const incidentSchema = Yup.object().shape({
   incidentEndedAt: Yup.date(),
   impactedAsns: Yup.array().of(Yup.string()).optional().default([]),
   impactedGeoScopes: Yup.array().of(Yup.string()).optional().default([]),
+  countryCodes: Yup.array().of(Yup.string()).default([]),
   accessPolicyMode: Yup.string().oneOf(["public", "restricted"]),
   accessPolicyTeams: Yup.array()
     .of(Yup.string())
@@ -104,18 +117,14 @@ const IncidentAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
 
   return (
     <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'>
-      <h3 className='font-medium mb-1'>Incident Access</h3>
-      <p className='text-xs text-slate-500 dark:text-gray-400 mb-3'>
-        Public incidents are available normally. Restricted incidents are visible
-        only to the selected teams and administrators.
-      </p>
+      <h3 className='font-medium mb-1'>Team restriction</h3>
 
       <FormikDropdown
         name='accessPolicyMode'
-        label='Access Mode'
+        label='Allowed teams'
         icon={faLock}
         list={[
-          { _id: "public", label: "Public" },
+          { _id: "public", label: "No additional team restriction" },
           { _id: "restricted", label: "Restricted to teams" },
         ]}
       />
@@ -144,6 +153,46 @@ const IncidentAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
       )}
     </div>
   );
+};
+
+const IncidentAccessSummary = ({ editable, teams }: { editable: boolean; teams?: Team[] }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [countries] = useField<string[]>("countryCodes");
+  const [mode] = useField<IncidentAccessMode>("accessPolicyMode");
+  const [selectedTeams] = useField<string[]>("accessPolicyTeams");
+  const countryNames = (countries.value || []).map(getCountryLabel);
+  const restrictedToTeams = mode.value === "restricted";
+  const teamNames = (selectedTeams.value || []).map((id) => teams?.find((team) => team._id === id)?.name || id);
+  const missingTeams = restrictedToTeams && !teamNames.length;
+  const summary = [
+    countryNames.length ? countryNames.join(", ") : "No country assigned",
+    restrictedToTeams ? (teamNames.length ? `Teams: ${teamNames.join(", ")}` : "Select allowed teams") : "No additional team restriction",
+  ].join(" · ");
+
+  return <>
+    <div className='rounded border border-slate-300 p-3 flex flex-wrap items-center justify-between gap-3'>
+      <div className='min-w-0 flex-1'>
+        <h3 className='font-medium'>Access</h3>
+        <p className='text-sm text-slate-600 dark:text-gray-300 break-words'>
+          {!countryNames.length && !restrictedToTeams ? "Everyone in Aggie" : summary}
+        </p>
+        {missingTeams && <p className='text-sm text-orange-600'>Select at least one allowed team in Manage access.</p>}
+      </div>
+      {editable && <AggieButton type='button' variant='secondary' icon={faLock} onClick={() => setIsOpen(true)}>
+        Manage access
+      </AggieButton>}
+    </div>
+    <AggieDialog isOpen={isOpen} onClose={() => setIsOpen(false)} data={{ title: "Manage incident access" }} className='p-4 w-full max-w-lg'>
+      <div className='flex flex-col gap-3'>
+        <IncidentCountryFields editable={editable} />
+        <IncidentAccessPolicyFields teams={teams} />
+        {missingTeams && <p className='text-sm text-orange-600'>Select at least one allowed team.</p>}
+        <div className='border-t border-slate-300 pt-3 flex justify-end'>
+          <AggieButton type='button' variant='primary' disabled={missingTeams} onClick={() => setIsOpen(false)}>Done</AggieButton>
+        </div>
+      </div>
+    </AggieDialog>
+  </>;
 };
 
 interface IProps {
@@ -184,6 +233,7 @@ const CreateEditIncidentForm = ({
       <FormikWithSchema
         initialValues={{
           title: initialValues?.title || group?.title || "",
+          countryCodes: initialValues?.countryCodes || group?.countryCodes || [],
           locationName: initialValues?.locationName || group?.locationName || "",
           closed: initialValues?.closed ?? group?.closed ?? false,
           verification_status:
@@ -229,6 +279,7 @@ const CreateEditIncidentForm = ({
               teams: accessPolicyMode === "restricted" ? accessPolicyTeams : [],
             };
           }
+          if (!canManageIncidentAccess) delete payload.countryCodes;
 
           onSubmit(payload);
         }}
@@ -244,9 +295,7 @@ const CreateEditIncidentForm = ({
           />
         </div>
         <FormikInput name='title' label='Title' />
-        {canManageIncidentAccess && (
-          <IncidentAccessPolicyFields teams={incidentAccessTeams} />
-        )}
+        <IncidentAccessSummary editable={canManageIncidentAccess} teams={incidentAccessTeams} />
         <FormikMultiCombobox
           name='assignedTo'
           unitLabel='User'
