@@ -537,31 +537,21 @@ exports.reports_escalated_update = (req, res) => {
   });
 }
 // mark selected reports as irrelevent
-exports.reports_irrelevant_update = (req, res) => {
+exports.reports_irrelevant_update = async (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Report.find({ _id: { $in: req.body.ids } }, (err, reports) => {
-    if (err) return res.status(err.status).send(err.message);
+  try {
+    const reports = await Report.find({ _id: { $in: req.body.ids } }).exec();
     if (reports.length === 0) return res.sendStatus(200);
-    let remaining = reports.length;
-    reports.forEach((report) => {
-      // Mark each report as escalated to catch it in model
+    await Promise.all(reports.map(async (report) => {
       report.setIrrelevant(req.body.irrelevance);
-      report.save((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message)
-          return;
-        }
-        
-        if (--remaining === 0) {
-          eventRouter.publish('reports:update', { ids: req.body.ids, update: { irrelevant: req.body.irrelevance } }).then(() => {
-            return res.sendStatus(200)
-          });
-
-        };
-      });
-    });
-  });
-}
+      await report.save();
+    }));
+    await eventRouter.publish('reports:update', { ids: req.body.ids, update: { irrelevant: req.body.irrelevance } });
+    return res.sendStatus(200);
+  } catch (err) {
+    if (!res.headersSent) return res.status(err.status || 500).send(err.message);
+  }
+};
 
 // Link selected reports to one group
 exports.reports_group_update = async (req, res) => {

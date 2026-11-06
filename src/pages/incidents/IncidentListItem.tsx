@@ -131,7 +131,7 @@ const IncidentListItem = ({
                   Deleted
                 </span>
               )}
-              {item.accessPolicy?.mode === "restricted" && (
+              {(item.accessPolicy?.mode === "restricted" || !!item.countryCodes?.length) && (
                 <span className='px-1 bg-amber-100 text-amber-800 font-medium inline-flex gap-1 items-center'>
                   <FontAwesomeIcon icon={faLock} />
                   Restricted

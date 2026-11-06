@@ -108,7 +108,10 @@ const NewIncident = () => {
       </header>
       <div>
         <CreateEditIncidentForm
-          onSubmit={(values) => doCreateNewGroup.mutate(values)}
+          onSubmit={(values) => doCreateNewGroup.mutate({
+            ...values,
+            reportIds: getParam("reports") ? paramToArray(getParam("reports")) : [],
+          })}
           onCancel={() => navigate(-1)}
           isLoading={doCreateNewGroup.isLoading}
         />

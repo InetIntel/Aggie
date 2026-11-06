@@ -1,6 +1,7 @@
 const User = require("../../models/user");
 const Team = require('../../models/team');
 const { getEffectivePermissions } = require('../../access/permissions');
+const { getKpiAccess } = require('../../access/kpiAccess');
 const {
   getMembershipRole,
   getMembershipTeamIds,
@@ -215,7 +216,7 @@ exports.session = async (req, res, next) => {
     const enforced = user.mfaEnforced === true;
     const mfa = !!(req.userToken && req.userToken.mfa === true);
     const ledTeams = await Team.find({ leads: user._id })
-      .select('_id permissionLimits')
+      .select('_id permissionLimits active')
       .lean();
     const ledTeamIds = ledTeams.map((team) => String(team._id));
     const membershipTeamIds = [...new Set([
@@ -229,7 +230,7 @@ exports.session = async (req, res, next) => {
       ])
     );
     const teams = await Team.find({ _id: { $in: membershipTeamIds } })
-      .select('_id permissionLimits')
+      .select('_id permissionLimits active')
       .lean();
     const teamSettings = new Map(
       teams.map((team) => [String(team._id), team])
@@ -244,10 +245,14 @@ exports.session = async (req, res, next) => {
         )
       )
     )];
+    const kpiAccess = getKpiAccess(user, teams, ledTeamIds);
     const permissions = [...new Set([
       ...getEffectivePermissions(user),
       ...scopedPermissions,
-    ])];
+    ])].filter((permission) => !['view team kpis', 'view all kpis', 'export kpis'].includes(permission));
+    if (kpiAccess.canView) permissions.push('view team kpis');
+    if (kpiAccess.global) permissions.push('view all kpis');
+    if (kpiAccess.globalExport || kpiAccess.exportTeamIds.length) permissions.push('export kpis');
 
     const userStripped = {
       _id: user._id,
@@ -255,6 +260,7 @@ exports.session = async (req, res, next) => {
       email: user.email,
       role: user.role,
       permissions,
+      kpiAccess,
       teamRoles,
       isTeamLead: user.role === 'team_lead' || ledTeamIds.length > 0,
       hasDefaultPassword: user.hasDefaultPassword,

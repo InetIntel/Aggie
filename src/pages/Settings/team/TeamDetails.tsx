@@ -38,6 +38,8 @@ const teamPermissions: Array<{
   label: string;
   description: string;
 }> = [
+  { key: "view team kpis", label: "View team KPIs", description: "See KPI activity for this team only." },
+  { key: "export kpis", label: "Export team KPIs", description: "Download this team's KPI report. Requires view access." },
   {
     key: "view data",
     label: "View team data",
@@ -53,6 +55,11 @@ const teamPermissions: Array<{
     label: "Manage incident access",
     description: "Set or change which teams can access an incident.",
   },
+];
+
+const teamPermissionGroups = [
+  { label: "Reports and incidents", permissions: teamPermissions.filter(({ key }) => key !== "view team kpis" && key !== "export kpis") },
+  { label: "KPIs and reporting", permissions: teamPermissions.filter(({ key }) => key === "view team kpis" || key === "export kpis") },
 ];
 
 const roleLabels: Record<TeamRole, string> = {
@@ -140,6 +147,8 @@ const TeamDetails = ({ session }: IProps) => {
     queryClient.setQueryData(["teams", params.id], updatedTeam);
     queryClient.invalidateQueries(["users"]);
     queryClient.invalidateQueries(["users", "manageable"]);
+    queryClient.invalidateQueries(["session"]);
+    queryClient.invalidateQueries(["kpis"]);
   };
 
   const doAddMember = useMutation(addTeamMember, {
@@ -751,8 +760,11 @@ const TeamDetails = ({ session }: IProps) => {
                 These limits apply to everyone on the team, even when a member has a broader role.
               </p>
 
-              <div className='grid md:grid-cols-2 gap-3 mt-4'>
-                {teamPermissions
+              <div className='space-y-4 mt-4'>
+                {teamPermissionGroups.map((group) => <fieldset key={group.label}>
+                  <legend className='font-medium mb-2'>{group.label}</legend>
+                  <div className='grid md:grid-cols-2 gap-3'>
+                {group.permissions
                   .filter((permission) => permission.key !== "view data")
                   .map((permission) => {
                     const blocked = deniedTeamPermissions.includes(permission.key);
@@ -785,7 +797,7 @@ const TeamDetails = ({ session }: IProps) => {
                         </span>
                       </div>
                     );
-                  })}
+                  })}</div></fieldset>)}
               </div>
 
               {!isAdmin && (
@@ -799,7 +811,7 @@ const TeamDetails = ({ session }: IProps) => {
               <div className='p-4 border-b border-slate-300'>
                 <h3 className='text-xl font-medium'>Member permission exceptions</h3>
                 <p className='text-sm text-slate-600 dark:text-gray-300 mt-1'>
-                  Use the team role by default, or make an exception for one member on this team.
+                  Use the team role by default, or make an exception for one member on this team. Account-level KPI denies still apply. Platform-wide KPI access is managed on the user's profile.
                 </p>
               </div>
 
@@ -820,8 +832,11 @@ const TeamDetails = ({ session }: IProps) => {
                         </p>
                       </div>
 
-                      <div className='grid gap-3 sm:grid-cols-3'>
-                        {teamPermissions.map((permission) => {
+                      <div className='space-y-4'>
+                        {teamPermissionGroups.map((group) => <fieldset key={group.label}>
+                          <legend className='font-medium text-sm mb-2'>{group.label}</legend>
+                          <div className='grid gap-3 sm:grid-cols-3'>
+                        {group.permissions.map((permission) => {
                           const choice = getPermissionChoice(member, permission.key);
                           const blockedByTeam = deniedTeamPermissions.includes(permission.key);
                           const allowed = member.teamPermissions?.includes(permission.key) === true;
@@ -867,7 +882,7 @@ const TeamDetails = ({ session }: IProps) => {
                               </span>
                             </label>
                           );
-                        })}
+                        })}</div></fieldset>)}
                       </div>
                     </article>
                   );

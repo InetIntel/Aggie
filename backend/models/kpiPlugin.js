@@ -1,5 +1,7 @@
 'use strict';
 
+const { capture } = require('../api/utils/kpiContext');
+
 // Save hooks cover account provisioning, normal incident creation, dashboard
 // incident creation, and both individual and bulk report operations.
 function activityEvents(doc, entity) {
@@ -20,11 +22,15 @@ function activityEvents(doc, entity) {
 function kpiPlugin(schema, { entity, recordEvents }) {
   schema.pre('save', function () {
     this.$locals.kpiEvents = activityEvents(this, entity).map((event) => ({ ...event, at: new Date() }));
+    // Driver callbacks may run outside the request's async context.
+    this.$locals.kpiContext = capture();
   });
   schema.post('save', async function () {
     const events = this.$locals.kpiEvents || [];
+    const context = this.$locals.kpiContext;
     this.$locals.kpiEvents = [];
-    await recordEvents(events);
+    delete this.$locals.kpiContext;
+    await recordEvents(events, entity === 'user' ? this : undefined, context);
   });
 }
 

@@ -94,7 +94,7 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
       <Route path='/incidents/:id' element={<Incident />} />
       <Route path='/incidents/new' element={<NewIncident />} />
       <Route path='/settings' element={<Settings />}>
-        {sessionData?.role === 'admin' && <Route path='kpis' element={<Kpis />} />}
+        {sessionData?.kpiAccess?.canView && <Route path='kpis' element={<Kpis accessKey={JSON.stringify([sessionData._id, sessionData.kpiAccess])} />} />}
         <Route path='sources' element={<SourcesIndex />} />
         <Route path='source/:id' element={<SourceDetails />} />
         <Route path='tags' element={<TagsIndex />} />

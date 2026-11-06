@@ -19,13 +19,14 @@ import { getSession } from "../../api/session";
 export function menuLinks(
   role: string | undefined,
   isTeamLead = false,
-  userId?: string
+  userId?: string,
+  canViewKpis = role === "admin"
 ) {
   // Your own profile is not role-dependent, so it sits outside the switch.
   const profile = userId
     ? { "My Profile": { to: "user/" + userId, icon: faUser } }
     : {};
-  return { ...profile, ...roleLinks(role, isTeamLead) };
+  return { ...profile, ...roleLinks(role, isTeamLead), ...(canViewKpis ? { "KPI tracking": { to: "kpis", icon: faCog } } : {}) };
 }
 
 function roleLinks(role: string | undefined, isTeamLead: boolean) {
@@ -36,7 +37,6 @@ function roleLinks(role: string | undefined, isTeamLead: boolean) {
         "Teams": { to: "teams", icon: faShieldHalved },
         "Tags": { to: "tags", icon: faTags },
         "Sources and Feeds": { to: "connections", icon: faCloudArrowDown },
-        "KPI tracking": { to: "kpis", icon: faCog },
       };
     case "team_lead":
       return {
@@ -72,7 +72,7 @@ const Settings = () => {
   return (
     <section className='max-w-screen-2xl mx-auto w-full px-4 flex flex-col min-[1080px]:flex-row gap-4'>
       <nav className='flex flex-wrap min-[1080px]:flex-col gap-2 mt-3 min-[1080px]:pr-3 min-[1080px]:border-r border-slate-300 min-[1080px]:w-[260px] min-[1080px]:shrink-0 min-[1080px]:min-h-[80vh]'>
-        {Object.entries(menuLinks(session?.role, session?.isTeamLead, session?._id)).map(([name, link]) => (
+        {Object.entries(menuLinks(session?.role, session?.isTeamLead, session?._id, session?.kpiAccess?.canView)).map(([name, link]) => (
           <Link
             key={name}
             className={`px-3 py-2 flex items-center gap-3 font-medium text-left rounded-lg min-[1080px]:w-full ${location.pathname.includes(link.to)
