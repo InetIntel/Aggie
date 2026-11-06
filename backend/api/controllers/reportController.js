@@ -275,12 +275,12 @@ const sendReportResponse = async (req, res, payload, status = 200, options = {})
 // Get a list of queried Reports
 exports.report_filter_options = async (req, res) => {
   try {
-    const { countryExpression, regionExpression } = require('../../shared/alertLocations');
+    const { countryExpression, regionExpression, asnExpression } = require('../../shared/alertLocations');
     const countries = require('i18n-iso-countries');
     const access = await getReportSourceAccessFilter(req);
     const rows = await Report.aggregate([
       { $match: combineReportFilters({ isOutageEvent: true }, access) },
-      { $project: { country: countryExpression, region: regionExpression, asn: 1, geoScope: 1,
+      { $project: { country: countryExpression, region: regionExpression, asn: asnExpression, geoScope: 1,
         network: { $ifNull: ['$metadata.rawAPIResponse.networkName', { $ifNull: [
           '$metadata.rawAPIResponse.rawEvent.asnDetails.name', '$metadata.rawAPIResponse.entityName',
         ] }] } } },
