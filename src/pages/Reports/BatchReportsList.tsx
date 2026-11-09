@@ -1,3 +1,4 @@
+import { usePermission } from "../../hooks/usePermission";
 // unused artifact from FuCo, used for batch-assigning reports to users
 
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -77,9 +78,10 @@ const BatchReportList = ({}: IProps) => {
     return 0;
   }
 
+  const canEdit = usePermission("edit data");
   function onReportClick(id: string, isRead: boolean) {
     navigate({ pathname: `${id}`, search: searchParams.toString() });
-    if (!isRead)
+    if (canEdit && !isRead && batchData?.results.find((report) => report._id === id)?.canEdit)
       setRead.mutate({ reportIds: [id], read: true, currentPageId: id });
   }
   // when batch mode not activated

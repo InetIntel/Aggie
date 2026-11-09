@@ -306,7 +306,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
               >
                 <FontAwesomeIcon icon={faUpRightFromSquare} />
               </Link>
-              <AggieButton
+              <AggieButton permission="edit data" permissionResource={inc}
                 variant="light:green"
                 className={`rounded-lg border border-slate-300 ${btnSize}`}
                 padding={btnPadding}
@@ -315,7 +315,7 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
                 aria-label={`Edit incident ${inc.idnum}`}
                 onClick={() => setEditTarget(inc)}
               />
-              <AggieButton
+              <AggieButton permission="edit data" permissionResource={inc}
                 variant="light:rose"
                 className={`rounded-lg border border-slate-300 ${btnSize}`}
                 padding={btnPadding}

@@ -1,10 +1,13 @@
+import PermissionHint from "./PermissionHint";
+import { usePermission } from "../hooks/usePermission";
+import { ActionPermission, PermissionResource, permissionMessage } from "../utils/permissions";
 import { IconProp } from "@fortawesome/fontawesome-svg-core";
-import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faLock, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { forwardRef } from "react";
 
 const defaultCSS =
-  "disabled:pointer-events-none disabled:opacity-50 inline-flex gap-1 items-center text-nowrap focus-theme font-medium";
+  "disabled:cursor-not-allowed disabled:opacity-50 inline-flex gap-1 items-center text-nowrap focus-theme font-medium";
 
 export const VariantCSS = {
   primary:
@@ -23,6 +26,8 @@ export const VariantCSS = {
 };
 
 interface IProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  permission?: ActionPermission;
+  permissionResource?: PermissionResource;
   className?: string;
   override?: boolean;
   variant?: keyof typeof VariantCSS;
@@ -32,8 +37,12 @@ interface IProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   stopPropagation?: boolean;
 }
 
-const AggieButton = forwardRef(
+const AggieButton = forwardRef<HTMLButtonElement, IProps>(
   ({
+    permission,
+    permissionResource,
+    disabled,
+    title,
     className,
     override = false,
     loading = false,
@@ -42,9 +51,12 @@ const AggieButton = forwardRef(
     icon,
     children,
     ...props
-  }: IProps) => {
+  }: IProps, ref) => {
+    const allowed = usePermission(permission, permissionResource);
     return (
+      <PermissionHint denied={!allowed} className={className?.includes("w-full") ? "w-full" : ""}>
       <button
+        ref={ref}
         className={
           override
             ? className
@@ -53,7 +65,12 @@ const AggieButton = forwardRef(
               }`
         }
         {...props}
+        style={!allowed ? { ...props.style, pointerEvents: "none" } : props.style}
+        disabled={disabled || !allowed}
+        title={allowed ? title : undefined}
+        aria-label={!allowed && typeof children === "string" ? `${children}. ${permissionMessage}` : props["aria-label"]}
       >
+        {!allowed && <FontAwesomeIcon icon={faLock} aria-hidden="true" />}
         {loading ? (
           <FontAwesomeIcon icon={faSpinner} className={"animate-spin"} />
         ) : (
@@ -61,6 +78,7 @@ const AggieButton = forwardRef(
         )}
         {children}
       </button>
+      </PermissionHint>
     );
   }
 );

@@ -1,3 +1,4 @@
+import AggieButton from "../../../components/AggieButton";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faDotCircle,
@@ -65,7 +66,7 @@ const CompareAlertCard = ({
           <button type='button' className={menuItem} onClick={onRemove}>
             <FontAwesomeIcon icon={faTrash} /> Remove from comparison
           </button>
-          <button
+          <AggieButton permission="edit data" permissionResource={report}
             type='button'
             className={menuItem}
             onClick={() =>
@@ -78,8 +79,8 @@ const CompareAlertCard = ({
           >
             <FontAwesomeIcon icon={report.read ? faEnvelope : faEnvelopeOpen} />
             Mark as {report.read ? "unread" : "read"}
-          </button>
-          <button
+          </AggieButton>
+          <AggieButton permission="edit data" permissionResource={report}
             type='button'
             className={menuItem}
             onClick={() =>
@@ -92,8 +93,8 @@ const CompareAlertCard = ({
           >
             <FontAwesomeIcon icon={faXmark} />
             {report.irrelevant === "true" ? "Remove ignore" : "Ignore"}
-          </button>
-          <button
+          </AggieButton>
+          <AggieButton permission="edit data" permissionResource={report}
             type='button'
             className={menuItem}
             onClick={() =>
@@ -106,7 +107,7 @@ const CompareAlertCard = ({
           >
             <FontAwesomeIcon icon={faDotCircle} />
             {report.irrelevant === "false" ? "Remove investigate" : "Investigate"}
-          </button>
+          </AggieButton>
         </DropdownMenu>
       </div>
 
