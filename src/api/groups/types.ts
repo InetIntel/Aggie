@@ -43,6 +43,7 @@ export interface Group extends hasId {
   idnum: number;
   __v: number;
   notes?: string;
+  publicDescription?: string;
   locationName: string;
   comments?: GroupComment[];
   incidentStartedAt: Date;
