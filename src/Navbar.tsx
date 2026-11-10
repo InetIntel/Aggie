@@ -126,7 +126,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
           in the bar squeezes, the squeeze steps above make it fit instead. */}
       <div className={`flex items-center shrink-0 ${linksInMenu ? "gap-1 sm:gap-2" : "gap-2"}`}>
 
-        <div>
+        <Link to='/dashboard' aria-label='Go to dashboard' className='block rounded-lg focus-theme'>
           <svg
             fill='none'
             viewBox='0 0 62 62'
@@ -137,7 +137,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
               fill='currentColor'
             />
           </svg>
-        </div>
+        </Link>
         <div className={`${fit.squeeze >= 3 ? "hidden" : "flex"} whitespace-nowrap rounded-lg font-medium ${fit.squeeze >= 2 ? "text-sm" : "text-base"} gap-1 mx-2`}>
           {Object.entries(mainLinks).map(([name, path]) => (
             <Link
