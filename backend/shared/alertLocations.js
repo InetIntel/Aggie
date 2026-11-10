@@ -9,6 +9,12 @@ for (const scope of scopes) countryByScope.set(scope.key, scope.countryCode);
 const raw = '$metadata.rawAPIResponse';
 const location = { $ifNull: [`${raw}.rawEvent.location`, ''] };
 const level = `${raw}.entityLevel`;
+const scope = { $ifNull: ['$geoScope', `${raw}.entityScope`] };
+const legacyAsn = { $regexFind: { input: { $ifNull: [`${raw}.entityScope`, ''] }, regex: '^AS([1-9][0-9]*)$', options: 'i' } };
+const asnExpression = { $ifNull: ['$asn', { $let: {
+  vars: { match: legacyAsn },
+  in: { $cond: [{ $ne: ['$$match', null] }, { $concat: ['as', { $arrayElemAt: ['$$match.captures', 0] }] }, null] },
+} }] };
 const legacyRegion = {
   $switch: {
     branches: [
@@ -19,7 +25,7 @@ const legacyRegion = {
 };
 const countryExpression = { $ifNull: ['$countryCode', { $ifNull: [`${raw}.probeCC`, {
   $switch: {
-    branches: [...countryByScope].map(([name, code]) => ({ case: { $eq: ['$geoScope', name] }, then: code })),
+    branches: [...countryByScope].map(([name, code]) => ({ case: { $eq: [scope, name] }, then: code })),
     default: null,
   },
 }] }] };
@@ -40,7 +46,7 @@ function locationPredicates(options) {
     if (!options[kind] || (Array.isArray(options[kind]) && !options[kind].length)) return [];
     const values = normalizeValues(options[kind], kind);
     // Invalid nonempty input must never silently broaden the query.
-    return [kind === 'asns' ? { asn: { $in: values } } : { $expr: { $in: [kind === 'countries' ? countryExpression : regionExpression, values] } }];
+    return [{ $expr: { $in: [kind === 'countries' ? countryExpression : kind === 'asns' ? asnExpression : regionExpression, values] } }];
   });
 }
-module.exports = { countryExpression, regionExpression, normalizeValues, locationPredicates };
+module.exports = { countryExpression, regionExpression, asnExpression, normalizeValues, locationPredicates };
