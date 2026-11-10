@@ -13,9 +13,12 @@
 //
 // Prerequisites:
 //   npm run dev:backend and npm run dev:frontend (app on :8000, API on :3000)
-//   An admin account without MFA. By default it logs in with ADMIN_USERNAME and
-//   ADMIN_PASSWORD from .env; set FORM_SCREENS_USERNAME / FORM_SCREENS_PASSWORD
-//   to use another account.
+//
+// Signing in: the script uses its own browser profile in
+// scratchpad/form-button-screens-profile and assumes it is already signed in,
+// as an admin. If it isn't (the first run, or after the 12-hour session
+// expires), a browser window opens on the login page; sign in there, MFA
+// included, and the script carries on. The login is kept for later runs.
 //
 // Usage:
 //   node scripts/form-button-screens.js
@@ -32,8 +35,10 @@ const { chromium } = require('playwright');
 
 const APP_URL = (process.env.AGGIE_APP_URL || 'http://localhost:8000').replace(/\/$/, '');
 const OUTPUT_DIR = path.join(__dirname, '..', 'scratchpad', 'form-button-screens');
-const USERNAME = process.env.FORM_SCREENS_USERNAME || process.env.ADMIN_USERNAME;
-const PASSWORD = process.env.FORM_SCREENS_PASSWORD || process.env.ADMIN_PASSWORD;
+// Kept outside OUTPUT_DIR, which is wiped on every run.
+const PROFILE_DIR = path.join(__dirname, '..', 'scratchpad', 'form-button-screens-profile');
+const CONTEXT_OPTIONS = { ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } };
+const SIGN_IN_TIMEOUT_MS = 5 * 60 * 1000;
 
 // Thrown when the app has no data for a form (no incident with a comment, no
 // enrolled passkey, ...). The report shows the reason instead of an error.
@@ -710,17 +715,6 @@ const escapeHtml = (value) => String(value)
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-const login = async (context) => {
-  const res = await context.request.post(`${APP_URL}/login`, {
-    data: { username: USERNAME, password: PASSWORD },
-  });
-  if (!res.ok()) throw new Error(`Login failed for ${USERNAME}: HTTP ${res.status()}`);
-  const body = await res.json().catch(() => ({}));
-  if (body.mfa_required) {
-    throw new Error(`Login for ${USERNAME} requires MFA. Set FORM_SCREENS_USERNAME / FORM_SCREENS_PASSWORD to an admin without MFA.`);
-  }
-};
-
 const getJson = async (context, urlPath) => {
   const res = await context.request.get(`${APP_URL}${urlPath}`);
   if (!res.ok()) return null;
@@ -729,15 +723,47 @@ const getJson = async (context, urlPath) => {
 
 const asList = (body) => (Array.isArray(body) ? body : (body && body.results) || []);
 
-const fetchData = async (context) => {
+// The signed-in user, or null. The jwt cookie is only set once sign-in
+// (including MFA) is complete, so a session here is a usable one.
+const readSession = async (context) => {
   const session = await getJson(context, '/session');
-  if (!session || !session._id) throw new Error('Could not read /session after login.');
-  if (session.role !== 'admin') console.log(`Warning: ${USERNAME} is ${session.role}, not admin. Some forms will be skipped.`);
+  return session && session._id ? session : null;
+};
+
+// Opens the saved profile, assuming it is signed in. If it isn't, shows a
+// browser window on the login page and waits for you to sign in there, then
+// reopens the profile headless for the screenshots.
+const openSignedIn = async () => {
+  let context = await chromium.launchPersistentContext(PROFILE_DIR, CONTEXT_OPTIONS);
+  let session = await readSession(context);
+  if (session) return { context, session };
+
+  await context.close();
+  context = await chromium.launchPersistentContext(PROFILE_DIR, { ...CONTEXT_OPTIONS, headless: false });
+  const page = context.pages()[0] || await context.newPage();
+  await page.goto(`${APP_URL}/login`);
+  console.log('Not signed in. Sign in in the browser window that just opened; the script continues once you have.');
+  const deadline = Date.now() + SIGN_IN_TIMEOUT_MS;
+  while (!(session = await readSession(context))) {
+    if (Date.now() > deadline) {
+      await context.close();
+      throw new Error('Timed out waiting for you to sign in.');
+    }
+    await page.waitForTimeout(2000);
+  }
+  await context.close();
+  console.log(`Signed in as ${session.username}.`);
+  return { context: await chromium.launchPersistentContext(PROFILE_DIR, CONTEXT_OPTIONS), session };
+};
+
+const fetchData = async (context, session) => {
+  if (session.role !== 'admin') console.log(`Warning: ${session.username} is ${session.role}, not admin. Some forms will be skipped.`);
   const incidents = asList(await getJson(context, '/api/group'));
   const teams = asList(await getJson(context, '/api/team'));
   const users = asList(await getJson(context, '/api/user'));
   const other = users.find((user) => user._id !== session._id && user.role !== 'admin');
   return {
+    username: session.username,
     selfId: session._id,
     incidentIds: incidents.map((incident) => incident._id),
     incidentId: incidents[0] && incidents[0]._id,
@@ -811,7 +837,7 @@ const card = (shot, result) => {
   return `<article id="${slug(shot.title)}"><h3>${escapeHtml(shot.title)}</h3>${meta}${body}</article>`;
 };
 
-const writeReport = (shots, results, startedAt) => {
+const writeReport = (shots, results, startedAt, username) => {
   const sections = GROUPS.map((group) => {
     const inGroup = shots.filter((shot) => shot.group === group.key);
     if (!inGroup.length) return '';
@@ -845,7 +871,7 @@ const writeReport = (shots, results, startedAt) => {
 </style></head>
 <body><main>
 <h1>Form button layout</h1>
-<p class="sub">Captured ${escapeHtml(startedAt.toLocaleString())} from ${escapeHtml(APP_URL)} as ${escapeHtml(USERNAME)}.
+<p class="sub">Captured ${escapeHtml(startedAt.toLocaleString())} from ${escapeHtml(APP_URL)} as ${escapeHtml(username)}.
 Blue dashed outline: the form or dialog. Red outline: its Submit/Cancel buttons. Click an image to open it full size.
 Source: <code>docs/claude/architecture/form-button-layout.md</code>.</p>
 ${sections}
@@ -866,9 +892,6 @@ const openInBrowser = (file) => {
 };
 
 const main = async () => {
-  if (!USERNAME || !PASSWORD) {
-    throw new Error('Set ADMIN_USERNAME and ADMIN_PASSWORD in .env, or FORM_SCREENS_USERNAME / FORM_SCREENS_PASSWORD.');
-  }
   const onlyArg = process.argv.find((arg) => arg.startsWith('--only='));
   const only = onlyArg && onlyArg.slice('--only='.length).toLowerCase();
   const shots = only
@@ -879,13 +902,13 @@ const main = async () => {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   const startedAt = new Date();
   const results = new Map();
-  const browser = await chromium.launch();
-  const contextOptions = { ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } };
+  const { context: signedIn, session } = await openSignedIn();
+  // Only for the signed-out login page, which the saved profile can't show.
+  let signedOutBrowser;
+  let data;
 
   try {
-    const signedIn = await browser.newContext(contextOptions);
-    await login(signedIn);
-    const data = await fetchData(signedIn);
+    data = await fetchData(signedIn, session);
     console.log(`Capturing ${shots.length} forms...`);
 
     for (const shot of shots) {
@@ -895,7 +918,8 @@ const main = async () => {
         continue;
       }
       // A fresh page per shot, so an open dialog or popover can't leak into the next.
-      const context = shot.signedOut ? await browser.newContext(contextOptions) : signedIn;
+      if (shot.signedOut && !signedOutBrowser) signedOutBrowser = await chromium.launch();
+      const context = shot.signedOut ? await signedOutBrowser.newContext(CONTEXT_OPTIONS) : signedIn;
       const page = await context.newPage();
       await makeReadOnly(page);
       const waitForApiIdle = trackApiRequests(page);
@@ -915,10 +939,11 @@ const main = async () => {
       }
     }
   } finally {
-    await browser.close();
+    await signedIn.close();
+    if (signedOutBrowser) await signedOutBrowser.close();
   }
 
-  const file = writeReport(shots, results, startedAt);
+  const file = writeReport(shots, results, startedAt, data.username);
   console.log(`\nReport: ${file}`);
   if (!process.argv.includes('--no-open')) openInBrowser(file);
 };
