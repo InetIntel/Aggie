@@ -5,7 +5,7 @@ There are two role levels:
 - The account role is the default for public or unscoped work.
 - The team role applies when editing data restricted to that team.
 
-Admins bypass team restrictions. Individual allow/deny overrides apply to account permissions; they are not per-team overrides.
+Admins bypass team restrictions. Individual allow/deny overrides on the account apply to account permissions. Each team membership can also allow or deny `view data`, `edit data`, `manage incident access`, `view team kpis` or `export kpis` on that one team (`User.teamMemberships[].permissionOverrides`, applied in `getTeamPermissions` in `backend/access/teamMemberships.js`). A deny wins over an allow, and the team's own `permissionLimits.deny` removes a permission from every member, overrides included.
 
 By default, viewers can read, monitors can read and edit, legacy team leads keep their compatibility permissions, and admins have every permission.
 

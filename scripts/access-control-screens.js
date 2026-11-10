@@ -8,6 +8,7 @@
 // Prerequisites:
 //   ACCESS_CONTROL_SMOKE_FIXTURES=true npm run smoke:access:seed
 //   npm run dev:backend and npm run dev:frontend (app on :8000, API on :3000)
+//   npm run smoke:access:matrix   (for the report's matrix and KPI sections)
 //
 // Usage:
 //   npm run smoke:access:screens
@@ -15,11 +16,12 @@
 //   npm run smoke:access:screens -- --no-open         (don't open the report)
 //   AGGIE_APP_URL=https://localhost:8000 npm run smoke:access:screens
 //
-// The report also includes the API permission matrix from
-// backend/scripts/access-control-matrix.js, run fresh against AGGIE_API_URL,
-// and the KPI check results saved by the last `npm run smoke:access:matrix`.
-// The KPI checks create data, so this script shows the saved results instead
-// of running them.
+// Pages with a `verify` hook also check something on the page (the incident
+// access selector) and show the result under the screenshot.
+//
+// The report also shows the API permission matrix grid and the KPI check
+// results saved by the last `npm run smoke:access:matrix`, with when it ran.
+// This script makes no API checks itself; rerun the matrix to refresh them.
 
 require('dotenv').config();
 
@@ -31,6 +33,7 @@ const { chromium } = require('playwright');
 const database = require('../backend/database');
 const {
   readKpiResults,
+  readMatrixResults,
   readPassword,
   TEAMS,
   TEAM_INCIDENTS,
@@ -38,16 +41,73 @@ const {
   describeMemberships,
   loadFixtureIds,
 } = require('../backend/scripts/access-control-fixtures');
-const { runMatrix } = require('../backend/scripts/access-control-matrix');
+const { buildUserContext } = require('../backend/scripts/access-control-matrix');
 
 const APP_URL = (process.env.AGGIE_APP_URL || 'http://localhost:8000').replace(/\/$/, '');
 const OUTPUT_DIR = path.join(__dirname, '..', 'scratchpad', 'access-control-screens');
 // Users captured at the same time, each in its own browser context.
 const CONCURRENCY = 4;
 
+// The "Incident Access" box in the open incident form.
+const accessSelector = (page) =>
+  page.getByRole('dialog').locator('h3', { hasText: 'Incident Access' }).locator('xpath=..');
+
+// Opens the Edit form from the incident page's "..." menu. With `restrict`,
+// also switches Access Mode to "Restricted to teams" so the team list shows.
+// Returns false when the page has no Edit option, for example because it
+// redirected away from an incident the user can't see.
+const openIncidentEditForm = async (page, waitForApiIdle, { restrict = false } = {}) => {
+  const menuButtons = page.locator('button:has(svg[data-icon^="ellipsis"])');
+  const editItem = page.getByText('Edit Incident', { exact: true });
+  let found = false;
+  for (let i = 0; i < await menuButtons.count() && !found; i += 1) {
+    await menuButtons.nth(i).click();
+    found = await editItem.waitFor({ timeout: 1000 }).then(() => true, () => false);
+    if (!found) await page.keyboard.press('Escape');
+  }
+  if (!found) return false;
+
+  await editItem.click();
+  await page.getByRole('dialog').waitFor();
+  if (restrict && await accessSelector(page).count() > 0) {
+    await accessSelector(page).locator('button[id^="headlessui-listbox-button"]').click();
+    await page.getByRole('option', { name: 'Restricted to teams' }).click();
+  }
+  await waitForApiIdle({ fresh: true });
+  return true;
+};
+
+// The selector must list exactly the fixture teams GET /api/team/incident-access
+// should return for this user (other teams in the database are ignored). If
+// the form hides the selector, the user must have no such teams.
+const verifyAccessSelector = async (page, u, opened) => {
+  if (!opened) return { status: 'skipped', message: 'no Edit form, not checked' };
+  const expected = u.incidentAccessTeamKeys().map((teamKey) => TEAMS[teamKey].name).sort();
+  const box = accessSelector(page);
+  if (await box.count() === 0) {
+    return expected.length === 0
+      ? { status: 'pass', message: 'no access selector, as expected' }
+      : { status: 'fail', message: `access selector hidden, expected ${expected.join(', ')}` };
+  }
+  const fixtureNames = new Set(Object.values(TEAMS).map((team) => team.name));
+  const listed = (await box.locator('label span').allTextContents())
+    .map((name) => name.trim())
+    .filter((name) => fixtureNames.has(name))
+    .sort();
+  const matches = listed.length === expected.length && listed.every((name, i) => name === expected[i]);
+  const describe = (names) => (names.length > 0 ? names.join(', ') : 'no teams');
+  return matches
+    ? { status: 'pass', message: `selector OK: ${describe(listed)}` }
+    : { status: 'fail', message: `selector lists ${describe(listed)}, expected ${describe(expected)}` };
+};
+
 // Pages to capture. `path` receives the fixture ids from loadFixtureIds.
 // `settle` waits for the page's own requests and its loading text to finish
 // before the screenshot; the report lists and alert details need it.
+// `action(page, waitForApiIdle)` runs before the screenshot, and
+// `verify(page, u, actionResult)` after it, where `u` is the user's expected
+// access from buildUserContext. verify returns { status: 'pass' | 'fail' |
+// 'skipped', message }.
 const PAGES = [
   { name: 'Dashboard', path: () => '/dashboard' },
   { name: 'Alerts', path: () => '/alerts', settle: true },
@@ -62,6 +122,18 @@ const PAGES = [
     name: `${TEAMS[teamKey].label} incident`,
     path: (f) => `/incidents/${f.teamIncidents[teamKey]}`,
   })),
+  {
+    name: 'Edit public incident form',
+    path: (f) => `/incidents/${f.incidents.public}`,
+    action: (page, waitForApiIdle) => openIncidentEditForm(page, waitForApiIdle, { restrict: true }),
+    verify: verifyAccessSelector,
+  },
+  {
+    name: 'Edit team incident form',
+    path: (f) => `/incidents/${f.incidents.restricted}`,
+    action: (page, waitForApiIdle) => openIncidentEditForm(page, waitForApiIdle),
+    verify: verifyAccessSelector,
+  },
   { name: 'New incident', path: () => '/incidents/new' },
   { name: 'Sources', path: () => '/settings/sources' },
   { name: 'Source detail', path: (f) => `/settings/source/${f.source}` },
@@ -139,7 +211,7 @@ const waitForLoadingText = (page) => page.waitForFunction(
   { timeout: 8000 }
 ).catch(() => {});
 
-const capture = async (page, waitForApiIdle, target, url, file) => {
+const capture = async (page, waitForApiIdle, target, url, file, userContext) => {
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   if (target.settle) {
     await waitForApiIdle({ fresh: true });
@@ -148,8 +220,12 @@ const capture = async (page, waitForApiIdle, target, url, file) => {
   } else {
     await waitForApiIdle();
   }
+  // Read the path before the action, which may open a dialog but not navigate.
+  const finalPath = new URL(page.url()).pathname;
+  const actionResult = target.action ? await target.action(page, waitForApiIdle) : undefined;
   await page.screenshot({ path: file, fullPage: true });
-  return new URL(page.url()).pathname;
+  const verify = target.verify ? await target.verify(page, userContext, actionResult) : null;
+  return { finalPath, verify };
 };
 
 const formatTime = (date) => date.toLocaleString();
@@ -161,6 +237,8 @@ const formatDuration = (ms) => {
 
 const userHeaderCells = (userKeys) => userKeys.map((key) => {
   const user = USERS[key];
+  // Saved matrix results can name a user since removed from the fixtures.
+  if (!user) return `<th>${escapeHtml(key)}</th>`;
   const memberships = describeMemberships(key);
   const membership = memberships ? `<br>${escapeHtml(memberships)}` : '';
   return `<th>${escapeHtml(key)}<small>${escapeHtml(user.role)}${membership}</small></th>`;
@@ -170,6 +248,15 @@ const columnGroup = (userKeys) =>
   `<colgroup><col class="label">${userKeys.map(() => '<col>').join('')}</colgroup>`;
 
 const renderScreenshots = ({ pages, userKeys, results }) => {
+  const failures = pages.flatMap((page) => userKeys
+    .map((key) => [key, results[page.name][key]])
+    .filter(([, result]) => result && result.verify && result.verify.status === 'fail')
+    .map(([key, result]) => `${page.name} as ${key}: ${result.verify.message}`));
+  const verifySummary = failures.length === 0
+    ? ''
+    : `<p class="error">${failures.length} page check(s) failed:</p><ul class="error">` +
+      failures.map((line) => `<li>${escapeHtml(line)}</li>`).join('') + '</ul>';
+
   const rows = pages.map((page) => {
     const cells = userKeys.map((key) => {
       const result = results[page.name][key];
@@ -177,16 +264,21 @@ const renderScreenshots = ({ pages, userKeys, results }) => {
       if (result.error) return `<td class="error">${escapeHtml(result.error)}</td>`;
       const redirected = result.finalPath !== result.requestedPath;
       const caption = `${page.name}: ${key} (${result.finalPath})`;
+      const verify = result.verify
+        ? `<span class="verify ${result.verify.status}">${escapeHtml(result.verify.message)}</span>`
+        : '';
       // One link holds the screenshot and its path, and stretches over the
       // whole cell so a click anywhere in it opens the screenshot.
       return `<td class="shot-cell"><a class="shot" href="${result.file}" data-caption="${escapeHtml(caption)}">` +
         `<img src="${result.file}" loading="lazy" alt="">` +
-        `<span class="${redirected ? 'redirect' : 'path'}">${redirected ? 'redirected to ' : ''}${escapeHtml(result.finalPath)}</span></a></td>`;
+        `<span class="${redirected ? 'redirect' : 'path'}">${redirected ? 'redirected to ' : ''}${escapeHtml(result.finalPath)}</span>` +
+        `${verify}</a></td>`;
     }).join('');
     return `<tr><th scope="row">${escapeHtml(page.name)}</th>${cells}</tr>`;
   }).join('\n');
 
-  return `<p>Click a screenshot or its path to view it full size (Esc or click outside it to close). The last one opened stays outlined. Orange paths mean the page redirected.</p>
+  return `<p>Click a screenshot or its path to view it full size (Esc or click outside it to close). The last one opened stays outlined. Orange paths mean the page redirected. Green or red text under a path is that page's check.</p>
+${verifySummary}
 <table>
 ${columnGroup(userKeys)}
 <thead><tr><th></th>${userHeaderCells(userKeys)}</tr></thead>
@@ -197,31 +289,36 @@ ${rows}
 };
 
 const renderMatrix = (matrix) => {
-  if (matrix.status === 'pending') return '<p class="pending">Running...</p>';
-  if (matrix.status === 'error') {
-    return `<p class="error">Could not run the matrix: ${escapeHtml(matrix.error)}</p>`;
+  if (!matrix) {
+    return '<p class="pending">No matrix results yet. Run <code>npm run smoke:access:matrix</code> ' +
+      'to generate them.</p>';
   }
 
-  const { baseUrl, checks, userKeys, results, mismatches } = matrix.data;
-  const rows = checks.map((check) => {
+  const { ranAt, baseUrl, filter, checkNames, userKeys, results, mismatches } = matrix;
+  const rows = checkNames.map((name) => {
     const cells = userKeys.map((key) => {
-      const { expected, actual, status } = results[check.name][key];
+      const { expected, actual, status, detail } = results[name][key];
       if (actual === expected) {
         return `<td class="${actual}">${actual}</td>`;
       }
-      return `<td class="mismatch" title="expected ${expected}, got HTTP ${status}">` +
-        `${actual.toUpperCase()}!<small>expected ${expected}, HTTP ${status}</small></td>`;
+      const reason = `expected ${expected}, HTTP ${status}${detail ? `: ${detail}` : ''}`;
+      return `<td class="mismatch" title="${escapeHtml(reason)}">` +
+        `${actual.toUpperCase()}!<small>${escapeHtml(reason)}</small></td>`;
     }).join('');
-    return `<tr><th scope="row">${escapeHtml(check.name)}</th>${cells}</tr>`;
+    return `<tr><th scope="row">${escapeHtml(name)}</th>${cells}</tr>`;
   }).join('\n');
 
   const summary = mismatches.length === 0
-    ? `<p class="ok">All ${checks.length * userKeys.length} checks match.</p>`
+    ? `<p class="ok">All ${checkNames.length * userKeys.length} checks match.</p>`
     : `<p class="error">${mismatches.length} mismatch(es):</p><ul class="error">` +
       mismatches.map((line) => `<li>${escapeHtml(line)}</li>`).join('') + '</ul>';
 
-  return `<p>Expected vs. actual API access for each user, against ${escapeHtml(baseUrl)}. ` +
-    'Same checks as <code>npm run smoke:access:matrix</code>.</p>' +
+  const filtered = filter
+    ? ` It ran with <code>--only=${escapeHtml(filter)}</code>, so only matching checks are shown.`
+    : '';
+  return `<p>Expected vs. actual API access for each user, from the last ` +
+    `<code>npm run smoke:access:matrix</code>, run ${escapeHtml(formatTime(new Date(ranAt)))} ` +
+    `against ${escapeHtml(baseUrl)}.${filtered} Rerun the matrix to refresh it.</p>` +
     `${summary}
 <table class="matrix">
 ${columnGroup(userKeys)}
@@ -248,7 +345,7 @@ const renderKpi = (kpi) => {
 
   return `<p>From the last <code>npm run smoke:access:matrix</code>, run ` +
     `${escapeHtml(formatTime(new Date(ranAt)))} against ${escapeHtml(baseUrl)}. ` +
-    'This script doesn\'t run the KPI checks, because they create data. Rerun the matrix to refresh them.</p>' +
+    'Rerun the matrix to refresh them.</p>' +
     `${summary}
 <table class="kpi">
 <colgroup><col class="result"><col class="check"><col></colgroup>
@@ -287,6 +384,10 @@ const writeIndex = (report) => {
   img { display: block; width: 100%; max-height: 240px; object-fit: cover; object-position: top; border: 1px solid #eee; }
   .path { display: block; margin-top: 4px; color: #666; word-break: break-all; }
   .redirect { display: block; margin-top: 4px; color: #b45309; font-weight: 600; word-break: break-all; }
+  .verify { display: block; margin-top: 4px; word-break: break-word; }
+  .verify.pass { color: #15803d; }
+  .verify.fail { color: #b91c1c; font-weight: 600; }
+  .verify.skipped { color: #999; }
   .error { color: #b91c1c; }
   .ok { color: #15803d; }
   .pending { color: #999; }
@@ -421,7 +522,7 @@ const main = async () => {
     startedAt: new Date(),
     finishedAt: null,
     stoppedAt: null,
-    matrix: { status: 'pending' },
+    matrix: readMatrixResults(),
     kpi: readKpiResults(),
   };
   const { results } = report;
@@ -435,18 +536,9 @@ const main = async () => {
     process.exit(130);
   });
 
-  console.log('Running API permission matrix...');
-  try {
-    const data = await runMatrix();
-    report.matrix = { status: 'done', data };
-    console.log(data.mismatches.length === 0
-      ? `  All ${data.checks.length * data.userKeys.length} checks match.`
-      : `  ${data.mismatches.length} mismatch(es). See the report or run npm run smoke:access:matrix.`);
-  } catch (err) {
-    report.matrix = { status: 'error', error: err.message || String(err) };
-    console.log(`  Could not run the matrix: ${report.matrix.error}`);
+  if (!report.matrix) {
+    console.log('No saved matrix results. Run npm run smoke:access:matrix to include them in the report.');
   }
-  writeIndex(report);
 
   console.log('Capturing screenshots...');
   const browser = await chromium.launch();
@@ -458,6 +550,7 @@ const main = async () => {
     });
     try {
       await login(context, USERS[key].username, password);
+      const userContext = buildUserContext(key);
       const page = await context.newPage();
       const waitForApiIdle = trackApiRequests(page);
       for (const target of pages) {
@@ -466,16 +559,18 @@ const main = async () => {
         fs.mkdirSync(path.join(OUTPUT_DIR, slug(target.name)), { recursive: true });
         const started = Date.now();
         try {
-          const finalPath = await capture(
+          const { finalPath, verify } = await capture(
             page,
             waitForApiIdle,
             target,
             `${APP_URL}${requestedPath}`,
-            path.join(OUTPUT_DIR, file)
+            path.join(OUTPUT_DIR, file),
+            userContext
           );
-          results[target.name][key] = { file, requestedPath, finalPath };
+          results[target.name][key] = { file, requestedPath, finalPath, verify };
           const seconds = ((Date.now() - started) / 1000).toFixed(1);
-          console.log(`  ${key}: ${target.name} (${seconds}s)`);
+          const failed = verify && verify.status === 'fail' ? `, CHECK FAILED: ${verify.message}` : '';
+          console.log(`  ${key}: ${target.name} (${seconds}s${failed})`);
         } catch (err) {
           results[target.name][key] = { error: err.message.split('\n')[0] };
           console.log(`  ${key}: ${target.name} FAILED: ${err.message.split('\n')[0]}`);
@@ -505,6 +600,10 @@ const main = async () => {
 
   report.finishedAt = new Date();
   writeIndex(report);
+  const failedChecks = Object.values(results)
+    .flatMap((byUser) => Object.values(byUser))
+    .filter((result) => result.verify && result.verify.status === 'fail').length;
+  if (failedChecks > 0) console.log(`\n${failedChecks} page check(s) failed. See the report.`);
   console.log(`\nReport: ${indexPath}`);
   if (!process.argv.includes('--no-open')) openInBrowser(indexPath);
 };

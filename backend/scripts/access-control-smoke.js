@@ -9,7 +9,11 @@ if (String(process.env.ACCESS_CONTROL_SMOKE_FIXTURES).toLowerCase() !== 'true') 
   process.exit(1);
 }
 
+const fs = require('fs');
+const path = require('path');
+
 const database = require('../database');
+const { getUploadDir } = require('../api/utils/fileStorage');
 const Credentials = require('../models/credentials');
 const Group = require('../models/group');
 const KpiEvent = require('../models/kpiEvent');
@@ -19,12 +23,17 @@ const Team = require('../models/team');
 const User = require('../models/user');
 
 const {
+  ATTACHMENT_CONTENT,
+  ATTACHMENT_FILENAME,
+  ATTACHMENT_PATH,
   COUNTRY_SOURCES,
   CREDENTIAL_NAME,
   CUTOFF_DATE,
   FIXTURE_KEY,
   FORMULA_SOURCE_NICKNAME,
   PASSWORD_FILE,
+  POLICY_INCIDENT_NOTES,
+  POLICY_INCIDENT_TITLE,
   PUBLIC_INCIDENT_NOTES,
   PUBLIC_INCIDENT_TITLE,
   RESTRICTED_INCIDENT_NOTES,
@@ -35,13 +44,20 @@ const {
   TEAM_INCIDENTS,
   TEAM_LEADS,
   TEAM_MEMBERSHIPS,
+  TEAM_MEMBERSHIP_OVERRIDES,
+  TEAM_SOURCES,
   USERS,
   buildIodaMetadata,
   generatePassword,
+  isSmokeUpload,
   removeKpiResults,
+  removeMatrixResults,
   removePassword,
   savePassword,
+  teamSourceReportGuid,
 } = require('./access-control-fixtures');
+
+const attachmentFile = () => path.join(getUploadDir(), ATTACHMENT_FILENAME);
 
 const waitForDatabase = async () => {
   if (database.mongoose.connection.readyState === 1) return;
@@ -80,7 +96,8 @@ const cleanup = async () => {
   await KpiEvent.deleteMany({
     $or: [{ actor: { $in: userIds } }, { subject: { $in: subjectIds } }],
   }).exec();
-  // Saved KPI results describe fixtures that are about to be deleted.
+  // Saved matrix and KPI results describe fixtures that are about to be deleted.
+  removeMatrixResults();
   removeKpiResults();
 
   await Group.deleteMany({ tags: FIXTURE_KEY }).exec();
@@ -91,6 +108,13 @@ const cleanup = async () => {
     username: { $in: Object.values(USERS).map((user) => user.username) },
   }).exec();
   await Team.deleteMany({ name: { $in: Object.values(TEAMS).map((team) => team.name) } }).exec();
+  fs.rmSync(attachmentFile(), { force: true });
+  // Uploads the matrix's upload check would normally remove itself.
+  if (fs.existsSync(getUploadDir())) {
+    fs.readdirSync(getUploadDir())
+      .filter(isSmokeUpload)
+      .forEach((fileName) => fs.rmSync(path.join(getUploadDir(), fileName), { force: true }));
+  }
 };
 
 const seed = async () => {
@@ -100,8 +124,8 @@ const seed = async () => {
   savePassword(password);
 
   const teams = {};
-  for (const [key, { name, description, countryCodes }] of Object.entries(TEAMS)) {
-    teams[key] = await Team.create({ name, description, countryCodes });
+  for (const [key, { name, description, countryCodes, active = true, permissionLimits }] of Object.entries(TEAMS)) {
+    teams[key] = await Team.create({ name, description, countryCodes, active, permissionLimits });
   }
   const team = teams.smoke;
 
@@ -111,7 +135,11 @@ const seed = async () => {
     users[key] = await registerUser({
       ...userData,
       teams: memberships.map(([teamKey]) => teams[teamKey]._id),
-      teamMemberships: memberships.map(([teamKey, role]) => ({ team: teams[teamKey]._id, role })),
+      teamMemberships: memberships.map(([teamKey, role]) => ({
+        team: teams[teamKey]._id,
+        role,
+        permissionOverrides: (TEAM_MEMBERSHIP_OVERRIDES[key] || {})[teamKey] || { allow: [], deny: [] },
+      })),
     }, password);
   }
   const { admin, alpha } = users;
@@ -181,6 +209,40 @@ const seed = async () => {
     });
   }
 
+  const teamSources = {};
+  const teamSourceReports = {};
+  for (const [sourceKey, { nickname, accessPolicy, reports }] of Object.entries(TEAM_SOURCES)) {
+    teamSources[sourceKey] = await Source.create({
+      media: 'ioda',
+      nickname,
+      resource_id: `${FIXTURE_KEY}-${sourceKey}`,
+      enabled: false,
+      credentials: credentials._id,
+      user: admin._id,
+      accessPolicy: {
+        ...accessPolicy,
+        teams: accessPolicy.teams.map((teamKey) => teams[teamKey]._id),
+      },
+    });
+
+    teamSourceReports[sourceKey] = {};
+    for (const [reportKey, start] of Object.entries(reports)) {
+      teamSourceReports[sourceKey][reportKey] = await Report.create({
+        authoredAt: start,
+        isOutageEvent: true,
+        fetchedAt: new Date(start.getTime() + 5 * 60 * 1000),
+        storedAt: new Date(start.getTime() + 10 * 60 * 1000),
+        content: `ACCESS CONTROL SMOKE: ${nickname} ${reportKey} report`,
+        author: 'Smoke Fixture',
+        guid: teamSourceReportGuid(sourceKey, reportKey),
+        _sources: [String(teamSources[sourceKey]._id)],
+        _sourceNicknames: [nickname],
+        _media: ['ioda'],
+        metadata: buildIodaMetadata(`${sourceKey}-${reportKey}`, start),
+      });
+    }
+  }
+
   const beforeReportStart = new Date('2026-01-01T12:00:00.000Z');
   const beforeReport = await Report.create({
     authoredAt: beforeReportStart,
@@ -235,6 +297,11 @@ const seed = async () => {
     accessPolicy: { mode: 'public', teams: [] },
   });
 
+  // Downloads are served from the upload directory by filename, so the file
+  // must exist there as well as on the comment.
+  fs.mkdirSync(getUploadDir(), { recursive: true });
+  fs.writeFileSync(attachmentFile(), ATTACHMENT_CONTENT);
+
   const restrictedIncident = await Group.create({
     title: RESTRICTED_INCIDENT_TITLE,
     creator: admin._id,
@@ -244,7 +311,22 @@ const seed = async () => {
     comments: [{
       data: 'ACCESS CONTROL SMOKE: restricted incident comment',
       author: alpha._id,
+      attachments: [{
+        fileName: ATTACHMENT_FILENAME,
+        path: ATTACHMENT_PATH,
+        serverPath: attachmentFile(),
+        mimeType: 'text/plain',
+        fileSize: Buffer.byteLength(ATTACHMENT_CONTENT),
+      }],
     }],
+    accessPolicy: { mode: 'restricted', teams: [team._id] },
+  });
+
+  const policyIncident = await Group.create({
+    title: POLICY_INCIDENT_TITLE,
+    creator: admin._id,
+    tags: [FIXTURE_KEY],
+    notes: POLICY_INCIDENT_NOTES,
     accessPolicy: { mode: 'restricted', teams: [team._id] },
   });
 
@@ -263,9 +345,14 @@ const seed = async () => {
   }
 
   console.log('Access-control smoke fixtures created.');
-  Object.entries(TEAMS).forEach(([key, { name, countryCodes }]) => {
-    const countries = countryCodes.length > 0 ? `, countries ${countryCodes.join(', ')}` : '';
-    console.log(`Team: ${name} (${teams[key]._id}${countries})`);
+  Object.entries(TEAMS).forEach(([key, { name, countryCodes, active = true, permissionLimits }]) => {
+    const notes = [
+      String(teams[key]._id),
+      ...(countryCodes.length > 0 ? [`countries ${countryCodes.join(', ')}`] : []),
+      ...(permissionLimits ? [`limits deny ${permissionLimits.deny.join(', ')}`] : []),
+      ...(active ? [] : ['inactive']),
+    ];
+    console.log(`Team: ${name} (${notes.join(', ')})`);
   });
   console.log(`Source: ${SOURCE_NICKNAME} (${source._id})`);
   console.log(`Source: ${FORMULA_SOURCE_NICKNAME} (${formulaSource._id})`);
@@ -273,12 +360,22 @@ const seed = async () => {
     console.log(`Source: ${nickname} (${countrySources[key]._id}, country_restricted to ${countryCodes.join(', ')})`);
     console.log(`  Report: ${countryReports[key]._id}`);
   });
-  console.log(`Cutoff to use: ${CUTOFF_DATE.toISOString().slice(0, 10)}`);
+  Object.entries(TEAM_SOURCES).forEach(([sourceKey, { nickname, accessPolicy }]) => {
+    const teamNames = accessPolicy.teams.map((teamKey) => TEAMS[teamKey].name).join(', ');
+    const cutoff = accessPolicy.cutoffDate ? `, cutoff ${CUTOFF_DATE.toISOString().slice(0, 10)}` : '';
+    console.log(`Source: ${nickname} (${teamSources[sourceKey]._id}, ${accessPolicy.mode} to ${teamNames}${cutoff})`);
+    Object.entries(teamSourceReports[sourceKey]).forEach(([reportKey, report]) => {
+      console.log(`  ${reportKey} report: ${report._id}`);
+    });
+  });
+  console.log(`Cutoff (public-until source): ${CUTOFF_DATE.toISOString().slice(0, 10)}`);
   console.log(`Before report: ${beforeReport._id}`);
   console.log(`After report: ${afterReport._id}`);
   console.log(`Comment: ${comment._id}`);
   console.log(`Public incident: ${publicIncident._id}`);
   console.log(`Restricted incident: ${restrictedIncident._id}`);
+  console.log(`  Attachment: ${ATTACHMENT_PATH} (file: ${attachmentFile()})`);
+  console.log(`Policy incident: ${policyIncident._id}`);
   Object.entries(TEAM_INCIDENTS).forEach(([teamKey, { title }]) => {
     console.log(`${title}: ${teamIncidents[teamKey]._id}`);
   });

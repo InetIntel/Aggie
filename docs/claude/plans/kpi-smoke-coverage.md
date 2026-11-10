@@ -19,13 +19,16 @@ Save a copy of this plan as `docs/claude/plans/kpi-smoke-coverage.md` on the bra
 
 ### 1. Matrix KPI rows: `backend/scripts/access-control-matrix.js`
 - Import `getKpiAccess`, `canExportKpis` from `backend/access/kpiAccess.js`. In `buildUserContext`, add `kpi: getKpiAccess(user, teamDocs, ledTeamIds)` where `teamDocs` are `TEAMS` keys as `{ _id: key, active: true }` (team keys already stand in for ids there).
+  - *Since changed:* `teamDocs` now carry each team's real `active` flag and `permissionLimits` (the `TEAM_SETTINGS` map in the matrix), because the fixtures include an inactive team and a team with permission limits.
 - Replace the `KPIs` row with:
   - `KPIs`: `GET /api/analytics/kpis`, expect `u.kpi.canView`
   - `Export KPIs`: `GET /api/analytics/kpis/export`, expect `u.kpi.canView && canExportKpis(u.kpi, [])`
   - `KPIs for Team A`: `GET /api/analytics/kpis?team=<f.teams.teamA>`, expect `u.kpi.canView && (u.kpi.global || u.kpi.teamIds.includes('teamA'))`
 - Expected with current fixtures: admin allow on all three; `alpha` (lead of smoke team) allow, allow, deny; everyone else deny.
+  - *Since changed:* `limitedLead` (lead of the Limited Team, added later) is also allow, allow, deny. The Limited Team's permission limit only denies `edit data`, so its lead keeps `view team kpis` and `export kpis`.
 - Pass the matrix's `login` into the KPI module instead of exporting it, to avoid a circular require.
-- **Wire in the KPI phase.** In `main()`, after the grid prints, call `runKpiChecks({ baseUrl, login, fixtures, password })` from the new module, unless an `--only=` filter is given that doesn't match "kpi". Print its results under a separate "KPI checks" heading. Any failure there also sets `process.exitCode = 1`. Leave `runMatrix` itself unchanged, so `smoke:access:screens` (which calls `runMatrix`, not `main`) never runs the KPI scenario or creates data. Update the file's header comment to say the matrix has two phases and only the second one creates data.
+- **Wire in the KPI phase.** In `main()`, after the grid prints, call `runKpiChecks({ baseUrl, login, fixtures, password })` from the new module, unless an `--only=` filter is given that doesn't match "kpi". Print its results under a separate "KPI checks" heading. Any failure there also sets `process.exitCode = 1`. Keep the KPI phase out of `runMatrix`. Update the file's header comment to say the matrix has two phases and only the second one creates data.
+  - *Since changed:* `smoke:access:screens` no longer calls `runMatrix` or makes any API checks. `main()` saves the grid to `scratchpad/access-control-matrix-results.json` and the KPI results to `scratchpad/access-control-kpi-results.json`, and the screens report shows both saved files. Seeding and cleanup delete them. See `docs/claude/runbooks/access-control-smoke-tests.md`.
 
 ### 2. KPI content checks module: `backend/scripts/access-control-kpi.js`
 Exports `runKpiChecks({ baseUrl, login, fixtures, password })`, which returns `[{ name, pass, detail }]`. It isn't a standalone script and gets no npm script; it runs only as the matrix's second phase. The guards (`ADMIN_PARTY`, fixtures, password) are already handled by the matrix before it's called.
