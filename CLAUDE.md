@@ -48,6 +48,7 @@ Index of `docs/claude/architecture/` (see Project docs above). These cover the f
 - `navbar.md`: top navigation bar responsive behavior
 - `media-image-storage.md`: media/image storage
 - `deployment-topology.md`: deployment topology
+- `form-button-layout.md`: Submit/Cancel placement and Enter-to-submit behavior for every form and modal, the Cancel-left/Submit-right convention, and the outliers
 
 ### Known bug workups
 
