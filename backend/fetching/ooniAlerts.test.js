@@ -76,3 +76,17 @@ test('groups domains absent from an exact rolling window', () => {
     measurementCount: 0,
   }]);
 });
+test('a domain whose check failed is neither measured nor a zero-measurement trigger', () => {
+  const rows = [
+    { domain: 'measured.example', hasMeasurements: true },
+    { domain: 'unknown.example', unknown: true },
+    { domain: 'missing.example', hasMeasurements: false },
+  ];
+  const alerts = evaluateRollingDomainAlerts(
+    rows,
+    ['measured.example', 'unknown.example', 'missing.example'],
+    '2026-08-13T12:30:00.000Z',
+    '2026-08-14T12:30:00.000Z',
+  );
+  assert.deepEqual(alerts.map((alert) => alert.domain), ['missing.example']);
+});

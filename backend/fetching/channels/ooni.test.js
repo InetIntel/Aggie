@@ -239,6 +239,89 @@ test('stores the chart domains as a list, since MongoDB rejects "." in field nam
   assert.equal(hasDottedKey(post.raw), false);
 });
 
+// ---- failures while checking OONI ----
+
+const quiet = async (work) => {
+  const log = console.log;
+  const warn = console.warn;
+  console.log = () => {};
+  console.warn = () => {};
+  try {
+    return await work();
+  } finally {
+    console.log = log;
+    console.warn = warn;
+  }
+};
+
+const noChart = async () => null;
+
+test('a domain that cannot be checked is not treated as zero measurements', async () => {
+  const channel = selectedChannel({
+    requestDelayMs: 0,
+    domainConfig: { useAllDomains: false, domains: ['measured.example', 'broken.example', 'missing.example'] },
+    hasMeasurements: async ({ domain }) => {
+      if (domain === 'broken.example') throw new Error('OONI measurements request failed (500)');
+      return domain === 'measured.example';
+    },
+    fetchSeries: noChart,
+  });
+  const queued = [];
+  channel.enqueue = (post) => queued.push(post);
+
+  await assert.rejects(quiet(() => channel.fetch()), /could not check 1 domain\(s\) \(broken.example\)/);
+
+  assert.equal(queued.length, 1);
+  assert.deepEqual(queued[0].raw.zeroDomains, ['missing.example']);
+  assert.deepEqual(queued[0].raw.unverifiedDomains, ['broken.example']);
+});
+
+test('a network that cannot be checked does not stop the others', async () => {
+  const channel = selectedChannel({
+    asns: '44244 58224',
+    requestDelayMs: 0,
+    hasMeasurements: async ({ asn, domain }) => {
+      if (asn === 44244) throw new Error('OONI measurements request failed (500)');
+      return domain === 'measured.example';
+    },
+    fetchSeries: noChart,
+  });
+  const queued = [];
+  channel.enqueue = (post) => queued.push(post);
+
+  await assert.rejects(quiet(() => channel.fetch()), /AS44244/);
+
+  assert.equal(queued.length, 1);
+  assert.equal(queued[0].raw.probeASN, 58224);
+});
+
+test('stops asking OONI after several failed checks in a row', async () => {
+  let calls = 0;
+  const domains = Array.from({ length: 20 }, (_, i) => `d${i}.example`);
+  const channel = selectedChannel({
+    requestDelayMs: 0,
+    domainConfig: { useAllDomains: false, domains },
+    hasMeasurements: async () => { calls += 1; throw new Error('OONI measurements request failed (429)'); },
+  });
+  channel.enqueue = () => {};
+
+  await assert.rejects(quiet(() => channel.fetch()), /kept failing, stopped after 5 failed checks/);
+
+  assert.equal(calls, 5);
+});
+
+test('a failed check in all-domains mode is reported and creates no alert', async () => {
+  const channel = selectedChannel({
+    domainConfig: { useAllDomains: true, domains: [] },
+    hasMeasurements: async () => { throw new Error('OONI measurements request failed (500)'); },
+  });
+  const queued = [];
+  channel.enqueue = (post) => queued.push(post);
+
+  await assert.rejects(quiet(() => channel.fetch()), /AS44244: OONI measurements request failed \(500\)/);
+  assert.equal(queued.length, 0);
+});
+
 // ---- what gets stored ----
 
 test('the stored alert passes the same key check MongoDB applies on insert', async () => {

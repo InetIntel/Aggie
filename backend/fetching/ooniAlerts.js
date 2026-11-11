@@ -66,9 +66,15 @@ function evaluateRollingDomainAlerts(rows, domains, windowStart, windowEnd) {
       .filter((row) => row.hasMeasurements)
       .map((row) => String(row.domain).trim().toLowerCase()),
   );
+  // A domain whose check failed is unknown: it is not evidence of zero measurements.
+  const unknownDomains = new Set(
+    rows
+      .filter((row) => row.unknown)
+      .map((row) => String(row.domain).trim().toLowerCase()),
+  );
 
   return normalizedConfig.domains
-    .filter((domain) => !measuredDomains.has(domain))
+    .filter((domain) => !measuredDomains.has(domain) && !unknownDomains.has(domain))
     .map((domain) => ({
       type: 'zero_domain_measurements',
       domain,
