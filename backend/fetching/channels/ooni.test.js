@@ -354,6 +354,13 @@ test('sources on the same network but a different country or test get different 
   assert.equal(ids[2], 'ooni:44244:domains:IR:whatsapp:2026-08-12');
 });
 
+// ---- source configuration ----
+
+test('accepts ASNs written with an AS prefix and drops repeats', () => {
+  const channel = new OONIChannel({ asns: 'AS44244, as58224 44244' });
+  assert.deepEqual(channel.asns, [44244, 58224]);
+});
+
 // ---- what gets stored ----
 
 test('the stored alert passes the same key check MongoDB applies on insert', async () => {

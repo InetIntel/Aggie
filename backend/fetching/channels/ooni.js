@@ -81,10 +81,13 @@ class OONIChannel extends PollChannel {
   static INTERVAL = 60 * 60 * 1000;
 
   constructor(options) {
-    const asns = String(options.asns || '')
-      .split(/[\s,]+/)
-      .filter(Boolean)
-      .map(Number);
+    // "44244", "AS44244" and mixed lists are all accepted; repeats are dropped.
+    const asns = [...new Set(
+      String(options.asns || '')
+        .split(/[\s,]+/)
+        .filter(Boolean)
+        .map((asn) => Number(asn.replace(/^as/i, ''))),
+    )];
     if (asns.length === 0 || asns.some((asn) => !Number.isInteger(asn) || asn <= 0)) {
       throw new Error('OONI sources require one or more valid ASNs.');
     }
