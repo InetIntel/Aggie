@@ -91,6 +91,13 @@ function seriesFromIndex(index, { anchor, domains, blocks = SERIES_BLOCKS }) {
   };
 }
 
+// MongoDB refuses to insert a document with a "." in a field name, and domain names
+// are full of them, so the stored chart lists its domains instead of keying by name:
+// [{ domain: "www.example.com", counts: [14 numbers] }].
+function domainsToStored(domains) {
+  return Object.entries(domains || {}).map(([domain, counts]) => ({ domain, counts }));
+}
+
 function buildSeries({ rows, anchor, domains, blocks = SERIES_BLOCKS }) {
   return seriesFromIndex(indexRows(rows, domains), { anchor, domains, blocks });
 }
@@ -131,6 +138,7 @@ module.exports = {
   dateWindows,
   indexRows,
   seriesFromIndex,
+  domainsToStored,
   buildSeries,
   fetchSeries,
 };

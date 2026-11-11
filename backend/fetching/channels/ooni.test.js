@@ -215,3 +215,208 @@ test('does not fetch a series in all-domains mode', async () => {
   assert.equal(called, false);
   assert.equal(post.raw.chart, undefined);
 });
+
+test('stores the chart domains as a list, since MongoDB rejects "." in field names', async () => {
+  const channel = selectedChannel({
+    fetchSeries: async (request) => ({
+      source: 'ooni-aggregation',
+      until: request.anchor.toISOString(),
+      starts: [],
+      domains: { 'www.example.com': [1, 2], 'b.example': [0, 0] },
+    }),
+  });
+  channel.enqueue = () => {};
+
+  const [post] = await channel.fetch();
+
+  assert.deepEqual(post.raw.chart.domains, [
+    { domain: 'www.example.com', counts: [1, 2] },
+    { domain: 'b.example', counts: [0, 0] },
+  ]);
+  const hasDottedKey = (value) =>
+    value && typeof value === 'object'
+    && Object.entries(value).some(([key, inner]) => key.includes('.') || hasDottedKey(inner));
+  assert.equal(hasDottedKey(post.raw), false);
+});
+
+// ---- failures while checking OONI ----
+
+const quiet = async (work) => {
+  const log = console.log;
+  const warn = console.warn;
+  console.log = () => {};
+  console.warn = () => {};
+  try {
+    return await work();
+  } finally {
+    console.log = log;
+    console.warn = warn;
+  }
+};
+
+const noChart = async () => null;
+
+test('a domain that cannot be checked is not treated as zero measurements', async () => {
+  const channel = selectedChannel({
+    requestDelayMs: 0,
+    domainConfig: { useAllDomains: false, domains: ['measured.example', 'broken.example', 'missing.example'] },
+    hasMeasurements: async ({ domain }) => {
+      if (domain === 'broken.example') throw new Error('OONI measurements request failed (500)');
+      return domain === 'measured.example';
+    },
+    fetchSeries: noChart,
+  });
+  const queued = [];
+  channel.enqueue = (post) => queued.push(post);
+
+  await assert.rejects(quiet(() => channel.fetch()), /could not check 1 domain\(s\) \(broken.example\)/);
+
+  assert.equal(queued.length, 1);
+  assert.deepEqual(queued[0].raw.zeroDomains, ['missing.example']);
+  assert.deepEqual(queued[0].raw.unverifiedDomains, ['broken.example']);
+});
+
+test('a network that cannot be checked does not stop the others', async () => {
+  const channel = selectedChannel({
+    asns: '44244 58224',
+    requestDelayMs: 0,
+    hasMeasurements: async ({ asn, domain }) => {
+      if (asn === 44244) throw new Error('OONI measurements request failed (500)');
+      return domain === 'measured.example';
+    },
+    fetchSeries: noChart,
+  });
+  const queued = [];
+  channel.enqueue = (post) => queued.push(post);
+
+  await assert.rejects(quiet(() => channel.fetch()), /AS44244/);
+
+  assert.equal(queued.length, 1);
+  assert.equal(queued[0].raw.probeASN, 58224);
+});
+
+test('stops asking OONI after several failed checks in a row', async () => {
+  let calls = 0;
+  const domains = Array.from({ length: 20 }, (_, i) => `d${i}.example`);
+  const channel = selectedChannel({
+    requestDelayMs: 0,
+    domainConfig: { useAllDomains: false, domains },
+    hasMeasurements: async () => { calls += 1; throw new Error('OONI measurements request failed (429)'); },
+  });
+  channel.enqueue = () => {};
+
+  await assert.rejects(quiet(() => channel.fetch()), /kept failing, stopped after 5 failed checks/);
+
+  assert.equal(calls, 5);
+});
+
+test('a failed check in all-domains mode is reported and creates no alert', async () => {
+  const channel = selectedChannel({
+    domainConfig: { useAllDomains: true, domains: [] },
+    hasMeasurements: async () => { throw new Error('OONI measurements request failed (500)'); },
+  });
+  const queued = [];
+  channel.enqueue = (post) => queued.push(post);
+
+  await assert.rejects(quiet(() => channel.fetch()), /AS44244: OONI measurements request failed \(500\)/);
+  assert.equal(queued.length, 0);
+});
+
+test('records the time of a clean check on the source', async () => {
+  const times = [];
+  const channel = selectedChannel({ requestDelayMs: 0, fetchSeries: noChart, onFetch: async (time) => times.push(time) });
+  channel.enqueue = () => {};
+
+  await quiet(() => channel.fetch());
+
+  assert.deepEqual(times, [new Date('2026-08-12T14:30:00.000Z')]);
+});
+
+// ---- alert identity ----
+
+test('keeps the original alert id for Iran web connectivity', async () => {
+  const channel = selectedChannel({ requestDelayMs: 0, fetchSeries: noChart });
+  channel.enqueue = () => {};
+  const [post] = await channel.fetch();
+  assert.equal(post.platformID, 'ooni:44244:domains:2026-08-12');
+});
+
+test('sources on the same network but a different country or test get different alert ids', async () => {
+  const ids = [];
+  for (const options of [{}, { probeCC: 'IQ' }, { testName: 'whatsapp' }]) {
+    const channel = selectedChannel({ requestDelayMs: 0, fetchSeries: noChart, hasMeasurements: async () => false, ...options });
+    channel.enqueue = () => {};
+    const [post] = await channel.fetch();
+    ids.push(post.platformID);
+  }
+  assert.equal(new Set(ids).size, 3);
+  assert.equal(ids[1], 'ooni:44244:domains:IQ:web_connectivity:2026-08-12');
+  assert.equal(ids[2], 'ooni:44244:volume:IR:whatsapp:2026-08-12');
+});
+
+// ---- source configuration ----
+
+test('accepts ASNs written with an AS prefix and drops repeats', () => {
+  const channel = new OONIChannel({ asns: 'AS44244, as58224 44244' });
+  assert.deepEqual(channel.asns, [44244, 58224]);
+});
+
+test('uses a clean two-letter country code and falls back for anything else', async () => {
+  await quiet(async () => {
+    assert.equal(new OONIChannel({ asns: '44244', probeCC: ' iq ' }).probeCC, 'IQ');
+    assert.equal(new OONIChannel({ asns: '44244', probeCC: 'IR, IQ' }).probeCC, 'IR');
+    assert.equal(new OONIChannel({ asns: '44244' }).probeCC, 'IR');
+  });
+});
+
+test('tests that have no domains are checked per network, with wording for that test', async () => {
+  const requests = [];
+  const channel = selectedChannel({
+    testName: 'whatsapp',
+    hasMeasurements: async (request) => { requests.push(request); return false; },
+  });
+  channel.enqueue = () => {};
+
+  const [post] = await channel.fetch();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].domain, undefined);
+  assert.equal(post.raw.domainMode, 'all');
+  assert.match(post.content, /no whatsapp measurements were recorded/);
+  assert.doesNotMatch(post.content, /web connectivity/);
+});
+
+test('cleans the domains saved on a source and skips invalid ones', async () => {
+  const requested = [];
+  const channel = await quiet(async () => selectedChannel({
+    requestDelayMs: 0,
+    fetchSeries: noChart,
+    domainConfig: { useAllDomains: false, domains: ['  Example.COM. ', 'bad_domain', 'bücher.example', 'example.com'] },
+    hasMeasurements: async ({ domain }) => { requested.push(domain); return false; },
+  }));
+  channel.enqueue = () => {};
+
+  await channel.fetch();
+
+  assert.deepEqual(requested, ['example.com', 'xn--bcher-kva.example']);
+});
+
+// ---- what gets stored ----
+
+test('the stored alert passes the same key check MongoDB applies on insert', async () => {
+  const Bson = require('bson');
+  const channel = selectedChannel({
+    requestDelayMs: 0,
+    fetchSeries: async (request) => ({
+      source: 'ooni-aggregation',
+      until: request.anchor.toISOString(),
+      starts: [],
+      domains: { 'measured.example': [1], 'missing.example': [0] },
+    }),
+  });
+  channel.enqueue = () => {};
+  const [post] = await channel.fetch();
+
+  const insert = { insert: 'reports', documents: [{ guid: post.platformID, metadata: { rawAPIResponse: post.raw } }] };
+  assert.doesNotThrow(() => new Bson().serialize(insert, { checkKeys: true }));
+});
