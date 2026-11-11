@@ -25,6 +25,17 @@ require.cache[storagePath] = {
   loaded: true,
   exports: { deleteSocialAttachments: async () => {} },
 };
+const loggedEvents = [];
+const channelPath = require.resolve(path.join(__dirname, '../sourceToChannel'));
+require.cache[channelPath] = {
+  id: channelPath,
+  filename: channelPath,
+  loaded: true,
+  exports: {
+    getSourceID: (channelID) => (channelID === 'known' ? 'source-1' : null),
+    fetchSourceByID: async () => ({ logEvent: async (level, message) => loggedEvents.push({ level, message }) }),
+  },
+};
 const saveToDatabase = require('./saveToDatabase');
 
 const ooniReport = () => ({
@@ -35,6 +46,7 @@ const ooniReport = () => ({
 
 test.beforeEach(() => {
   created.length = 0;
+  loggedEvents.length = 0;
   failFor = () => false;
 });
 
@@ -71,4 +83,18 @@ test('does not retry reports that are not OONI alerts', async () => {
     console.error = silence;
   }
   assert.equal(created.length, 0);
+});
+
+test('records a failed save on the source so it shows up in the UI', async () => {
+  failFor = () => true;
+  const silence = console.error;
+  console.error = () => {};
+  try {
+    await saveToDatabase({ platform: 'rss', guid: 'g1', channel: 'known', metadata: {} }, async () => {});
+  } finally {
+    console.error = silence;
+  }
+  assert.equal(loggedEvents.length, 1);
+  assert.equal(loggedEvents[0].level, 'error');
+  assert.match(loggedEvents[0].message, /g1.*must not contain/);
 });

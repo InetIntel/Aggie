@@ -18,6 +18,20 @@ async function saveOoniWithoutChart(report, error) {
     return !!(result && result._id);
 }
 
+// Put the failure on the source's event list as well as the process log, so it shows
+// up on the Sources page instead of only in the server output. Never throws.
+async function recordSaveFailure(report, message) {
+    try {
+        const { getSourceID, fetchSourceByID } = require('../sourceToChannel');
+        const sourceID = report?.channel ? getSourceID(report.channel) : null;
+        if (!sourceID) return;
+        const source = await fetchSourceByID({ _id: sourceID });
+        if (source) await source.logEvent('error', `Failed saving report ${report.guid}: ${message}`);
+    } catch (loggingError) {
+        console.error(`[Fetching-saveToDatabase] Could not record the failure on the source: ${loggingError.message}.`);
+    }
+}
+
 module.exports = async function saveToDatabase(report, next) {
 
     try {
@@ -41,6 +55,7 @@ module.exports = async function saveToDatabase(report, next) {
             console.log(`[Fetching-saveToDatabase] Skipped duplicate report (guid already saved): ${report?.guid}.`)
         } else {
             console.error(`[Fetching-saveToDatabase] Failed - Failed saving reports: ${error.message}.`)
+            await recordSaveFailure(report, error.message);
         }
     }
     
