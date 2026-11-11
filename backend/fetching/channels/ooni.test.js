@@ -332,6 +332,28 @@ test('records the time of a clean check on the source', async () => {
   assert.deepEqual(times, [new Date('2026-08-12T14:30:00.000Z')]);
 });
 
+// ---- alert identity ----
+
+test('keeps the original alert id for Iran web connectivity', async () => {
+  const channel = selectedChannel({ requestDelayMs: 0, fetchSeries: noChart });
+  channel.enqueue = () => {};
+  const [post] = await channel.fetch();
+  assert.equal(post.platformID, 'ooni:44244:domains:2026-08-12');
+});
+
+test('sources on the same network but a different country or test get different alert ids', async () => {
+  const ids = [];
+  for (const options of [{}, { probeCC: 'IQ' }, { testName: 'whatsapp' }]) {
+    const channel = selectedChannel({ requestDelayMs: 0, fetchSeries: noChart, hasMeasurements: async () => false, ...options });
+    channel.enqueue = () => {};
+    const [post] = await channel.fetch();
+    ids.push(post.platformID);
+  }
+  assert.equal(new Set(ids).size, 3);
+  assert.equal(ids[1], 'ooni:44244:domains:IQ:web_connectivity:2026-08-12');
+  assert.equal(ids[2], 'ooni:44244:domains:IR:whatsapp:2026-08-12');
+});
+
 // ---- what gets stored ----
 
 test('the stored alert passes the same key check MongoDB applies on insert', async () => {

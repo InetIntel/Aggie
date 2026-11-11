@@ -16,6 +16,7 @@ countries.registerLocale(require('i18n-iso-countries/langs/en.json'));
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PROBE_CC = 'IR';
+const WEB_CONNECTIVITY = 'web_connectivity';
 // OONI rejecting this many domain checks in a row means it is down or refusing us; more
 // requests would only add load, so the network is left for the next hourly run.
 const MAX_CONSECUTIVE_FAILURES = 5;
@@ -30,8 +31,14 @@ function dayString(day) {
   return day.toISOString().slice(0, 10);
 }
 
-function alertGuid(asn, alertDate, domainMode) {
-  return `ooni:${asn}:${domainMode === 'selected' ? 'domains' : 'volume'}:${alertDate}`;
+// One alert per network, mode and UTC day. Sources watching something other than Iran
+// web connectivity add the country and test, so two sources on the same ASN cannot
+// suppress each other. Iran web connectivity keeps the original format so existing
+// alerts still count as already raised.
+function alertGuid(asn, alertDate, domainMode, probeCC = PROBE_CC, testName = WEB_CONNECTIVITY) {
+  const mode = domainMode === 'selected' ? 'domains' : 'volume';
+  const scope = probeCC === PROBE_CC && testName === WEB_CONNECTIVITY ? '' : `:${probeCC}:${testName}`;
+  return `ooni:${asn}:${mode}${scope}:${alertDate}`;
 }
 
 function alertContent(asn, alerts) {
@@ -149,7 +156,7 @@ class OONIChannel extends PollChannel {
   // Returns the alert for one network (or null) and the domains that could not be checked.
   async checkNetwork(asn, { windowStart, windowEnd, alertDate }) {
     const domainMode = this.domainConfig.useAllDomains ? 'all' : 'selected';
-    const guid = alertGuid(asn, alertDate, domainMode);
+    const guid = alertGuid(asn, alertDate, domainMode, this.probeCC, this.testName);
     if (await this.reportExists({ guid })) return { post: null, unverified: [] };
 
     const query = {
