@@ -1,7 +1,8 @@
 import type { Group } from "../../api/groups/types";
 
 // ---------------------------------------------------------------------------
-// Dates (the timeline is always shown in UTC, regardless of user preferences)
+// Dates. Day/month boundaries follow the user's time zone preference: pass
+// resolveTimeZone(prefs) ("UTC", or undefined for the browser's zone).
 // ---------------------------------------------------------------------------
 
 export const toTime = (d?: Date | string | null): number | null => {
@@ -15,6 +16,17 @@ export const toTime = (d?: Date | string | null): number | null => {
 export const startTimeOf = (g: Group): number =>
   toTime(g.incidentStartedAt) ?? toTime(g.storedAt) ?? 0;
 
+const zonedParts = (t: number, timeZone?: string) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone,
+  }).formatToParts(new Date(t));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return { year: get("year"), month: get("month"), day: Number(get("day")) };
+};
+
 const ordinal = (n: number) => {
   const rem100 = n % 100;
   if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
@@ -22,26 +34,19 @@ const ordinal = (n: number) => {
 };
 
 // "October 28th 2026"
-export const formatHeadingDate = (t: number) => {
-  const d = new Date(t);
-  const month = d.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
-  return `${month} ${ordinal(d.getUTCDate())} ${d.getUTCFullYear()}`;
+export const formatHeadingDate = (t: number, timeZone?: string) => {
+  const { year, month, day } = zonedParts(t, timeZone);
+  return `${month} ${ordinal(day)} ${year}`;
 };
 
-// "Wed, Oct 28, 2026, 13:05"
-export const formatUtcDateTime = (t: number | null) => {
-  if (t === null) return null;
-  return new Date(t).toLocaleString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-    timeZone: "UTC",
-  });
+export const monthKey = (t: number, timeZone?: string) => {
+  const { year, month } = zonedParts(t, timeZone);
+  return `${year}-${month}`;
 };
+
+export const monthLabel = (t: number, timeZone?: string) => zonedParts(t, timeZone).month;
+
+export const yearLabel = (t: number, timeZone?: string) => zonedParts(t, timeZone).year;
 
 // "1 h 35 min", "3 d 4 h"
 export const formatDuration = (ms: number) => {
@@ -55,14 +60,6 @@ export const formatDuration = (ms: number) => {
   if (!days && (minutes || !hours)) parts.push(`${minutes} min`);
   return parts.join(" ");
 };
-
-export const monthKey = (t: number) => {
-  const d = new Date(t);
-  return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
-};
-
-export const monthLabel = (t: number) =>
-  new Date(t).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
 
 // ---------------------------------------------------------------------------
 // Population coverage tiers (the design uses two tiers split at 25%)

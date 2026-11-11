@@ -6,13 +6,14 @@ import enLocale from "i18n-iso-countries/langs/en.json";
 
 import type { Group } from "../../api/groups/types";
 import type { AsnInfo } from "../../api/asn/types";
+import { resolveTimeZone } from "../../utils/dateFormat";
+import { useFormatters } from "../../utils/useFormatters";
 import TagsList from "../../components/Tags/TagsList";
 import SocialMediaIcon from "../../components/SocialMediaPost/SocialMediaIcon";
 import {
   coverageTier,
   formatDuration,
   formatHeadingDate,
-  formatUtcDateTime,
   isOngoing,
   startTimeOf,
   TIER_STYLES,
@@ -80,6 +81,7 @@ interface IProps {
 }
 
 const TimelineCard = ({ group, getAsnInfo }: IProps) => {
+  const { prefs, formatDateTime, formatTimeZone } = useFormatters();
   const ongoing = isOngoing(group);
   const start = toTime(group.incidentStartedAt);
   const end = toTime(group.incidentEndedAt);
@@ -100,7 +102,7 @@ const TimelineCard = ({ group, getAsnInfo }: IProps) => {
       <div className='p-4'>
         <div className='flex items-start justify-between gap-3'>
           <p className='text-lg font-semibold uppercase tracking-wide text-[#2B7A8F] dark:text-sky-300'>
-            {formatHeadingDate(startTimeOf(group))}
+            {formatHeadingDate(startTimeOf(group), resolveTimeZone(prefs))}
           </p>
           <StatusPill ongoing={ongoing} />
         </div>
@@ -119,15 +121,15 @@ const TimelineCard = ({ group, getAsnInfo }: IProps) => {
           <div className='flex items-baseline gap-1.5'>
             <dt className='text-[10px] uppercase tracking-wider text-slate-400'>Start</dt>
             <dd>
-              {formatUtcDateTime(start) ?? "Unknown"}{" "}
-              {start !== null && <span className='text-slate-400'>UTC</span>}
+              {formatDateTime(group.incidentStartedAt, "Unknown")}{" "}
+              <span className='text-slate-400'>{formatTimeZone(group.incidentStartedAt)}</span>
             </dd>
           </div>
           <div className='flex items-baseline gap-1.5'>
             <dt className='text-[10px] uppercase tracking-wider text-slate-400'>End</dt>
             <dd>
-              {formatUtcDateTime(end) ?? (ongoing ? "Ongoing" : "Unknown")}{" "}
-              {end !== null && <span className='text-slate-400'>UTC</span>}
+              {formatDateTime(group.incidentEndedAt, ongoing ? "Ongoing" : "Unknown")}{" "}
+              <span className='text-slate-400'>{formatTimeZone(group.incidentEndedAt)}</span>
             </dd>
           </div>
           {durationMs !== null && (

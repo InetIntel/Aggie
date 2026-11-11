@@ -22,7 +22,10 @@ import {
   timeToY,
   toCsv,
   toTime,
+  yearLabel,
 } from "./timelineHelpers";
+import { resolveTimeZone } from "../../utils/dateFormat";
+import { useFormatters } from "../../utils/useFormatters";
 
 const LANE_WIDTH = 8; // px between duration-bar lanes
 const BAR_AXIS_GAP = 14; // px between the innermost lane and the axis
@@ -208,6 +211,8 @@ const downloadCsv = (groups: Group[]) => {
 
 const Timeline = () => {
   const [showBars, setShowBars] = useState(true);
+  const { prefs, formatTimeZone } = useFormatters();
+  const timeZone = resolveTimeZone(prefs);
   const { data, isLoading, isError } = useQuery(["groups", "published"], getPublishedGroups, {
     staleTime: 60 * 1000,
   });
@@ -237,7 +242,7 @@ const Timeline = () => {
             {groups.length} published incident{groups.length === 1 ? "" : "s"}
             {" · "}
             <span className='font-medium text-sky-700 dark:text-sky-300'>{ongoingCount} ongoing</span>
-            {" · newest first · times in UTC"}
+            {` · newest first · times in ${formatTimeZone(new Date())}`}
           </p>
           <label className='flex items-center gap-2 text-slate-700 dark:text-gray-300'>
             <AggieSwitch
@@ -304,7 +309,7 @@ const Timeline = () => {
 
           {groups.map((g) => {
             const t = startTimeOf(g);
-            const mk = monthKey(t);
+            const mk = monthKey(t, timeZone);
             const newMonth = mk !== prevMonth;
             prevMonth = mk;
             const tier = TIER_STYLES[incidentTier(g)];
@@ -314,9 +319,9 @@ const Timeline = () => {
                   <div className='mt-4 flex items-center gap-3'>
                     <div className='w-16 shrink-0 text-right leading-tight sm:w-24'>
                       <p className='text-xs font-bold uppercase text-slate-700 dark:text-gray-200'>
-                        {monthLabel(t)}
+                        {monthLabel(t, timeZone)}
                       </p>
-                      <p className='text-[11px] text-slate-400'>{new Date(t).getUTCFullYear()}</p>
+                      <p className='text-[11px] text-slate-400'>{yearLabel(t, timeZone)}</p>
                     </div>
                     <div className='shrink-0' style={{ width: barsWidth }} />
                     <div className='flex w-4 shrink-0 justify-center'>
