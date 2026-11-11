@@ -3,6 +3,7 @@ const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { hasMeasurements } = require('../ooniApi');
 const { fetchSeries, chartAnchor, domainsToStored } = require('../ooniSeries');
 const {
+  cleanDomainList,
   normalizeDomainConfig,
   evaluateRollingAlert,
   evaluateRollingDomainAlerts,
@@ -93,6 +94,17 @@ class OONIChannel extends PollChannel {
     return code;
   }
 
+  // Domains saved on a source are cleaned (trailing dots, case, unicode) and invalid
+  // entries are skipped with a warning, so one bad entry does not stop the source.
+  static cleanDomainConfig(config) {
+    if (!config || !Array.isArray(config.domains)) return config;
+    const { domains, invalid } = cleanDomainList(config.domains);
+    if (invalid.length > 0) {
+      console.warn(`OONI source ignored invalid domain(s): ${invalid.join(', ')}.`);
+    }
+    return { ...config, domains };
+  }
+
   constructor(options) {
     // "44244", "AS44244" and mixed lists are all accepted; repeats are dropped.
     const asns = [...new Set(
@@ -119,7 +131,7 @@ class OONIChannel extends PollChannel {
     this.interval = options.interval || OONIChannel.INTERVAL;
     this.hasMeasurements = options.hasMeasurements || hasMeasurements;
     this.fetchSeries = options.fetchSeries || fetchSeries;
-    this.domainConfig = normalizeDomainConfig(options.domainConfig || defaultDomainConfig);
+    this.domainConfig = normalizeDomainConfig(OONIChannel.cleanDomainConfig(options.domainConfig) || defaultDomainConfig);
     this.requestOptions = options.requestOptions || {};
     this.requestDelayMs = options.requestDelayMs ?? REQUEST_DELAY_MS;
     this.sleep = options.sleep || wait;

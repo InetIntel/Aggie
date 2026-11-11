@@ -9,6 +9,7 @@ const { canManageSource, canViewSource } = require('../../access/sourceAccess');
 const { normalizeCountryCodes } = require('../../access/countryCodes');
 const { getSourceAccessUser } = require('../utils/sourceAccessUser');
 const SUPPORTED_OONI_TESTS = require('../../config/models/ooniTests');
+const { cleanDomainList } = require('../../fetching/ooniAlerts');
 
 // How far back the "observed ASNs" summary looks for asn-scoped reports.
 const OBSERVED_ASN_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -35,9 +36,11 @@ var normalizeStructuredConfig = function (body) {
 
   if (body.ooniDomains !== undefined) {
     if (!Array.isArray(body.ooniDomains)) return 'ooniDomains must be an array of domains.';
-    body.ooniDomains = body.ooniDomains
-      .map((domain) => String(domain || '').trim())
-      .filter(Boolean);
+    // Same cleaning the OONI channel applies (case, trailing dot, unicode), but a bad entry
+    // is refused by name here instead of failing later when the source starts.
+    const { domains, invalid } = cleanDomainList(body.ooniDomains);
+    if (invalid.length > 0) return `Invalid OONI domain(s): ${invalid.join(', ')}.`;
+    body.ooniDomains = domains;
   }
 
   return null;

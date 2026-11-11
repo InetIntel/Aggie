@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   normalizeDailyCounts,
+  cleanDomainList,
   normalizeDomainConfig,
   evaluateRollingAlert,
   evaluateRollingDomainAlerts,
@@ -89,4 +90,19 @@ test('a domain whose check failed is neither measured nor a zero-measurement tri
     '2026-08-14T12:30:00.000Z',
   );
   assert.deepEqual(alerts.map((alert) => alert.domain), ['missing.example']);
+});
+
+test('cleans a typed domain list and names the entries that are not hostnames', () => {
+  const { domains, invalid } = cleanDomainList([
+    ' Example.COM. ',
+    'example.com',
+    'bücher.example',
+    'bad_domain',
+    'http://example.org',
+    'localhost',
+    '',
+    null,
+  ]);
+  assert.deepEqual(domains, ['example.com', 'xn--bcher-kva.example']);
+  assert.deepEqual(invalid, ['bad_domain', 'http://example.org', 'localhost']);
 });

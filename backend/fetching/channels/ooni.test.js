@@ -369,6 +369,21 @@ test('uses a clean two-letter country code and falls back for anything else', as
   });
 });
 
+test('cleans the domains saved on a source and skips invalid ones', async () => {
+  const requested = [];
+  const channel = await quiet(async () => selectedChannel({
+    requestDelayMs: 0,
+    fetchSeries: noChart,
+    domainConfig: { useAllDomains: false, domains: ['  Example.COM. ', 'bad_domain', 'bücher.example', 'example.com'] },
+    hasMeasurements: async ({ domain }) => { requested.push(domain); return false; },
+  }));
+  channel.enqueue = () => {};
+
+  await channel.fetch();
+
+  assert.deepEqual(requested, ['example.com', 'xn--bcher-kva.example']);
+});
+
 // ---- what gets stored ----
 
 test('the stored alert passes the same key check MongoDB applies on insert', async () => {
