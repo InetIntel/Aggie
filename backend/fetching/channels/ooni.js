@@ -42,7 +42,11 @@ function alertGuid(asn, alertDate, domainMode, probeCC = PROBE_CC, testName = WE
   return `ooni:${asn}:${mode}${scope}:${alertDate}`;
 }
 
-function alertContent(asn, alerts) {
+function testLabel(testName) {
+  return testName === WEB_CONNECTIVITY ? 'web connectivity' : String(testName).replace(/_/g, ' ');
+}
+
+function alertContent(asn, alerts, testName = WEB_CONNECTIVITY) {
   const network = NETWORK_NAMES[asn] || `AS${asn}`;
   // No timestamp embedded here deliberately: this raw string is stored once and
   // shown to every viewer, but "when" should render per-viewer display
@@ -57,7 +61,7 @@ function alertContent(asn, alerts) {
     // the report detail view (OoniEvent.tsx).
     return `OONI domain alert for ${network} (AS${asn}): no measurements were recorded for ${domains.length} watched domain(s) for the past 24 hours`;
   }
-  return `OONI volume alert for ${network} (AS${asn}): no web connectivity measurements were recorded for the past 24 hours`;
+  return `OONI volume alert for ${network} (AS${asn}): no ${testLabel(testName)} measurements were recorded for the past 24 hours`;
 }
 
 // Outage fields that put an OONI alert into the notable-activity aggregation.
@@ -127,11 +131,13 @@ class OONIChannel extends PollChannel {
     // historical Iran / web_connectivity defaults so existing sources (which
     // store neither) keep their current behavior.
     this.probeCC = OONIChannel.cleanProbeCC(options.probeCC);
-    this.testName = options.testName || 'web_connectivity';
+    this.testName = options.testName || WEB_CONNECTIVITY;
     this.interval = options.interval || OONIChannel.INTERVAL;
     this.hasMeasurements = options.hasMeasurements || hasMeasurements;
     this.fetchSeries = options.fetchSeries || fetchSeries;
     this.domainConfig = normalizeDomainConfig(OONIChannel.cleanDomainConfig(options.domainConfig) || defaultDomainConfig);
+    // Only web connectivity measures named domains. Other tests are checked per network.
+    this.watchesDomains = this.testName === WEB_CONNECTIVITY && !this.domainConfig.useAllDomains;
     this.requestOptions = options.requestOptions || {};
     this.requestDelayMs = options.requestDelayMs ?? REQUEST_DELAY_MS;
     this.sleep = options.sleep || wait;
@@ -183,7 +189,7 @@ class OONIChannel extends PollChannel {
 
   // Returns the alert for one network (or null) and the domains that could not be checked.
   async checkNetwork(asn, { windowStart, windowEnd, alertDate }) {
-    const domainMode = this.domainConfig.useAllDomains ? 'all' : 'selected';
+    const domainMode = this.watchesDomains ? 'selected' : 'all';
     const guid = alertGuid(asn, alertDate, domainMode, this.probeCC, this.testName);
     if (await this.reportExists({ guid })) return { post: null, unverified: [] };
 
@@ -198,7 +204,7 @@ class OONIChannel extends PollChannel {
     const unverified = [];
 
     let alerts;
-    if (this.domainConfig.useAllDomains) {
+    if (!this.watchesDomains) {
       const found = await this.hasMeasurements(query);
       alerts = evaluateRollingAlert(found, windowStart, windowEnd);
     } else {
@@ -234,7 +240,7 @@ class OONIChannel extends PollChannel {
   // alert is saved without a chart rather than retried; only new alerts get one,
   // there is no backfill for alerts created before this.
   async loadChart(asn, windowEnd) {
-    if (this.domainConfig.useAllDomains) return null;
+    if (!this.watchesDomains) return null;
     try {
       return await this.fetchSeries({
         asn,
@@ -264,7 +270,7 @@ class OONIChannel extends PollChannel {
       authoredAt: new Date(alerts[0].windowEnd),
       fetchedAt,
       author: `OONI AS${asn}`,
-      content: alertContent(asn, alerts),
+      content: alertContent(asn, alerts, this.testName),
       url: `https://explorer.ooni.org/search?${searchParams}`,
       platform: 'ooni',
       platformID: guid,
@@ -278,9 +284,9 @@ class OONIChannel extends PollChannel {
         alertDate,
         windowStart: alerts[0].windowStart,
         windowEnd: alerts[0].windowEnd,
-        domainMode: this.domainConfig.useAllDomains ? 'all' : 'selected',
+        domainMode: this.watchesDomains ? 'selected' : 'all',
         domainConfigCapturedAt: fetchedAt,
-        configuredDomains: this.domainConfig.useAllDomains ? [] : this.domainConfig.domains,
+        configuredDomains: this.watchesDomains ? this.domainConfig.domains : [],
         unverifiedDomains: unverified,
         zeroDomains: alerts
           .filter((alert) => alert.type === 'zero_domain_measurements')

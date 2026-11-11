@@ -351,7 +351,7 @@ test('sources on the same network but a different country or test get different 
   }
   assert.equal(new Set(ids).size, 3);
   assert.equal(ids[1], 'ooni:44244:domains:IQ:web_connectivity:2026-08-12');
-  assert.equal(ids[2], 'ooni:44244:domains:IR:whatsapp:2026-08-12');
+  assert.equal(ids[2], 'ooni:44244:volume:IR:whatsapp:2026-08-12');
 });
 
 // ---- source configuration ----
@@ -367,6 +367,23 @@ test('uses a clean two-letter country code and falls back for anything else', as
     assert.equal(new OONIChannel({ asns: '44244', probeCC: 'IR, IQ' }).probeCC, 'IR');
     assert.equal(new OONIChannel({ asns: '44244' }).probeCC, 'IR');
   });
+});
+
+test('tests that have no domains are checked per network, with wording for that test', async () => {
+  const requests = [];
+  const channel = selectedChannel({
+    testName: 'whatsapp',
+    hasMeasurements: async (request) => { requests.push(request); return false; },
+  });
+  channel.enqueue = () => {};
+
+  const [post] = await channel.fetch();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].domain, undefined);
+  assert.equal(post.raw.domainMode, 'all');
+  assert.match(post.content, /no whatsapp measurements were recorded/);
+  assert.doesNotMatch(post.content, /web connectivity/);
 });
 
 test('cleans the domains saved on a source and skips invalid ones', async () => {
