@@ -86,6 +86,7 @@ class OONIChannel extends PollChannel {
       ...options,
       namespace: options.namespace || `ooni-${asns.join('-')}`,
     });
+    this.options = options;
     this.asns = asns;
     // Probe country and test are configurable per-source; fall back to the
     // historical Iran / web_connectivity defaults so existing sources (which
@@ -135,6 +136,13 @@ class OONIChannel extends PollChannel {
     console.log(`[Fetching-channel-OONI] Checked ${this.asns.length} network(s): ${posts.length} new alert(s), ${problems.length} problem(s).`);
     if (problems.length > 0) throw new Error(`OONI check incomplete. ${problems.join('; ')}`);
 
+    if (typeof this.options?.onFetch === 'function') {
+      try {
+        await this.options.onFetch(windowEndDate);
+      } catch (error) {
+        console.warn(`[Fetching-channel-OONI] Could not record the last check time: ${error.message}`);
+      }
+    }
     return posts;
   }
 

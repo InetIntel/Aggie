@@ -322,6 +322,16 @@ test('a failed check in all-domains mode is reported and creates no alert', asyn
   assert.equal(queued.length, 0);
 });
 
+test('records the time of a clean check on the source', async () => {
+  const times = [];
+  const channel = selectedChannel({ requestDelayMs: 0, fetchSeries: noChart, onFetch: async (time) => times.push(time) });
+  channel.enqueue = () => {};
+
+  await quiet(() => channel.fetch());
+
+  assert.deepEqual(times, [new Date('2026-08-12T14:30:00.000Z')]);
+});
+
 // ---- what gets stored ----
 
 test('the stored alert passes the same key check MongoDB applies on insert', async () => {
