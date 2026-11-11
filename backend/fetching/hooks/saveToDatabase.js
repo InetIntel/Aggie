@@ -2,11 +2,33 @@
 
 const Report = require('../../models/report');
 const { deleteSocialAttachments } = require('../utils/socialImageStorage');
+
+// An OONI alert is worth more than its chart. If saving fails for any reason other
+// than a duplicate, retry once without the chart so the alert still shows up.
+async function saveOoniWithoutChart(report, error) {
+    const raw = report?.metadata?.rawAPIResponse;
+    if (report?.platform !== 'ooni' || !raw || !raw.chart) return false;
+
+    console.warn(`[Fetching-saveToDatabase] Saving OONI alert ${report.guid} with its chart failed (${error.message}); retrying without the chart.`);
+    const { chart, ...rawWithoutChart } = raw;
+    const result = await Report.create({
+        ...report,
+        metadata: { ...report.metadata, rawAPIResponse: rawWithoutChart },
+    });
+    return !!(result && result._id);
+}
+
 module.exports = async function saveToDatabase(report, next) {
 
     try {
 
-        const result = await Report.create(report);
+        let result;
+        try {
+            result = await Report.create(report);
+        } catch (error) {
+            if (error.code === 11000 || !(await saveOoniWithoutChart(report, error))) throw error;
+            result = { _id: 'saved-without-chart' };
+        }
 
         if (!result || !result._id) {
             throw new Error(`Failed saving report: ${JSON.stringify(result)}.`);
