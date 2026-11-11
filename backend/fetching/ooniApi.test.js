@@ -169,3 +169,18 @@ test('sends a timeout signal with every request', async () => {
   });
   assert.ok(signal instanceof AbortSignal);
 });
+
+test('an answer without a results list is an error, not "no measurements"', async () => {
+  await assert.rejects(
+    hasMeasurements({ ...window, retries: 0, fetchImpl: async () => okResponse({ error: 'rate limited' }) }),
+    /not in the expected format/,
+  );
+  assert.equal(await hasMeasurements({ ...window, fetchImpl: async () => okResponse({ results: [] }) }), false);
+});
+
+test('an aggregation answer without a result is an error', async () => {
+  await assert.rejects(
+    fetchDailyMeasurements({ asn: 44244, since: '2026-08-10', until: '2026-08-11', retries: 0, fetchImpl: async () => okResponse({}) }),
+    /not in the expected format/,
+  );
+});

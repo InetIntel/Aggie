@@ -92,9 +92,10 @@ async function hasMeasurements({
   const payload = await requestJson(url, {
     ...requestOptions,
     describe: 'measurements',
-    validate: () => true,
+    // An empty list is a real answer ("no measurements"); a body without the list is not.
+    validate: (body) => Array.isArray(body?.results),
   });
-  return Array.isArray(payload.results) && payload.results.length > 0;
+  return payload.results.length > 0;
 }
 
 async function fetchDailyMeasurements({
@@ -123,10 +124,9 @@ async function fetchDailyMeasurements({
     timeoutMs: AGGREGATION_TIMEOUT_MS,
     ...requestOptions,
     describe: 'aggregation',
-    validate: () => true,
+    validate: (body) => body && body.result !== undefined && body.result !== null,
   });
-  const result = payload.result || [];
-  return Array.isArray(result) ? result : [result];
+  return Array.isArray(payload.result) ? payload.result : [payload.result];
 }
 
 module.exports = {
