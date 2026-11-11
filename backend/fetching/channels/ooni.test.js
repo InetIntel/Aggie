@@ -361,6 +361,14 @@ test('accepts ASNs written with an AS prefix and drops repeats', () => {
   assert.deepEqual(channel.asns, [44244, 58224]);
 });
 
+test('uses a clean two-letter country code and falls back for anything else', async () => {
+  await quiet(async () => {
+    assert.equal(new OONIChannel({ asns: '44244', probeCC: ' iq ' }).probeCC, 'IQ');
+    assert.equal(new OONIChannel({ asns: '44244', probeCC: 'IR, IQ' }).probeCC, 'IR');
+    assert.equal(new OONIChannel({ asns: '44244' }).probeCC, 'IR');
+  });
+});
+
 // ---- what gets stored ----
 
 test('the stored alert passes the same key check MongoDB applies on insert', async () => {

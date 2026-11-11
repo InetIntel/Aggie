@@ -80,6 +80,19 @@ function outageFields({ asn, probeCC = PROBE_CC, windowEnd }) {
 class OONIChannel extends PollChannel {
   static INTERVAL = 60 * 60 * 1000;
 
+  // The country comes from a free-text field on the source. Anything that is not a
+  // two-letter code falls back to the default instead of querying OONI with junk,
+  // which would read as "no measurements".
+  static cleanProbeCC(value) {
+    const code = String(value || '').trim().toUpperCase();
+    if (!code) return PROBE_CC;
+    if (!/^[A-Z]{2}$/.test(code)) {
+      console.warn(`OONI probe country "${value}" is not a two-letter code; using ${PROBE_CC}.`);
+      return PROBE_CC;
+    }
+    return code;
+  }
+
   constructor(options) {
     // "44244", "AS44244" and mixed lists are all accepted; repeats are dropped.
     const asns = [...new Set(
@@ -101,7 +114,7 @@ class OONIChannel extends PollChannel {
     // Probe country and test are configurable per-source; fall back to the
     // historical Iran / web_connectivity defaults so existing sources (which
     // store neither) keep their current behavior.
-    this.probeCC = options.probeCC || PROBE_CC;
+    this.probeCC = OONIChannel.cleanProbeCC(options.probeCC);
     this.testName = options.testName || 'web_connectivity';
     this.interval = options.interval || OONIChannel.INTERVAL;
     this.hasMeasurements = options.hasMeasurements || hasMeasurements;
