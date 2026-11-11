@@ -215,3 +215,46 @@ test('does not fetch a series in all-domains mode', async () => {
   assert.equal(called, false);
   assert.equal(post.raw.chart, undefined);
 });
+
+test('stores the chart domains as a list, since MongoDB rejects "." in field names', async () => {
+  const channel = selectedChannel({
+    fetchSeries: async (request) => ({
+      source: 'ooni-aggregation',
+      until: request.anchor.toISOString(),
+      starts: [],
+      domains: { 'www.example.com': [1, 2], 'b.example': [0, 0] },
+    }),
+  });
+  channel.enqueue = () => {};
+
+  const [post] = await channel.fetch();
+
+  assert.deepEqual(post.raw.chart.domains, [
+    { domain: 'www.example.com', counts: [1, 2] },
+    { domain: 'b.example', counts: [0, 0] },
+  ]);
+  const hasDottedKey = (value) =>
+    value && typeof value === 'object'
+    && Object.entries(value).some(([key, inner]) => key.includes('.') || hasDottedKey(inner));
+  assert.equal(hasDottedKey(post.raw), false);
+});
+
+// ---- what gets stored ----
+
+test('the stored alert passes the same key check MongoDB applies on insert', async () => {
+  const Bson = require('bson');
+  const channel = selectedChannel({
+    requestDelayMs: 0,
+    fetchSeries: async (request) => ({
+      source: 'ooni-aggregation',
+      until: request.anchor.toISOString(),
+      starts: [],
+      domains: { 'measured.example': [1], 'missing.example': [0] },
+    }),
+  });
+  channel.enqueue = () => {};
+  const [post] = await channel.fetch();
+
+  const insert = { insert: 'reports', documents: [{ guid: post.platformID, metadata: { rawAPIResponse: post.raw } }] };
+  assert.doesNotThrow(() => new Bson().serialize(insert, { checkKeys: true }));
+});

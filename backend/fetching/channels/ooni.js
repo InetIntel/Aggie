@@ -1,7 +1,7 @@
 const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { hasMeasurements } = require('../ooniApi');
-const { fetchSeries, chartAnchor } = require('../ooniSeries');
+const { fetchSeries, chartAnchor, domainsToStored } = require('../ooniSeries');
 const {
   normalizeDomainConfig,
   evaluateRollingAlert,
@@ -207,7 +207,9 @@ class OONIChannel extends PollChannel {
           .filter((alert) => alert.type === 'zero_domain_measurements')
           .map((alert) => alert.domain),
         triggers: alerts,
-        ...(chart ? { chart: { ...chart, fetchedAt: fetchedAt.toISOString() } } : {}),
+        ...(chart
+          ? { chart: { ...chart, domains: domainsToStored(chart.domains), fetchedAt: fetchedAt.toISOString() } }
+          : {}),
       },
     });
 

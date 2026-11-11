@@ -125,7 +125,10 @@ export interface OoniChartData {
   until: string; // end of the last block (ISO, UTC)
   starts?: string[]; // start of each block (ISO, UTC)
   days?: string[]; // older shape: YYYY-MM-DD
-  domains: Record<string, number[]>; // watched domain -> count per block
+  // Watched domains with a count per block. Stored as a list because MongoDB rejects
+  // field names containing "."; charts saved before that was fixed (if any) are keyed
+  // by domain name instead.
+  domains: { domain: string; counts: number[] }[] | Record<string, number[]>;
   fetchedAt?: string;
 }
 
