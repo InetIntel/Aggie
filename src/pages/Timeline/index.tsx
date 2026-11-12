@@ -1,11 +1,16 @@
 import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileExport } from "@fortawesome/free-solid-svg-icons";
+
+import { useSocketSubscribe } from "../../hooks/WebsocketProvider";
 
 import { getPublishedGroups } from "../../api/groups";
 import type { Group } from "../../api/groups/types";
 import { getAsnsByIds } from "../../api/asn";
+import { getGeoScopes } from "../../api/geoscope";
+import countries from "i18n-iso-countries";
+import enLocale from "i18n-iso-countries/langs/en.json";
 import type { AsnInfoMap } from "../../api/asn/types";
 import AggieSwitch from "../../components/AggieSwitch";
 import TimelineCard from "./TimelineCard";
@@ -13,6 +18,7 @@ import {
   Anchor,
   assignLanes,
   BarSpan,
+  GeoScopeLookup,
   incidentTier,
   isOngoing,
   monthKey,
@@ -26,6 +32,8 @@ import {
 } from "./timelineHelpers";
 import { resolveTimeZone } from "../../utils/dateFormat";
 import { useFormatters } from "../../utils/useFormatters";
+
+const PUBLISHED_GROUPS_KEY = ["groups", "published"];
 
 const LANE_WIDTH = 8; // px between duration-bar lanes
 const BAR_AXIS_GAP = 14; // px between the innermost lane and the axis
@@ -54,6 +62,37 @@ function useAsnLookup(groups: Group[]) {
       Object.entries(data ?? {}).map(([k, v]) => [k.toLowerCase(), v])
     );
     return (asn: string) => byLower[asn.toLowerCase()];
+  }, [data]);
+}
+
+countries.registerLocale(enLocale);
+
+// Classifies location labels as countries or regions. The geoscope options
+// (backend/config/geoScopes.json) carry level + countryCode; when a label isn't
+// in them, fall back to matching ISO country names ("Islamic Republic of Iran",
+// "Iran", ...). A region's parent country is only known from the options.
+function useGeoScopeLookup(): GeoScopeLookup {
+  const { data } = useQuery(["geoScopes"], getGeoScopes, { staleTime: Infinity });
+  return useMemo(() => {
+    const byLabel = new Map(
+      (data ?? []).flatMap((o) => [
+        [o.value.toLowerCase(), o],
+        [o.key.toLowerCase(), o],
+      ])
+    );
+    const isCountryLevel = (level?: string) => level?.toLowerCase() === "country";
+    return {
+      countryOf: (label) => {
+        const opt = byLabel.get(label.toLowerCase());
+        if (opt) return isCountryLevel(opt.level) ? opt.countryCode?.toUpperCase() : undefined;
+        return countries.getAlpha2Code(label, "en") || undefined;
+      },
+      parentCountryOf: (label) => {
+        const opt = byLabel.get(label.toLowerCase());
+        if (!opt || isCountryLevel(opt.level)) return undefined;
+        return opt.countryCode?.toUpperCase();
+      },
+    };
   }, [data]);
 }
 
@@ -213,9 +252,19 @@ const Timeline = () => {
   const [showBars, setShowBars] = useState(true);
   const { prefs, formatTimeZone } = useFormatters();
   const timeZone = resolveTimeZone(prefs);
-  const { data, isLoading, isError } = useQuery(["groups", "published"], getPublishedGroups, {
-    staleTime: 60 * 1000,
-  });
+  // No staleTime: coming back to this tab after editing an incident refetches.
+  const { data, isLoading, isError } = useQuery(PUBLISHED_GROUPS_KEY, getPublishedGroups);
+
+  // Live updates while the page is open. The events carry no data (each user
+  // reloads through the API so access rules apply), so just refetch.
+  const queryClient = useQueryClient();
+  const refetchPublished = useCallback(
+    () => queryClient.invalidateQueries(PUBLISHED_GROUPS_KEY),
+    [queryClient]
+  );
+  useSocketSubscribe("groups:create", refetchPublished);
+  useSocketSubscribe("groups:update", refetchPublished);
+  useSocketSubscribe("groups:delete", refetchPublished);
 
   const groups = useMemo(
     () => [...(data ?? [])].sort((a, b) => startTimeOf(b) - startTimeOf(a)),
@@ -223,6 +272,7 @@ const Timeline = () => {
   );
   const ongoingCount = groups.filter(isOngoing).length;
   const getAsnInfo = useAsnLookup(groups);
+  const geo = useGeoScopeLookup();
   const { containerRef, nowRef, setDotRef, layout } = useTimelineLayout([groups, showBars]);
 
   const { bars, laneCount } = useMemo(
@@ -339,7 +389,7 @@ const Timeline = () => {
                     />
                   </div>
                   <div className='min-w-0 flex-1'>
-                    <TimelineCard group={g} getAsnInfo={getAsnInfo} />
+                    <TimelineCard group={g} getAsnInfo={getAsnInfo} geo={geo} />
                   </div>
                 </div>
               </Fragment>

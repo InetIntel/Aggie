@@ -199,3 +199,49 @@ export const toCsv = (groups: Group[]) => {
   ]);
   return [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\n");
 };
+
+// ---------------------------------------------------------------------------
+// Location labels
+// ---------------------------------------------------------------------------
+
+export interface GeoScopeLookup {
+  // ISO alpha-2 code when the label names a country, else undefined.
+  countryOf: (label: string) => string | undefined;
+  // For a sub-country scope (region/province), the country it sits in.
+  parentCountryOf: (label: string) => string | undefined;
+}
+
+const ASN_PART = /^as\d+$/i;
+
+// Merges locationName and impactedGeoScopes into one list without overlap:
+//  - locationName is often a dashboard summary like "as48944 / Iran"; the ASN
+//    part is dropped (it's already in the ASN section) and the rest is split out.
+//  - the same country named twice (or under two names) is kept once.
+//  - a country is dropped when a region inside it is also listed.
+export const dedupeLocations = (g: Group, geo: GeoScopeLookup): string[] => {
+  const fromLocationName = (g.locationName ?? "")
+    .split(" / ")
+    .map((p) => p.trim())
+    .filter((p) => p && !ASN_PART.test(p));
+  const labels = [...(g.impactedGeoScopes ?? []), ...fromLocationName];
+
+  const seenText = new Set<string>();
+  const seenCountries = new Set<string>();
+  // A region's country is only known from the geoscope options; when they don't
+  // list it, the country label is kept rather than guessed away.
+  const countriesWithRegions = new Set(
+    labels.map(geo.parentCountryOf).filter((c): c is string => !!c)
+  );
+
+  return labels.filter((label) => {
+    const text = label.toLowerCase();
+    if (seenText.has(text)) return false;
+    seenText.add(text);
+
+    const country = geo.countryOf(label);
+    if (!country) return true;
+    if (seenCountries.has(country) || countriesWithRegions.has(country)) return false;
+    seenCountries.add(country);
+    return true;
+  });
+};

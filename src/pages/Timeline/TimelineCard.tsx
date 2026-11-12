@@ -12,8 +12,10 @@ import TagsList from "../../components/Tags/TagsList";
 import SocialMediaIcon from "../../components/SocialMediaPost/SocialMediaIcon";
 import {
   coverageTier,
+  dedupeLocations,
   formatDuration,
   formatHeadingDate,
+  GeoScopeLookup,
   isOngoing,
   startTimeOf,
   TIER_STYLES,
@@ -78,9 +80,10 @@ const asName = (info: AsnInfo | undefined) => {
 interface IProps {
   group: Group;
   getAsnInfo: (asn: string) => AsnInfo | undefined;
+  geo: GeoScopeLookup;
 }
 
-const TimelineCard = ({ group, getAsnInfo }: IProps) => {
+const TimelineCard = ({ group, getAsnInfo, geo }: IProps) => {
   const { prefs, formatDateTime, formatTimeZone } = useFormatters();
   const ongoing = isOngoing(group);
   const start = toTime(group.incidentStartedAt);
@@ -90,9 +93,7 @@ const TimelineCard = ({ group, getAsnInfo }: IProps) => {
   const asNames = Array.from(
     new Set(asns.map((a) => asName(getAsnInfo(a))).filter((n): n is string => !!n))
   );
-  const locations = [group.locationName, ...(group.impactedGeoScopes ?? [])].filter(
-    (l): l is string => !!l
-  );
+  const locations = dedupeLocations(group, geo);
   const description = group.publicDescription || group.notes;
   const confirmed =
     group.confirmation_status === true || group.confirmation_status === "true";
