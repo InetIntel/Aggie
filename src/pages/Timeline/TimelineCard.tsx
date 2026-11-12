@@ -90,9 +90,11 @@ const TimelineCard = ({ group, getAsnInfo, geo }: IProps) => {
   const end = toTime(group.incidentEndedAt);
   const durationMs = start !== null ? (end ?? Date.now()) - start : null;
   const asns = group.impactedAsns ?? [];
-  const asNames = Array.from(
-    new Set(asns.map((a) => asName(getAsnInfo(a))).filter((n): n is string => !!n))
-  );
+  // One row per ASN (repeats dropped), paired with its organization.
+  const asnRows = Array.from(new Set(asns.map((a) => a.toLowerCase()))).map((a) => ({
+    asn: a,
+    organization: asName(getAsnInfo(a)),
+  }));
   const locations = dedupeLocations(group, geo);
   const description = group.publicDescription || group.notes;
   const confirmed =
@@ -173,38 +175,30 @@ const TimelineCard = ({ group, getAsnInfo, geo }: IProps) => {
         />
       </div>
 
-      {asns.length > 0 && (
-        <div className='flex flex-wrap gap-6 border-t border-slate-200 p-4 dark:border-slate-600'>
-          <div className='flex-1 min-w-[12rem]'>
-            <p className={sectionLabel}>ASN</p>
-            <div className='mt-2 flex flex-wrap gap-1'>
-              {asns.map((a) => (
-                <span
-                  key={a}
-                  className='rounded border border-yellow-400 bg-yellow-100 px-1.5 py-0.5 text-xs text-slate-800 dark:bg-yellow-900/40 dark:text-yellow-100'
-                >
-                  {a.toUpperCase()}
-                </span>
+      {asnRows.length > 0 && (
+        <div className='border-t border-slate-200 p-4 dark:border-slate-600'>
+          <table className='w-full text-left text-xs'>
+            <thead>
+              <tr>
+                <th className={`${sectionLabel} w-28 pb-1 pr-4 font-semibold`}>ASN</th>
+                <th className={`${sectionLabel} pb-1 font-semibold`}>Organization</th>
+              </tr>
+            </thead>
+            <tbody>
+              {asnRows.map(({ asn, organization }) => (
+                <tr key={asn} className='border-t border-slate-100 dark:border-slate-700'>
+                  <td className='py-1 pr-4 align-top'>
+                    <span className='inline-block rounded border border-yellow-400 bg-yellow-100 px-1.5 py-0.5 text-slate-800 dark:bg-yellow-900/40 dark:text-yellow-100'>
+                      {asn.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className='py-1 align-middle text-slate-700 dark:text-gray-200'>
+                    {organization ?? <span className='italic text-slate-400'>Unknown</span>}
+                  </td>
+                </tr>
               ))}
-            </div>
-          </div>
-          <div className='flex-1 min-w-[12rem]'>
-            <p className={sectionLabel}>AS</p>
-            <div className='mt-2 flex flex-wrap gap-1'>
-              {asNames.length ? (
-                asNames.map((n) => (
-                  <span
-                    key={n}
-                    className='rounded border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-xs text-slate-700 dark:border-sky-700 dark:bg-sky-900/30 dark:text-gray-200'
-                  >
-                    {n}
-                  </span>
-                ))
-              ) : (
-                <span className='text-xs italic text-slate-400'>No AS names on file</span>
-              )}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
       )}
 
