@@ -78,7 +78,7 @@ exports.group_create = (req, res) => {
 
 // lean option means only return name and id
 exports.group_all_groups = (req, res) => {
-  const projection = req.query.lean === "true" ? 'title closed escalated idnum' : '';
+  const projection = req.query.lean === "true" ? 'title closed escalated idnum impactedAsns' : '';
   const accessFilter = req.incidentAccess && req.incidentAccess.filter;
   const filter = accessFilter && Object.keys(accessFilter).length > 0
     ? { $and: [{ public: true }, accessFilter] }
@@ -87,6 +87,21 @@ exports.group_all_groups = (req, res) => {
   Group.find(filter, projection, {}, (err, groups) => {
     if (err) res.status(err.status).send(err.message);
     else res.status(200).send(groups);
+  });
+};
+
+// Every incident's id/title and impacted ASNs, for the table-header dropdown lists.
+exports.group_filter_options = (req, res) => {
+  const accessFilter = req.incidentAccess && req.incidentAccess.filter;
+  const filter = accessFilter && Object.keys(accessFilter).length > 0 ? accessFilter : {};
+  Group.find(filter, 'title idnum impactedAsns', {}, (err, groups) => {
+    if (err) return res.status(err.status || 500).send(err.message);
+    const asns = new Set();
+    groups.forEach((g) => (g.impactedAsns || []).forEach((a) => a && asns.add(a)));
+    res.status(200).json({
+      incidents: groups.map((g) => ({ idnum: g.idnum, title: g.title })),
+      asns: Array.from(asns),
+    });
   });
 };
 
@@ -105,8 +120,28 @@ exports.group_groups = (req, res) => {
     'ascStartDate': 'incidentStartedAt',
     'descEndDate': '-incidentEndedAt',
     'ascEndDate': 'incidentEndedAt',
+    'descId': '-idnum',
+    'ascId': 'idnum',
+    'descTitle': '-title',
+    'ascTitle': 'title',
+    'descAsn': '-impactedAsns',
+    'ascAsn': 'impactedAsns',
+    'descReports': '-reportsLength',
+    'ascReports': 'reportsLength',
   }
-  const sortBy = sortByKey in sortTable ? sortTable[sortByKey] : defaultSort
+  const sortBy = Object.prototype.hasOwnProperty.call(sortTable, sortByKey)
+    ? sortTable[sortByKey]
+    : defaultSort
+  const computedSort = {
+    descTableStatus: { field: 'tableStatus', direction: -1 },
+    ascTableStatus: { field: 'tableStatus', direction: 1 },
+    descAssigned: { field: 'assignedTo', direction: -1 },
+    ascAssigned: { field: 'assignedTo', direction: 1 },
+    descDpc: { field: 'directPopulationCoverageScore', direction: -1 },
+    ascDpc: { field: 'directPopulationCoverageScore', direction: 1 },
+    descIpc: { field: 'indirectPopulationCoverageScore', direction: -1 },
+    ascIpc: { field: 'indirectPopulationCoverageScore', direction: 1 },
+  }[sortByKey];
 
   // Use paginated find
   Group.queryGroups(
@@ -114,6 +149,7 @@ exports.group_groups = (req, res) => {
     req.query.page,
     {
       sort: sortBy,
+      computedSort,
       populate: [
         { path: 'creator', select: 'username' },
         { path: 'assignedTo', select: 'username' },

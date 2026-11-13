@@ -86,8 +86,10 @@ export interface GroupQueryState {
   escalated?: string | boolean;
   closed?: string | boolean;
   stages?: string; // comma-separated lifecycle stage keys: verification,confirmation,published
+  tableStatus?: string; // comma-separated labels displayed in the incidents table
   title?: string;
   totalReports?: string | number;
+  impactedAsn?: string;
   assignedTo?: string;
   creator?: string;
   after?: string;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -10,7 +10,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import type { Group } from "../../../api/groups/types";
-import { getGroupReports } from "../../../api/groups";
+import { getGroupFilterOptions, getGroupReports } from "../../../api/groups";
 import { useIncidentMutations } from "../useIncidentMutations";
 import { IncidentOverallStatus } from "../IncidentStatuses";
 import { CoverageBadge, coveragePercent } from "../IncidentCoverage";
@@ -19,8 +19,14 @@ import GroupReportListItem from "../Incident/GroupReportListItem";
 import AsnChips from "./AsnChips";
 import { formatDurationFromSeconds } from "../../../utils/format";
 import { useFormatters } from "../../../utils/useFormatters";
+import { getUserDirectory } from "../../../api/users";
+import type { GroupSortBy } from "../../../api/common";
 
 import DataTable from "../../../components/DataTable/DataTable";
+import ColumnHeaderControls from "../../../components/DataTable/ColumnHeaderControls";
+import LocationFilter from "../../../components/filters/LocationFilter";
+import { getAlertFilterOptions } from "../../../api/reports";
+import HeaderListFilter from "../../../components/DataTable/HeaderListFilter";
 import type {
   DataTableColumn,
   DataTableSelection,
@@ -29,11 +35,16 @@ import AggieButton from "../../../components/AggieButton";
 import AggieDialog from "../../../components/AggieDialog";
 import ConfirmationDialog from "../../../components/ConfirmationDialog";
 import CreateEditIncidentForm from "../CreateEditIncidentForm";
+import FilterListBox from "../../../components/filters/FilterListBox";
+import FilterDateTime from "../../../components/filters/FilterDateTime";
+import type { GroupQueryState } from "../../../api/groups/types";
 
 interface IProps {
   data: Group[];
   isLoading?: boolean;
   selection?: DataTableSelection<Group>;
+  query: GroupQueryState;
+  onFilterChange: (values: Partial<GroupQueryState>) => void;
 }
 
 const formatAssignedTo = (group: Group) => {
@@ -77,7 +88,9 @@ const IncidentAlertsList = ({ groupId }: { groupId: string }) => {
   );
   if (isLoading)
     return (
-      <span className="text-slate-500 dark:text-gray-400">Loading reports…</span>
+      <span className="text-slate-500 dark:text-gray-400">
+        Loading reports…
+      </span>
     );
   const results = data?.results ?? [];
   if (results.length === 0)
@@ -100,22 +113,110 @@ const IncidentAlertsList = ({ groupId }: { groupId: string }) => {
   );
 };
 
-const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
+const IncidentsTable = ({
+  data,
+  isLoading,
+  selection,
+  query,
+  onFilterChange,
+}: IProps) => {
   const [editTarget, setEditTarget] = useState<Group | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Group | null>(null);
 
   const { doUpdate, doRemove } = useIncidentMutations();
   const { formatDate, formatTime, formatTimeZone } = useFormatters();
+  const { data: users } = useQuery(["users", "directory"], getUserDirectory);
+  // Full lists for the Title / ASN header dropdowns (not just the current page).
+  // Alert ASN options are only used to look up a network name to show next to each ASN.
+  const asnQuery = useQuery(["alert-filter-options"], getAlertFilterOptions);
+  const { data: filterOptions, isLoading: allGroupsLoading } = useQuery(
+    ["groups", "filter-options"],
+    getGroupFilterOptions,
+  );
+  const { titleOptions, idOptions, asnOptions } = useMemo(() => {
+    const groups = filterOptions?.incidents ?? [];
+    const titles = [...groups]
+      .sort((a, b) => (b.idnum ?? 0) - (a.idnum ?? 0))
+      .map((g) => ({ value: `#${g.idnum}`, label: `#${g.idnum} ${g.title}` }));
+    const ids = [...groups]
+      .sort((a, b) => (a.idnum ?? 0) - (b.idnum ?? 0))
+      .map((g) => ({ value: String(g.idnum), label: `#${g.idnum}` }));
+    // The ASN picker lists the ASNs incidents actually use (impactedAsns), so
+    // every choice returns at least one incident. Names come from the alert options.
+    const normalize = (asn: string) => asn.trim().toLowerCase().replace(/^as/, "");
+    const nameByAsn = new Map(
+      (asnQuery.data?.asns ?? []).map((o) => [normalize(o.key), o.label]),
+    );
+    const asns = (filterOptions?.asns ?? [])
+      .slice()
+      .sort((a, b) => normalize(a).localeCompare(normalize(b), undefined, { numeric: true }))
+      .map((asn) => ({
+        key: asn,
+        label: nameByAsn.get(normalize(asn)) ?? asn.toUpperCase(),
+      }));
+    return { titleOptions: titles, idOptions: ids, asnOptions: asns };
+  }, [filterOptions, asnQuery.data]);
+
+  const updateFilters = (values: Partial<GroupQueryState>) =>
+    onFilterChange({ ...values, page: undefined });
+  const sortControl = (
+    label: string,
+    ascending: GroupSortBy,
+    descending: GroupSortBy,
+  ) => ({
+    label,
+    dual: true,
+    direction:
+      query.sortBy === ascending
+        ? ("asc" as const)
+        : query.sortBy === descending
+          ? ("desc" as const)
+          : null,
+    onChange: (direction: "asc" | "desc") =>
+      updateFilters({ sortBy: direction === "asc" ? ascending : descending }),
+  });
+  const searchControl = (
+    label: string,
+    key: "title" | "idnum" | "impactedAsn" | "totalReports",
+    placeholder?: string,
+    inputType?: "search" | "number",
+  ) => ({
+    label,
+    value: String(query[key] ?? ""),
+    placeholder,
+    inputType,
+    min: inputType === "number" ? (key === "idnum" ? 1 : 0) : undefined,
+    step: inputType === "number" ? 1 : undefined,
+    onChange: (value: string) =>
+      updateFilters({ [key]: value || undefined }),
+  });
 
   // Display order is fixed here; collapse order is encoded independently by
   // `collapsePriority` (higher = more persistent). As the table narrows, columns
-  // collapse in this order: Assigned To → # Of Reports → DPC / IPC → Status →
+  // collapse in this order: Assigned To → # Of Reports → IPC → DPC → Status →
   // ASN → Date → Title; ID# has no priority so it always stays. Widths are the
   // per-column minimums.
   const columns: DataTableColumn<Group>[] = [
     {
       id: "idnum",
       header: "ID#",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls sort={sortControl("ID", "ascId", "descId")}>
+          <HeaderListFilter
+            label="ID#"
+            searchPlaceholder="Search incident ID"
+            options={idOptions}
+            loading={allGroupsLoading}
+            value={String(query.idnum ?? "")}
+            displayValue={query.idnum ? `#${query.idnum}` : undefined}
+            onSelect={(value) => {
+              const id = value.replace(/^#/, "").trim();
+              updateFilters({ idnum: /^\d+$/.test(id) ? id : undefined });
+            }}
+          />
+        </ColumnHeaderControls>
+      ),
       minWidth: 75,
       tdClassName:
         "text-slate-600 dark:text-gray-400 font-medium whitespace-nowrap",
@@ -124,6 +225,21 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "title",
       header: "Incident Title",
+      headerActionIsLabel: true,
+      headerAction: (
+        <HeaderListFilter
+          label="Incident Title"
+          searchPlaceholder="Search incident title"
+          options={titleOptions}
+          loading={allGroupsLoading}
+          value={String(query.title ?? "")}
+          displayValue={
+            titleOptions.find((o) => o.value === query.title)?.label ??
+            String(query.title ?? "")
+          }
+          onSelect={(value) => updateFilters({ title: value || undefined })}
+        />
+      ),
       // Explicit px width (via `minWidth`), not auto. Under the table's fixed
       // layout a full-width `colSpan` cell — the expanded detail row — shrinks
       // any *auto*-width column to its min-content (title once collapsed to a
@@ -163,6 +279,21 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "date",
       header: "Date",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls
+          sort={sortControl("start date", "ascStartDate", "descStartDate")}
+        >
+          <FilterDateTime
+            headerStyle
+            label="Date"
+            before={String(query.before ?? "")}
+            after={String(query.after ?? "")}
+            onSetBefore={(before) => updateFilters({ before: before || undefined })}
+            onSetAfter={(after) => updateFilters({ after: after || undefined })}
+          />
+        </ColumnHeaderControls>
+      ),
       minWidth: 275,
       collapsePriority: 7,
       noSpillover: true, // duration already shown in the expanded detail
@@ -209,6 +340,19 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "asn",
       header: "ASN(s)",
+      headerActionIsLabel: true,
+      headerAction: (
+        <LocationFilter
+          headerStyle
+          label="ASN(s)"
+          options={asnOptions}
+          loading={allGroupsLoading}
+          error={false}
+          value={String(query.impactedAsn ?? "").split(",").filter(Boolean)}
+          onChange={(values) =>
+            updateFilters({ impactedAsn: values.length ? values.join(",") : undefined })
+          }
+        />      ),
       minWidth: 160,
       collapsePriority: 6,
       // Absorbs the table's leftover width so the ASN chips get more room than
@@ -224,6 +368,38 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "status",
       header: "Status",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls>
+          <FilterListBox
+            headerStyle
+            label="Status"
+            options={[
+              "Verifying Measurement",
+              "Published",
+              "Unable to Confirm",
+              "Confirmed",
+            ]}
+            value={String(query.tableStatus ?? "")
+              .split(",")
+              .filter(Boolean)}
+            isMultiSelect
+            onChange={(value) => {
+              const statuses = value as string[];
+              updateFilters({
+                tableStatus: statuses.length ? statuses.join(",") : undefined,
+              });
+            }}
+            toggleLabel="Include closed"
+            toggleDescription="Also show closed incidents."
+            toggleValue={query.closed === "all"}
+            onToggleChange={(value) =>
+              updateFilters({ closed: value ? "all" : undefined })
+            }
+          />
+        </ColumnHeaderControls>
+      ),
+
       minWidth: 240,
       collapsePriority: 5,
       tdClassName: "whitespace-nowrap",
@@ -236,28 +412,55 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
       ),
     },
     {
-      id: "coverage",
-      header: "DPC / IPC",
-      minWidth: 125,
+      id: "dpc",
+      header: "DPC",
+      headerAction: (
+        <ColumnHeaderControls
+          sort={sortControl("DPC", "ascDpc", "descDpc")}
+        />
+      ),
+      minWidth: 85,
       collapsePriority: 4,
       noSpillover: true, // shown in the expanded detail metadata
       tdClassName: "whitespace-nowrap text-xs align-top",
       cell: (inc) => (
-        <div className="flex flex-col text-left leading-tight">
-          <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400">
-            DPC:
-          </span>
-          <span>{coveragePercent(inc.directPopulationCoverageScore)}</span>
-          <span className="uppercase tracking-wide text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-1">
-            IPC:
-          </span>
-          <span>{coveragePercent(inc.indirectPopulationCoverageScore)}</span>
-        </div>
+        coveragePercent(inc.directPopulationCoverageScore)
+      ),
+    },
+    {
+      id: "ipc",
+      header: "IPC",
+      headerAction: (
+        <ColumnHeaderControls
+          sort={sortControl("IPC", "ascIpc", "descIpc")}
+        />
+      ),
+      minWidth: 85,
+      collapsePriority: 3,
+      noSpillover: true,
+      tdClassName: "whitespace-nowrap text-xs align-top",
+      cell: (inc) => (
+        coveragePercent(inc.indirectPopulationCoverageScore)
       ),
     },
     {
       id: "alertsReport",
       header: "# Of Reports",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls
+          search={{
+            ...searchControl(
+              "report count",
+              "totalReports",
+              "Exact report count",
+              "number",
+            ),
+            headerLabel: "# Of Reports",
+          }}
+          sort={sortControl("report count", "ascReports", "descReports")}
+        />
+      ),
       minWidth: 100,
       collapsePriority: 2,
       noSpillover: true, // shown in the expanded detail metadata
@@ -266,6 +469,30 @@ const IncidentsTable = ({ data, isLoading, selection }: IProps) => {
     {
       id: "assignedTo",
       header: "Assigned To",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls
+          sort={sortControl("assignee", "ascAssigned", "descAssigned")}
+        >
+          <FilterListBox
+            headerStyle
+            label="Assigned To"
+            options={[
+              "none",
+              ...(users ?? []).map((user) => user._id),
+            ]}
+            value={String(query.assignedTo ?? "")}
+            getOptionLabel={(id) =>
+              id === "none"
+                ? "Not Assigned"
+                : users?.find((user) => user._id === id)?.username ?? id
+            }
+            onChange={(value) =>
+              updateFilters({ assignedTo: (value as string) || undefined })
+            }
+          />
+        </ColumnHeaderControls>
+      ),
       minWidth: 140,
       collapsePriority: 1,
       noSpillover: true, // shown in the expanded detail metadata

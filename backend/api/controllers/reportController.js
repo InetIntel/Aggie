@@ -38,7 +38,7 @@ const parseQueryData = (queryString) => {
   var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before',
     'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media', 'dataSources', 'entityLevel',
     'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity',
-    'isRelevantReports', "irrelevant", 'ongoing', 'sort', 'countries', 'asns', 'regions']);
+    'isRelevantReports', "irrelevant", 'ongoing', 'sort', 'sortBy', 'network', 'countries', 'asns', 'regions']);
 
   if (query.ongoing === 'true') {
     query.isOutageOngoing = true;
@@ -286,11 +286,12 @@ exports.report_filter_options = async (req, res) => {
         ] }] } } },
       { $group: { _id: { country: '$country', region: '$region', asn: '$asn' }, scope: { $max: '$geoScope' }, network: { $max: '$network' } } },
     ]);
-    const options = { countries: new Map(), asns: new Map(), regions: new Map() };
+    const options = { countries: new Map(), asns: new Map(), regions: new Map(), networks: new Map() };
     for (const row of rows) {
       const { country, region, asn } = row._id;
       const countryName = country && (countries.getName(country, 'en') || country);
       if (country) options.countries.set(country, countryName);
+      if (row.network) options.networks.set(row.network, row.network);
       if (asn) options.asns.set(asn, `${asn.toUpperCase()}${row.network ? ` — ${row.network}` : ''}`);
       if (region) options.regions.set(region, `${row.scope || region}${countryName ? ` (${countryName})` : ''}`);
     }

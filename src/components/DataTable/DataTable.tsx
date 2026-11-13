@@ -460,7 +460,16 @@ function DataTable<T>({
                   hiddenIds.has(col.id) ? "hidden" : ""
                 } ${col.thClassName ?? ""}`}
               >
-                {col.header}
+                <div className='flex min-w-0 items-center gap-1'>
+                  {!(col.headerAction && col.headerActionIsLabel) && (
+                    <span className='min-w-0 truncate'>{col.header}</span>
+                  )}
+                  {col.headerAction && (
+                    <div className='shrink-0' onClick={(e) => e.stopPropagation()}>
+                      {col.headerAction}
+                    </div>
+                  )}
+                </div>
               </th>
             ))}
             {trailingCol && (
