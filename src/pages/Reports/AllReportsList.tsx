@@ -413,6 +413,8 @@ const AllReportsList = ({ alerts }: IProps) => {
         <ReportsTable
           data={reports?.results ?? []}
           isLoading={isLoading}
+          queryState={_.omit(getAllParams(apiSearchParams), "view") as ReportQueryState}
+          onFilterChange={(values) => setParams({ ...values, page: undefined })}
           queryKey={reportsQueryKey}
           currentPageId={currentPageId}
           multiSelection={multiSelect.selection}

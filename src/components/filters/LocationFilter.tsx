@@ -9,12 +9,13 @@ interface Props {
   onChange: (value: string[]) => void;
   loading: boolean;
   error: boolean;
+  headerStyle?: boolean;
 }
-export default function LocationFilter({ label, options, value, onChange, loading, error }: Props) {
+export default function LocationFilter({ label, options, value, onChange, loading, error, headerStyle }: Props) {
   const [search, setSearch] = useState("");
   const allOptions = [...options, ...value.filter(key => !options.some(o => o.key === key)).map(key => ({ key, label: key }))];
   const visible = allOptions.filter(o => `${o.key} ${o.label}`.toLowerCase().includes(search.trim().toLowerCase()));
-  return <FilterDropdown label={value.length ? `${label} (${value.length})` : label} persistLabel value={value.length ? `${value.length} selected` : undefined}
+  return <FilterDropdown label={value.length ? `${label} (${value.length})` : label} persistLabel headerStyle={headerStyle} value={value.length ? `${value.length} selected` : undefined}
     onReset={() => onChange([])} onOpenChange={() => setSearch("")} panelClassName="w-80"
     headerChild={<input aria-label={`Search ${label}`} placeholder={`Search ${label.toLowerCase()}…`}
       className="focus-theme border rounded px-2 py-1 w-full" value={search} onChange={e => setSearch(e.target.value)} />}>

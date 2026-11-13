@@ -9,8 +9,9 @@
   };
 
   Group.filterAttributes = [
-    'title', 'locationName', 'assignedTo', 'status', 'stages',
-    'escalated', 'tags', 'tagMatch', 'public', 'storedAt', 'incidentStartedAt', 'idnum', 'creator', "closed"
+    'title', 'locationName', 'assignedTo', 'status', 'stages', 'tableStatus',
+    'escalated', 'tags', 'tagMatch', 'public', 'storedAt', 'incidentStartedAt',
+    'idnum', 'creator', 'closed', 'totalReports', 'impactedAsn'
   ];
   Group.statusOptions = ['new', 'working', 'alert', 'closed'];
 

@@ -51,6 +51,7 @@ export interface Reports {
 
 export interface ReportQueryState {
   keywords?: string;
+  network?: string;
   author?: string;
   groupId?: string;
   status?: string; // 'Read' or 'Unread'
@@ -75,6 +76,7 @@ export interface ReportQueryState {
   alerts?: boolean;
   ongoing?: string;
   sort?: string; // 'oldest' for oldest first; absent means newest first
+  sortBy?: string;
 }
 
 // metadata typed

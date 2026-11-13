@@ -12,6 +12,8 @@ const validator = require('validator');
 const _ = require('lodash');
 const AutoIncrement = require('mongoose-sequence')(mongoose);
 const Report = require('./report');
+const AsnInfo = require('./asnInfo');
+const User = require('./user');
 const { MAX_ATTACHMENT_COUNT, MAX_ATTACHMENT_SIZE } = require('../config/models/groupConfigs');
 require('./tag');
 
@@ -270,6 +272,7 @@ Group.queryGroups = function (query, page, options, callback) {
     callback = options;
     options = {};
   }
+  options = options || {};
 
   if (page < 0) page = 0;
 
@@ -282,6 +285,42 @@ Group.queryGroups = function (query, page, options, callback) {
     if (attr === "assignedTo" && query[attr] === "none") return;
     if (!_.isUndefined(query[attr])) filter[attr] = query[attr];
   });
+
+  if (query.idnum !== undefined && String(query.idnum).trim() !== '') {
+    const idnum = Number(query.idnum);
+    if (!Number.isSafeInteger(idnum) || idnum < 1) {
+      const error = new Error('idnum must be a positive integer.');
+      error.status = 400;
+      return callback(error);
+    }
+    filter.idnum = idnum;
+  }
+
+  if (query.totalReports !== undefined && String(query.totalReports).trim() !== '') {
+    const reportCount = Number(query.totalReports);
+    if (!Number.isSafeInteger(reportCount) || reportCount < 0) {
+      const error = new Error('totalReports must be a non-negative integer.');
+      error.status = 400;
+      return callback(error);
+    }
+    filter.reportsLength = reportCount;
+  }
+  delete filter.totalReports;
+
+  if (typeof query.impactedAsn === 'string' && query.impactedAsn.trim()) {
+    const values = query.impactedAsn.split(',').map((v) => v.trim()).filter(Boolean);
+    const escape = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const looksLikeAsn = (v) => /^(as)?\d+$/i.test(v);
+    if (values.length === 1 && !looksLikeAsn(values[0])) {
+      // free-text search: substring match
+      filter.impactedAsns = new RegExp(escape(values[0]), 'i');
+    } else {
+      // one or more picked ASNs: exact match, with or without the "AS" prefix
+      filter.impactedAsns = {
+        $in: values.map((v) => new RegExp('^(as)?' + escape(v.replace(/^as/i, '')) + '$', 'i')),
+      };
+    }
+  }
 
   // Return only newer results
   if (query.since) {
@@ -322,6 +361,43 @@ Group.queryGroups = function (query, page, options, callback) {
     }
   }
   delete filter.stages;
+
+  const statusExpression = {
+    $switch: {
+      branches: [
+        {
+          case: { $in: ['Shared with Networks', { $ifNull: ['$publication_status', []] }] },
+          then: 'Shared with Networks',
+        },
+        {
+          case: { $in: ['Published', { $ifNull: ['$publication_status', []] }] },
+          then: 'Published',
+        },
+        {
+          case: { $in: ['$confirmation_status', ['true', true]] },
+          then: 'Confirmed',
+        },
+        {
+          case: { $in: ['$confirmation_status', ['false', false]] },
+          then: 'Unable to Confirm',
+        },
+        {
+          case: { $in: ['$verification_status', ['true', true]] },
+          then: 'Confirming',
+        },
+        {
+          case: { $in: ['$verification_status', ['false', false]] },
+          then: 'Unable to Verify',
+        },
+      ],
+      default: 'Verifying Measurement',
+    },
+  };
+  if (typeof query.tableStatus === 'string' && query.tableStatus.length) {
+    const statuses = query.tableStatus.split(',').map((status) => status.trim()).filter(Boolean);
+    if (statuses.length) filter.$expr = { $in: [statusExpression, statuses] };
+  }
+  delete filter.tableStatus;
 
 
   if (query.escalated === 'escalated') filter.escalated = true;
@@ -372,9 +448,124 @@ Group.queryGroups = function (query, page, options, callback) {
   if (accessFilter && Object.keys(accessFilter).length > 0) {
     filter = { $and: [filter, accessFilter] };
   }
+  if (options.computedSort) {
+    return queryGroupsByComputedValue(filter, page, options, callback, statusExpression, AsnInfo);
+  }
   // Just use filters when no keywords are provided
   Group.findPage(filter, page, options, callback);
 };
+
+function queryGroupsByComputedValue(filter, page, options, callback, statusExpression, AsnInfo) {
+  const pageNumber = Number(page);
+  const safePage = Number.isFinite(pageNumber) && pageNumber > 0 ? Math.floor(pageNumber) : 0;
+  const { field, direction } = options.computedSort;
+  const computedField = field === 'tableStatus' ? '_tableStatus' : '_coverageSortValue';
+  const pipeline = [{ $match: filter }];
+
+  if (field === 'tableStatus') {
+    pipeline.push({ $addFields: { [computedField]: statusExpression } });
+  } else if (field === 'assignedTo') {
+    pipeline.push({
+      $lookup: {
+        from: User.collection.name,
+        let: { groupUsers: { $ifNull: ['$assignedTo', []] } },
+        pipeline: [
+          { $match: { $expr: { $in: ['$_id', '$$groupUsers'] } } },
+          { $project: { username: 1 } },
+        ],
+        as: '_assignedUsers',
+      },
+    });
+    pipeline.push({
+      $addFields: {
+        [computedField]: {
+          $reduce: {
+            input: {
+              $map: {
+                input: '$_assignedUsers',
+                as: 'user',
+                in: { $toLower: '$$user.username' },
+              },
+            },
+            initialValue: '\uffff',
+            in: {
+              $cond: [
+                { $lt: ['$$this', '$$value'] },
+                '$$this',
+                '$$value',
+              ],
+            },
+          },
+        },
+      },
+    });
+  } else {
+    pipeline.push({
+      $lookup: {
+        from: AsnInfo.collection.name,
+        let: {
+          groupAsns: {
+            $map: {
+              input: { $ifNull: ['$impactedAsns', []] },
+              as: 'asn',
+              in: { $toLower: '$$asn' },
+            },
+          },
+        },
+        pipeline: [
+          { $match: { $expr: { $in: [{ $toLower: '$asn' }, '$$groupAsns'] } } },
+          { $project: { populationCoverageDirect: 1, populationCoverageIndirect: 1 } },
+        ],
+        as: '_coverageAsns',
+      },
+    });
+    const coverageField = field === 'directPopulationCoverageScore'
+      ? 'populationCoverageDirect'
+      : 'populationCoverageIndirect';
+    const accumulator = field === 'directPopulationCoverageScore' ? '$avg' : '$max';
+    pipeline.push({
+      $addFields: {
+        [computedField]: {
+          [accumulator]: {
+            $map: {
+              input: '$_coverageAsns',
+              as: 'coverage',
+              in: `$$coverage.${coverageField}`,
+            },
+          },
+        },
+      },
+    });
+  }
+
+  pipeline.push(
+    { $sort: { [computedField]: direction, _id: 1 } },
+    { $skip: safePage * 50 },
+    { $limit: 50 },
+    { $project: { _id: 1 } },
+  );
+
+  Promise.all([
+    Group.countDocuments(filter).exec(),
+    Group.aggregate(pipeline).exec(),
+  ]).then(([total, rows]) => {
+    const ids = rows.map((row) => row._id);
+    if (!ids.length) return callback(null, { total, results: [] });
+    return Group.find({ _id: { $in: ids } })
+      .populate([
+        { path: 'creator', select: 'username' },
+        { path: 'assignedTo', select: 'username' },
+      ])
+      .exec()
+      .then((groups) => {
+        const byId = new Map(groups.map((group) => [String(group._id), group]));
+        callback(null, {
+          total,
+          results: ids.map((id) => byId.get(String(id))).filter(Boolean),
+        });
+      });
+  }).catch(callback);
+}
 
 // Mixin shared group methods
 var Shared = require('../shared/group');

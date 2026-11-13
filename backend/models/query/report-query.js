@@ -10,6 +10,7 @@ const Expression = require("./query_helper/expression");
 function ReportQuery(options) {
   options = options || {};
   this.keywords = options.keywords;
+  this.network = options.network;
 
   if (options.status) {
     this._parseStatus(options.status);
@@ -41,8 +42,27 @@ function ReportQuery(options) {
   this.irrelevant = options.irrelevant;
   this.isOutageEvent = options.isOutageEvent;
   this.isOutageOngoing = options.isOutageOngoing;
-  // List order by authoredAt: 'oldest' first, anything else newest first.
-  this.sortDirection = options.sort === 'oldest' ? 1 : -1;
+  // Sort on the server before pagination so each page is part of one global order.
+  const sortFields = {
+    ascPlatform: { _media: 1, authoredAt: -1 },
+    descPlatform: { _media: -1, authoredAt: -1 },
+    ascStatus: { read: 1, authoredAt: -1 },
+    descStatus: { read: -1, authoredAt: -1 },
+    ascDate: { authoredAt: 1 },
+    descDate: { authoredAt: -1 },
+    ascAsn: { asn: 1, authoredAt: -1 },
+    descAsn: { asn: -1, authoredAt: -1 },
+    ascSignal: { 'metadata.rawAPIResponse.rawEvent.datasource': 1, authoredAt: -1 },
+    descSignal: { 'metadata.rawAPIResponse.rawEvent.datasource': -1, authoredAt: -1 },
+    ascIncident: { _group: 1, authoredAt: -1 },
+    descIncident: { _group: -1, authoredAt: -1 },
+  };
+  this.sortSpec = Object.prototype.hasOwnProperty.call(sortFields, options.sortBy)
+    ? sortFields[options.sortBy]
+    : {
+    authoredAt: options.sort === 'oldest' ? 1 : -1,
+  };
+  this.sortDirection = this.sortSpec.authoredAt === 1 ? 1 : -1;
 
 }
 
@@ -57,7 +77,7 @@ ReportQuery.prototype.run = function (callback) {
 
 // Normalize query for comparison
 ReportQuery.prototype.normalize = function () {
-  return _.pick(this, ['keywords', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports', 'isOutageOngoing', 'countries', 'asns', 'regions']);
+  return _.pick(this, ['keywords', 'network', 'status', 'after', 'before', 'sourceId', 'media', 'groupId', 'author', 'list', 'tags', 'escalated', 'veracity', 'isRelevantReports', 'isOutageOngoing', 'countries', 'asns', 'regions', 'sort', 'sortBy']);
 };
 
 ReportQuery.prototype.toMongooseFilter = function () {
@@ -107,6 +127,20 @@ ReportQuery.prototype.toMongooseFilter = function () {
   //Second step is to match exact phrase using regex in the returned superset of the documents from first step.
   // if (this.author || this.keywords) filter.author = [{$text: { $search: `${this.author || ""}` }}];
   if (this.author) filter.author = { $regex: this.author, $options: 'si' };
+  if (this.network) {
+    const escaped = this.network.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const networkPattern = new RegExp(escaped, 'i');
+    filter.$and = [
+      ...(filter.$and || []),
+      {
+        $or: [
+          { author: networkPattern },
+          { 'metadata.rawAPIResponse.entityName': networkPattern },
+          { 'metadata.rawAPIResponse.networkName': networkPattern },
+        ],
+      },
+    ];
+  }
   // if (this.keywords)  filter.$and.push({"$text": {"$search": this.keywords}});
 
   if (this.keywords) {

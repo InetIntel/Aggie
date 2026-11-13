@@ -15,6 +15,7 @@ interface IProps<T> {
   toggleDescription?: string;
   toggleValue?: boolean;
   onToggleChange?: (value: boolean) => void;
+  headerStyle?: boolean;
 }
 
 const FilterListBox = <T extends string>({
@@ -28,6 +29,7 @@ const FilterListBox = <T extends string>({
   toggleDescription,
   toggleValue = false,
   onToggleChange,
+  headerStyle,
 }: IProps<T>) => {
 
   const selected = isMultiSelect ? value as T[] : [value as T];
@@ -46,7 +48,8 @@ const FilterListBox = <T extends string>({
   return (
     <FilterDropdown
       label={label}
-      value={isMultiSelect ? undefined : displayValue()}
+      headerStyle={headerStyle}
+      value={isMultiSelect ? (headerStyle && selected.length ? displayValue() : undefined) : displayValue()}
       onReset={() => onChange(isMultiSelect ? [] : ("" as T))}
       panelClassName="w-max min-w-[150px]"
     >

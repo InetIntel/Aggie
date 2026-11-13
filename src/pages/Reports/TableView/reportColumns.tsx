@@ -17,6 +17,18 @@ import {
 } from "../../../components/SocialMediaPost/reportParser";
 
 import type { DataTableColumn } from "../../../components/DataTable/types";
+import ColumnHeaderControls from "../../../components/DataTable/ColumnHeaderControls";
+import FilterListBox from "../../../components/filters/FilterListBox";
+import FilterDateTime from "../../../components/filters/FilterDateTime";
+import LocationFilter, { type LocationOption } from "../../../components/filters/LocationFilter";
+import FilterComboBox from "../../../components/filters/FilterComboBox";
+import HeaderListFilter from "../../../components/DataTable/HeaderListFilter";
+import type { ReportQueryState } from "../../../api/reports/types";
+import {
+  ALERT_MEDIA_OPTIONS,
+  DATA_SOURCE_OPTIONS,
+  providerLabel,
+} from "../../../api/common";
 import SocialMediaIcon from "../../../components/SocialMediaPost/SocialMediaIcon";
 import AggieToken from "../../../components/AggieToken";
 import DateTime from "../../../components/DateTime";
@@ -131,10 +143,82 @@ const IncidentCell = ({ report }: { report: Report }) => {
 // `collapsePriority` (higher = more persistent). As the table narrows, columns
 // collapse in this order: signal → status → Incident → date → ASN; platform has
 // no priority so it always stays. Widths are the per-column minimums.
-export const buildReportColumns = (): DataTableColumn<Report>[] => [
+interface GroupOption {
+  key: string;
+  value: string;
+  data: { _id: string; title: string; idnum: number };
+  searchstring: string;
+}
+
+interface BuildReportColumnsOptions {
+  query: ReportQueryState;
+  onFilterChange: (values: Partial<ReportQueryState>) => void;
+  locationOptions?: Record<"countries" | "asns" | "regions" | "networks", LocationOption[]>;
+  locationsLoading: boolean;
+  locationsError: boolean;
+  groupOptions: GroupOption[];
+}
+
+const SORT_KEYS = {
+  platform: ["ascPlatform", "descPlatform"],
+  status: ["ascStatus", "descStatus"],
+  date: ["ascDate", "descDate"],
+  source: ["ascAsn", "descAsn"],
+  signal: ["ascSignal", "descSignal"],
+} as const;
+
+export const buildReportColumns = ({
+  query,
+  onFilterChange,
+  locationOptions,
+  locationsLoading,
+  locationsError,
+  groupOptions,
+}: BuildReportColumnsOptions): DataTableColumn<Report>[] => {
+  const sort = (field: keyof typeof SORT_KEYS) => {
+    const [ascending, descending] = SORT_KEYS[field];
+    const direction =
+      query.sortBy === ascending ||
+      (field === "date" && !query.sortBy && query.sort === "oldest")
+        ? ("asc" as const)
+        : query.sortBy === descending ||
+            (field === "date" && !query.sortBy && !query.sort)
+          ? ("desc" as const)
+          : null;
+    return {
+      label: field,
+      direction,
+      onChange: (nextDirection: "asc" | "desc") =>
+        onFilterChange({
+          sortBy: nextDirection === "asc" ? ascending : descending,
+          sort: undefined,
+        }),
+    };
+  };
+  const selectedValues = (value?: string | string[]) =>
+    Array.isArray(value) ? value : String(value ?? "").split(",").filter(Boolean);
+
+  return [
   {
     id: "platform",
     header: "Platform",
+    headerActionIsLabel: true,
+    headerAction: (
+      <ColumnHeaderControls>
+        <FilterListBox
+          headerStyle
+          label="Platform"
+          options={[...ALERT_MEDIA_OPTIONS]}
+          value={selectedValues(query.media)}
+          isMultiSelect
+          getOptionLabel={providerLabel}
+          onChange={(value) => {
+            const media = value as string[];
+            onFilterChange({ media: media.length ? media.join(",") : undefined });
+          }}
+        />
+      </ColumnHeaderControls>
+    ),
     minWidth: 100,
     tdClassName: "whitespace-nowrap",
     spilloverLabel: "Platform",
@@ -143,13 +227,66 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "status",
     header: "Status",
-    minWidth: 140,
+    headerActionIsLabel: true,
+    headerAction: (
+      <ColumnHeaderControls>
+        <FilterListBox
+          headerStyle
+          label="Read status"
+          options={["Read", "Unread"]}
+          value={query.status ?? ""}
+          onChange={(value) =>
+            onFilterChange({ status: (value as string) || undefined })
+          }
+        />
+        <FilterListBox
+          headerStyle
+          label="Triage"
+          options={["Investigate", "Ignore"]}
+          value={
+            query.irrelevant === "false"
+              ? "Investigate"
+              : query.irrelevant === "true"
+                ? "Ignore"
+                : ""
+          }
+          onChange={(value) =>
+            onFilterChange({
+              irrelevant:
+                value === "Investigate"
+                  ? "false"
+                  : value === "Ignore"
+                    ? "true"
+                    : undefined,
+            })
+          }
+        />
+      </ColumnHeaderControls>
+    ),
+    minWidth: 240,
     collapsePriority: 2,
     cell: (report) => <StatusCell report={report} />,
   },
   {
     id: "date",
     header: "Date",
+    headerActionIsLabel: true,
+    headerAction: (
+      <ColumnHeaderControls sort={{ ...sort("date"), dual: true }}>
+        <FilterDateTime
+          headerStyle
+          label="Date"
+          before={String(query.before ?? "")}
+          after={String(query.after ?? "")}
+          onSetBefore={(before) =>
+            onFilterChange({ before: before || undefined })
+          }
+          onSetAfter={(after) =>
+            onFilterChange({ after: after || undefined })
+          }
+        />
+      </ColumnHeaderControls>
+    ),
     minWidth: 200,
     collapsePriority: 4,
     tdClassName: "whitespace-nowrap text-xs",
@@ -158,6 +295,36 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "source",
     header: "ASN / Network / Geo Scope",
+    headerActionIsLabel: true,
+    headerAction: (
+      <ColumnHeaderControls>
+        <HeaderListFilter
+          label="Network"
+          searchPlaceholder="Search network name"
+          options={(locationOptions?.networks ?? []).map((o) => ({
+            value: o.key,
+            label: o.label,
+          }))}
+          loading={locationsLoading}
+          value={String(query.network ?? "")}
+          onSelect={(value) => onFilterChange({ network: value || undefined })}
+        />
+        {(["asns", "countries", "regions"] as const).map((kind) => (
+          <LocationFilter
+            headerStyle
+            key={kind}
+            label={{ asns: "ASNs", countries: "Countries", regions: "Regions" }[kind]}
+            options={locationOptions?.[kind] ?? []}
+            value={selectedValues(query[kind])}
+            loading={locationsLoading}
+            error={locationsError}
+            onChange={(values) =>
+              onFilterChange({ [kind]: values.length ? values : undefined })
+            }
+          />
+        ))}
+      </ColumnHeaderControls>
+    ),
     minWidth: 325,
     collapsePriority: 5,
     cell: (report) => <NetworkCell report={report} />,
@@ -165,6 +332,18 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "incident",
     header: "Incident",
+    headerActionIsLabel: true,
+    headerAction: (
+      <FilterComboBox
+        headerStyle
+        label="Incident"
+        list={groupOptions}
+        selectedKey={query.groupId}
+        onChange={(item) =>
+          onFilterChange({ groupId: item.key || undefined })
+        }
+      />
+    ),
     minWidth: 200,
     collapsePriority: 3,
     grow: true,
@@ -173,9 +352,26 @@ export const buildReportColumns = (): DataTableColumn<Report>[] => [
   {
     id: "signal",
     header: "Signal",
+    headerActionIsLabel: true,
+    headerAction: (
+      <FilterListBox
+        headerStyle
+        label="Signal"
+        options={[...DATA_SOURCE_OPTIONS]}
+        value={selectedValues(query.dataSources)}
+        isMultiSelect
+        onChange={(value) => {
+          const sources = value as string[];
+          onFilterChange({
+            dataSources: sources.length ? sources : undefined,
+          });
+        }}
+      />
+    ),
     minWidth: 200,
     collapsePriority: 1,
     noSpillover: true, // signal already shown by the IODA badge in the expanded detail
     cell: (report) => <SignalCell report={report} />,
   },
-];
+  ];
+};
