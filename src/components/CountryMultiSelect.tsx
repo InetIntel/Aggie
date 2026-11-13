@@ -43,6 +43,18 @@ const CountryMultiSelect = ({ label = "Countries", value, onChange }: IProps) =>
     onChange([...value, code].sort());
   };
 
+  const selectedChips = value.map((code) => (
+    <span key={code}
+      className='inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 dark:bg-gray-700 border border-slate-300'>
+      {getCountryLabel(code)}
+      <button type='button' onClick={() => toggleCountry(code)}
+        aria-label={`Remove ${getCountryLabel(code)}`}
+        className='rounded hover:text-red-700'>
+        <FontAwesomeIcon icon={faXmark} />
+      </button>
+    </span>
+  ));
+
   return (
     <div className='flex flex-col gap-1 text-sm'>
       <span className='font-medium'>{label}</span>
@@ -53,6 +65,15 @@ const CountryMultiSelect = ({ label = "Countries", value, onChange }: IProps) =>
         </Popover.Button>
 
         <Popover.Panel className='absolute z-20 mt-1 w-full min-w-[16rem] rounded border border-slate-300 bg-white dark:bg-gray-800 shadow-lg overflow-hidden'>
+          {({ close }) => <>
+          <div className='p-2 border-b border-slate-300'>
+            <p className='mb-1 font-medium' aria-live='polite'>{value.length} selected</p>
+            {value.length > 0 && (
+              <div className='flex max-h-24 flex-wrap gap-1 overflow-y-auto' aria-label='Selected countries'>
+                {selectedChips}
+              </div>
+            )}
+          </div>
           <div className='p-2 border-b border-slate-300'>
             <input
               autoFocus
@@ -68,8 +89,9 @@ const CountryMultiSelect = ({ label = "Countries", value, onChange }: IProps) =>
                 <button
                   key={code}
                   type='button'
+                  aria-pressed={selected.has(code)}
                   onClick={() => toggleCountry(code)}
-                  className='w-full px-3 py-2 flex items-center justify-between gap-3 text-left hover:bg-slate-100 dark:hover:bg-gray-700'
+                  className={`w-full px-3 py-2 flex items-center justify-between gap-3 text-left hover:bg-slate-100 dark:hover:bg-gray-700 ${selected.has(code) ? "bg-sky-50 dark:bg-gray-700" : ""}`}
                 >
                   <span>{name} ({code})</span>
                   {selected.has(code) && <FontAwesomeIcon icon={faCheck} />}
@@ -79,27 +101,17 @@ const CountryMultiSelect = ({ label = "Countries", value, onChange }: IProps) =>
               <p className='px-3 py-4 text-slate-600 dark:text-gray-300'>No countries found.</p>
             )}
           </div>
+          <div className='flex justify-end border-t border-slate-300 p-2'>
+            <button type='button' onClick={() => { setSearch(""); close(); }}
+              className='focus-theme rounded bg-sky-700 px-3 py-1.5 text-white'>Done</button>
+          </div>
+          </>}
         </Popover.Panel>
       </Popover>
 
       {value.length > 0 && (
         <div className='flex flex-wrap gap-1 mt-1'>
-          {value.map((code) => (
-            <span
-              key={code}
-              className='inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 dark:bg-gray-700 border border-slate-300'
-            >
-              {getCountryLabel(code)}
-              <button
-                type='button'
-                onClick={() => toggleCountry(code)}
-                aria-label={`Remove ${getCountryLabel(code)}`}
-                className='rounded hover:text-red-700'
-              >
-                <FontAwesomeIcon icon={faXmark} />
-              </button>
-            </span>
-          ))}
+          {selectedChips}
         </div>
       )}
     </div>

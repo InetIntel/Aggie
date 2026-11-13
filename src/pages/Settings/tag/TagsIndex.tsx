@@ -95,14 +95,10 @@ const TagsIndex = (props: IProps) => {
       <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
         <div>
           <h3 className={"text-3xl font-medium"}>Tags</h3>
-          <p className='text-sm text-slate-500 dark:text-gray-400'>
-            Organize the tags available for incidents.
-          </p>
         </div>
 
         {
-          canEditTags &&
-          <AggieButton
+          <AggieButton permission="edit tags"
             variant='primary'
             padding='px-3 py-2'
             icon={faPlusCircle}
@@ -116,7 +112,6 @@ const TagsIndex = (props: IProps) => {
         {creatingSpecial ? <SpecialTagForm onCancel={() => setCreatingSpecial(false)}
           onCreated={() => { setCreatingSpecial(false); setCategory("special"); setSearch(""); }} />
           : <AggieButton type='button' variant='secondary' onClick={() => setCreatingSpecial(true)}>✦ Create custom tag</AggieButton>}
-        <p className='mt-2 text-sm text-slate-500'>Standard tags are managed centrally. Anyone can create custom tags for everyone to use.</p>
       </div>
       <div className='mb-3 flex flex-wrap gap-2'>
         <button

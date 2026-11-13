@@ -197,20 +197,20 @@ const Comment = ({ data, groupId }: IProps) => {
             </p>
             {(data.author === session?._id || session?.role === "admin") && (
               <>
-                <AggieButton
+                <AggieButton permission="edit data"
                   variant="secondary"
                   onClick={onEditClick}
                   icon={faEdit}
                   className="h-full"
                   disabled={edit}
                 ></AggieButton>
-                <DropdownMenu
+                <DropdownMenu permission="edit data"
                   variant="secondary"
                   className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 "
                   panelClassName="overflow-hidden right-0"
                   buttonElement={<FontAwesomeIcon icon={faEllipsisH} />}
                 >
-                  <AggieButton
+                  <AggieButton permission="edit data"
                     className="w-full px-2 py-1 hover:bg-red-100 dark:hover:bg-red-100 dark:saturate-[0.7] font-medium flex gap-2 text-nowrap items-center flex-grow text-red-800 "
                     onClick={() =>
                       doDeleteComment.mutate({ id: groupId, comment: data })
@@ -274,7 +274,7 @@ const Comment = ({ data, groupId }: IProps) => {
                   {errors.commentdata}
                 </p>
               )}
-              <AggieButton
+              <AggieButton permission="edit data"
                 type="button"
                 variant="secondary"
                 className="mb-2 ml-2 mt-1"
@@ -285,7 +285,7 @@ const Comment = ({ data, groupId }: IProps) => {
               >
                 Cancel
               </AggieButton>
-              <AggieButton
+              <AggieButton permission="edit data"
                 type="submit"
                 variant="primary"
                 className="mb-2 ml-2 mt-1"

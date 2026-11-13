@@ -6,6 +6,7 @@ import type {
 } from "../common";
 
 export interface Report extends hasId {
+  canEdit?: boolean;
   veracity: VeracityOptions;
   smtcTags: string[];
   hasSMTCTags: boolean;
