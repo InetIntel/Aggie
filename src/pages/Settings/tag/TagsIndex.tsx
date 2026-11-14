@@ -109,9 +109,9 @@ const TagsIndex = (props: IProps) => {
         }
       </div>
       <div className='mb-4'>
-        {creatingSpecial ? <SpecialTagForm onCancel={() => setCreatingSpecial(false)}
+        {creatingSpecial && canEditTags ? <SpecialTagForm onCancel={() => setCreatingSpecial(false)}
           onCreated={() => { setCreatingSpecial(false); setCategory("special"); setSearch(""); }} />
-          : <AggieButton type='button' variant='secondary' onClick={() => setCreatingSpecial(true)}>✦ Create custom tag</AggieButton>}
+          : <AggieButton permission='edit tags' type='button' variant='secondary' onClick={() => setCreatingSpecial(true)}>✦ Create custom tag</AggieButton>}
       </div>
       <div className='mb-3 flex flex-wrap gap-2'>
         <button
@@ -195,7 +195,7 @@ const TagsIndex = (props: IProps) => {
                       {tag.description || "No description"}
                     </p>
                     <footer className='flex justify-end'>
-                      {(canEditTags || (tag.category === "special" && !!session?._id && tag.user?._id === session._id)) && (
+                      {canEditTags && (
                         <DropdownMenu
                           variant='secondary'
                           className='px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-700 border border-slate-300'
