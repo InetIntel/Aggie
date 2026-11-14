@@ -8,6 +8,7 @@ import {
 import type { Permission } from "../../../../api/session/types";
 import type { PermissionOverride } from "../../../../api/permissions/types";
 import AggieButton from "../../../../components/AggieButton";
+import AggieSwitch from "../../../../components/AggieSwitch";
 
 const permissionLabels: Record<Permission, string> = {
   "manage trends": "Manage trends",
@@ -50,6 +51,7 @@ const PermissionEditor = ({ userId }: IProps) => {
     onSuccess: (updated) => {
       queryClient.setQueryData(["permissions", userId], updated);
       queryClient.invalidateQueries(["users", userId]);
+      queryClient.invalidateQueries(["session"]);
     },
   });
 
@@ -87,7 +89,17 @@ const PermissionEditor = ({ userId }: IProps) => {
                   {effective ? "Allowed" : "Not allowed"}
                 </span>
               </span>
-              <select
+              {item.permission === "edit tags" ? (
+                <AggieSwitch
+                  label="Allow creating, editing, and deleting tags"
+                  checked={effective}
+                  disabled={doSave.isLoading}
+                  onChange={() => setOverrides((current) => ({
+                    ...current,
+                    [item.permission]: effective ? "deny" : "allow",
+                  }))}
+                />
+              ) : <select
                 className='px-2 py-1 rounded border border-slate-300 dark:bg-gray-700'
                 value={selected}
                 onChange={(event) =>
@@ -100,7 +112,7 @@ const PermissionEditor = ({ userId }: IProps) => {
                 <option value='default'>Use role default</option>
                 <option value='allow'>Always allow</option>
                 <option value='deny'>Always deny</option>
-              </select>
+              </select>}
             </label>
           );
         })}

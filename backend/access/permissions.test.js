@@ -82,3 +82,12 @@ test('account administration cannot be granted through an override', () => {
   assert.equal(hasPermission(user, 'change admin password'), false);
   assert.equal(hasPermission(user, 'manage sources'), true);
 });
+
+test('tag management is admin-only by default and can be granted and revoked', () => {
+  for (const role of ['viewer', 'monitor', 'team_lead', 'manager']) {
+    assert.equal(hasPermission({ role }, 'edit tags'), false, role);
+    assert.equal(hasPermission({ role, permissionOverrides: { allow: ['edit tags'] } }, 'edit tags'), true, role);
+    assert.equal(hasPermission({ role, permissionOverrides: { deny: ['edit tags'] } }, 'edit tags'), false, role);
+  }
+  assert.equal(hasPermission({ role: 'admin' }, 'edit tags'), true);
+});
