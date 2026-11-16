@@ -120,7 +120,9 @@ const presetBuckets: Record<
 > = {
   today: ["30m", "1h", "6h"],
   last24h: ["1h", "6h"],
+  last3d: ["1h", "6h", "24h"],
   last7d: ["1h", "6h", "24h"],
+  last30d: ["6h", "24h"],
 };
 
 // A custom range starts out as the last seven days, including today.

@@ -8,7 +8,9 @@ export const dashboardRangeOptions: {
   value: AnalyticsRangePreset;
 }[] = [
   { label: "Last 24h", value: "last24h" },
+  { label: "Last 3d", value: "last3d" },
   { label: "Last 7d", value: "last7d" },
+  { label: "Last 30d", value: "last30d" },
   { label: "Custom", value: "custom" },
 ];
 

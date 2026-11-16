@@ -5,7 +5,7 @@ The dashboard's **Metrics card** (left tile in
 **triage-metrics list**: two sections — **Alerts** and **Social Media** — with six rows
 each. Every row is `label · count`, where the count is a react-router `<Link>` to the
 matching filtered report list (`/alerts` or `/mediaposts`). Counts honor the dashboard's
-Today / Last 24h / Last 7d range selector.
+Last 24h / Last 3d / Last 7d / Last 30d / Custom range selector.
 
 This replaced an earlier set of three circular tiles (*Notable activities*, *High
 confidence*, *Total reports*) read from the analytics-overview snapshot — those described

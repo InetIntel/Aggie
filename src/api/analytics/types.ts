@@ -1,5 +1,12 @@
 // "custom" is bounded by `from`/`to` on the request instead of a rolling window.
-export const ANALYTICS_RANGE_PRESETS = ["today", "last24h", "last7d", "custom"] as const;
+export const ANALYTICS_RANGE_PRESETS = [
+  "today",
+  "last24h",
+  "last3d",
+  "last7d",
+  "last30d",
+  "custom",
+] as const;
 export type AnalyticsRangePreset = (typeof ANALYTICS_RANGE_PRESETS)[number];
 
 export const ANALYTICS_BUCKET_PRESETS = ["30m", "1h", "6h", "24h"] as const;
