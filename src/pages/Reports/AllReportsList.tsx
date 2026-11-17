@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import _ from "lodash";
@@ -39,6 +39,36 @@ type ReportsQueryStateWithView = ReportQueryState & { view?: ReportsViewMode };
 const VIEW_STORAGE_KEY = "alerts:view";
 // Max alerts that can be compared side-by-side at once (3×2 grid in the design).
 const MAX_COMPARE = 6;
+// The selection is kept in sessionStorage so it survives leaving the page (e.g.
+// "Create new incident" from the selection) and coming back to the same list.
+const SELECTION_STORAGE_KEY = "reports:selection";
+
+interface StoredSelection {
+  alerts: boolean;
+  query: string;
+  ids: string[];
+  isActive: boolean;
+  compareMode: boolean;
+  implicitCompare: boolean;
+}
+
+function readStoredSelection(): StoredSelection | null {
+  try {
+    const raw = sessionStorage.getItem(SELECTION_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as StoredSelection) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSelection(value: StoredSelection | null) {
+  try {
+    if (value) sessionStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(value));
+    else sessionStorage.removeItem(SELECTION_STORAGE_KEY);
+  } catch {
+    // storage unavailable (private mode, blocked site data): selection just won't persist
+  }
+}
 
 const AllReportsList = ({ alerts }: IProps) => {
   const { id: currentPageId } = useParams();
@@ -133,6 +163,52 @@ const AllReportsList = ({ alerts }: IProps) => {
   //  MAX_COMPARE cap must not block what the user experiences as plain bulk selection (see
   // onReportCheck); an explicit compare keeps the cap.
   const [implicitCompare, setImplicitCompare] = useState(false);
+
+  // Restore the selection saved before leaving this list. Runs after the reset
+  // effect above (same commit on mount), and waits for results so the stored
+  // ids can be mapped back to report objects.
+  const pendingRestore = useRef<StoredSelection | null | undefined>(undefined);
+  if (pendingRestore.current === undefined)
+    pendingRestore.current = readStoredSelection();
+  useEffect(() => {
+    const stored = pendingRestore.current;
+    if (!stored) return;
+    if (stored.alerts !== alerts || stored.query !== queryParamsString) {
+      pendingRestore.current = null;
+      return;
+    }
+    if (!reports?.results) return;
+    pendingRestore.current = null;
+    const restored = reports.results.filter((r) => stored.ids.includes(r._id));
+    if (restored.length === 0) return;
+    multiSelect.set(restored);
+    multiSelect.setActive(stored.isActive);
+    setCompareMode(stored.compareMode);
+    setImplicitCompare(stored.implicitCompare);
+  }, [alerts, queryParamsString, reports]);
+
+  useEffect(() => {
+    if (pendingRestore.current) return;
+    writeStoredSelection(
+      multiSelect.selection.length > 0
+        ? {
+            alerts,
+            query: queryParamsString,
+            ids: multiSelect.toIdList(),
+            isActive: multiSelect.isActive,
+            compareMode,
+            implicitCompare,
+          }
+        : null
+    );
+  }, [
+    multiSelect.selection,
+    multiSelect.isActive,
+    compareMode,
+    implicitCompare,
+    alerts,
+    queryParamsString,
+  ]);
 
   function toggleCompareMode() {
     const next = !compareMode;

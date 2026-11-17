@@ -1,5 +1,12 @@
 // "custom" is bounded by `from`/`to` on the request instead of a rolling window.
-export const ANALYTICS_RANGE_PRESETS = ["today", "last24h", "last7d", "custom"] as const;
+export const ANALYTICS_RANGE_PRESETS = [
+  "today",
+  "last24h",
+  "last3d",
+  "last7d",
+  "last30d",
+  "custom",
+] as const;
 export type AnalyticsRangePreset = (typeof ANALYTICS_RANGE_PRESETS)[number];
 
 export const ANALYTICS_BUCKET_PRESETS = ["30m", "1h", "6h", "24h"] as const;
@@ -58,6 +65,20 @@ export interface UpdateNotableActivityIncidentPayload
   extends AnalyticsIncidentBasePayload {
   mode: "add" | "remove";
   groupId?: string;
+}
+
+export type NotableActivityDismissalPayload = AnalyticsIncidentBasePayload;
+
+// Shared by every user: a dismissed activity is hidden from everyone's active list.
+export interface ActivityDismissal {
+  dismissedAt: string;
+  // Null when the dismissing user has since been deleted.
+  dismissedBy: string | null;
+}
+
+export interface NotableActivityDismissalResponse {
+  eventAggKey: string;
+  dismissal: ActivityDismissal | null;
 }
 
 export interface AnalyticsSocketQuery {
@@ -173,6 +194,8 @@ export interface NotableActivity {
   // Distinct "asn / region" labels, paired per report.
   locations?: string[];
   incidentId: string | null;
+  // Set on /notable-activities results only; null when the activity is not dismissed.
+  dismissal?: ActivityDismissal | null;
 }
 
 export interface NotableActivitiesResponse {
