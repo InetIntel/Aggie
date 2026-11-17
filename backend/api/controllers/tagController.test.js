@@ -17,13 +17,15 @@ function controller(tagModel = {}) {
   return exports;
 }
 
-test('custom tag editing allows its creator and managers but rejects other users and standard-tag owners', async () => {
+test('tag editing requires explicit permission, including for a custom tag creator', async () => {
   for (const scenario of [
-    { role: 'viewer', owner: 'actor', category: 'special', allowed: true },
+    { role: 'viewer', owner: 'actor', category: 'special', allowed: false },
     { role: 'viewer', owner: 'other', category: 'special', allowed: false },
     { role: 'viewer', owner: 'actor', category: 'cause', allowed: false },
     { role: 'admin', owner: 'other', category: 'special', allowed: true },
-    { role: 'manager', owner: 'other', category: 'special', allowed: true },
+    { role: 'manager', owner: 'other', category: 'special', allowed: false },
+    { role: 'viewer', owner: 'other', category: 'special', allowed: true, permissionOverrides: { allow: ['edit tags'] } },
+    { role: 'viewer', owner: 'actor', category: 'special', allowed: false, permissionOverrides: { allow: ['edit tags'], deny: ['edit tags'] } },
     { role: 'viewer', owner: undefined, category: 'special', allowed: false },
   ]) {
     let saved = false;
@@ -35,7 +37,7 @@ test('custom tag editing allows its creator and managers but rejects other users
     let status;
     const res = { status: (value) => { status = value; return res; },
       send: () => {}, sendStatus: (value) => { status = value; } };
-    handlers.tag_update({ params: { _id: 'tag' }, accessUser: { _id: 'actor', role: scenario.role },
+    handlers.tag_update({ params: { _id: 'tag' }, accessUser: { _id: 'actor', role: scenario.role, permissionOverrides: scenario.permissionOverrides },
       body: { name: 'Renamed', color: '#abcdef', description: 'Updated', category: 'cause', user: 'hijack' } }, res);
     await Promise.resolve();
     assert.equal(saved, scenario.allowed, JSON.stringify(scenario));
@@ -83,7 +85,7 @@ test('special tag creation supplies a default color', () => {
   handlers.tag_create_special({ body: { name: 'Event' } }, {});
 });
 
-test('custom creation and ownership-checked editing allow view-data users', () => {
+test('all tag mutation endpoints require edit-tags permission', () => {
   const routes = [];
   const router = Object.fromEntries(['get', 'post', 'put', 'delete'].map((method) =>
     [method, (url, permission) => routes.push({ method, url, permission })]));
@@ -91,8 +93,8 @@ test('custom creation and ownership-checked editing allow view-data users', () =
     module: {}, require: (name) => name === 'express' ? { Router: () => router }
       : name.includes('models/user') ? { can: (permission) => permission } : {},
   });
-  assert.equal(routes.find((route) => route.url === '/special').permission, 'view data');
-  assert.equal(routes.find((route) => route.url === '/special/:_id').permission, 'view data');
+  assert.equal(routes.find((route) => route.url === '/special').permission, 'edit tags');
+  assert.equal(routes.find((route) => route.url === '/special/:_id').permission, 'edit tags');
   for (const route of routes.filter((route) => route.method !== 'get' && !route.url.startsWith('/special'))) {
     assert.equal(route.permission, 'edit tags');
   }
