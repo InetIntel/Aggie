@@ -236,6 +236,9 @@ function applyLimit(notableActivities, limit) {
 
 function buildAnalyticsCacheKey(timeWindow, filters = {}) {
   return JSON.stringify({
+    // Bump when the aggregation changes what a cached snapshot contains, so stale
+    // snapshots stop being served. 2: AS / AS - Country pairs deduped by eventIdentifier.
+    aggregationVersion: 2,
     rangePreset: timeWindow.rangePreset,
     rangeStartUtc: timeWindow.rangeStartUtc.toISOString(),
     rangeEndUtc: timeWindow.rangeEndUtc.toISOString(),

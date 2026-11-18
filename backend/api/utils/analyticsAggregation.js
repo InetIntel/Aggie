@@ -71,6 +71,57 @@ function getPipelineBinMs(timeWindow) {
   return timeZone === DEFAULT_TIME_ZONE ? bucketMs : TIME_ZONE_GRANULARITY_MS;
 }
 
+// Collapse reports describing the same outage before grouping, mirroring the alerts
+// list's dedup (Report.queryReportsDeduped): IODA files one outage as both an `AS` and an
+// `AS - Country` alert sharing an eventIdentifier (asn|geoScope|outageStartedAt). One
+// report survives per pair, preferring `AS - Country`, so totalReports and reportIds count
+// outages rather than alert rows. Reports without an eventIdentifier (e.g. OONI) are kept
+// individually. Unlike the list, the key is also scoped by source and signal: IODA files
+// one event per signal (BGP, Active Probing, ...) under the same identifier, and an IODA
+// and a Cloudflare alert may share one too. Those are independent corroboration and must
+// all survive, or sourceCnt / signalCnt (and so isHighConfidence) would drop.
+function buildEventIdentifierDedupStages() {
+  return [
+    {
+      $project: {
+        _media: 1,
+        asn: 1,
+        geoScope: 1,
+        eventAggKeyBase: 1,
+        _group: 1,
+        outageStartedAt: 1,
+        'metadata.rawAPIResponse.dataSource': 1,
+        'metadata.rawAPIResponse.windowStart': 1,
+        dedupKey: {
+          $cond: [
+            { $in: [{ $ifNull: ['$eventIdentifier', null] }, [null, '']] },
+            '$_id',
+            {
+              eventIdentifier: '$eventIdentifier',
+              media: '$_media',
+              dataSource: '$metadata.rawAPIResponse.dataSource',
+            },
+          ],
+        },
+        dedupRank: {
+          $cond: [
+            { $eq: ['$metadata.rawAPIResponse.entityLevel', 'AS - Country'] },
+            0,
+            1,
+          ],
+        },
+      },
+    },
+    {
+      $group: {
+        _id: '$dedupKey',
+        report: { $top: { sortBy: { dedupRank: 1, _id: 1 }, output: '$$ROOT' } },
+      },
+    },
+    { $replaceRoot: { newRoot: '$report' } },
+  ];
+}
+
 function buildAggregationPipeline(match, timeWindow) {
   const binMs = getPipelineBinMs(timeWindow);
   // `startTime` groups on the raw outage start so each distinct timestamp is its own
@@ -88,6 +139,7 @@ function buildAggregationPipeline(match, timeWindow) {
 
   return [
     { $match: match },
+    ...buildEventIdentifierDedupStages(),
     {
       $addFields: {
         outageStartedAtMs: { $toLong: '$outageStartedAt' },
