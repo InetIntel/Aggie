@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileExport } from "@fortawesome/free-solid-svg-icons";
@@ -173,7 +173,15 @@ function computeBars(groups: Group[], layout: Layout | null) {
   return { bars: spans.map((s) => ({ ...s, lane: lanes[s.id] })), laneCount };
 }
 
-function DurationBars({ bars, axisX }: { bars: Bar[]; axisX: number }) {
+function DurationBars({
+  bars,
+  axisX,
+  onSelect,
+}: {
+  bars: Bar[];
+  axisX: number;
+  onSelect: (id: string) => void;
+}) {
   return (
     <>
       {bars.map(({ id, top, bottom, group, lane }) => {
@@ -182,18 +190,26 @@ function DurationBars({ bars, axisX }: { bars: Bar[]; axisX: number }) {
         const lineStyle = isOngoing(group) ? "border-dashed" : "border-solid";
         return (
           <Fragment key={id}>
-            <div
-              className={`absolute border-l-2 ${lineStyle} ${tier.border}`}
-              style={{ left: x - 1, top, height: bottom - top }}
+            {/* The hit area spans the whole lane so the 2px line is easy to click. */}
+            <button
+              type='button'
+              onClick={() => onSelect(id)}
               title={group.title}
-            />
+              aria-label={`Go to incident: ${group.title}`}
+              className='group absolute -translate-x-1/2 cursor-pointer rounded-sm focus-theme'
+              style={{ left: x, top, width: LANE_WIDTH, height: bottom - top }}
+            >
+              <span
+                className={`absolute left-1/2 top-0 h-full -translate-x-1/2 border-l-2 transition-[border-width] group-hover:border-l-4 group-focus-visible:border-l-4 ${lineStyle} ${tier.border}`}
+              />
+            </button>
             {/* connector from the bar's start to the incident's dot */}
             <div
-              className={`absolute border-t ${tier.border}`}
+              className={`pointer-events-none absolute border-t ${tier.border}`}
               style={{ left: x, top: bottom, width: axisX - x }}
             />
             <div
-              className={`absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${tier.dot}`}
+              className={`pointer-events-none absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${tier.dot}`}
               style={{ left: x, top: bottom }}
             />
           </Fragment>
@@ -201,6 +217,38 @@ function DurationBars({ bars, axisX }: { bars: Bar[]; axisX: number }) {
       })}
     </>
   );
+}
+
+const HIGHLIGHT_MS = 1600;
+
+// Scrolls a card into view inside the app's scroll container and flashes it so
+// the eye can find it after the jump.
+function useScrollToCard() {
+  const cardRefs = useRef(new Map<string, HTMLElement>());
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const timer = useRef<number>();
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  const setCardRef = useCallback(
+    (id: string) => (el: HTMLElement | null) => {
+      if (el) cardRefs.current.set(id, el);
+      else cardRefs.current.delete(id);
+    },
+    []
+  );
+
+  const scrollToCard = useCallback((id: string) => {
+    const el = cardRefs.current.get(id);
+    if (!el) return;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    setHighlightedId(id);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setHighlightedId(null), HIGHLIGHT_MS);
+  }, []);
+
+  return { setCardRef, scrollToCard, highlightedId };
 }
 
 function Legend() {
@@ -273,6 +321,7 @@ const Timeline = () => {
   const ongoingCount = groups.filter(isOngoing).length;
   const getAsnInfo = useAsnLookup(groups);
   const geo = useGeoScopeLookup();
+  const { setCardRef, scrollToCard, highlightedId } = useScrollToCard();
   const { containerRef, nowRef, setDotRef, layout } = useTimelineLayout([groups, showBars]);
 
   const { bars, laneCount } = useMemo(
@@ -338,7 +387,7 @@ const Timeline = () => {
               }}
             />
           )}
-          {layout && showBars && <DurationBars bars={bars} axisX={layout.axisX} />}
+          {layout && showBars && <DurationBars bars={bars} axisX={layout.axisX} onSelect={scrollToCard} />}
 
           {/* NOW row + legend */}
           <div className='flex items-start gap-3'>
@@ -388,7 +437,12 @@ const Timeline = () => {
                       className={`relative h-3 w-3 rounded-full border-2 border-white dark:border-gray-800 ${tier.dot}`}
                     />
                   </div>
-                  <div className='min-w-0 flex-1'>
+                  <div
+                    ref={setCardRef(g._id)}
+                    className={`min-w-0 flex-1 scroll-mt-4 rounded-md transition-shadow duration-500 ${
+                      highlightedId === g._id ? "ring-2 ring-sky-500 ring-offset-2 dark:ring-offset-gray-900" : ""
+                    }`}
+                  >
                     <TimelineCard group={g} getAsnInfo={getAsnInfo} geo={geo} />
                   </div>
                 </div>
