@@ -2,8 +2,7 @@
 // date range, using the exact same alert logic and document shape the live
 // OONIChannel produces (backend/fetching/channels/ooni.js) - so the result is
 // indistinguishable from what would have been created if the channel had been
-// running the whole time. This script never connects to or writes into any
-// remote/published database; it only produces a file. Import it yourself with:
+// running the whole time. Import it yourself with:
 //
 //   mongoimport --uri "<your published DATABASE_URL>/aggie" --collection reports --file data/ooni-alerts-backfill.jsonl
 //
@@ -33,6 +32,7 @@ const path = require('path');
 const database = require('../../backend/database');
 const mongoose = database.mongoose;
 const Report = require('../../backend/models/report');
+const Source = require('../../backend/models/source');
 
 const OONIChannel = require('../../backend/fetching/channels/ooni');
 const { fetchDailyMeasurements } = require('../../backend/fetching/ooniApi');
@@ -45,6 +45,7 @@ const defaultDomainConfig = require('../../backend/fetching/config/ooni.json');
 
 const START_DATE = process.argv[2] || '2025-12-01';
 const END_DATE = process.argv[3] || new Date().toISOString().slice(0, 10);
+const SOURCE_ID = String(process.argv[5] || '').toLowerCase();
 const ASNS = String(process.argv[4] || '44244,58224')
   .split(/[\s,]+/)
   .filter(Boolean)
@@ -94,6 +95,13 @@ function toExtendedJson(doc) {
 }
 
 async function main() {
+  if (!/^[a-f\d]{24}$/i.test(SOURCE_ID || '')) {
+    throw new Error('Pass an OONI source ID after start, end and ASNs.');
+  }
+  const source = await Source.findById(SOURCE_ID).select('media').lean();
+  if (!source || source.media !== 'ooni') {
+    throw new Error('The source ID must identify an OONI feed in the configured database.');
+  }
   const domainConfig = normalizeDomainConfig(defaultDomainConfig);
   const channel = new OONIChannel({
     asns: ASNS.join(','),
@@ -150,7 +158,7 @@ async function main() {
 
       const fetchedAt = new Date();
       const post = channel.parse({ asn, alerts, guid, fetchedAt });
-      post._sources = [];
+      post._sources = [SOURCE_ID];
       post._media = ['ooni'];
       post.tags = [];
       post.guid = post.guid || post.platformID;

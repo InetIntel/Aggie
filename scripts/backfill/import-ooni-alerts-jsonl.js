@@ -18,6 +18,7 @@ const path = require('path');
 const database = require('../../backend/database');
 const mongoose = database.mongoose;
 const Report = require('../../backend/models/report');
+const Source = require('../../backend/models/source');
 
 const FILE = process.argv[2] || path.join(__dirname, '..', '..', 'data', 'ooni-alerts-backfill.jsonl');
 
@@ -42,6 +43,17 @@ async function main() {
 
   const lines = fs.readFileSync(FILE, 'utf8').trim().split('\n').filter(Boolean);
   const docs = lines.map((line) => fromExtendedJson(JSON.parse(line)));
+  if (docs.some((doc) => doc._media?.length !== 1 || doc._media[0] !== 'ooni' ||
+      !Array.isArray(doc._sources) || doc._sources.length !== 1 ||
+      typeof doc._sources[0] !== 'string' || !/^[a-f\d]{24}$/.test(doc._sources[0]))) {
+    throw new Error('Every imported OONI report must have one source ID. Regenerate source-less backfill files.');
+  }
+  const sourceIds = [...new Set(docs.map((doc) => doc._sources[0]))];
+  const sources = await Source.find({ _id: { $in: sourceIds }, media: 'ooni' }).select('_id').lean();
+  const validIds = new Set(sources.map((source) => String(source._id)));
+  if (sourceIds.some((id) => !validIds.has(id))) {
+    throw new Error('An imported source ID does not identify an OONI feed in this database.');
+  }
   console.log(`Read ${docs.length} document(s) from ${FILE}`);
 
   try {
