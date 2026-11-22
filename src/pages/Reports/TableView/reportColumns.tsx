@@ -196,182 +196,196 @@ export const buildReportColumns = ({
     };
   };
   const selectedValues = (value?: string | string[]) =>
-    Array.isArray(value) ? value : String(value ?? "").split(",").filter(Boolean);
+    Array.isArray(value)
+      ? value
+      : String(value ?? "")
+          .split(",")
+          .filter(Boolean);
 
   return [
-  {
-    id: "platform",
-    header: "Platform",
-    headerActionIsLabel: true,
-    headerAction: (
-      <ColumnHeaderControls>
-        <FilterListBox
-          headerStyle
-          label="Platform"
-          options={[...ALERT_MEDIA_OPTIONS]}
-          value={selectedValues(query.media)}
-          isMultiSelect
-          getOptionLabel={providerLabel}
-          onChange={(value) => {
-            const media = value as string[];
-            onFilterChange({ media: media.length ? media.join(",") : undefined });
-          }}
-        />
-      </ColumnHeaderControls>
-    ),
-    minWidth: 100,
-    tdClassName: "whitespace-nowrap",
-    spilloverLabel: "Platform",
-    cell: (report) => <PlatformCell report={report} />,
-  },
-  {
-    id: "status",
-    header: "Status",
-    headerActionIsLabel: true,
-    headerAction: (
-      <ColumnHeaderControls>
-        <FilterListBox
-          headerStyle
-          label="Read status"
-          options={["Read", "Unread"]}
-          value={query.status ?? ""}
-          onChange={(value) =>
-            onFilterChange({ status: (value as string) || undefined })
-          }
-        />
-        <FilterListBox
-          headerStyle
-          label="Triage"
-          options={["Investigate", "Ignore"]}
-          value={
-            query.irrelevant === "false"
-              ? "Investigate"
-              : query.irrelevant === "true"
-                ? "Ignore"
-                : ""
-          }
-          onChange={(value) =>
-            onFilterChange({
-              irrelevant:
-                value === "Investigate"
-                  ? "false"
-                  : value === "Ignore"
-                    ? "true"
-                    : undefined,
-            })
-          }
-        />
-      </ColumnHeaderControls>
-    ),
-    minWidth: 240,
-    collapsePriority: 2,
-    cell: (report) => <StatusCell report={report} />,
-  },
-  {
-    id: "date",
-    header: "Date",
-    headerActionIsLabel: true,
-    headerAction: (
-      <ColumnHeaderControls sort={{ ...sort("date"), dual: true }}>
-        <FilterDateTime
-          headerStyle
-          label="Date"
-          before={String(query.before ?? "")}
-          after={String(query.after ?? "")}
-          onSetBefore={(before) =>
-            onFilterChange({ before: before || undefined })
-          }
-          onSetAfter={(after) =>
-            onFilterChange({ after: after || undefined })
-          }
-        />
-      </ColumnHeaderControls>
-    ),
-    minWidth: 200,
-    collapsePriority: 4,
-    tdClassName: "whitespace-nowrap text-xs",
-    cell: (report) => <DateTime dateString={report.authoredAt} />,
-  },
-  {
-    id: "source",
-    header: "ASN / Network / Geo Scope",
-    headerActionIsLabel: true,
-    headerAction: (
-      <ColumnHeaderControls>
-        <HeaderListFilter
-          label="Network"
-          searchPlaceholder="Search network name"
-          options={(locationOptions?.networks ?? []).map((o) => ({
-            value: o.key,
-            label: o.label,
-          }))}
-          loading={locationsLoading}
-          value={String(query.network ?? "")}
-          onSelect={(value) => onFilterChange({ network: value || undefined })}
-        />
-        {(["asns", "countries", "regions"] as const).map((kind) => (
-          <LocationFilter
+    {
+      id: "platform",
+      header: "Platform",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls>
+          <FilterListBox
             headerStyle
-            key={kind}
-            label={{ asns: "ASNs", countries: "Countries", regions: "Regions" }[kind]}
-            options={locationOptions?.[kind] ?? []}
-            value={selectedValues(query[kind])}
-            loading={locationsLoading}
-            error={locationsError}
-            onChange={(values) =>
-              onFilterChange({ [kind]: values.length ? values : undefined })
+            label="Platform"
+            options={[...ALERT_MEDIA_OPTIONS]}
+            value={selectedValues(query.media)}
+            isMultiSelect
+            getOptionLabel={providerLabel}
+            onChange={(value) => {
+              const media = value as string[];
+              onFilterChange({
+                media: media.length ? media.join(",") : undefined,
+              });
+            }}
+          />
+        </ColumnHeaderControls>
+      ),
+      minWidth: 100,
+      tdClassName: "whitespace-nowrap",
+      spilloverLabel: "Platform",
+      cell: (report) => <PlatformCell report={report} />,
+    },
+    {
+      id: "status",
+      header: "Status",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls>
+          <FilterListBox
+            headerStyle
+            label="Read status"
+            options={["Read", "Unread"]}
+            value={query.status ?? ""}
+            onChange={(value) =>
+              onFilterChange({ status: (value as string) || undefined })
             }
           />
-        ))}
-      </ColumnHeaderControls>
-    ),
-    minWidth: 325,
-    collapsePriority: 5,
-    cell: (report) => <NetworkCell report={report} />,
-  },
-  {
-    id: "incident",
-    header: "Incident",
-    headerActionIsLabel: true,
-    headerAction: (
-      <FilterComboBox
-        headerStyle
-        label="Incident"
-        list={groupOptions}
-        selectedKey={query.groupId}
-        onChange={(item) =>
-          onFilterChange({ groupId: item.key || undefined })
-        }
-      />
-    ),
-    minWidth: 200,
-    collapsePriority: 3,
-    grow: true,
-    cell: (report) => <IncidentCell report={report} />,
-  },
-  {
-    id: "signal",
-    header: "Signal",
-    headerActionIsLabel: true,
-    headerAction: (
-      <FilterListBox
-        headerStyle
-        label="Signal"
-        options={[...DATA_SOURCE_OPTIONS]}
-        value={selectedValues(query.dataSources)}
-        isMultiSelect
-        onChange={(value) => {
-          const sources = value as string[];
-          onFilterChange({
-            dataSources: sources.length ? sources : undefined,
-          });
-        }}
-      />
-    ),
-    minWidth: 200,
-    collapsePriority: 1,
-    noSpillover: true, // signal already shown by the IODA badge in the expanded detail
-    cell: (report) => <SignalCell report={report} />,
-  },
+        </ColumnHeaderControls>
+      ),
+      minWidth: 170,
+      collapsePriority: 2,
+      cell: (report) => <StatusCell report={report} />,
+    },
+    {
+      id: "date",
+      header: "Date",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls sort={{ ...sort("date"), dual: true }}>
+          <FilterDateTime
+            headerStyle
+            label="Date"
+            before={String(query.before ?? "")}
+            after={String(query.after ?? "")}
+            onSetBefore={(before) =>
+              onFilterChange({ before: before || undefined })
+            }
+            onSetAfter={(after) =>
+              onFilterChange({ after: after || undefined })
+            }
+          />
+        </ColumnHeaderControls>
+      ),
+      minWidth: 200,
+      collapsePriority: 4,
+      tdClassName: "whitespace-nowrap text-xs",
+      cell: (report) => <DateTime dateString={report.authoredAt} />,
+    },
+    {
+      id: "source",
+      header: "ASN / Network / Geo Scope",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls>
+          <HeaderListFilter
+            label="Network"
+            searchPlaceholder="Search network name"
+            options={(locationOptions?.networks ?? []).map((o) => ({
+              value: o.key,
+              label: o.label,
+            }))}
+            loading={locationsLoading}
+            value={String(query.network ?? "")}
+            onSelect={(value) =>
+              onFilterChange({ network: value || undefined })
+            }
+          />
+          {(["asns", "countries", "regions"] as const).map((kind) => (
+            <LocationFilter
+              headerStyle
+              key={kind}
+              label={
+                { asns: "ASNs", countries: "Countries", regions: "Regions" }[
+                  kind
+                ]
+              }
+              options={locationOptions?.[kind] ?? []}
+              value={selectedValues(query[kind])}
+              loading={locationsLoading}
+              error={locationsError}
+              onChange={(values) =>
+                onFilterChange({ [kind]: values.length ? values : undefined })
+              }
+            />
+          ))}
+        </ColumnHeaderControls>
+      ),
+      minWidth: 325,
+      collapsePriority: 5,
+      cell: (report) => <NetworkCell report={report} />,
+    },
+    {
+      id: "incident",
+      header: "Incident",
+      headerActionIsLabel: true,
+      headerAction: (
+        <FilterComboBox
+          headerStyle
+          label="Incident"
+          list={groupOptions}
+          selectedKey={query.groupId}
+          onChange={(item) =>
+            onFilterChange({ groupId: item.key || undefined })
+          }
+        />
+      ),
+      minWidth: 200,
+      collapsePriority: 3,
+      grow: true,
+      cell: (report) => <IncidentCell report={report} />,
+    },
+    {
+      id: "signal",
+      header: "Signal",
+      headerActionIsLabel: true,
+      headerAction: (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+          <FilterListBox
+            headerStyle
+            label="Signal"
+            options={[...DATA_SOURCE_OPTIONS]}
+            value={selectedValues(query.dataSources)}
+            isMultiSelect
+            onChange={(value) => {
+              const sources = value as string[];
+              onFilterChange({
+                dataSources: sources.length ? sources : undefined,
+              });
+            }}
+          />
+          <FilterListBox
+            headerStyle
+            label="Triage"
+            options={["Investigate", "Ignore"]}
+            value={
+              query.irrelevant === "false"
+                ? "Investigate"
+                : query.irrelevant === "true"
+                  ? "Ignore"
+                  : ""
+            }
+            onChange={(value) =>
+              onFilterChange({
+                irrelevant:
+                  value === "Investigate"
+                    ? "false"
+                    : value === "Ignore"
+                      ? "true"
+                      : undefined,
+              })
+            }
+          />
+        </div>
+      ),
+      minWidth: 200,
+      collapsePriority: 1,
+      noSpillover: true, // signal already shown by the IODA badge in the expanded detail
+      cell: (report) => <SignalCell report={report} />,
+    },
   ];
 };
