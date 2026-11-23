@@ -1,5 +1,5 @@
 import { getAlertFilterOptions } from "../../../api/reports";
-import LocationFilter from "../../../components/filters/LocationFilter";
+import type { LocationOption } from "../../../components/filters/LocationFilter";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryParams } from "../../../hooks/useQueryParams";
 
@@ -17,7 +17,10 @@ import {
   faEarthAmericas,
   faExclamationTriangle,
   faFlag,
+  faGlobe,
+  faMapLocationDot,
   faMinusCircle,
+  faNetworkWired,
   faRefresh,
   faSearch,
   faTag,
@@ -27,7 +30,7 @@ import {
 import AggieButton from "../../../components/AggieButton";
 import Pagination from "../../../components/Pagination";
 import { getAllGroups } from "../../../api/groups";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DateRangePanel, useRangeDateFormatter } from "../../../components/filters/FilterDateTime";
 import AggieSwitch from "../../../components/AggieSwitch";
@@ -81,6 +84,62 @@ const AppliedFilter = ({
     <FontAwesomeIcon icon={faXmark} className='text-base' />
   </button>
 );
+
+const LOCATION_KINDS = [
+  { kind: "countries", label: "Countries", icon: faGlobe },
+  { kind: "asns", label: "ASNs", icon: faNetworkWired },
+  { kind: "regions", label: "Regions", icon: faMapLocationDot },
+] as const;
+
+// Searchable Filter-menu option list for long location lists (Alerts only).
+const LocationOptionList = ({
+  label,
+  options,
+  value,
+  onChange,
+  loading,
+  error,
+}: {
+  label: string;
+  options: LocationOption[];
+  value: string[];
+  onChange: (value: string[]) => void;
+  loading: boolean;
+  error: boolean;
+}) => {
+  const [search, setSearch] = useState("");
+  // Keep selected keys visible even if the options no longer list them.
+  const allOptions = [...options, ...value.filter((key) => !options.some((o) => o.key === key)).map((key) => ({ key, label: key }))];
+  const query = search.trim().toLowerCase();
+  const visible = allOptions.filter((o) => `${o.key} ${o.label}`.toLowerCase().includes(query));
+  return (
+    <div className='w-72'>
+      <div className='p-1.5 pb-0'>
+        <input
+          aria-label={`Search ${label}`}
+          placeholder={`Search ${label.toLowerCase()}…`}
+          className='focus-theme border rounded px-2 py-1 w-full bg-white dark:bg-gray-700'
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      {loading ? <p className='p-3'>Loading options…</p>
+        : error ? <p className='p-3'>Unable to load options.</p>
+          : visible.length === 0 ? <p className='p-3'>No matching options.</p>
+            : (
+              <div className='max-h-72 overflow-y-auto overflow-x-hidden'>
+                <FilterOptionList
+                  options={visible.map((o) => o.key)}
+                  getLabel={(key) => allOptions.find((o) => o.key === key)?.label ?? key}
+                  isSelected={(key) => value.includes(key)}
+                  onToggle={(key) => onChange(value.includes(key) ? value.filter((v) => v !== key) : [...value, key])}
+                  onClear={() => onChange([])}
+                />
+              </div>
+            )}
+    </div>
+  );
+};
 
 const ReportFilters = ({
   reportCount,
@@ -328,6 +387,23 @@ const ReportFilters = ({
       })
     );
   }
+  const locationLabel = (kind: typeof LOCATION_KINDS[number]["kind"], key: string) =>
+    locationOptions.data?.[kind].find((o) => o.key === key)?.label ?? key;
+  if (showLocationFilters) {
+    LOCATION_KINDS.forEach(({ kind }) => {
+      const selected = getParam(kind).split(",").filter(Boolean);
+      selected.forEach((key) =>
+        activeFilters.push({
+          id: `${kind}-${key}`,
+          label: locationLabel(kind, key),
+          onRemove: () => {
+            const rest = without(selected, key);
+            setParams({ [kind]: rest.length ? rest : undefined });
+          },
+        })
+      );
+    });
+  }
 
   const categories: FilterCategory[] = [
     {
@@ -438,6 +514,26 @@ const ReportFilters = ({
       ),
     });
   }
+  if (showLocationFilters) {
+    LOCATION_KINDS.forEach(({ kind, label, icon }) =>
+      categories.push({
+        id: kind,
+        label,
+        icon,
+        content: () => (
+          <LocationOptionList
+            key={kind}
+            label={label}
+            options={locationOptions.data?.[kind] ?? []}
+            value={getParam(kind).split(",").filter(Boolean)}
+            loading={locationOptions.isLoading}
+            error={locationOptions.isError}
+            onChange={(values) => setParams({ [kind]: values.length ? values : undefined })}
+          />
+        ),
+      })
+    );
+  }
 
   const sortValue = getParam("sort") === "oldest" ? "oldest" : "newest";
 
@@ -516,17 +612,6 @@ const ReportFilters = ({
       )}
       <div className='flex items-center gap-2 pb-3 mb-3 border-b border-slate-200 dark:border-gray-700'>
         <FilterMenu categories={categories} />
-        {showLocationFilters && (["countries", "asns", "regions"] as const).map(kind => (
-          <LocationFilter
-            key={kind}
-            label={{ countries: "Countries", asns: "ASNs", regions: "Regions" }[kind]}
-            options={locationOptions.data?.[kind] ?? []}
-            value={getParam(kind).split(",").filter(Boolean)}
-            loading={locationOptions.isLoading}
-            error={locationOptions.isError}
-            onChange={values => setParams({ [kind]: values.length ? values : undefined })}
-          />
-        ))}
         {/* An incident's own list is always pinned-first, so Sort doesn't apply there. */}
         {!fromGroup && (
           <ToolbarPopover label='Sort' icon={faArrowsUpDown}>

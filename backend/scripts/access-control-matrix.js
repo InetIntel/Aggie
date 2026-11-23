@@ -82,12 +82,18 @@ const POLICY_INCIDENT_POLICY = { mode: 'restricted', teams: ['smoke'] };
 const incidentDoc = (accessPolicy, countryCodes = []) => ({ accessPolicy, countryCodes });
 const countryIncidentDoc = ({ countryCodes }) => incidentDoc({ mode: 'public', teams: [] }, countryCodes);
 
-// Every seeded incident, for the incident list check. `id(f)` reads its id
-// from the fixture ids.
+// Every seeded incident, for the incident list checks. `id(f)` reads its id
+// from the fixture ids. `deleted` incidents are never listed, whoever asks.
 const FIXTURE_INCIDENTS = [
   { key: 'public', id: (f) => f.incidents.public, doc: incidentDoc({ mode: 'public', teams: [] }) },
   { key: 'team', id: (f) => f.incidents.restricted, doc: incidentDoc({ mode: 'restricted', teams: ['smoke'] }) },
   { key: 'policy', id: (f) => f.incidents.policy, doc: incidentDoc(POLICY_INCIDENT_POLICY) },
+  {
+    key: 'deleted',
+    id: (f) => f.incidents.deleted,
+    doc: incidentDoc({ mode: 'restricted', teams: ['smoke'] }),
+    deleted: true,
+  },
   ...Object.keys(TEAM_INCIDENTS).map((teamKey) => ({
     key: teamKey,
     id: (f) => f.teamIncidents[teamKey],
@@ -165,7 +171,29 @@ const CHECKS = [
       const keyById = new Map(FIXTURE_INCIDENTS.map((incident) => [incident.id(f), incident.key]));
       const listed = body.results.map((incident) => keyById.get(String(incident._id))).filter(Boolean);
       const expected = FIXTURE_INCIDENTS
-        .filter((incident) => u.canViewIncidentDoc(incident.doc))
+        .filter((incident) => !incident.deleted && u.canViewIncidentDoc(incident.doc))
+        .map((incident) => incident.key);
+      return sameKeys(listed, expected) || `lists ${listKeys(listed)}, expected ${listKeys(expected)}`;
+    },
+  },
+  {
+    name: 'Incident filter options',
+    method: 'GET',
+    path: () => '/api/group/filter-options',
+    permission: 'view data',
+    // The incidents table header dropdowns list incident titles, so they must
+    // offer exactly the fixture incidents the user can open, like the list.
+    // The response has no ids, so fixture titles are matched to keys.
+    expectBody: async (u, body, f) => {
+      if (!body || !Array.isArray(body.incidents)) return 'response has no incidents list';
+      const incidents = await Group.find({ _id: { $in: FIXTURE_INCIDENTS.map((incident) => incident.id(f)) } })
+        .select('_id title')
+        .lean();
+      const keyById = new Map(FIXTURE_INCIDENTS.map((incident) => [incident.id(f), incident.key]));
+      const keyByTitle = new Map(incidents.map((incident) => [incident.title, keyById.get(String(incident._id))]));
+      const listed = body.incidents.map((incident) => keyByTitle.get(incident.title)).filter(Boolean);
+      const expected = FIXTURE_INCIDENTS
+        .filter((incident) => !incident.deleted && u.canViewIncidentDoc(incident.doc))
         .map((incident) => incident.key);
       return sameKeys(listed, expected) || `lists ${listKeys(listed)}, expected ${listKeys(expected)}`;
     },
@@ -183,6 +211,15 @@ const CHECKS = [
     hidden: true,
     // Restricted incidents are visible to admins and members of the incident's
     // teams only. A global team lead who is not on the team cannot see it.
+    expect: (u) => u.can('view data') && (u.isAdmin || u.onTeam('smoke')),
+  },
+  {
+    // Deleting an incident only hides it from lists; it still opens by id.
+    // Its access policy must still apply there.
+    name: 'View deleted incident',
+    method: 'GET',
+    path: (f) => `/api/group/${f.incidents.deleted}`,
+    hidden: true,
     expect: (u) => u.can('view data') && (u.isAdmin || u.onTeam('smoke')),
   },
   {
@@ -444,6 +481,13 @@ const CHECKS = [
     name: 'Delete tag',
     method: 'DELETE',
     path: () => `/api/tag/${MISSING_ID}`,
+    permission: 'edit tags',
+  },
+  {
+    name: 'Edit special tag',
+    method: 'PUT',
+    path: () => `/api/tag/special/${MISSING_ID}`,
+    body: () => ({ name: 'Access Control Smoke' }),
     permission: 'edit tags',
   },
 

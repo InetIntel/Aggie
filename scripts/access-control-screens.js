@@ -161,6 +161,9 @@ const PAGES = [
     verify: verifyAccessSelector,
   },
   { name: 'New incident', path: () => '/incidents/new' },
+  // Lists published incidents only, so it shows none of the fixture incidents
+  // unless one was published by hand.
+  { name: 'Timeline', path: () => '/timeline', settle: true },
   { name: 'Sources', path: () => '/settings/sources' },
   { name: 'Source detail', path: (f) => `/settings/source/${f.source}` },
   { name: 'France source', path: (f) => `/settings/source/${f.countrySources.france}` },

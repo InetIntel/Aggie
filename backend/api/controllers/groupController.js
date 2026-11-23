@@ -91,9 +91,12 @@ exports.group_all_groups = (req, res) => {
 };
 
 // Every incident's id/title and impacted ASNs, for the table-header dropdown lists.
+// Skips deleted (not public) incidents, like the incidents list.
 exports.group_filter_options = (req, res) => {
   const accessFilter = req.incidentAccess && req.incidentAccess.filter;
-  const filter = accessFilter && Object.keys(accessFilter).length > 0 ? accessFilter : {};
+  const filter = accessFilter && Object.keys(accessFilter).length > 0
+    ? { $and: [{ public: true }, accessFilter] }
+    : { public: true };
   Group.find(filter, 'title idnum impactedAsns', {}, (err, groups) => {
     if (err) return res.status(err.status || 500).send(err.message);
     const asns = new Set();

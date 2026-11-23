@@ -55,7 +55,7 @@ For the access model itself (account vs team roles, access modes, the per-role p
    ```bash
    ACCESS_CONTROL_SMOKE_FIXTURES=true npm run smoke:access:seed
    ```
-   This creates six teams (one with permission limits, one inactive), a public IODA source, three country-restricted sources, a team-restricted source, a public-until source, reports, a public incident, public France and Germany incidents with assigned countries, incidents restricted to the smoke team, Teams A, B and C, and the Limited Team, a policy incident for the access policy checks, an incident comment attachment, and the users below. Every source is disabled. Seeding first deletes any earlier fixtures, so it is safe to rerun.
+   This creates six teams (one with permission limits, one inactive), a public IODA source, three country-restricted sources, a team-restricted source, a public-until source, reports, a public incident, public France and Germany incidents with assigned countries, incidents restricted to the smoke team, Teams A, B and C, and the Limited Team, a policy incident for the access policy checks, a deleted incident, an incident comment attachment, and the users below. Every source is disabled. Seeding first deletes any earlier fixtures, so it is safe to rerun.
 
    The attachment is a small text file written to the upload directory (`UPLOAD_DIR`, default `public/uploads`), because downloads are served from disk. If the dev frontend is running, writing it may reload the page once. The matrix's upload check also writes files there (`<timestamp>_access-control-smoke-upload.txt`) and deletes each one right after. Seeding and cleanup delete the attachment and any leftover uploads.
 
@@ -66,14 +66,14 @@ For the access model itself (account vs team roles, access modes, the per-role p
 
 | Team | Countries | Settings | Restricted incident |
 |---|---|---|---|
-| smoke team (`Access Control Smoke`) | none | | `Access Control Smoke Restricted Incident` (holds the main source's after report and a comment attachment) and `Access Control Smoke Policy Incident` |
+| smoke team (`Access Control Smoke`) | none | | `Access Control Smoke Restricted Incident` (holds the main source's after report and a comment attachment), `Access Control Smoke Policy Incident` and `Access Control Smoke Deleted Incident` |
 | Team A | France (FR) | | `Access Control Smoke Team A (FR) Incident` |
 | Team B | Mexico (MX) | | `Access Control Smoke Team B (MX) Incident` |
 | Team C | France, Mexico | | `Access Control Smoke Team C (FR, MX) Incident` |
 | Limited Team | none | `permissionLimits.deny: ['edit data']` | `Access Control Smoke Limited Team Incident` |
 | Inactive Team (DE) | Germany (DE) | `active: false` | none |
 
-**Incidents**: `Access Control Smoke Public Incident` is visible to anyone with view data. Each restricted incident is visible only to admins and that team's members, and editable by admins and members whose team role grants edit. `Access Control Smoke France Incident` and `Access Control Smoke Germany Incident` are public but have assigned countries (FR, DE), so only admins and members of an active team covering the country see them. Members with edit rights on such a team can edit them. Only the inactive team covers Germany, so only admins see that one. The restricted incident's comment has an attachment, `/incidents/uploads/access-control-smoke-attachment.txt`. The policy incident exists only for the checks that change an incident: the access policy checks and the upload check. After each request the matrix puts back its policy and removes any comments and uploaded files.
+**Incidents**: `Access Control Smoke Public Incident` is visible to anyone with view data. Each restricted incident is visible only to admins and that team's members, and editable by admins and members whose team role grants edit. `Access Control Smoke France Incident` and `Access Control Smoke Germany Incident` are public but have assigned countries (FR, DE), so only admins and members of an active team covering the country see them. Members with edit rights on such a team can edit them. Only the inactive team covers Germany, so only admins see that one. The restricted incident's comment has an attachment, `/incidents/uploads/access-control-smoke-attachment.txt`. The policy incident exists only for the checks that change an incident: the access policy checks and the upload check. After each request the matrix puts back its policy and removes any comments and uploaded files. `Access Control Smoke Deleted Incident` has `public: false`, as the incident page's Delete button leaves it. No list or dropdown may show it to any user. It still opens by id, so only admins and smoke team members may open it.
 
 **Sources**:
 - `Access Control Smoke Source` (public) has a report before and after `CUTOFF_DATE`. The after report is in the smoke team's restricted incident.
@@ -116,14 +116,14 @@ AGGIE_API_URL=http://127.0.0.1:3000 npm run smoke:access:matrix
 ```
 
 What it checks, for every user:
-- **Reading data:** reports, the incident list (it must list exactly the fixture incidents the user can open), incidents (public, smoke team, Teams A/B/C, Limited Team), the smoke incident's comment attachment and its report list (`GET /api/report?groupId=`), sources, tags, dashboard, trends
+- **Reading data:** reports, the incident list and the incidents table header options (`GET /api/group/filter-options`). Each must list exactly the fixture incidents the user can open, and never the deleted incident. Also: incidents (public, smoke team, deleted, Teams A/B/C, Limited Team), the smoke incident's comment attachment and its report list (`GET /api/report?groupId=`), sources, tags, dashboard, trends
 - **Editing data:** reports with no team, reports in a team incident, public and team incidents, releasing a report batch
 - **Team roles and limits:** the team viewer role, per-team overrides that deny or allow `edit data`, and the Limited Team's permission limit (its members and lead can view but not edit its incident)
 - **Incident access:** the teams `GET /api/team/incident-access` lists (checked in the response body), and changing the policy incident's access: adding Team A, making it public, and restricting it to the inactive team (always refused; admins get a 400)
 - **Incident attachments:** downloading the smoke incident's attachment, and uploading one in a new comment (`PATCH /api/group/_comment_add`, to the policy incident). An allowed upload must also be saved on the incident and on disk.
 - **Country access:** viewing the France, Mexico and Germany sources, viewing and editing their reports, and viewing and editing the France and Germany incidents. Germany is covered only by the inactive team, so its member is denied.
 - **Team sources:** viewing the Team A source and the public-until source, and viewing and editing their reports before and after the cutoff
-- **Settings and sources:** credentials, settings, deleting sources and tags
+- **Settings and sources:** credentials, settings, deleting sources and tags, editing special tags
 - **Users and teams:** user directory, user list, editing and deleting users, deleting teams, the permissions editor
 - **KPIs:** viewing KPIs, exporting them, and viewing Team A's KPIs. Expected results come from `getKpiAccess` and `canExportKpis` in `backend/access/kpiAccess.js`.
 
