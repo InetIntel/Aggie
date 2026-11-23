@@ -40,13 +40,14 @@ const REPAIRS = [
   },
 ];
 
-async function repairSourceLinks(db, apply = false, logger = console) {
+async function repairSourceLinks(db, apply = false, logger = console, ooniSourceId) {
   const sources = db.collection('sources');
   const reports = db.collection('reports');
   const counts = {};
 
   for (const repair of REPAIRS) {
-    const source = await sources.findOne({ _id: new ObjectID(repair.sourceId) });
+    const sourceId = repair.media === 'ooni' ? ooniSourceId || repair.sourceId : repair.sourceId;
+    const source = await sources.findOne({ _id: new ObjectID(sourceId) });
     if (!source) {
       logger.log(`${repair.name}: destination feed not found, skipped.`);
       continue;
@@ -73,7 +74,7 @@ async function repairSourceLinks(db, apply = false, logger = console) {
       throw new Error(`${repair.name}: original feed exists again.`);
     }
 
-    logger.log(`${repair.name}: ${pending.length} reports -> ${repair.sourceId}`);
+    logger.log(`${repair.name}: ${pending.length} reports -> ${sourceId}`);
     if (!apply) {
       counts[repair.name] = pending.length;
       continue;
@@ -83,7 +84,7 @@ async function repairSourceLinks(db, apply = false, logger = console) {
       filter: { _id: report._id },
       update: { $setOnInsert: {
         sources: report._sources,
-        targetSourceId: repair.sourceId,
+        targetSourceId: sourceId,
         backedUpAt: new Date(),
       } },
       upsert: true,
@@ -92,7 +93,7 @@ async function repairSourceLinks(db, apply = false, logger = console) {
     const byId = new Map(saved.map((record) => [String(record._id), record]));
     for (const report of pending) {
       const backup = byId.get(String(report._id));
-      if (!backup || backup.targetSourceId !== repair.sourceId ||
+      if (!backup || backup.targetSourceId !== sourceId ||
           JSON.stringify(backup.sources) !== JSON.stringify(report._sources)) {
         throw new Error(`${repair.name}: source-link backup could not be verified.`);
       }
@@ -100,7 +101,7 @@ async function repairSourceLinks(db, apply = false, logger = console) {
 
     const result = await reports.updateMany(
       { ...repair.filter, _id: { $in: pending.map((report) => report._id) } },
-      { $set: { _sources: [repair.sourceId] } },
+      { $set: { _sources: [sourceId] } },
     );
     const modified = result.modifiedCount ?? result.nModified ?? 0;
     counts[repair.name] = modified;
@@ -112,7 +113,11 @@ async function repairSourceLinks(db, apply = false, logger = console) {
   return counts;
 }
 
-async function run(apply = false) {
+async function run(apply = false, ooniSourceId) {
+  if (ooniSourceId !== undefined) {
+    if (!/^[a-f\d]{24}$/i.test(ooniSourceId)) throw new Error('Invalid OONI source ID.');
+    ooniSourceId = ooniSourceId.toLowerCase();
+  }
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required.');
   const client = new MongoClient(process.env.DATABASE_URL, {
     useNewUrlParser: true,
@@ -121,7 +126,7 @@ async function run(apply = false) {
   });
   try {
     await client.connect();
-    const counts = await repairSourceLinks(client.db(process.env.DATABASE_NAME || 'aggie'), apply);
+    const counts = await repairSourceLinks(client.db(process.env.DATABASE_NAME || 'aggie'), apply, console, ooniSourceId);
     if (!apply) console.log('Preview only. Run with --apply to update the reports.');
     return counts;
   } finally {
@@ -131,7 +136,8 @@ async function run(apply = false) {
 
 if (require.main === module) {
   require('dotenv').config();
-  run(process.argv.includes('--apply')).catch((error) => {
+  const sourceArg = process.argv.find((arg) => arg.startsWith('--ooni-source-id='));
+  run(process.argv.includes('--apply'), sourceArg?.slice('--ooni-source-id='.length)).catch((error) => {
     console.error(error.message);
     process.exitCode = 1;
   });
