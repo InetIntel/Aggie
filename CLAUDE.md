@@ -33,6 +33,8 @@ Before gathering context or planning, check the matching `docs/claude/` subfolde
 
 These docs can drift from the code. If something in a doc you read is wrong or out of date (it contradicts the code, names files or functions that no longer exist, or describes behavior that has changed), tell the user what is stale and ask whether to update the doc. Don't edit it silently, and don't just ignore it.
 
+Write all prose in [ASD-STE100 Simplified Technical English](https://www.asd-ste100.org/): short sentences (procedures 20 words max, descriptions 25 words max), one instruction per sentence, imperative mood for steps, active voice, one meaning per word, no idioms or phrasal verbs, and the same technical name for the same thing every time. Use lists and tables for steps and options. This applies to documentation (files in `docs/claude/`, READMEs and other repo `.md` docs), chat replies, PR descriptions, GitHub issues and commit messages.
+
 ## Architecture
 
 The repo is **one Node project containing two largely separate apps** that share Mongoose models.
@@ -118,7 +120,7 @@ When the user gives requirements and asks for a GitHub issue, turn them into iss
 
 - **Output** the issue as a single fenced ` ```markdown ` block in chat so it can be pasted directly into GitHub. Do **not** open the issue with `gh` unless the user explicitly asks.
 - **Ask only if blocked.** If a required piece (e.g. the actual-vs-expected behavior of a bug) is missing and can't be inferred, ask; otherwise fill from the requirements and sensible defaults, and note any assumptions below the block.
-- Follow the repo's writing rules: no em dashes; reference code with repo-relative paths like `backend/api/controllers/sourceController.js`; link related issues/PRs with `#123`. Do not force line breaks in markdown code; let prose wrap naturally.
+- Follow the repo's writing rules: ASD-STE100 (see Project docs above); no em dashes; reference code with repo-relative paths like `backend/api/controllers/sourceController.js`; link related issues/PRs with `#123`. Do not force line breaks in markdown code; let prose wrap naturally.
 
 **Title:** concise and imperative, prefixed with the type in brackets. Example: `[Bug] Report count drifts after incident merge`. Pick the prefix by what the issue is:
 
