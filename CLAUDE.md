@@ -14,10 +14,48 @@ Node `^22.14.0` (use `fnm install` then `fnm use`; pinned in `.nvmrc`). MongoDB 
 - `npm run build` — production React build (`CI=false`, so warnings don't fail the build).
 - `npm start` — production: runs `node app.js` with `ENVIRONMENT=production`. Expects the React build to already exist; in production the API process serves `/build`.
 - `node install.js` — runs automatically as `postinstall`. Ensures Report indexes and creates an `admin` user from `ADMIN_EMAIL` / `ADMIN_PASSWORD` if none exists.
-- `npm test` runs every backend unit test (`backend/**/*.test.js`) with the built-in `node --test` runner. No database or server needed. There are no frontend tests.
-- Access-control smoke tests (per-role QA): `npm run smoke:access:seed` / `smoke:access:matrix` (API pass/fail grid) / `smoke:access:screens` (per-role screenshots) / `smoke:access:cleanup`. See `docs/claude/runbooks/access-control-smoke-tests.md`. **Agents must not run these, or start dev servers for them.** The developer runs them in their own terminal: give them the exact command(s) to run, then read the output they paste back.
+- Tests: see Testing below.
 - Dev URL: `https://localhost:8000` (the backend defaults to HTTPS if `backend/config/key.pem` and `cert.pem` exist, otherwise HTTP). The frontend dev server proxies `/api`, `/login`, `/logout`, `/session`, `/socket` to `http://127.0.0.1:3000` via `src/setupProxy.js`.
-- Branching: feature branches off `develop` (the staging/main branch — production is built from it). Don't push directly to `develop`.
+- Branching:
+  1. Cut feature branches from `development`.
+  2. Open PRs against `development`. Integrate and test there first.
+  3. When everything works on `development`, merge `development` into `staging`. Then promote `staging` to production. Production is built from `staging`.
+  - `development` and `staging` stay 1:1.
+  - Do not push directly to `development` or `staging`.
+  - `develop` is a stale branch. Do not use it.
+
+## Testing
+
+Three test types exist. Unit tests need no database or server.
+
+| Type | Command | What it tests | Needs |
+|------|---------|---------------|-------|
+| Backend unit | `npm test` | Every `backend/**/*.test.js`, with the built-in `node --test` runner | Nothing |
+| Frontend component | `npm run test:frontend` | Every `src/**/*.test.*`, with Jest from `react-scripts` (jsdom) | Nothing |
+| Access-control smoke | `npm run smoke:access:seed`, then `smoke:access:matrix` and `smoke:access:screens`, then `smoke:access:cleanup` | Per-role API pass/fail grid, and per-role screenshots of each page | Local database and both dev servers |
+
+`npm run test:ooni` runs only the OONI subset of the backend unit tests.
+
+Which test to add:
+
+- **Backend logic** (controllers, query builders, fetching, hooks): add a backend unit test next to the file (`<name>.test.js`).
+- **Frontend behavior** (filters, forms, URL state, what a component shows): add a component test next to the component (`<Name>.test.tsx`).
+- **Role or permission changes**: update the smoke fixtures or matrix. See `docs/claude/runbooks/access-control-smoke-tests.md`.
+
+Frontend component test rules:
+
+- Import the Jest globals from `@jest/globals`. The project has no `@types/jest`.
+- Render with `ReactDOM.render` and `act`. The project has no `@testing-library`.
+- Mock the `src/api/*` modules with `jest.mock`. Seed the `QueryClient` cache with `setQueryData` when the first render needs query data.
+- Wrap components that use URL params in `MemoryRouter`.
+- If Jest fails with "Cannot use import statement outside a module", add that package to `jest.transformIgnorePatterns` in `package.json`.
+- Example: `src/pages/Reports/components/ReportsFilters.test.tsx`.
+
+Smoke tests: **agents run these, or start dev servers for them, only when the developer asks.** If the developer does not ask, give them the exact commands to run, then read the output they paste back. When the developer asks an agent to run them:
+
+- Before you seed, make sure `.env` points at a local database and `ADMIN_PARTY=false`.
+- Run the backend with `ENVIRONMENT=development node app.js`, not nodemon. The matrix writes `scratchpad/*.json`, nodemon restarts on it, and the KPI checks then fail with `UND_ERR_SOCKET`.
+- When done, stop the servers you started, run `npm run smoke:access:cleanup`, and switch back to the developer's branch.
 
 ## Required env (`.env`, copied from `.env.example`)
 
