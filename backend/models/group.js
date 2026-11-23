@@ -321,6 +321,7 @@ Group.queryGroups = function (query, page, options, callback) {
       };
     }
   }
+  delete filter.impactedAsn;
 
   // Return only newer results
   if (query.since) {
