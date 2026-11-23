@@ -39,7 +39,7 @@ export default function SpecialTagForm({ onCreated, onCancel }: {
           : "The custom tag could not be created. Please try again."}
       </p>}
       <div className='flex gap-2'>
-        <AggieButton type='button' variant='primary' disabled={!name.trim() || create.isLoading}
+        <AggieButton permission='edit tags' type='button' variant='primary' disabled={!name.trim() || create.isLoading}
           loading={create.isLoading} onClick={() => create.mutate({ name: name.trim(), color })}>Create custom tag</AggieButton>
         <AggieButton type='button' variant='secondary' disabled={create.isLoading} onClick={onCancel}>Cancel</AggieButton>
       </div>
