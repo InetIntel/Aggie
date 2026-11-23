@@ -54,6 +54,7 @@ Index of `docs/claude/architecture/` (see Project docs above). These cover the f
 Open bugs that have been investigated are written up in `docs/claude/bugs/`. New workups go in that folder and get a line in this list.
 
 - `incident-attachments-on-local-disk.md`: incident comment attachments are written to `public/uploads` instead of MongoDB, so they don't move with the database and are lost if the checkout folder is recreated
+- `ooni-alerts-not-saved.md`: OONI alerts stopped saving after Oct 7 because the stored chart used domain names as keys, which MongoDB rejects, plus the related fetching weak points
 
 ### Multi-process backend
 
