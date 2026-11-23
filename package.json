@@ -11,6 +11,7 @@
     "dev:backend": "cross-env ENVIRONMENT=development nodemon app.js",
     "dev:all": "npm run dev",
     "test": "node --test \"backend/**/*.test.js\"",
+    "test:frontend": "react-scripts test --watchAll=false",
     "test:ooni": "node --test backend/fetching/ooniAlerts.test.js backend/fetching/ooniApi.test.js backend/fetching/ooniSeries.test.js backend/fetching/channels/ooni.test.js backend/fetching/hooks/saveToDatabase.test.js backend/api/utils/analyticsAggregation.test.js",
     "backtest:ooni": "node scripts/backtest-ooni-alerts.js",
     "smoke:access:seed": "node backend/scripts/access-control-smoke.js seed",
@@ -54,6 +55,11 @@
     "extends": [
       "react-app",
       "react-app/jest"
+    ]
+  },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(axios|date-fns|react-day-picker)/)"
     ]
   },
   "license": "MIT",
