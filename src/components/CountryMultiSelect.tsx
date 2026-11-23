@@ -60,7 +60,7 @@ const CountryMultiSelect = ({ label = "Countries", value, onChange }: IProps) =>
       <span className='font-medium'>{label}</span>
       <Popover className='relative'>
         <Popover.Button className='w-full px-3 py-2 rounded border border-slate-300 bg-white dark:bg-gray-900 flex items-center justify-between text-left'>
-          <span>{value.length ? value.map(getCountryLabel).join(", ") : "Select countries"}</span>
+          <span>{value.length ? `${value.length} selected` : "Select countries"}</span>
           <FontAwesomeIcon icon={faChevronDown} />
         </Popover.Button>
 
