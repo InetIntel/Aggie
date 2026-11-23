@@ -41,14 +41,14 @@ const Incidents = () => {
   const navigate = useNavigate();
   const navigationType = useNavigationType();
 
-  // "view" is a UI toggle, not a filter — exclude it so switching to the table
+  // "view" is a UI toggle, not a filter ΓÇö exclude it so switching to the table
   // view doesn't make the filters bar think a query is active (which would
   // wrongly surface the "Clear All" button).
   const hasActiveFilter =
     Object.keys(_.omit(getAllParams(searchParams), "view")).length > 0;
 
   // The real query identity, ignoring the UI-only `view` toggle. The reset
-  // effect keys off this so switching list↔table keeps the selection — the
+  // effect keys off this so switching listΓåötable keeps the selection ΓÇö the
   // underlying results are identical across both views.
   const apiSearchParams = new URLSearchParams(searchParams);
   apiSearchParams.delete("view");
@@ -63,7 +63,7 @@ const Incidents = () => {
       : "list";
 
   const { data, refetch, isLoading, isFetching } = useQuery(
-    ["groups"],
+    ["groups", queryParamsString],
     () => getGroups(_.omit(getAllParams(searchParams), "view") as GroupQueryState),
     {
       refetchInterval: 120000,
@@ -260,6 +260,8 @@ const Incidents = () => {
         <IncidentsTable
           data={data?.results ?? []}
           isLoading={isLoading}
+          query={_.omit(getAllParams(searchParams), "view") as GroupQueryState}
+          onFilterChange={setParams}
           selection={{
             isActive: multiSelect.isActive,
             alwaysShow: true,

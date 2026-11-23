@@ -26,6 +26,9 @@ router.get('/', User.can('view data'), loadIncidentAccessContext, groupControlle
 // Get a list of all Groups
 router.get('/all', User.can('view data'), loadIncidentAccessContext, groupController.group_all_groups);
 
+// Id/title/ASN lists for the incidents table header dropdowns
+router.get('/filter-options', User.can('view data'), loadIncidentAccessContext, groupController.group_filter_options);
+
 // Get a Group by _id
 //User.can('view data')
 router.get('/:_id', User.can('view data'), loadIncidentAccessContext, requireIncidentParamAccess, groupController.group_details);

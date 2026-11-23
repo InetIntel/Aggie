@@ -17,6 +17,7 @@ interface IProps<T> {
   onChange: (selectedItem: Item<T>) => void;
   selectedKey?: string;
   itemElement?: (a: Item<T>) => React.ReactNode;
+  headerStyle?: boolean;
 }
 
 const FilterComboBox = <T extends {}>({
@@ -26,6 +27,7 @@ const FilterComboBox = <T extends {}>({
   selectedKey,
   optionalItems = [],
   itemElement = (a) => <span>{a.value}</span>,
+  headerStyle,
 }: IProps<T>) => {
   const [filteredList, setFilteredList] = useState(list);
   const [rawSearch, setRawSearch] = useState("");
@@ -71,6 +73,7 @@ const FilterComboBox = <T extends {}>({
   return (
     <FilterDropdown
       label={label}
+      headerStyle={headerStyle}
       value={selectedKey && valueFromLists(selectedKey)}
       onReset={() => onSelectItem({ key: "", value: "" })}
       headerChild={
