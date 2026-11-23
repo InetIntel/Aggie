@@ -80,6 +80,7 @@ const CountryMultiSelect = ({ label = "Countries", value, onChange }: IProps) =>
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder='Search by country or code'
+              aria-label='Search countries'
               className='w-full px-3 py-2 rounded border border-slate-300 bg-white dark:bg-gray-900'
             />
           </div>

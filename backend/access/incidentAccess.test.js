@@ -22,6 +22,40 @@ const restrictedIncident = {
   accessPolicy: { mode: 'restricted', teams: ['team-a'] },
 };
 
+test('assigning countries restricts even incidents with a public or missing policy', () => {
+  for (const accessPolicy of [undefined, { mode: 'public' }]) {
+    const incident = { countryCodes: ['IR'], accessPolicy };
+    assert.equal(canViewIncident({ role: 'viewer' }, incident), false);
+    assert.equal(canViewIncident({ role: 'viewer', teamCountryCodes: ['US'] }, incident), false);
+    assert.equal(canViewIncident({ role: 'viewer', teamCountryCodes: ['IR'] }, incident), true);
+    assert.equal(canViewIncident({ role: 'admin' }, incident), true);
+  }
+});
+
+test('matching any assigned country is sufficient, but team restrictions also apply', () => {
+  const incident = { ...restrictedIncident, countryCodes: ['IR', 'RU'] };
+  assert.equal(canViewIncident({ role: 'viewer', teams: ['team-a'], teamCountryCodes: ['RU'] }, incident), true);
+  assert.equal(canViewIncident({ role: 'viewer', teams: ['team-b'], teamCountryCodes: ['IR'] }, incident), false);
+  assert.equal(canViewIncident({ role: 'viewer', teams: ['team-a'], teamCountryCodes: ['US'] }, incident), false);
+});
+
+test('country list filter excludes unmatched assigned incidents regardless of public policy', () => {
+  assert.deepEqual(buildIncidentAccessFilter({ role: 'viewer', teamCountryCodes: ['ir'] }).$and[0], {
+    $or: [
+      { countryCodes: { $exists: false } },
+      { countryCodes: { $size: 0 } },
+      { countryCodes: { $in: ['IR'] } },
+    ],
+  });
+});
+
+test('country-scoped editing requires a matching permitted team country', () => {
+  const incident = { ...publicIncident, countryCodes: ['IR'] };
+  const scope = { permission: 'edit data', global: false, allowUnscoped: false, countryCodes: ['IR'] };
+  assert.equal(canModifyIncidentWithScope(scope, incident), true);
+  assert.equal(canModifyIncidentWithScope({ ...scope, countryCodes: ['US'], allowUnscoped: true }, incident), false);
+});
+
 test('legacy incidents without an access policy remain public', () => {
   assert.deepEqual(getIncidentPolicy({ _id: 'legacy-incident' }), {
     mode: 'public',
@@ -83,7 +117,7 @@ test('incident list filters include public and assigned restricted incidents', (
     buildIncidentAccessFilter(
       { role: 'viewer', teams: ['team-a'] },
       ['team-b']
-    ),
+    ).$and[1],
     {
       $or: [
         { 'accessPolicy.mode': { $exists: false } },
