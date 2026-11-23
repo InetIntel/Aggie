@@ -598,6 +598,15 @@ const buildUserContext = (key) => {
       ? Object.keys(TEAMS)
       : getTeamIdsWithPermission(user, 'manage incident access', ledTeamIds, TEAM_SETTINGS)
     ).filter(isTeamActive),
+    // Teams the incident form's access selector offers: those from
+    // GET /api/team/incident-access where the user may also save the
+    // incident, as saving needs 'edit data' on the team. Admins and global
+    // team leads keep every team.
+    incidentFormTeamKeys: () => (isGlobalRole
+      ? Object.keys(TEAMS)
+      : getTeamIdsWithPermission(user, 'manage incident access', ledTeamIds, TEAM_SETTINGS)
+        .filter((teamKey) => teamCan(teamKey, 'edit data'))
+    ).filter(isTeamActive),
     // PUT /api/group/:id with only `accessPolicy`: allowGlobalOrScoped,
     // requireIncidentParamAccess, then requireIncidentPolicyAccess.
     canChangeIncidentPolicy: (current, next) => {

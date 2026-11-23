@@ -98,12 +98,13 @@ const openIncidentEditForm = async (page, waitForApiIdle, { restrict = false } =
   return true;
 };
 
-// The selector must list exactly the fixture teams GET /api/team/incident-access
-// should return for this user (other teams in the database are ignored). If
-// the form hides the selector, the user must have no such teams.
+// The selector must list exactly the fixture teams the form should offer this
+// user: those from GET /api/team/incident-access where they also have
+// 'edit data' (other teams in the database are ignored). If the form hides
+// the selector, the user must have no such teams.
 const verifyAccessSelector = async (page, u, opened) => {
   if (!opened) return { status: 'skipped', message: 'no Edit form, not checked' };
-  const expected = u.incidentAccessTeamKeys().map((teamKey) => TEAMS[teamKey].name).sort();
+  const expected = u.incidentFormTeamKeys().map((teamKey) => TEAMS[teamKey].name).sort();
   const box = accessSelector(page);
   if (await box.count() === 0) {
     return expected.length === 0
