@@ -21,6 +21,7 @@ const mainLinks: Record<string, LinkOptions> = {
   "Social Media Posts": { to: "/mediaposts" },
   Incidents: { to: "/incidents" },
   Dashboard: { to: "/dashboard" },
+  Timeline: { to: "/timeline" },
 };
 
 // Both nav groups are shrink-0, so their widths are what they need, not what they got.
