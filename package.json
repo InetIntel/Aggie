@@ -33,7 +33,8 @@
       "test/*",
       "docs/*",
       "data/*",
-      "public/*"
+      "public/*",
+      "scratchpad/*"
     ]
   },
   "browserslist": {

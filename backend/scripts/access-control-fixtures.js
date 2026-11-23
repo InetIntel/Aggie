@@ -290,6 +290,24 @@ const TEAM_INCIDENTS = Object.fromEntries(['teamA', 'teamB', 'teamC', 'limited']
   }];
 }));
 
+// Public incidents with assigned countries, keyed by country. Only admins and
+// members of an active team covering one of the countries see them. Germany
+// is covered only by the inactive team.
+const COUNTRY_INCIDENTS = {
+  france: {
+    label: 'France',
+    countryCodes: ['FR'],
+    title: 'Access Control Smoke France Incident',
+    notes: 'Disposable public incident assigned to France for access-control smoke testing.',
+  },
+  germany: {
+    label: 'Germany',
+    countryCodes: ['DE'],
+    title: 'Access Control Smoke Germany Incident',
+    notes: 'Disposable public incident assigned to Germany for access-control smoke testing.',
+  },
+};
+
 // Disabled country_restricted sources, each with one report. Germany is
 // covered only by the inactive team.
 const COUNTRY_SOURCES = {
@@ -507,6 +525,9 @@ const loadFixtureIds = async () => {
     teamIncidents: Object.fromEntries(
       Object.entries(TEAM_INCIDENTS).map(([teamKey, { title }]) => [teamKey, incidentByTitle.get(title)])
     ),
+    countryIncidents: Object.fromEntries(
+      Object.entries(COUNTRY_INCIDENTS).map(([key, { title }]) => [key, incidentByTitle.get(title)])
+    ),
     users: Object.fromEntries(
       Object.entries(USERS).map(([key, user]) => [key, userIdByUsername.get(user.username)])
     ),
@@ -528,6 +549,7 @@ const loadFixtureIds = async () => {
     ['policy incident', ids.incidents.policy],
     ['incident attachment (in MongoDB and the upload directory)', ids.attachment],
     ...Object.entries(ids.teamIncidents).map(([teamKey, id]) => [`${teamKey} incident`, id]),
+    ...Object.entries(ids.countryIncidents).map(([key, id]) => [`${key} incident`, id]),
     ...Object.entries(ids.users).map(([key, id]) => [`user ${key}`, id]),
   ].filter(([, id]) => !id).map(([label]) => label);
 
@@ -546,6 +568,7 @@ module.exports = {
   ATTACHMENT_CONTENT,
   ATTACHMENT_FILENAME,
   ATTACHMENT_PATH,
+  COUNTRY_INCIDENTS,
   COUNTRY_SOURCES,
   CREDENTIAL_NAME,
   CUTOFF_DATE,

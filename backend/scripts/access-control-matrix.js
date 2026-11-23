@@ -42,6 +42,7 @@ const {
   readPassword,
   saveKpiResults,
   saveMatrixResults,
+  COUNTRY_INCIDENTS,
   COUNTRY_SOURCES,
   PUBLIC_INCIDENT_NOTES,
   RESTRICTED_INCIDENT_NOTES,
@@ -76,6 +77,28 @@ const teamSourceDoc = ({ accessPolicy }) => ({ accessPolicy, countryCodes: [] })
 
 // The policy incident's seeded access policy, which its checks put back.
 const POLICY_INCIDENT_POLICY = { mode: 'restricted', teams: ['smoke'] };
+
+// Incidents as the access helpers read them, with team keys as ids.
+const incidentDoc = (accessPolicy, countryCodes = []) => ({ accessPolicy, countryCodes });
+const countryIncidentDoc = ({ countryCodes }) => incidentDoc({ mode: 'public', teams: [] }, countryCodes);
+
+// Every seeded incident, for the incident list check. `id(f)` reads its id
+// from the fixture ids.
+const FIXTURE_INCIDENTS = [
+  { key: 'public', id: (f) => f.incidents.public, doc: incidentDoc({ mode: 'public', teams: [] }) },
+  { key: 'team', id: (f) => f.incidents.restricted, doc: incidentDoc({ mode: 'restricted', teams: ['smoke'] }) },
+  { key: 'policy', id: (f) => f.incidents.policy, doc: incidentDoc(POLICY_INCIDENT_POLICY) },
+  ...Object.keys(TEAM_INCIDENTS).map((teamKey) => ({
+    key: teamKey,
+    id: (f) => f.teamIncidents[teamKey],
+    doc: incidentDoc({ mode: 'restricted', teams: [teamKey] }),
+  })),
+  ...Object.entries(COUNTRY_INCIDENTS).map(([key, incident]) => ({
+    key,
+    id: (f) => f.countryIncidents[key],
+    doc: countryIncidentDoc(incident),
+  })),
+];
 
 // Puts the policy incident back as seeded: its access policy, and no comments.
 // Deletes files uploaded to its comments (only smoke uploads, by name).
@@ -128,7 +151,25 @@ const CHECKS = [
     path: (f) => `/api/report/${f.reports.before}`,
     permission: 'view data',
   },
-  { name: 'List incidents', method: 'GET', path: () => '/api/group', permission: 'view data' },
+  {
+    name: 'List incidents',
+    method: 'GET',
+    // `title` is a text search, so the phrase finds the fixture incidents.
+    path: () => `/api/group?title=${encodeURIComponent('"Access Control Smoke"')}`,
+    permission: 'view data',
+    // The list's access filter must return exactly the fixture incidents the
+    // user can open. Other matches (the KPI checks create incidents) are
+    // ignored.
+    expectBody: (u, body, f) => {
+      if (!body || !Array.isArray(body.results)) return 'response has no results list';
+      const keyById = new Map(FIXTURE_INCIDENTS.map((incident) => [incident.id(f), incident.key]));
+      const listed = body.results.map((incident) => keyById.get(String(incident._id))).filter(Boolean);
+      const expected = FIXTURE_INCIDENTS
+        .filter((incident) => u.canViewIncidentDoc(incident.doc))
+        .map((incident) => incident.key);
+      return sameKeys(listed, expected) || `lists ${listKeys(listed)}, expected ${listKeys(expected)}`;
+    },
+  },
   {
     name: 'View public incident',
     method: 'GET',
@@ -221,6 +262,25 @@ const CHECKS = [
       path: () => '/api/group/_notes',
       body: (f) => ({ ids: [f.teamIncidents[teamKey]], notes }),
       expect: (u) => u.isAdmin || u.teamCan(teamKey, 'edit data'),
+    },
+  ]),
+  // Public incidents with assigned countries. Visible to admins and members of
+  // an active team covering a country; editable by global editors and by
+  // members with edit rights on such a team.
+  ...Object.entries(COUNTRY_INCIDENTS).flatMap(([key, incident]) => [
+    {
+      name: `View ${incident.label} incident`,
+      method: 'GET',
+      path: (f) => `/api/group/${f.countryIncidents[key]}`,
+      hidden: true,
+      expect: (u) => u.canViewIncidentDoc(countryIncidentDoc(incident)),
+    },
+    {
+      name: `Edit ${incident.label} incident`,
+      method: 'PATCH',
+      path: () => '/api/group/_notes',
+      body: (f) => ({ ids: [f.countryIncidents[key]], notes: incident.notes }),
+      expect: (u) => u.canEditIncidentDoc(countryIncidentDoc(incident)),
     },
   ]),
 
@@ -477,7 +537,9 @@ const buildUserContext = (key) => {
     }
     const teamIds = getTeamIdsWithPermission(user, 'edit data', ledTeamIds, TEAM_SETTINGS);
     if (!hasGlobal && teamIds.length === 0) return null;
-    return { permission: 'edit data', global: false, allowUnscoped: hasGlobal, teamIds };
+    // loadIncidentAccessContext adds the countries of the scope's active teams.
+    const countryCodes = teamIds.filter(isTeamActive).flatMap((teamKey) => TEAMS[teamKey].countryCodes);
+    return { permission: 'edit data', global: false, allowUnscoped: hasGlobal, teamIds, countryCodes };
   })();
 
   // As getSourceAccessUser: the countries of the user's active teams.
@@ -521,6 +583,14 @@ const buildUserContext = (key) => {
       if (reportTeamKeys.length === 0) return editScope.allowUnscoped;
       return reportTeamKeys.some((teamKey) => editScope.teamIds.includes(teamKey));
     },
+    // GET /api/group/:id, and whether GET /api/group lists the incident.
+    // Incidents with countries also need an active team covering one of them.
+    canViewIncidentDoc: (incident) => hasPermission(user, 'view data') &&
+      canViewIncident(sourceUser, incident, ledTeamIds),
+    // PATCH /api/group/_notes: allowGlobalOrScoped, then requireIncidentBodyAccess.
+    canEditIncidentDoc: (incident) => Boolean(editScope) &&
+      canViewIncident(sourceUser, incident, ledTeamIds) &&
+      canModifyIncidentWithScope(editScope, incident),
     // Teams GET /api/team/incident-access returns: every active team for
     // admins and global team leads, otherwise the active teams where the user
     // has 'manage incident access'.
@@ -533,7 +603,7 @@ const buildUserContext = (key) => {
     canChangeIncidentPolicy: (current, next) => {
       if (!editScope) return false;
       const incident = { accessPolicy: current };
-      if (!canViewIncident(user, incident, ledTeamIds)) return false;
+      if (!canViewIncident(sourceUser, incident, ledTeamIds)) return false;
       if (!canModifyIncidentWithScope(editScope, incident)) return false;
       const policyTeamIds = user.role === 'admin'
         ? []

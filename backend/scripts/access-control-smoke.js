@@ -26,6 +26,7 @@ const {
   ATTACHMENT_CONTENT,
   ATTACHMENT_FILENAME,
   ATTACHMENT_PATH,
+  COUNTRY_INCIDENTS,
   COUNTRY_SOURCES,
   CREDENTIAL_NAME,
   CUTOFF_DATE,
@@ -344,6 +345,18 @@ const seed = async () => {
     });
   }
 
+  const countryIncidents = {};
+  for (const [key, { title, notes, countryCodes }] of Object.entries(COUNTRY_INCIDENTS)) {
+    countryIncidents[key] = await Group.create({
+      title,
+      creator: admin._id,
+      tags: [FIXTURE_KEY],
+      notes,
+      countryCodes,
+      accessPolicy: { mode: 'public', teams: [] },
+    });
+  }
+
   console.log('Access-control smoke fixtures created.');
   Object.entries(TEAMS).forEach(([key, { name, countryCodes, active = true, permissionLimits }]) => {
     const notes = [
@@ -378,6 +391,9 @@ const seed = async () => {
   console.log(`Policy incident: ${policyIncident._id}`);
   Object.entries(TEAM_INCIDENTS).forEach(([teamKey, { title }]) => {
     console.log(`${title}: ${teamIncidents[teamKey]._id}`);
+  });
+  Object.entries(COUNTRY_INCIDENTS).forEach(([key, { title, countryCodes }]) => {
+    console.log(`${title}: ${countryIncidents[key]._id} (public, countries ${countryCodes.join(', ')})`);
   });
   console.log(`Users (password for all: ${password}, saved to ${PASSWORD_FILE}):`);
   Object.values(USERS).forEach((user) => {

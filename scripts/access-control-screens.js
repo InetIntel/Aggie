@@ -35,6 +35,7 @@ const {
   readKpiResults,
   readMatrixResults,
   readPassword,
+  COUNTRY_INCIDENTS,
   TEAMS,
   TEAM_INCIDENTS,
   USERS,
@@ -48,30 +49,50 @@ const OUTPUT_DIR = path.join(__dirname, '..', 'scratchpad', 'access-control-scre
 // Users captured at the same time, each in its own browser context.
 const CONCURRENCY = 4;
 
-// The "Incident Access" box in the open incident form.
+// The team restriction box in the incident form's "Manage access" dialog. That
+// dialog opens on top of the Edit dialog, so look it up on the whole page.
 const accessSelector = (page) =>
-  page.getByRole('dialog').locator('h3', { hasText: 'Incident Access' }).locator('xpath=..');
+  page.locator('h3', { hasText: 'Team restriction' }).locator('xpath=..');
 
-// Opens the Edit form from the incident page's "..." menu. With `restrict`,
-// also switches Access Mode to "Restricted to teams" so the team list shows.
-// Returns false when the page has no Edit option, for example because it
-// redirected away from an incident the user can't see.
+// Opens the Edit form from the incident page's "..." menu, then its "Manage
+// access" dialog when the user may change access. With `restrict`, also
+// switches Allowed teams to "Restricted to teams" so the team list shows.
+// Returns false when the incident doesn't load (the user can't see it) or the
+// page has no enabled Edit option.
 const openIncidentEditForm = async (page, waitForApiIdle, { restrict = false } = {}) => {
   const menuButtons = page.locator('button:has(svg[data-icon^="ellipsis"])');
-  const editItem = page.getByText('Edit Incident', { exact: true });
+  const editItem = page.getByText('Edit Incident', { exact: true }).first();
+  // The header shows "Incident #N" once the incident has loaded. On an
+  // incident the user can't see, the page stays on its placeholders, but its
+  // Edit option still opens an empty create form, so don't open it.
+  await waitForApiIdle({ fresh: true });
+  const loaded = await page.getByText(/^Incident #\d+/).first()
+    .waitFor({ timeout: 5000 }).then(() => true, () => false);
+  if (!loaded) return false;
   let found = false;
   for (let i = 0; i < await menuButtons.count() && !found; i += 1) {
+    // Users without edit rights get a disabled menu button.
+    if (await menuButtons.nth(i).isDisabled()) continue;
     await menuButtons.nth(i).click();
-    found = await editItem.waitFor({ timeout: 1000 }).then(() => true, () => false);
+    found = await editItem.waitFor({ timeout: 1000 }).then(() => true, () => false) &&
+      !(await editItem.isDisabled());
     if (!found) await page.keyboard.press('Escape');
   }
   if (!found) return false;
 
   await editItem.click();
-  await page.getByRole('dialog').waitFor();
-  if (restrict && await accessSelector(page).count() > 0) {
-    await accessSelector(page).locator('button[id^="headlessui-listbox-button"]').click();
-    await page.getByRole('option', { name: 'Restricted to teams' }).click();
+  const manageAccess = page.getByRole('button', { name: 'Manage access' });
+  await manageAccess.or(page.getByLabel('Title')).first().waitFor();
+  if (await manageAccess.count() > 0) {
+    await manageAccess.click();
+    await accessSelector(page).waitFor();
+    if (restrict) {
+      const listbox = accessSelector(page).locator('button[id^="headlessui-listbox-button"]');
+      if (!(await listbox.textContent()).includes('Restricted to teams')) {
+        await listbox.click();
+        await page.getByRole('option', { name: 'Restricted to teams' }).click();
+      }
+    }
   }
   await waitForApiIdle({ fresh: true });
   return true;
@@ -121,6 +142,10 @@ const PAGES = [
   ...Object.keys(TEAM_INCIDENTS).map((teamKey) => ({
     name: `${TEAMS[teamKey].label} incident`,
     path: (f) => `/incidents/${f.teamIncidents[teamKey]}`,
+  })),
+  ...Object.entries(COUNTRY_INCIDENTS).map(([key, { label }]) => ({
+    name: `${label} incident`,
+    path: (f) => `/incidents/${f.countryIncidents[key]}`,
   })),
   {
     name: 'Edit public incident form',
