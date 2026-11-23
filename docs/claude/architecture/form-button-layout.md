@@ -12,64 +12,70 @@ Audited 2026-11-05 from source (button order and class names), and rechecked aga
 
 The easiest way to get this is `src/components/FormikWithSchema.tsx`. It renders the button row for you, takes `onSubmitText` (defaults to "Confirm") and `onClose` for Cancel, and keeps Submit disabled until the form is valid and has changed (`allowPristineSubmit` lifts the "has changed" rule for create forms whose initial values are already valid). With a `permission` prop, it also greys out the fields and blocks submitting, Enter included, when the user lacks that permission.
 
-Modals are built from:
+Every table below uses the same columns: the component, where it shows up, its button copy, where Submit (or its equivalent) sits, where Cancel (or its equivalent) sits, and whether Enter submits. Bold marks the part that breaks the convention.
 
-| Component | Buttons | Enter submits? |
-|---|---|---|
-| `src/components/AggieDialog.tsx` | None; the form inside supplies them. Esc closes. | Depends on the form inside |
-| `src/components/ConfirmationDialog.tsx` | Two full-width buttons: Cancel left, Confirm right. Esc closes. | No (not a form) |
+## Modal building blocks
+
+| Component | Where | Button copy | Submit (or equivalent) | Cancel (or equivalent) | Enter submits? |
+|---|---|---|---|---|---|
+| `src/components/AggieDialog.tsx` | Modal wrapper | None; the form inside supplies them | n/a | Esc closes | Depends on the form inside |
+| `src/components/ConfirmationDialog.tsx` | Modal | "Confirm" (or `confirmText`), "Cancel" | Right half of a full-width pair | Left half of the pair; Esc also closes | No (not a form) |
 
 ## Forms that follow the convention
 
-All of these submit on Enter.
-
-- Incident create/edit: `src/pages/incidents/CreateEditIncidentForm.tsx` (FormikWithSchema). Used on the New Incident page, in the edit modals in `src/pages/incidents/Incident/index.tsx`, `src/pages/incidents/IncidentListItem.tsx`, `src/pages/incidents/TableView/IncidentsTable.tsx`, and in the Dashboard "Create Incident" modal (`src/pages/Dashboard/index.tsx`).
-- Feed create/edit: `src/pages/Settings/source/CreateEditSourceForm.tsx` (FormikWithSchema, one form per provider). Used in modals from `SourcesSection.tsx`, `src/pages/Settings/Connections/ApiTypeSection.tsx`, and `SourceDetailsView.tsx`.
-- Connection create: `src/pages/Settings/Credentials/CreateCredentialForm.tsx` (FormikWithSchema). Submit text varies by step: "Send Code", "Verify Code", "Verify Password", "Authorize Mastodon".
-- Rename connection: `RenameConnectionForm` in `src/pages/Settings/Connections/ApiTypeSection.tsx` (FormikWithSchema, "Save"). A separate "Delete connection" button sits below the row on the left.
-- User create/edit: `src/pages/Settings/user/CreateEditUserForm.tsx` ("Confirm").
-- Set password: `src/pages/Settings/user/SetPassword.tsx` ("Confirm").
-- Tag create/edit: `src/pages/Settings/tag/CreateEditTagForm.tsx` ("Create tag" / "Save changes").
+| Component | Where | Button copy | Submit (or equivalent) | Cancel (or equivalent) | Enter submits? |
+|---|---|---|---|---|---|
+| `src/pages/incidents/CreateEditIncidentForm.tsx` (FormikWithSchema) | New Incident page; edit modals in `src/pages/incidents/Incident/index.tsx`, `src/pages/incidents/IncidentListItem.tsx` and `src/pages/incidents/TableView/IncidentsTable.tsx`; Dashboard "Create Incident" modal (`src/pages/Dashboard/index.tsx`) | "Create Incident" / "Update Incident", "Cancel" | Right edge | Left edge | Yes |
+| `src/pages/Settings/source/CreateEditSourceForm.tsx` (FormikWithSchema, one form per provider) | Modals from `SourcesSection.tsx`, `src/pages/Settings/Connections/ApiTypeSection.tsx` and `SourceDetailsView.tsx` | "Confirm", "Cancel" | Right edge | Left edge | Yes |
+| `src/pages/Settings/Credentials/CreateCredentialForm.tsx` (FormikWithSchema) | Modal | "Send Code" / "Verify Code" / "Verify Password" / "Authorize Mastodon" (varies by step), "Cancel" | Right edge | Left edge | Yes |
+| `RenameConnectionForm` in `src/pages/Settings/Connections/ApiTypeSection.tsx` (FormikWithSchema) | Modal | "Save", "Cancel"; a separate "Delete connection" button sits below the row on the left | Right edge | Left edge | Yes |
+| `src/pages/Settings/user/CreateEditUserForm.tsx` | Modal | "Confirm", "Cancel" | Right edge | Left edge | Yes |
+| `src/pages/Settings/user/SetPassword.tsx` | Modal | "Confirm", "Cancel" | Right edge | Left edge | Yes |
+| `src/pages/Settings/tag/CreateEditTagForm.tsx` | Modal | "Create tag" / "Save changes", "Cancel" | Right edge | Left edge | Yes |
 
 ## Outliers
 
-| Form | Where | Submit | Cancel | Enter submits? |
-|---|---|---|---|---|
-| `src/components/Tags/SpecialTagForm.tsx` (custom tag; inline on the Tags page and inside `IncidentTagsDialog`) | Inline | **Left** ("Create custom tag") | Right; both grouped on the left | **No** (not a form) |
-| `src/pages/Settings/user/components/WebAuthnDeviceRow.tsx` (rename device) | Inline row | **Left** ("Save") | Right, then "Remove" | **No** (not a form) |
-| `src/pages/incidents/Incident/IncidentTagsDialog.tsx` | Modal | Right ("Save tags") | Just left of Save; both grouped on the right, selected count on the left | **No** (not a form) |
-| `src/components/filters/FilterDateTime.tsx` (date range) | Popover | Right ("Apply") | Just left of Apply; both grouped on the right | No (not a form) |
-| `src/pages/Settings/team/TeamDetails.tsx` (edit team details) | Inline | Right of Cancel; both grouped on the left ("Save") | Left | Yes |
-| `src/pages/incidents/Incident/Comment.tsx` (edit comment) | Inline | Right of Cancel; both grouped on the left ("Update") | Left | Textarea, so no |
-| Mastodon "authorizing" step in `CreateCredentialForm.tsx` | Modal | "Open Authorization Window" on the left | "Start Over" on the right | n/a |
-| Telegram code and password steps in `CreateCredentialForm.tsx` | Modal | Standard row | Standard row, plus an extra "Start Over" right-aligned below it | Yes |
+| Component | Where | Button copy | Submit (or equivalent) | Cancel (or equivalent) | Enter submits? |
+|---|---|---|---|---|---|
+| `src/components/Tags/SpecialTagForm.tsx` (custom tag) | Inline on the Tags page and inside `IncidentTagsDialog` | "Create custom tag", "Cancel" | **Left**; both grouped on the left | Right of Submit | **No** (not a form) |
+| `src/pages/Settings/user/components/WebAuthnDeviceRow.tsx` (rename device) | Inline row | "Save", "Cancel", then "Remove" | **Left** | Right of Save, then "Remove" | **No** (not a form) |
+| `src/pages/incidents/Incident/IncidentTagsDialog.tsx` | Modal | "Save tags", "Cancel" | Right, **grouped with Cancel**; selected count on the left | Just left of Save | **No** (not a form) |
+| `src/components/filters/FilterDateTime.tsx` (date range) | Popover | "Apply", "Cancel" | Right, **grouped with Cancel** | Just left of Apply | No (not a form) |
+| `src/pages/Settings/team/TeamDetails.tsx` (edit team details) | Inline | "Save", "Cancel" | Right of Cancel, **both grouped on the left** | Left | Yes |
+| `src/pages/incidents/Incident/Comment.tsx` (edit comment) | Inline | "Update", "Cancel" | Right of Cancel, **both grouped on the left** | Left | No (textarea) |
+| Mastodon "authorizing" step in `CreateCredentialForm.tsx` | Modal | "Open Authorization Window", "Start Over" | **Left** | "Start Over" on the right | n/a |
+| Telegram code and password steps in `CreateCredentialForm.tsx` | Modal | "Verify Code" / "Verify Password", "Cancel", plus "Start Over" | Right edge (standard row) | Left edge (standard row), **plus an extra "Start Over" right-aligned below it** | Yes |
 
 ## Submit with no Cancel
 
-- `src/pages/Login.tsx`: full-width "Sign in". Enter submits.
-- `src/pages/Settings/team/TeamsIndex.tsx` "Create team" panel: full-width primary button at the bottom. Enter submits.
-- `src/pages/incidents/Incident/CommentTimeline.tsx` "Post": bottom left. Textarea, so no Enter.
-- `src/pages/Settings/user/components/DisplayPreferencesSection.tsx` "Save Preferences" and `src/pages/Settings/user/components/PermissionEditor.tsx` "Save Permissions": bottom left, not forms, no Enter.
-- Search and filter boxes, which submit on Enter with an icon button next to the input:
-  - keyword search in `src/pages/Reports/components/ReportsFilters.tsx`
-  - search in `src/pages/incidents/IncidentsFilters.tsx` (plus "Clear All")
-  - jump to page in `src/components/Pagination.tsx`
+| Component | Where | Button copy | Submit (or equivalent) | Cancel (or equivalent) | Enter submits? |
+|---|---|---|---|---|---|
+| `src/pages/Login.tsx` | Page | "Sign in" | Full width | None | Yes |
+| `src/pages/Settings/team/TeamsIndex.tsx` (Create team panel) | Inline panel | "Create Team" | Full width at the bottom | None | Yes |
+| `src/pages/incidents/Incident/CommentTimeline.tsx` | Inline | "Post" | Bottom left | None | No (textarea) |
+| `src/pages/Settings/user/components/DisplayPreferencesSection.tsx` | Inline | "Save Preferences" | Bottom left | None | No (not a form) |
+| `src/pages/Settings/user/components/PermissionEditor.tsx` | Inline | "Save Permissions" | Bottom left | None | No (not a form) |
+| Keyword search in `src/pages/Reports/components/ReportsFilters.tsx` | Filter bar | Search icon (no text) | Icon button next to the input | None | Yes |
+| Search in `src/pages/incidents/IncidentsFilters.tsx` | Filter bar | Search icon (no text), plus "Clear All" | Icon button next to the input | None ("Clear All" resets the filters) | Yes |
+| Jump to page in `src/components/Pagination.tsx` | Pagination | Icon button (no text) | Icon button next to the input | None | Yes |
 
 ## Not rendered
 
-These have forms but nothing imports them, so they never show up in the app:
+These have forms but nothing imports them, so they never show up in the app.
 
-- `src/components/GeneratedTagsList.tsx`: AI tag feedback dialog, Cancel left and "Submit" right.
-- `src/pages/Reports/FlaggedReportsList.tsx`: "Advanced Contextual Search" form, "Search!" centered below the input. Enter submits.
+| Component | Where | Button copy | Submit (or equivalent) | Cancel (or equivalent) | Enter submits? |
+|---|---|---|---|---|---|
+| `src/components/GeneratedTagsList.tsx` (AI tag feedback) | Dialog | "Submit", "Cancel" | Right edge | Left edge | n/a (rating scales only, no text inputs) |
+| `src/pages/Reports/FlaggedReportsList.tsx` ("Advanced Contextual Search") | Inline | "Search!" | Centered below the input | None | Yes |
 
 ## Picker modals
 
-These have no submit button; the user picks an incident by clicking it.
+These have no submit button; the user picks an incident by clicking it. The two modals look the same but put their exit in opposite corners.
 
-- `src/pages/Dashboard/components/DashboardAddToIncident.tsx`: **Cancel at the top left**.
-- `src/pages/Reports/components/AddReportsToIncident.tsx`: **X close button at the top right**.
-
-The two modals look the same but put their exit in opposite corners.
+| Component | Where | Button copy | Submit (or equivalent) | Cancel (or equivalent) | Enter submits? |
+|---|---|---|---|---|---|
+| `src/pages/Dashboard/components/DashboardAddToIncident.tsx` | Modal | "Cancel" | n/a (click an incident) | **Top left** | n/a |
+| `src/pages/Reports/components/AddReportsToIncident.tsx` | Modal | X icon (labelled "Close") | n/a (click an incident) | **Top right** | n/a |
 
 ## Summary of differences from the convention
 
