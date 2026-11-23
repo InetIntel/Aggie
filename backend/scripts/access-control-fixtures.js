@@ -23,6 +23,11 @@ const RESTRICTED_INCIDENT_NOTES = 'Disposable Team Alpha incident for access-con
 // other check reads it.
 const POLICY_INCIDENT_TITLE = 'Access Control Smoke Policy Incident';
 const POLICY_INCIDENT_NOTES = 'Disposable incident whose access policy and comments the matrix changes and restores.';
+// Deleted (public: false), as the incident page's Delete button leaves it.
+// Restricted to the smoke team. Lists and dropdowns must never show it, and
+// outsiders must not open it by id.
+const DELETED_INCIDENT_TITLE = 'Access Control Smoke Deleted Incident';
+const DELETED_INCIDENT_NOTES = 'Disposable deleted Team Alpha incident for access-control smoke testing.';
 // Attached to the restricted incident's comment. The file lives in the upload
 // directory (getUploadDir in backend/api/utils/fileStorage.js), not MongoDB.
 const ATTACHMENT_FILENAME = 'access-control-smoke-attachment.txt';
@@ -520,6 +525,7 @@ const loadFixtureIds = async () => {
       public: incidentByTitle.get(PUBLIC_INCIDENT_TITLE),
       restricted: incidentByTitle.get(RESTRICTED_INCIDENT_TITLE),
       policy: incidentByTitle.get(POLICY_INCIDENT_TITLE),
+      deleted: incidentByTitle.get(DELETED_INCIDENT_TITLE),
     },
     attachment: attachmentIncident && attachmentOnDisk ? ATTACHMENT_PATH : undefined,
     teamIncidents: Object.fromEntries(
@@ -547,6 +553,7 @@ const loadFixtureIds = async () => {
     ['public incident', ids.incidents.public],
     ['restricted incident', ids.incidents.restricted],
     ['policy incident', ids.incidents.policy],
+    ['deleted incident', ids.incidents.deleted],
     ['incident attachment (in MongoDB and the upload directory)', ids.attachment],
     ...Object.entries(ids.teamIncidents).map(([teamKey, id]) => [`${teamKey} incident`, id]),
     ...Object.entries(ids.countryIncidents).map(([key, id]) => [`${key} incident`, id]),
@@ -572,6 +579,8 @@ module.exports = {
   COUNTRY_SOURCES,
   CREDENTIAL_NAME,
   CUTOFF_DATE,
+  DELETED_INCIDENT_NOTES,
+  DELETED_INCIDENT_TITLE,
   FIXTURE_KEY,
   FORMULA_SOURCE_NICKNAME,
   KPI_RESULTS_FILE,

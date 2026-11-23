@@ -14,7 +14,7 @@ Node `^22.14.0` (use `fnm install` then `fnm use`; pinned in `.nvmrc`). MongoDB 
 - `npm run build` — production React build (`CI=false`, so warnings don't fail the build).
 - `npm start` — production: runs `node app.js` with `ENVIRONMENT=production`. Expects the React build to already exist; in production the API process serves `/build`.
 - `node install.js` — runs automatically as `postinstall`. Ensures Report indexes and creates an `admin` user from `ADMIN_EMAIL` / `ADMIN_PASSWORD` if none exists.
-- No test runner is configured (`npm test` is not wired up).
+- `npm test` runs every backend unit test (`backend/**/*.test.js`) with the built-in `node --test` runner. No database or server needed. There are no frontend tests.
 - Access-control smoke tests (per-role QA): `npm run smoke:access:seed` / `smoke:access:matrix` (API pass/fail grid) / `smoke:access:screens` (per-role screenshots) / `smoke:access:cleanup`. See `docs/claude/runbooks/access-control-smoke-tests.md`. **Agents must not run these, or start dev servers for them.** The developer runs them in their own terminal: give them the exact command(s) to run, then read the output they paste back.
 - Dev URL: `https://localhost:8000` (the backend defaults to HTTPS if `backend/config/key.pem` and `cert.pem` exist, otherwise HTTP). The frontend dev server proxies `/api`, `/login`, `/logout`, `/session`, `/socket` to `http://127.0.0.1:3000` via `src/setupProxy.js`.
 - Branching: feature branches off `develop` (the staging/main branch — production is built from it). Don't push directly to `develop`.

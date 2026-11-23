@@ -30,6 +30,8 @@ const {
   COUNTRY_SOURCES,
   CREDENTIAL_NAME,
   CUTOFF_DATE,
+  DELETED_INCIDENT_NOTES,
+  DELETED_INCIDENT_TITLE,
   FIXTURE_KEY,
   FORMULA_SOURCE_NICKNAME,
   PASSWORD_FILE,
@@ -331,6 +333,15 @@ const seed = async () => {
     accessPolicy: { mode: 'restricted', teams: [team._id] },
   });
 
+  const deletedIncident = await Group.create({
+    title: DELETED_INCIDENT_TITLE,
+    creator: admin._id,
+    tags: [FIXTURE_KEY],
+    notes: DELETED_INCIDENT_NOTES,
+    public: false,
+    accessPolicy: { mode: 'restricted', teams: [team._id] },
+  });
+
   afterReport._group = restrictedIncident._id;
   await afterReport.save();
 
@@ -389,6 +400,7 @@ const seed = async () => {
   console.log(`Restricted incident: ${restrictedIncident._id}`);
   console.log(`  Attachment: ${ATTACHMENT_PATH} (file: ${attachmentFile()})`);
   console.log(`Policy incident: ${policyIncident._id}`);
+  console.log(`Deleted incident: ${deletedIncident._id}`);
   Object.entries(TEAM_INCIDENTS).forEach(([teamKey, { title }]) => {
     console.log(`${title}: ${teamIncidents[teamKey]._id}`);
   });
