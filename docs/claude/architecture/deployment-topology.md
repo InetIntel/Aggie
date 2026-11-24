@@ -1,55 +1,63 @@
-# Deployment Topology (ioda-dev / staging)
+# Deployment Topology (dev and prod)
 
-_Last updated: 2026-10-02_
+_Last updated: 2026-11-24_
 
-Hard-won operational details about how Aggie actually runs on the InetIntel server. None of
-this is in the repo's generic runbooks (`SCRIPTS.md`, `ecosystem.config.js`), which describe a
-PM2 + domain-root setup that does **not** match reality here.
+Operational details about how Aggie runs on the InetIntel servers. The generic runbooks (`SCRIPTS.md`, `ecosystem.config.js`) describe a PM2 setup at the domain root. That setup does **not** match these servers.
 
-## TL;DR
+## Hosts
 
-- The deployed branch is **`staging`** (not `develop`).
-- The app is served under a **URL subpath, `/aggie`** — not at the domain root.
-- It runs as a **plain `node app.js` process (via `npm start`)**, **not PM2**, under the OS user **`ioda`**.
-- Because of the subpath, **browser-facing `/media/...` URLs must include the `/aggie` prefix** or nginx returns the SPA HTML instead of the file (see the media bug below).
+Since 2026-11, dev and prod are on two different hosts. Only prod uses a URL subpath.
+
+| Env | App URL | URL subpath | `PUBLIC_URL` in the live build |
+|-----|---------|-------------|--------------------------------|
+| dev | `https://<dev-host>/` | none (domain root) | `https://<dev-host>` |
+| prod | `https://<prod-host>/aggie/` | `/aggie` | `https://<prod-host>/aggie` |
+
+The `PUBLIC_URL` values come from the live JS bundles (2026-11-24). Before 2026-11, dev was at `https://<old-dev-host>/aggie`.
+
+Prod shares its origin with another site. Paths outside `/aggie` (for example `/alerts`) return that other site, not Aggie.
+
+## Base-path rules
+
+- Frontend code must work with both a `/aggie` base and a root (`/`) base.
+- `new URL(PUBLIC_URL).pathname` is `/aggie` on prod and `/` on dev. Remove the trailing `/` before you add a path. If you do not, dev gets `//alerts`. The browser reads `//alerts` as the host `alerts`. This broke the dev login redirect. `loginRedirectPath` in `src/pages/Login.tsx` has the fix.
+- The backend reads `APP_BASE_PATH` at runtime. It must be `/aggie` on prod and empty on dev. The value on the new hosts is not verified.
 
 ## The running process
 
-- Host: `ioda-dev.inetintel.cc.gatech.edu`
+These details were verified on the old dev host (2026-10-02). They are not verified on the new hosts.
+
 - OS user: **`ioda`**
 - Checkout: **`/home/ioda/Aggie-FuCo`**
-- Started with `ENVIRONMENT=production node app.js` (the `npm start` script), which forks the
-  two backend children (see [multi-process backend](../../../CLAUDE.md)):
-  - `aggie-api` — Express + socket.io on `127.0.0.1:3000`
-  - `aggie-fetching` — the downstream poller
-- **No PM2.** `pm2`/`npx pm2` are not installed in the checkout; `~/.pm2` does not exist. Do not
-  assume PM2 commands work. To inspect the live process, read `/proc/<pid>/environ` and
-  `/proc/<pid>/cwd` (you can do this as `ioda` without sudo).
-- Deploys/restarts are done by the `ioda` user (no passwordless sudo available to us).
+- Started with `ENVIRONMENT=production node app.js` (the `npm start` script). This forks the two backend children (see [multi-process backend](../../../CLAUDE.md)):
+  - `aggie-api`: Express and socket.io on `127.0.0.1:3000`
+  - `aggie-fetching`: the downstream poller
+- **No PM2.** `pm2` and `npx pm2` are not installed in the checkout, and `~/.pm2` does not exist. To inspect the live process, read `/proc/<pid>/environ` and `/proc/<pid>/cwd` as `ioda` (no sudo necessary).
+- The `ioda` user does deploys and restarts. No passwordless sudo is available.
 
-## Environment (as seen in the live `aggie-api` process)
+## Environment (as seen in the live `aggie-api` process on the old host)
 
 | Var | Value | Effect |
 |-----|-------|--------|
 | `ENVIRONMENT` | `production` | Prod branch in `backend/api.js` (serves `/build`, `/media`, SPA fallback) |
-| `APP_BASE_PATH` | `/aggie` | Backend subpath prefix |
-| `PUBLIC_URL` | `https://ioda-dev.inetintel.cc.gatech.edu/aggie` | Frontend base (axios `baseURL`, asset paths); **baked into the build at `npm run build` time** |
+| `APP_BASE_PATH` | `/aggie` on prod, empty on dev (not verified on the new hosts) | Backend subpath prefix |
+| `PUBLIC_URL` | See [Hosts](#hosts) | Frontend base (axios `baseURL`, asset paths). **Compiled into the build at `npm run build` time.** |
 | `MEDIA_ROOT` | _unset_ | Not used by the running app (media is served from MongoDB). Only read by the one-off `backend/scripts/backfillMediaToMongo.js` to find the legacy disk tree; falls back to `<checkout>/public/media` |
 
-## nginx / subpath routing
+## nginx and subpath routing (prod)
 
-- nginx routes **`/aggie/*` → the node app** on `127.0.0.1:3000`, stripping the `/aggie` prefix
-  (so node, which mounts routes at its own root like `/media` and `/api`, sees them without the prefix).
-- A **bare `/media/...` at the domain root does NOT reach node** — it falls through to the SPA and
-  returns `Content-Type: text/html` (the React `index.html`) with a `200`. This is the trap that
-  made "all my curls return 200" misleading — always check the **content-type**, not just the status:
+- nginx sends **`/aggie/*` to the node app** on `127.0.0.1:3000` and removes the `/aggie` prefix. Node mounts its routes (`/media`, `/api`) at its own root.
+- nginx redirects `/aggie` (no trailing slash) to `/aggie/` with a 301.
+- A **bare `/media/...` at the domain root does NOT reach node**. It goes to the other site on that origin, which returns `Content-Type: text/html` with a `200`. Always check the **content type**, not only the status:
 
   ```bash
-  # WITHOUT /aggie -> text/html (the SPA, NOT the file)
-  curl -sI "https://ioda-dev.inetintel.cc.gatech.edu/media/<key>" | grep -i content-type
+  # WITHOUT /aggie -> text/html (the other site, NOT the file)
+  curl -sI "https://<prod-host>/media/<key>" | grep -i content-type
   # WITH /aggie -> the real file
-  curl -sI "https://ioda-dev.inetintel.cc.gatech.edu/aggie/media/<key>" | grep -i content-type
+  curl -sI "https://<prod-host>/aggie/media/<key>" | grep -i content-type
   ```
+
+On dev, the app is at the domain root, so `/media/<key>` reaches node directly.
 
 ## Consequence: media URLs must be base-path aware
 
@@ -69,7 +77,7 @@ See [media-image-storage.md](./media-image-storage.md) for the storage/serving m
 ### Deploying that fix here
 
 - **Frontend:** `PUBLIC_URL` is compiled in at build time, so a code change to `resolveMediaUrl`
-  requires **`npm run build`** (with `PUBLIC_URL=…/aggie` present in the env, as it already is).
+  requires **`npm run build`** on each host, with that host's `PUBLIC_URL` in the env (see [Hosts](#hosts)).
 - **Backend:** `buildMediaUrl` reads `APP_BASE_PATH` at runtime, so the **`aggie-api` process must
   be restarted** to pick up the change (restart done by the `ioda` user; not PM2).
 
