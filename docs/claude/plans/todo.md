@@ -80,6 +80,7 @@ The re-render *drivers* below are real but were never the reload cause — pursu
 #### Incidents table features
 
 - **Sankey diagram for impacted ASNs** https://ainita.net/iran-internet-map/
+- **Show the network name next to each ASN in the ASN(s) header dropdown** (e.g. "AS1031 — PEER1-1031 - PEER 1031 LLC, US"). Right now the names are looked up from the alert filter options (`/api/report/filter-options`), so an ASN that was added to an incident by hand in the edit form, and has no alerts, shows only its number. Use the same ASN directory the incident edit form uses (`CreateEditIncidentForm.tsx`, "Impacted ASNs") as the name source instead. Low priority: filtering already works, it only matters once there is more real data.
 
 #### Incidents table small layout bugs
 

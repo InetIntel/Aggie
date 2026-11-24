@@ -11,6 +11,7 @@ module.exports = async function (err, channelID) {
         const sourceID = getSourceID(channelID);
         const source = await fetchSourceByID({ _id: sourceID });
 
-        await source.logEvent('error', err.message);
+        // The source may have been deleted while its channel was still polling.
+        if (source) await source.logEvent('error', err.message);
     }
 }

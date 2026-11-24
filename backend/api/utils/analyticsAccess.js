@@ -43,7 +43,7 @@ const redactIncidentIds = async (activities, incidentAccess) => {
   if (incidentIds.length === 0) return activities;
 
   const incidents = await Group.find({ _id: { $in: incidentIds } })
-    .select('_id accessPolicy')
+    .select('_id accessPolicy countryCodes')
     .lean()
     .exec();
   const viewable = new Set(

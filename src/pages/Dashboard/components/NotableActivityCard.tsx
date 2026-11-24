@@ -1,3 +1,4 @@
+import AggieButton from "../../../components/AggieButton";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -27,23 +28,25 @@ const cardActionClass =
 function NotableActivityCard({
   activity,
   cacheKey,
-  isDismissed,
   onDismiss,
   onRestore,
+  isUpdatingDismissal,
   onCreateIncident,
   onAddToIncident,
   isCreatingIncident,
 }: {
   activity: NotableActivity;
   cacheKey: string;
-  isDismissed: boolean;
   onDismiss: () => void;
   onRestore: () => void;
+  isUpdatingDismissal: boolean;
   onCreateIncident: () => void;
   onAddToIncident: () => void;
   isCreatingIncident: boolean;
 }) {
-  const { formatActivityWindow } = useDashboardFormatters();
+  const { formatActivityWindow, formatCompactDateTime } = useDashboardFormatters();
+  const { dismissal } = activity;
+  const isDismissed = !!dismissal;
   const isStartTimeGrouped = activity.aggregationMethod === "startTime";
 
   // `locations` is absent on snapshots cached before it existed, hence the fallback.
@@ -80,13 +83,24 @@ function NotableActivityCard({
         <button
           type='button'
           onClick={isDismissed ? onRestore : onDismiss}
-          className='grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-base text-slate-700 shadow-[0_4px_10px_rgba(15,23,42,0.16)] transition hover:bg-slate-100 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+          disabled={!cacheKey || isUpdatingDismissal}
+          className='grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-base text-slate-700 shadow-[0_4px_10px_rgba(15,23,42,0.16)] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
           aria-label={isDismissed ? "Restore activity card" : "Dismiss activity card"}
-          title={isDismissed ? "Restore" : "Dismiss"}
+          title={isDismissed ? "Restore for everyone" : "Dismiss for everyone"}
         >
-          <FontAwesomeIcon icon={isDismissed ? faRotateLeft : faXmark} />
+          <FontAwesomeIcon
+            icon={isUpdatingDismissal ? faSpinner : isDismissed ? faRotateLeft : faXmark}
+            className={isUpdatingDismissal ? "animate-spin" : ""}
+          />
         </button>
       </div>
+
+      {dismissal && (
+        <p className='mt-2 text-[11px] text-slate-500 dark:text-gray-400'>
+          Dismissed by {dismissal.dismissedBy || "a deleted user"},{" "}
+          {formatCompactDateTime(dismissal.dismissedAt)}
+        </p>
+      )}
 
       <div className='mt-3'>
         {/* Under start-time grouping the window is the first and last outage start in the
@@ -162,7 +176,7 @@ function NotableActivityCard({
           </Link>
         ) : (
           <>
-            <button
+            <AggieButton permission="create incident"
               type='button'
               onClick={onCreateIncident}
               disabled={!cacheKey || isCreatingIncident}
@@ -173,8 +187,8 @@ function NotableActivityCard({
                 className={isCreatingIncident ? "animate-spin" : ""}
               />
               <span>{isCreatingIncident ? "Creating" : "New Incident"}</span>
-            </button>
-            <button
+            </AggieButton>
+            <AggieButton permission="edit data"
               type='button'
               onClick={onAddToIncident}
               disabled={!cacheKey || isCreatingIncident}
@@ -182,7 +196,7 @@ function NotableActivityCard({
             >
               <FontAwesomeIcon icon={faFolderPlus} />
               <span>Add to Incident</span>
-            </button>
+            </AggieButton>
           </>
         )}
       </div>

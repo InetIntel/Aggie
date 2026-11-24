@@ -54,6 +54,36 @@ media type `ooni` and entity level `AS`. List, detail, table, and comparison
 views show the network, ASN, rolling window, and zero-domain details. The
 report URL opens the matching OONI Explorer query.
 
+## When OONI fails or answers oddly
+
+- Every OONI request has a 30 second timeout (90 seconds for the chart query) and is
+  retried up to three times on a timeout, 429 or 5xx, waiting 1, 2 and 4 seconds,
+  or as long as `Retry-After` says. A 404 or similar is not retried.
+- An answer that does not contain the expected `results` list is an error. It is
+  never read as "no measurements".
+- A domain that still cannot be checked is unknown, not zero: it does not trigger
+  the alert, and the alert stores it in `raw.unverifiedDomains`. If five domain
+  checks fail in a row the network is skipped until the next hourly run.
+- Each network is checked on its own, so a failing network does not stop the
+  others. Anything that could not be checked is reported once per run as an error
+  event on the source, which shows on the Sources page.
+- A report that fails to save is also recorded as an error event on its source, not
+  only in the server log.
+
+## Alert ids and source settings
+
+- Iran web connectivity alerts use `ooni:<asn>:<domains|volume>:<UTC date>`. A
+  source for another country or test adds them: `ooni:<asn>:<mode>:<CC>:<test>:<date>`,
+  so two sources on one network do not suppress each other.
+- ASNs can be written `44244` or `AS44244`. The country is a two-letter code and
+  anything else falls back to `IR`.
+- Tests other than `web_connectivity` have no domains, so they are checked per
+  network and the alert text names the test.
+- Domains saved on a source are lowercased, lose a trailing dot and are converted to
+  punycode. A source with an invalid domain is refused with the entry named. An
+  empty list on a source uses the default in `backend/fetching/config/ooni.json`.
+- A successful check updates the source's last report date.
+
 ## 14-day chart on the alert
 
 The alert detail view shows a bar chart of measurements in rolling 24-hour blocks:
@@ -75,8 +105,11 @@ cannot use up OONI's per-IP quota.
   the window end. A live alert whose window ends at 14:30 has blocks ending at
   14:00 UTC, up to 59 minutes short of its exact window. A window ending at
   midnight (historical alerts) gives whole UTC days.
-- The shape is `{ source, granularity: "hour", blockHours: 24, from, until, starts: [14 ISO times], domains: { <domain>: [14 counts] }, fetchedAt }`,
-  about 3 KB per alert. Like IODA's chart, it is left out of list responses and
+- The shape is `{ source, granularity: "hour", blockHours: 24, from, until, starts: [14 ISO times], domains: [{ domain, counts: [14 counts] }], fetchedAt }`,
+  about 3 KB per alert. `domains` is a list rather than an object keyed by domain
+  name, because MongoDB refuses field names that contain a `.`. If saving an alert
+  with its chart fails for any reason, the alert is saved again without the chart
+  instead of being lost. Like IODA's chart, it is left out of list responses and
   returned by the single-report endpoint (`GET /api/report/:id`). A chart stored
   in the earlier calendar-day shape (a `days` list) still draws, as midnight blocks.
 - Alerts created before this shipped, and alerts loaded from a generated backfill

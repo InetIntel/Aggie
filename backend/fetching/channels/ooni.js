@@ -1,8 +1,9 @@
 const { PollChannel } = require('downstream');
 const { default: SocialMediaPost } = require('downstream/build/builtin/post');
 const { hasMeasurements } = require('../ooniApi');
-const { fetchSeries, chartAnchor } = require('../ooniSeries');
+const { fetchSeries, chartAnchor, domainsToStored } = require('../ooniSeries');
 const {
+  cleanDomainList,
   normalizeDomainConfig,
   evaluateRollingAlert,
   evaluateRollingDomainAlerts,
@@ -16,6 +17,12 @@ countries.registerLocale(require('i18n-iso-countries/langs/en.json'));
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PROBE_CC = 'IR';
+const WEB_CONNECTIVITY = 'web_connectivity';
+// OONI rejecting this many domain checks in a row means it is down or refusing us; more
+// requests would only add load, so the network is left for the next hourly run.
+const MAX_CONSECUTIVE_FAILURES = 5;
+const REQUEST_DELAY_MS = 250;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const NETWORK_NAMES = {
   44244: 'IranCell',
   58224: 'MCCI',
@@ -25,11 +32,21 @@ function dayString(day) {
   return day.toISOString().slice(0, 10);
 }
 
-function alertGuid(asn, alertDate, domainMode) {
-  return `ooni:${asn}:${domainMode === 'selected' ? 'domains' : 'volume'}:${alertDate}`;
+// One alert per network, mode and UTC day. Sources watching something other than Iran
+// web connectivity add the country and test, so two sources on the same ASN cannot
+// suppress each other. Iran web connectivity keeps the original format so existing
+// alerts still count as already raised.
+function alertGuid(asn, alertDate, domainMode, probeCC = PROBE_CC, testName = WEB_CONNECTIVITY) {
+  const mode = domainMode === 'selected' ? 'domains' : 'volume';
+  const scope = probeCC === PROBE_CC && testName === WEB_CONNECTIVITY ? '' : `:${probeCC}:${testName}`;
+  return `ooni:${asn}:${mode}${scope}:${alertDate}`;
 }
 
-function alertContent(asn, alerts) {
+function testLabel(testName) {
+  return testName === WEB_CONNECTIVITY ? 'web connectivity' : String(testName).replace(/_/g, ' ');
+}
+
+function alertContent(asn, alerts, testName = WEB_CONNECTIVITY) {
   const network = NETWORK_NAMES[asn] || `AS${asn}`;
   // No timestamp embedded here deliberately: this raw string is stored once and
   // shown to every viewer, but "when" should render per-viewer display
@@ -44,7 +61,7 @@ function alertContent(asn, alerts) {
     // the report detail view (OoniEvent.tsx).
     return `OONI domain alert for ${network} (AS${asn}): no measurements were recorded for ${domains.length} watched domain(s) for the past 24 hours`;
   }
-  return `OONI volume alert for ${network} (AS${asn}): no web connectivity measurements were recorded for the past 24 hours`;
+  return `OONI volume alert for ${network} (AS${asn}): no ${testLabel(testName)} measurements were recorded for the past 24 hours`;
 }
 
 // Outage fields that put an OONI alert into the notable-activity aggregation.
@@ -68,11 +85,38 @@ function outageFields({ asn, probeCC = PROBE_CC, windowEnd }) {
 class OONIChannel extends PollChannel {
   static INTERVAL = 60 * 60 * 1000;
 
+  // The country comes from a free-text field on the source. Anything that is not a
+  // two-letter code falls back to the default instead of querying OONI with junk,
+  // which would read as "no measurements".
+  static cleanProbeCC(value) {
+    const code = String(value || '').trim().toUpperCase();
+    if (!code) return PROBE_CC;
+    if (!/^[A-Z]{2}$/.test(code)) {
+      console.warn(`OONI probe country "${value}" is not a two-letter code; using ${PROBE_CC}.`);
+      return PROBE_CC;
+    }
+    return code;
+  }
+
+  // Domains saved on a source are cleaned (trailing dots, case, unicode) and invalid
+  // entries are skipped with a warning, so one bad entry does not stop the source.
+  static cleanDomainConfig(config) {
+    if (!config || !Array.isArray(config.domains)) return config;
+    const { domains, invalid } = cleanDomainList(config.domains);
+    if (invalid.length > 0) {
+      console.warn(`OONI source ignored invalid domain(s): ${invalid.join(', ')}.`);
+    }
+    return { ...config, domains };
+  }
+
   constructor(options) {
-    const asns = String(options.asns || '')
-      .split(/[\s,]+/)
-      .filter(Boolean)
-      .map(Number);
+    // "44244", "AS44244" and mixed lists are all accepted; repeats are dropped.
+    const asns = [...new Set(
+      String(options.asns || '')
+        .split(/[\s,]+/)
+        .filter(Boolean)
+        .map((asn) => Number(asn.replace(/^as/i, ''))),
+    )];
     if (asns.length === 0 || asns.some((asn) => !Number.isInteger(asn) || asn <= 0)) {
       throw new Error('OONI sources require one or more valid ASNs.');
     }
@@ -81,16 +125,22 @@ class OONIChannel extends PollChannel {
       ...options,
       namespace: options.namespace || `ooni-${asns.join('-')}`,
     });
+    this.options = options;
     this.asns = asns;
     // Probe country and test are configurable per-source; fall back to the
     // historical Iran / web_connectivity defaults so existing sources (which
     // store neither) keep their current behavior.
-    this.probeCC = options.probeCC || PROBE_CC;
-    this.testName = options.testName || 'web_connectivity';
+    this.probeCC = OONIChannel.cleanProbeCC(options.probeCC);
+    this.testName = options.testName || WEB_CONNECTIVITY;
     this.interval = options.interval || OONIChannel.INTERVAL;
     this.hasMeasurements = options.hasMeasurements || hasMeasurements;
     this.fetchSeries = options.fetchSeries || fetchSeries;
-    this.domainConfig = normalizeDomainConfig(options.domainConfig || defaultDomainConfig);
+    this.domainConfig = normalizeDomainConfig(OONIChannel.cleanDomainConfig(options.domainConfig) || defaultDomainConfig);
+    // Only web connectivity measures named domains. Other tests are checked per network.
+    this.watchesDomains = this.testName === WEB_CONNECTIVITY && !this.domainConfig.useAllDomains;
+    this.requestOptions = options.requestOptions || {};
+    this.requestDelayMs = options.requestDelayMs ?? REQUEST_DELAY_MS;
+    this.sleep = options.sleep || wait;
     this.reportExists = options.reportExists
       || ((query) => require('../../models/report').exists(query));
     this.now = options.now || (() => new Date());
@@ -99,55 +149,89 @@ class OONIChannel extends PollChannel {
   async fetch() {
     const windowEndDate = this.now();
     const windowStartDate = new Date(windowEndDate.getTime() - DAY_MS);
-    const windowStart = windowStartDate.toISOString();
-    const windowEnd = windowEndDate.toISOString();
-    const alertDate = dayString(windowEndDate);
+    const window = {
+      windowStart: windowStartDate.toISOString(),
+      windowEnd: windowEndDate.toISOString(),
+      alertDate: dayString(windowEndDate),
+    };
     const posts = [];
+    const problems = [];
 
+    // Each network is checked on its own: one that cannot be checked must not stop the
+    // others, and what went wrong is reported once the run is over.
     for (const asn of this.asns) {
-      const domainMode = this.domainConfig.useAllDomains ? 'all' : 'selected';
-      const guid = alertGuid(asn, alertDate, domainMode);
-      if (await this.reportExists({ guid })) continue;
-
-      let alerts;
-      if (this.domainConfig.useAllDomains) {
-        const found = await this.hasMeasurements({
-          asn,
-          since: windowStart,
-          until: windowEnd,
-          probeCC: this.probeCC,
-          testName: this.testName,
-        });
-        alerts = evaluateRollingAlert(found, windowStart, windowEnd);
-      } else {
-        const rows = [];
-        for (const domain of this.domainConfig.domains) {
-          const found = await this.hasMeasurements({
-            asn,
-            domain,
-            since: windowStart,
-            until: windowEnd,
-            probeCC: this.probeCC,
-            testName: this.testName,
-          });
-          rows.push({ domain, hasMeasurements: found });
+      try {
+        const { post, unverified } = await this.checkNetwork(asn, window);
+        if (unverified.length > 0) {
+          problems.push(`AS${asn}: could not check ${unverified.length} domain(s) (${unverified.join(', ')})`);
         }
-        alerts = evaluateRollingDomainAlerts(
-          rows,
-          this.domainConfig.domains,
-          windowStart,
-          windowEnd,
-        );
+        if (post) {
+          posts.push(post);
+          this.enqueue(post);
+        }
+      } catch (error) {
+        problems.push(`AS${asn}: ${error.message}`);
       }
-      if (alerts.length === 0) continue;
-
-      const chart = await this.loadChart(asn, alerts[0].windowEnd);
-      const post = this.parse({ asn, alerts, guid, fetchedAt: this.now(), chart });
-      posts.push(post);
-      this.enqueue(post);
     }
 
+    console.log(`[Fetching-channel-OONI] Checked ${this.asns.length} network(s): ${posts.length} new alert(s), ${problems.length} problem(s).`);
+    if (problems.length > 0) throw new Error(`OONI check incomplete. ${problems.join('; ')}`);
+
+    if (typeof this.options?.onFetch === 'function') {
+      try {
+        await this.options.onFetch(windowEndDate);
+      } catch (error) {
+        console.warn(`[Fetching-channel-OONI] Could not record the last check time: ${error.message}`);
+      }
+    }
     return posts;
+  }
+
+  // Returns the alert for one network (or null) and the domains that could not be checked.
+  async checkNetwork(asn, { windowStart, windowEnd, alertDate }) {
+    const domainMode = this.watchesDomains ? 'selected' : 'all';
+    const guid = alertGuid(asn, alertDate, domainMode, this.probeCC, this.testName);
+    if (await this.reportExists({ guid })) return { post: null, unverified: [] };
+
+    const query = {
+      asn,
+      since: windowStart,
+      until: windowEnd,
+      probeCC: this.probeCC,
+      testName: this.testName,
+      ...this.requestOptions,
+    };
+    const unverified = [];
+
+    let alerts;
+    if (!this.watchesDomains) {
+      const found = await this.hasMeasurements(query);
+      alerts = evaluateRollingAlert(found, windowStart, windowEnd);
+    } else {
+      const rows = [];
+      let failuresInARow = 0;
+      for (const domain of this.domainConfig.domains) {
+        try {
+          rows.push({ domain, hasMeasurements: await this.hasMeasurements({ ...query, domain }) });
+          failuresInARow = 0;
+        } catch (error) {
+          // Not evidence of zero measurements, so it never becomes an alert trigger.
+          rows.push({ domain, unknown: true });
+          unverified.push(domain);
+          failuresInARow += 1;
+          if (failuresInARow >= MAX_CONSECUTIVE_FAILURES) {
+            throw new Error(`OONI kept failing, stopped after ${failuresInARow} failed checks in a row (last: ${error.message})`);
+          }
+        }
+        if (this.requestDelayMs) await this.sleep(this.requestDelayMs);
+      }
+      alerts = evaluateRollingDomainAlerts(rows, this.domainConfig.domains, windowStart, windowEnd);
+    }
+    if (alerts.length === 0) return { post: null, unverified };
+
+    const chart = await this.loadChart(asn, alerts[0].windowEnd);
+    const post = this.parse({ asn, alerts, guid, fetchedAt: this.now(), chart, unverified });
+    return { post, unverified };
   }
 
   // The 14 blocks of 24 hours of per-domain counts shown on the alert. Fetched once, here,
@@ -156,7 +240,7 @@ class OONIChannel extends PollChannel {
   // alert is saved without a chart rather than retried; only new alerts get one,
   // there is no backfill for alerts created before this.
   async loadChart(asn, windowEnd) {
-    if (this.domainConfig.useAllDomains) return null;
+    if (!this.watchesDomains) return null;
     try {
       return await this.fetchSeries({
         asn,
@@ -172,7 +256,7 @@ class OONIChannel extends PollChannel {
   }
 
   parse(rawMessage) {
-    const { asn, alerts, guid, fetchedAt, chart } = rawMessage;
+    const { asn, alerts, guid, fetchedAt, chart, unverified = [] } = rawMessage;
     const alertDate = alerts[0].alertDate;
     const searchParams = new URLSearchParams({
       probe_cc: this.probeCC,
@@ -186,7 +270,7 @@ class OONIChannel extends PollChannel {
       authoredAt: new Date(alerts[0].windowEnd),
       fetchedAt,
       author: `OONI AS${asn}`,
-      content: alertContent(asn, alerts),
+      content: alertContent(asn, alerts, this.testName),
       url: `https://explorer.ooni.org/search?${searchParams}`,
       platform: 'ooni',
       platformID: guid,
@@ -200,14 +284,17 @@ class OONIChannel extends PollChannel {
         alertDate,
         windowStart: alerts[0].windowStart,
         windowEnd: alerts[0].windowEnd,
-        domainMode: this.domainConfig.useAllDomains ? 'all' : 'selected',
+        domainMode: this.watchesDomains ? 'selected' : 'all',
         domainConfigCapturedAt: fetchedAt,
-        configuredDomains: this.domainConfig.useAllDomains ? [] : this.domainConfig.domains,
+        configuredDomains: this.watchesDomains ? this.domainConfig.domains : [],
+        unverifiedDomains: unverified,
         zeroDomains: alerts
           .filter((alert) => alert.type === 'zero_domain_measurements')
           .map((alert) => alert.domain),
         triggers: alerts,
-        ...(chart ? { chart: { ...chart, fetchedAt: fetchedAt.toISOString() } } : {}),
+        ...(chart
+          ? { chart: { ...chart, domains: domainsToStored(chart.domains), fetchedAt: fetchedAt.toISOString() } }
+          : {}),
       },
     });
 

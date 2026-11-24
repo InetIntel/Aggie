@@ -309,7 +309,7 @@ Report.queryReports = function (query, page, callback, extraFilter) {
     );
   }
 
-  Report.findSortedPage(filter, page, callback);
+  Report.findSortedPage(filter, page, callback, query.sortSpec);
 };
 
 // Deduped total for a mongoose filter: identified reports count once per distinct
@@ -394,7 +394,7 @@ Report.queryReportsDeduped = async function (query, page, callback, extraFilter)
       // reportController.serializeReportResponse (stripChart: true) and lazy-loaded
       // per report on the frontend. Legacy IODA image keys are small and left in place.
       Report.find(filter)
-        .sort({ authoredAt: -1 })
+        .sort(query.sortSpec || { authoredAt: query.sortDirection === 1 ? 1 : -1 })
         .limit(rawFetchLimit)
         .maxTimeMS(QUERY_TIME_LIMIT_MS)
         .lean(),
@@ -442,11 +442,15 @@ Report.queryReportsDeduped = async function (query, page, callback, extraFilter)
   }
 };
 
-Report.findSortedPage = function (filter, page, callback) {
+Report.findSortedPage = function (filter, page, callback, sort = { authoredAt: -1 }) {
+  const sortSpec =
+    typeof sort === 'number'
+      ? { authoredAt: sort === 1 ? 1 : -1 }
+      : sort;
   Report.findPage(
     filter,
     page,
-    { sort: "-authoredAt" },
+    { sort: sortSpec },
     function (err, reports) {
       if (err) return callback(err);
       callback(null, reports);

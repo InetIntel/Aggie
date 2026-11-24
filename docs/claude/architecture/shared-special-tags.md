@@ -1,9 +1,12 @@
 # Tags
 
-Standard tags have set colors by category. Only admins and tag managers can change them.
+Admins can create, edit, and delete tags. Other users need the "Create, edit, and delete tags" permission enabled under their user settings.
 
-Anyone can create a custom tag with a name and color. These show up with stars around the name and are available to everyone.
+Tags are grouped by category, with a set color for each category. Custom tags have their own color and a star around the name. Existing tags are available for selection and incident filtering.
 
-The creator, admins, and tag managers can edit custom tags. Only admins and tag managers can delete them.
+To add missing standard tags:
 
-Incidents can be filtered by any or all selected tags.
+- Preview: `npm run seed:standard-tags`
+- Apply: `npm run seed:standard-tags -- --apply`
+
+Run after deploying the category changes. Existing tags are skipped, including names with different capitalization or surrounding spaces.

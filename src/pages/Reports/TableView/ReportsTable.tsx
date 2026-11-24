@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   faDotCircle,
   faEnvelope,
@@ -7,7 +8,9 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
-import type { Report } from "../../../api/reports/types";
+import type { Report, ReportQueryState } from "../../../api/reports/types";
+import { getAlertFilterOptions } from "../../../api/reports";
+import { getAllGroups } from "../../../api/groups";
 import { useReportMutations } from "../useReportMutations";
 
 import DataTable from "../../../components/DataTable/DataTable";
@@ -27,6 +30,8 @@ interface IProps {
   /** Currently selected reports. A row's "add to incident" button acts on the
    * whole selection when the row is part of a selection of 2+. */
   multiSelection?: Report[];
+  queryState: ReportQueryState;
+  onFilterChange: (values: Partial<ReportQueryState>) => void;
 }
 
 // Per-row action buttons. Holds its own "add to incident" modal state so each
@@ -67,7 +72,7 @@ const ReportRowActions = ({
       {/* Add-to-incident is conditional, so keep it left-most: the always-present
           buttons below stay pinned right (justify-end) and align across rows. */}
       {!report._group && (
-        <AggieButton
+        <AggieButton permission="edit data" permissionResource={{ canEdit: (groupSelection ?? [report]).every((item) => item.canEdit === true) }}
           variant='transparent'
           className={`rounded-lg border border-dashed border-slate-300 ${btnSize}`}
           padding={btnPadding}
@@ -77,7 +82,7 @@ const ReportRowActions = ({
           onClick={() => setAttachSelection(groupSelection ?? [report])}
         />
       )}
-      <AggieButton
+      <AggieButton permission="edit data" permissionResource={report}
         variant={report.read ? "light:lime" : "light:amber"}
         className={`rounded-lg border border-slate-300 ${btnSize}`}
         padding={btnPadding}
@@ -94,7 +99,7 @@ const ReportRowActions = ({
           })
         }
       />
-      <AggieButton
+      <AggieButton permission="edit data" permissionResource={report}
         variant='light:rose'
         className={`rounded-lg border border-slate-300 ${btnSize}`}
         padding={btnPadding}
@@ -111,7 +116,7 @@ const ReportRowActions = ({
           })
         }
       />
-      <AggieButton
+      <AggieButton permission="edit data" permissionResource={report}
         variant='light:green'
         className={`rounded-lg border border-slate-300 ${btnSize}`}
         padding={btnPadding}
@@ -152,8 +157,30 @@ const ReportsTable = ({
   selection,
   onRowClick,
   multiSelection,
+  queryState,
+  onFilterChange,
 }: IProps) => {
-  const columns = buildReportColumns();
+  const { data: locationOptions, isLoading: locationsLoading, isError: locationsError } =
+    useQuery(["alert-filter-options"], getAlertFilterOptions);
+  const { data: groups } = useQuery(["allgroups"], () => getAllGroups());
+  const groupOptions =
+    groups && Array.isArray(groups)
+      ? groups.map((group) => ({
+          key: group._id,
+          value: group.title,
+          data: group,
+          searchstring: `${group.title} #${group.idnum}`,
+        }))
+      : [];
+  const columns = buildReportColumns({
+    query: queryState,
+    onFilterChange: (values) =>
+      onFilterChange({ ...values, page: undefined }),
+    locationOptions,
+    locationsLoading,
+    locationsError,
+    groupOptions,
+  });
 
   return (
     <DataTable

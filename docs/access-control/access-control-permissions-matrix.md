@@ -1,0 +1,46 @@
+# Access Control Permissions
+
+There are two role levels:
+
+- The account role is the default for public or unscoped work.
+- The team role applies when editing data restricted to that team.
+
+Admins bypass team restrictions. Individual allow/deny overrides on the account apply to account permissions. Each team membership can also allow or deny `view data`, `edit data`, `manage incident access`, `view team kpis` or `export kpis` on that one team (`User.teamMemberships[].permissionOverrides`, applied in `getTeamPermissions` in `backend/access/teamMemberships.js`). A deny wins over an allow, and the team's own `permissionLimits.deny` removes a permission from every member, overrides included.
+
+By default, viewers can read, monitors can read and edit, legacy team leads keep their compatibility permissions, and admins have every permission.
+
+| Action | Admin | Global team lead | Team lead | Team monitor | Team viewer |
+|---|---|---|---|---|---|
+| View public data | Yes | Yes | Yes | Yes | Yes |
+| View data restricted to the team | Yes | If assigned or leading | Yes | Yes | Yes |
+| Edit data restricted to the team | Yes | If accessible | Yes | Yes | No |
+| Set incident access | Any team | Any team | Teams led | No, unless separately granted | No |
+| Download a restricted incident attachment | Yes | If incident is accessible | Yes | Yes | Yes |
+| Add or update team members | Yes | Compatibility access | Team led | No | No |
+| Create viewer or monitor accounts | Yes | Yes | For teams led | No | No |
+| Create or delete teams | Yes | Compatibility access | No | No | No |
+| View a country-restricted source and its reports | Yes | Only on a team covering the country | If the team covers the country | If the team covers the country | If the team covers the country |
+| Edit reports from a country-restricted source | Yes | Only with edit rights on a covering team | If the team covers the country | If the team covers the country | No |
+| Configure sources | Yes | Only with an override | Only with an override | Only with an override | Only with an override |
+| View global visualization totals | Yes | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` | Only with `manage trends` |
+| Edit permission overrides | Yes | No | No | No | No |
+| View team KPIs | All teams | Teams led or granted | Teams led or granted | Only with an exception | Only with an exception |
+| View platform-wide KPIs | Yes | Only with `view all kpis` | Only with `view all kpis` | Only with `view all kpis` | Only with `view all kpis` |
+| Export KPIs | Yes | Accessible teams with export permission | Accessible teams with export permission | Only with view and export permissions | Only with view and export permissions |
+
+Account permissions are on the user's profile. Team permissions are under Teams → Advanced. Both are grouped by what they control.
+
+For KPIs, `view team kpis` covers the user's own teams; `view all kpis` covers the whole platform. Exporting needs its own permission. Denies and team limits block team access, but don't override a separate platform-wide grant.
+
+## Access modes
+
+| Item | Mode | Behavior |
+|---|---|---|
+| Source | `public` | Normal authenticated access |
+| Source | `restricted` | Assigned teams only |
+| Source | `public_until` | Reports before the cutoff stay public; reports on or after it require an assigned team |
+| Source | `country_restricted` | Members of teams whose countries overlap the source's countries; a source with no countries is admin-only |
+| Incident | `public` | Normal authenticated access |
+| Incident | `restricted` | Incident, comments, and attachments require an assigned team |
+
+Missing policies are treated as `public`.

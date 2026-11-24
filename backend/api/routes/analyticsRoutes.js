@@ -14,8 +14,10 @@ const NotableActivity = require('../../models/notableActivity');
 const Report = require('../../models/report');
 const reportController = require('../controllers/reportController');
 
-// These are organization-wide historical totals, including restricted activity.
-router.get('/kpis', User.can('admin users'), require('../controllers/kpiController').overview);
+const { requireKpiAccess } = require('../middlewares/kpiAccess');
+const kpiController = require('../controllers/kpiController');
+router.get('/kpis', requireKpiAccess, kpiController.overview);
+router.get('/kpis/export', requireKpiAccess, kpiController.exportCsv);
 
 // Resolves the snapshot and restates
 // the request in the shape those middlewares already understand, so they can run
@@ -97,5 +99,8 @@ const snapshotMutationAccess = [
 
 router.post('/notable-activities/incident', snapshotMutationAccess, analyticsController.analytics_create_incident);
 router.patch('/notable-activities/incident', snapshotMutationAccess, analyticsController.analytics_update_incident);
+// requireReportAccess refuses unless the caller can see and edit all of its reports.
+router.post('/notable-activities/dismissal', snapshotMutationAccess, analyticsController.analytics_dismiss_activity);
+router.delete('/notable-activities/dismissal', snapshotMutationAccess, analyticsController.analytics_restore_activity);
 
 module.exports = router;

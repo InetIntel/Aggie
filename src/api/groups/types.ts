@@ -23,6 +23,7 @@ export interface IncidentAccessPolicy {
 }
 
 export interface Group extends hasId {
+  countryCodes?: string[];
   tags: string[];
   id?: number;
   smtcTags: string[];
@@ -43,6 +44,7 @@ export interface Group extends hasId {
   idnum: number;
   __v: number;
   notes?: string;
+  publicDescription?: string;
   locationName: string;
   comments?: GroupComment[];
   incidentStartedAt: Date;
@@ -61,6 +63,8 @@ export interface Groups {
 }
 
 export interface GroupEditableData extends Partial<hasId> {
+  countryCodes?: string[];
+  reportIds?: string[];
   title: string;
   notes: string;
   verification_status: boolean;
@@ -86,8 +90,10 @@ export interface GroupQueryState {
   escalated?: string | boolean;
   closed?: string | boolean;
   stages?: string; // comma-separated lifecycle stage keys: verification,confirmation,published
+  tableStatus?: string; // comma-separated labels displayed in the incidents table
   title?: string;
   totalReports?: string | number;
+  impactedAsn?: string;
   assignedTo?: string;
   creator?: string;
   after?: string;

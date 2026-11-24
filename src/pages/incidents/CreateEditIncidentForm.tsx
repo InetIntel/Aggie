@@ -1,4 +1,7 @@
+import { getIncidentCreationTeamIds } from "../../utils/permissions";
+import { usePermission } from "../../hooks/usePermission";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   faCircleMinus,
   faUsers,
@@ -33,6 +36,17 @@ import FormikMultiCombobox from "../../components/FormikMultiCombobox";
 import FormikSwitch from "../../components/FormikSwitch";
 import FormikWithSchema from "../../components/FormikWithSchema";
 import { getGeoScopes } from "../../api/geoscope";
+import CountryMultiSelect, { getCountryLabel } from "../../components/CountryMultiSelect";
+import AggieDialog from "../../components/AggieDialog";
+import AggieButton from "../../components/AggieButton";
+
+const IncidentCountryFields = ({ editable }: { editable: boolean }) => {
+  const [field, , helpers] = useField<string[]>("countryCodes");
+  return <div className='rounded border border-slate-300 p-3'>
+    {editable ? <CountryMultiSelect label='Incident countries' value={field.value || []} onChange={(codes) => helpers.setValue(codes)} />
+      : <p>Incident countries: {(field.value || []).join(", ") || "None assigned"}</p>}
+  </div>;
+};
 
 export type IncidentFormValues = Partial<
   Omit<GroupEditableData, "verification_status" | "confirmation_status">
@@ -48,7 +62,9 @@ const incidentSchema = Yup.object().shape({
   verification_status: Yup.string(),
   confirmation_status: Yup.string(),
   publication_status: Yup.array(Yup.string())
-    .required("publication status required").min(1).max(2)
+    .required("publication status required")
+    .min(1)
+    .max(2)
     .test(
       "is-published",
       "Incident cannot be both Not Published and Published",
@@ -57,7 +73,7 @@ const incidentSchema = Yup.object().shape({
         return !(
           value.includes("Not Published") && value.includes("Published")
         );
-      }
+      },
     ),
   assignedTo: Yup.array().of(Yup.string()).optional().default([]),
   notes: Yup.string(),
@@ -65,6 +81,7 @@ const incidentSchema = Yup.object().shape({
   incidentEndedAt: Yup.date(),
   impactedAsns: Yup.array().of(Yup.string()).optional().default([]),
   impactedGeoScopes: Yup.array().of(Yup.string()).optional().default([]),
+  countryCodes: Yup.array().of(Yup.string()).default([]),
   accessPolicyMode: Yup.string().oneOf(["public", "restricted"]),
   accessPolicyTeams: Yup.array()
     .of(Yup.string())
@@ -83,15 +100,14 @@ interface IncidentFormSubmitValues extends GroupEditableData {
 
 const getIncidentAccessTeamIds = (group?: Group) => {
   return (group?.accessPolicy?.teams || []).map((team) =>
-    typeof team === "string" ? team : team._id
+    typeof team === "string" ? team : team._id,
   );
 };
 
-const IncidentAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
+const IncidentAccessPolicyFields = ({ teams, allowPublic }: { teams?: Team[]; allowPublic: boolean }) => {
   const [modeField] = useField<IncidentAccessMode>("accessPolicyMode");
-  const [teamsField, teamsMeta, teamsHelpers] = useField<string[]>(
-    "accessPolicyTeams"
-  );
+  const [teamsField, teamsMeta, teamsHelpers] =
+    useField<string[]>("accessPolicyTeams");
   const selectedTeamIds = teamsField.value || [];
 
   const toggleTeam = (teamId: string) => {
@@ -103,31 +119,29 @@ const IncidentAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
   };
 
   return (
-    <div className='rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3'>
-      <h3 className='font-medium mb-1'>Incident Access</h3>
-      <p className='text-xs text-slate-500 dark:text-gray-400 mb-3'>
-        Public incidents are available normally. Restricted incidents are visible
-        only to the selected teams and administrators.
-      </p>
+    <div className="rounded border border-slate-300 bg-slate-50 dark:bg-gray-900 p-3">
+      <h3 className="font-medium mb-1">Team restriction</h3>
 
       <FormikDropdown
-        name='accessPolicyMode'
-        label='Access Mode'
+        name="accessPolicyMode"
+        label="Allowed teams"
         icon={faLock}
         list={[
-          { _id: "public", label: "Public" },
+          ...(allowPublic ? [{ _id: "public", label: "No additional team restriction" }] : []),
           { _id: "restricted", label: "Restricted to teams" },
         ]}
       />
 
       {modeField.value === "restricted" && (
-        <div className='flex flex-col gap-2 mt-3'>
-          <span className='text-slate-600 dark:text-gray-400'>Allowed Teams</span>
+        <div className="flex flex-col gap-2 mt-3">
+          <span className="text-slate-600 dark:text-gray-400">
+            Allowed Teams
+          </span>
           {teams && teams.length > 0 ? (
             teams.map((team) => (
-              <label key={team._id} className='flex items-center gap-2 text-sm'>
+              <label key={team._id} className="flex items-center gap-2 text-sm">
                 <input
-                  type='checkbox'
+                  type="checkbox"
                   checked={selectedTeamIds.includes(team._id)}
                   onChange={() => toggleTeam(team._id)}
                 />
@@ -135,15 +149,55 @@ const IncidentAccessPolicyFields = ({ teams }: { teams?: Team[] }) => {
               </label>
             ))
           ) : (
-            <p className='text-sm text-slate-500'>No teams are available.</p>
+            <p className="text-sm text-slate-500">No teams are available.</p>
           )}
           {teamsMeta.touched && teamsMeta.error && (
-            <p className='text-sm text-orange-600'>{teamsMeta.error}</p>
+            <p className="text-sm text-orange-600">{teamsMeta.error}</p>
           )}
         </div>
       )}
     </div>
   );
+};
+
+const IncidentAccessSummary = ({ editable, allowPublic, teams }: { editable: boolean; allowPublic: boolean; teams?: Team[] }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [countries] = useField<string[]>("countryCodes");
+  const [mode] = useField<IncidentAccessMode>("accessPolicyMode");
+  const [selectedTeams] = useField<string[]>("accessPolicyTeams");
+  const countryNames = (countries.value || []).map(getCountryLabel);
+  const restrictedToTeams = mode.value === "restricted";
+  const teamNames = (selectedTeams.value || []).map((id) => teams?.find((team) => team._id === id)?.name || id);
+  const missingTeams = restrictedToTeams && !teamNames.length;
+  const summary = [
+    countryNames.length ? countryNames.join(", ") : "No country assigned",
+    restrictedToTeams ? (teamNames.length ? `Teams: ${teamNames.join(", ")}` : "Select allowed teams") : "No additional team restriction",
+  ].join(" · ");
+
+  return <>
+    <div className='rounded border border-slate-300 p-3 flex flex-wrap items-center justify-between gap-3'>
+      <div className='min-w-0 flex-1'>
+        <h3 className='font-medium'>Access</h3>
+        <p className='text-sm text-slate-600 dark:text-gray-300 break-words'>
+          {!countryNames.length && !restrictedToTeams ? "Everyone in Aggie" : summary}
+        </p>
+        {missingTeams && <p className='text-sm text-orange-600'>Select at least one allowed team in Manage access.</p>}
+      </div>
+      {editable && <AggieButton type='button' variant='secondary' icon={faLock} onClick={() => setIsOpen(true)}>
+        Manage access
+      </AggieButton>}
+    </div>
+    <AggieDialog isOpen={isOpen} onClose={() => setIsOpen(false)} data={{ title: "Manage incident access" }} className='p-4 w-full max-w-lg'>
+      <div className='flex flex-col gap-3'>
+        <IncidentCountryFields editable={editable} />
+        <IncidentAccessPolicyFields teams={teams} allowPublic={allowPublic} />
+        {missingTeams && <p className='text-sm text-orange-600'>Select at least one allowed team.</p>}
+        <div className='border-t border-slate-300 pt-3 flex justify-end'>
+          <AggieButton type='button' variant='primary' disabled={missingTeams} onClick={() => setIsOpen(false)}>Done</AggieButton>
+        </div>
+      </div>
+    </AggieDialog>
+  </>;
 };
 
 interface IProps {
@@ -161,30 +215,35 @@ const CreateEditIncidentForm = ({
   onCancel,
   isLoading,
 }: IProps) => {
+  const canEdit = usePermission(group ? "edit data" : "create incident", group);
   const { data: users } = useQuery(["users", "directory"], getUserDirectory);
   const { data: asns } = useQuery<AsnInfo[]>(["asns"], getAllAsns);
   const { data: geoOptions } = useQuery(["geoScopes"], getGeoScopes);
   const { data: session } = useQuery(["session"], getSession, {
     staleTime: 50000,
   });
-  const canManageIncidentAccess =
-    session?.permissions?.includes("manage incident access") === true ||
-    session?.isTeamLead === true;
+  const canManageIncidentAccess = usePermission("manage incident access", group);
   const { data: incidentAccessTeams } = useQuery(
     ["teams", "incident-access"],
     getIncidentAccessTeams,
     {
       enabled: canManageIncidentAccess,
       staleTime: 50000,
-    }
+    },
   );
+
+  const creationTeamIds = getIncidentCreationTeamIds(session);
+  const requiresTeamPolicy = !group && session?.accountPermissions?.includes("edit data") === false;
 
   return (
     <>
       <FormikWithSchema
+        permission={group ? "edit data" : "create incident"}
         initialValues={{
           title: initialValues?.title || group?.title || "",
-          locationName: initialValues?.locationName || group?.locationName || "",
+          countryCodes: initialValues?.countryCodes || group?.countryCodes || [],
+          locationName:
+            initialValues?.locationName || group?.locationName || "",
           closed: initialValues?.closed ?? group?.closed ?? false,
           verification_status:
             initialValues?.verification_status ??
@@ -194,25 +253,32 @@ const CreateEditIncidentForm = ({
             initialValues?.confirmation_status ??
             group?.confirmation_status ??
             "maybe",
-          publication_status:
-            initialValues?.publication_status ||
-            group?.publication_status ||
-            ["Not Published"],
+          // An empty array (e.g. seeded/legacy incidents) would fail the
+          // `min(1)` rule and silently disable Save, so fall back to the default.
+          publication_status: initialValues?.publication_status?.length
+            ? initialValues.publication_status
+            : group?.publication_status?.length
+              ? group.publication_status
+              : ["Not Published"],
           assignedTo:
             initialValues?.assignedTo ||
             group?.assignedTo?.map((i) => i._id) ||
             [],
           notes: initialValues?.notes || group?.notes || "",
-          incidentStartedAt: initialValues?.incidentStartedAt || group?.incidentStartedAt || "",
-          incidentEndedAt: initialValues?.incidentEndedAt || group?.incidentEndedAt || "",
-          impactedAsns: initialValues?.impactedAsns || group?.impactedAsns || [],
+          incidentStartedAt:
+            initialValues?.incidentStartedAt || group?.incidentStartedAt || "",
+          incidentEndedAt:
+            initialValues?.incidentEndedAt || group?.incidentEndedAt || "",
+          impactedAsns:
+            initialValues?.impactedAsns || group?.impactedAsns || [],
           impactedGeoScopes:
             initialValues?.impactedGeoScopes || group?.impactedGeoScopes || [],
-          accessPolicyMode: group?.accessPolicy?.mode || "public",
-          accessPolicyTeams: getIncidentAccessTeamIds(group),
+          accessPolicyMode: group?.accessPolicy?.mode || (requiresTeamPolicy ? "restricted" : "public"),
+          accessPolicyTeams: group ? getIncidentAccessTeamIds(group) : requiresTeamPolicy ? creationTeamIds.slice(0, 1) : [],
         }}
         schema={incidentSchema}
         onSubmit={(values: IncidentFormSubmitValues) => {
+          if (!canEdit) return;
           const {
             accessPolicyMode,
             accessPolicyTeams,
@@ -229,28 +295,31 @@ const CreateEditIncidentForm = ({
               teams: accessPolicyMode === "restricted" ? accessPolicyTeams : [],
             };
           }
+          if (!canManageIncidentAccess) delete payload.countryCodes;
 
           onSubmit(payload);
         }}
+        disabled={!canEdit}
         loading={isLoading}
         onSubmitText={!!group ? "Update Incident" : "Create Incident"}
         onClose={onCancel}
       >
-        <div className='flex gap-6 text-slate-200 dark:text-gray-300 pb-1'>
-          <FormikSwitch
-            name='closed'
-            label='Closed'
-            icon={faCircleMinus}
-          />
+        <div className="flex gap-6 text-slate-200 dark:text-gray-300 pb-1">
+          <FormikSwitch name="closed" label="Closed" icon={faCircleMinus} />
         </div>
-        <FormikInput name='title' label='Title' />
-        {canManageIncidentAccess && (
-          <IncidentAccessPolicyFields teams={incidentAccessTeams} />
-        )}
+        <FormikInput name="title" label="Title" />
+        <IncidentAccessSummary
+          editable={canManageIncidentAccess}
+          allowPublic={session?.accountPermissions?.includes("edit data") === true}
+          teams={incidentAccessTeams?.filter((team) =>
+            session?.role === "admin" || session?.role === "team_lead" ||
+            session?.teamPermissions?.[team._id]?.includes("edit data")
+          )}
+        />
         <FormikMultiCombobox
-          name='assignedTo'
-          unitLabel='User'
-          label='Assign User to Incident'
+          name="assignedTo"
+          unitLabel="User"
+          label="Assign User to Incident"
           icon={faUsers}
           list={
             users?.map((i) => {
@@ -259,36 +328,36 @@ const CreateEditIncidentForm = ({
           }
         />
 
-        <div className=' border-b'></div>
+        <div className=" border-b"></div>
 
         <FormikDropdown
-          name='verification_status'
-          label='Outage verified?'
+          name="verification_status"
+          label="Outage verified?"
           list={[
             // https://formik.org/docs/guides/validation#frequently-asked-questions
             // Formik uses undefined to represent empty states.
-            {_id: "maybe", label: "Verifying"},
-            {_id: "true", label: "Verified"},
-            {_id: "false", label: "Unable to Verify"},
+            { _id: "maybe", label: "Verifying" },
+            { _id: "true", label: "Verified" },
+            { _id: "false", label: "Unable to Verify" },
           ]}
-          placeholder='Verifying'
+          placeholder="Verifying"
           icon={faMagnifyingGlassChart}
         />
         <FormikDropdown
-          name='confirmation_status'
-          label='Reason confirmed?'
+          name="confirmation_status"
+          label="Reason confirmed?"
           list={[
-            {_id: "maybe", label: "Confirming"},
-            {_id: "true", label: "Confirmed"},
-            {_id: "false", label: "Unable to Confirm"},
+            { _id: "maybe", label: "Confirming" },
+            { _id: "true", label: "Confirmed" },
+            { _id: "false", label: "Unable to Confirm" },
           ]}
-          placeholder='Confirming'
+          placeholder="Confirming"
           icon={faComments}
         />
         <FormikMultiCombobox
-          name='publication_status'
-          unitLabel='status'
-          label='Published?'
+          name="publication_status"
+          unitLabel="status"
+          label="Published?"
           icon={faBullhorn}
           list={PUBLISHED_OPTIONS.map((i) => {
             return { key: i, value: i };
@@ -297,56 +366,57 @@ const CreateEditIncidentForm = ({
         {/* show only in edit mode */}
         {group && (
           <>
-          <FormikMultiCombobox
-            name='impactedAsns'
-            unitLabel='ASN'
-            label='Impacted ASNs'
-            icon={faMagnifyingGlassChart}
-            list={
-              asns?.map((a) => {
-                const num = a.number ?? Number(a.asn.replace(/^as/i, ""));
-                const parts = [
-                  `AS${num}`,
-                  a.name || undefined,
-                ].filter(Boolean);
-                return {
-                  key: a.asn,             // form: "as58303"
-                  value: parts.join(" — "), // label shown in UI
-                };
-              }) || [{ key: "", value: "Loading ASNs…" }]
-            }
-          />
-          <FormikMultiCombobox
-            name='impactedGeoScopes'
-            unitLabel='area'
-            label='Impacted Geographic Areas'
-            icon={faCompass}
-            list={
-              geoOptions?.map((g) => ({ key: g.key, value: g.value })) || []
-            }
-          />
-          <FormikDateTime
-            name='incidentStartedAt'
-            label='Incident Start Time (UTC)'
-            icon={faBackwardStep}
-          />
-          <FormikDateTime
-            name='incidentEndedAt'
-            label='Incident End Time (UTC)'
-            icon={faForwardStep}
-          />
+            <FormikMultiCombobox
+              name="impactedAsns"
+              unitLabel="ASN"
+              label="Impacted ASNs"
+              icon={faMagnifyingGlassChart}
+              list={
+                asns?.map((a) => {
+                  const num = a.number ?? Number(a.asn.replace(/^as/i, ""));
+                  const parts = [`AS${num}`, a.name || undefined].filter(
+                    Boolean,
+                  );
+                  return {
+                    key: a.asn, // form: "as58303"
+                    value: parts.join(" — "), // label shown in UI
+                  };
+                }) || [{ key: "", value: "Loading ASNs…" }]
+              }
+            />
+            <FormikMultiCombobox
+              name="impactedGeoScopes"
+              unitLabel="area"
+              label="Impacted Geographic Areas"
+              icon={faCompass}
+              list={
+                geoOptions?.map((g) => ({ key: g.key, value: g.value })) || []
+              }
+            />
+            <FormikDateTime
+              name="incidentStartedAt"
+              label="Incident Start Time (UTC)"
+              icon={faBackwardStep}
+            />
+            <FormikDateTime
+              name="incidentEndedAt"
+              label="Incident End Time (UTC)"
+              icon={faForwardStep}
+            />
           </>
         )}
 
         {/* <FormikInput name='locationName' label='Location' icon={faCompass} /> hide from UI */}
 
         <label>
-          <span className='text-slate-600 dark:text-gray-400'>Description:</span>
+          <span className="text-slate-600 dark:text-gray-400">
+            Description:
+          </span>
           <Field
-            as='textarea'
-            name='notes'
-            className='focus-theme px-3 py-2 border border-slate-300 bg-slate-50 dark:bg-gray-900 rounded w-full min-h-36'
-            placeholder='Write useful information for Report trackers to know to help them understand this incident'
+            as="textarea"
+            name="notes"
+            className="focus-theme px-3 py-2 border border-slate-300 bg-slate-50 dark:bg-gray-900 rounded w-full min-h-36"
+            placeholder="Write useful information for Report trackers to know to help them understand this incident"
           />
         </label>
       </FormikWithSchema>

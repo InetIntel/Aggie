@@ -6,8 +6,8 @@ const validator = require('validator');
 const eventRouter = require('../sockets/event-router');
 const { hasPermission } = require('../../access/permissions');
 
-// Everyone who can view data can create a shared special tag. Never accept
-// category, ownership, or editing flags from this less-privileged endpoint.
+// Custom tags use the same explicit management permission as standard tags.
+// Never accept category, ownership, or editing flags from this endpoint.
 exports.tag_create_special = (req, res) => {
   const { name, color = '#7c3aed', description = '' } = req.body;
   if (typeof name !== 'string' || !name.trim() || name.trim().length > 80 ||
@@ -56,12 +56,10 @@ exports.tag_update = (req, res) => {
     if (!tag) return res.sendStatus(404);
     const actor = req.accessUser;
     const canManage = hasPermission(actor, 'edit tags');
-    const isCreator = actor && actor._id && tag.user &&
-      String(actor._id) === String(tag.user._id || tag.user);
-    if (!canManage && !(tag.category === 'special' && isCreator)) {
-      return res.status(403).send('Only the creator or a tag manager can edit this custom tag.');
+    if (!canManage) {
+      return res.status(403).send('You are not authorized to edit tags.');
     }
-    if (tag.category === 'special' || !canManage) {
+    if (tag.category === 'special') {
       const { name = tag.name, color = tag.color, description = tag.description || '' } = req.body;
       if (typeof name !== 'string' || !name.trim() || name.trim().length > 80 ||
           typeof color !== 'string' || !/^#[0-9a-f]{6}$/i.test(color) ||

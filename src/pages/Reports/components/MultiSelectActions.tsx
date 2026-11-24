@@ -53,11 +53,12 @@ const MultiSelectActions = ({
   }
 
   const idList = selection.map((i) => i._id);
+  const selectionPermission = selection.length ? { canEdit: selection.every((report) => report.canEdit === true) } : undefined;
 
   return (
     <>
       <div className=' rounded-lg flex border border-slate-300 min-w-fit'>
-        <AggieButton
+        <AggieButton permission="edit data" permissionResource={selectionPermission}
           variant='light:amber'
           className='rounded-l-lg'
           disabled={disabled || setRead.isLoading}
@@ -72,7 +73,7 @@ const MultiSelectActions = ({
         >
           Read
         </AggieButton>
-        <AggieButton
+        <AggieButton permission="edit data" permissionResource={selectionPermission}
           variant='light:lime'
           className='rounded-r-lg'
           disabled={disabled || setRead.isLoading}
@@ -89,7 +90,7 @@ const MultiSelectActions = ({
         </AggieButton>
       </div>
       <div className='flex rounded-lg border border-slate-300'>
-        <AggieButton
+        <AggieButton permission="edit data" permissionResource={selectionPermission}
           variant='light:rose'
           className='rounded-l-lg'
           disabled={disabled || setIrrelevance.isLoading}
@@ -104,7 +105,7 @@ const MultiSelectActions = ({
         >
           Ignore
         </AggieButton>
-        <AggieButton
+        <AggieButton permission="edit data" permissionResource={selectionPermission}
           variant='light:green'
           className='rounded-r-lg'
           disabled={disabled || setIrrelevance.isLoading}
@@ -122,7 +123,7 @@ const MultiSelectActions = ({
       </div>
 
       <div className='flex font-medium'>
-        <AggieButton
+        <AggieButton permission="edit data" permissionResource={selectionPermission}
           className='px-2 py-1 rounded-l-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600'
           onClick={() => setAddReportModal(true)}
           disabled={disabled}
@@ -130,7 +131,7 @@ const MultiSelectActions = ({
           <FontAwesomeIcon icon={faPlus} />
           Add to Incident
         </AggieButton>
-        <DropdownMenu
+        <DropdownMenu permission="edit data" permissionResource={selectionPermission}
           variant='secondary'
           buttonElement={
             <FontAwesomeIcon
@@ -142,7 +143,7 @@ const MultiSelectActions = ({
           panelClassName='right-0'
           disabled={disabled}
         >
-          <AggieButton
+          <AggieButton permission="create incident" permissionResource={selectionPermission}
             className='px-3 py-2 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 '
             onClick={onNewIncidentFromReports}
           >

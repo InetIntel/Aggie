@@ -4,6 +4,10 @@ export interface DataTableColumn<T> {
   id: string;
   /** Header label. When a string it doubles as the spillover `<dt>` label. */
   header: React.ReactNode;
+  /** Optional interactive controls for sorting or filtering a column. */
+  headerAction?: React.ReactNode;
+  /** The headerAction renders the header text itself (as its trigger); skip the plain label. */
+  headerActionIsLabel?: boolean;
   cell: (row: T) => React.ReactNode;
   /**
    * Collapse priority. Lower = more persistent (collapses later); columns with a

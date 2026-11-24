@@ -4,7 +4,9 @@
 const RANGE_PRESETS = Object.freeze({
   TODAY: 'today',
   LAST_24H: 'last24h',
+  LAST_3D: 'last3d',
   LAST_7D: 'last7d',
+  LAST_30D: 'last30d',
   // Caller-supplied `from`/`to`; its valid buckets depend on the span (see below).
   CUSTOM: 'custom',
 });
@@ -33,11 +35,29 @@ const VALID_BUCKETS_BY_RANGE = Object.freeze({
     BUCKET_PRESETS.ONE_HOUR,
     BUCKET_PRESETS.SIX_HOURS,
   ],
+  [RANGE_PRESETS.LAST_3D]: [
+    BUCKET_PRESETS.ONE_HOUR,
+    BUCKET_PRESETS.SIX_HOURS,
+    BUCKET_PRESETS.TWENTY_FOUR_HOURS,
+  ],
   [RANGE_PRESETS.LAST_7D]: [
     BUCKET_PRESETS.ONE_HOUR,
     BUCKET_PRESETS.SIX_HOURS,
     BUCKET_PRESETS.TWENTY_FOUR_HOURS,
   ],
+  // Like a custom range over a week: 6h is the finest, keeping 30 days at ~120 points.
+  [RANGE_PRESETS.LAST_30D]: [
+    BUCKET_PRESETS.SIX_HOURS,
+    BUCKET_PRESETS.TWENTY_FOUR_HOURS,
+  ],
+});
+
+// Rolling presets: a fixed number of days back from the snapped "now".
+const ROLLING_RANGE_DAYS = Object.freeze({
+  [RANGE_PRESETS.LAST_24H]: 1,
+  [RANGE_PRESETS.LAST_3D]: 3,
+  [RANGE_PRESETS.LAST_7D]: 7,
+  [RANGE_PRESETS.LAST_30D]: 30,
 });
 
 // A custom range gets the bucket sizes of the preset closest to its length. Up to a week
@@ -350,10 +370,10 @@ function resolvePresetRange(rangePreset, latestEndUtc, timeZone) {
 
   if (rangePreset === RANGE_PRESETS.TODAY) {
     rangeStartUtc = getBucketStartUtc(rangeEndUtc, 24 * 60, timeZone);
-  } else if (rangePreset === RANGE_PRESETS.LAST_24H) {
-    rangeStartUtc = new Date(rangeEndUtc.getTime() - 24 * 60 * 60 * 1000);
-  } else if (rangePreset === RANGE_PRESETS.LAST_7D) {
-    rangeStartUtc = new Date(rangeEndUtc.getTime() - 7 * 24 * 60 * 60 * 1000);
+  } else if (ROLLING_RANGE_DAYS[rangePreset]) {
+    rangeStartUtc = new Date(
+      rangeEndUtc.getTime() - ROLLING_RANGE_DAYS[rangePreset] * 24 * 60 * 60 * 1000
+    );
   }
   return { rangeStartUtc, rangeEndUtc };
 }

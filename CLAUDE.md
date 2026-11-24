@@ -14,9 +14,48 @@ Node `^22.14.0` (use `fnm install` then `fnm use`; pinned in `.nvmrc`). MongoDB 
 - `npm run build` — production React build (`CI=false`, so warnings don't fail the build).
 - `npm start` — production: runs `node app.js` with `ENVIRONMENT=production`. Expects the React build to already exist; in production the API process serves `/build`.
 - `node install.js` — runs automatically as `postinstall`. Ensures Report indexes and creates an `admin` user from `ADMIN_EMAIL` / `ADMIN_PASSWORD` if none exists.
-- No test runner is configured (`npm test` is not wired up).
+- Tests: see Testing below.
 - Dev URL: `https://localhost:8000` (the backend defaults to HTTPS if `backend/config/key.pem` and `cert.pem` exist, otherwise HTTP). The frontend dev server proxies `/api`, `/login`, `/logout`, `/session`, `/socket` to `http://127.0.0.1:3000` via `src/setupProxy.js`.
-- Branching: feature branches off `develop` (the staging/main branch — production is built from it). Don't push directly to `develop`.
+- Branching:
+  1. Cut feature branches from `development`.
+  2. Open PRs against `development`. Integrate and test there first.
+  3. When everything works on `development`, merge `development` into `staging`. Then promote `staging` to production. Production is built from `staging`.
+  - `development` and `staging` stay 1:1.
+  - Do not push directly to `development` or `staging`.
+  - `develop` is a stale branch. Do not use it.
+
+## Testing
+
+Three test types exist. Unit tests need no database or server.
+
+| Type | Command | What it tests | Needs |
+|------|---------|---------------|-------|
+| Backend unit | `npm test` | Every `backend/**/*.test.js`, with the built-in `node --test` runner | Nothing |
+| Frontend component | `npm run test:frontend` | Every `src/**/*.test.*`, with Jest from `react-scripts` (jsdom) | Nothing |
+| Access-control smoke | `npm run smoke:access:seed`, then `smoke:access:matrix` and `smoke:access:screens`, then `smoke:access:cleanup` | Per-role API pass/fail grid, and per-role screenshots of each page | Local database and both dev servers |
+
+`npm run test:ooni` runs only the OONI subset of the backend unit tests.
+
+Which test to add:
+
+- **Backend logic** (controllers, query builders, fetching, hooks): add a backend unit test next to the file (`<name>.test.js`).
+- **Frontend behavior** (filters, forms, URL state, what a component shows): add a component test next to the component (`<Name>.test.tsx`).
+- **Role or permission changes**: update the smoke fixtures or matrix. See `docs/claude/runbooks/access-control-smoke-tests.md`.
+
+Frontend component test rules:
+
+- Import the Jest globals from `@jest/globals`. The project has no `@types/jest`.
+- Render with `ReactDOM.render` and `act`. The project has no `@testing-library`.
+- Mock the `src/api/*` modules with `jest.mock`. Seed the `QueryClient` cache with `setQueryData` when the first render needs query data.
+- Wrap components that use URL params in `MemoryRouter`.
+- If Jest fails with "Cannot use import statement outside a module", add that package to `jest.transformIgnorePatterns` in `package.json`.
+- Example: `src/pages/Reports/components/ReportsFilters.test.tsx`.
+
+Smoke tests: **agents run these, or start dev servers for them, only when the developer asks.** If the developer does not ask, give them the exact commands to run, then read the output they paste back. When the developer asks an agent to run them:
+
+- Before you seed, make sure `.env` points at a local database and `ADMIN_PARTY=false`.
+- Run the backend with `ENVIRONMENT=development node app.js`, not nodemon. The matrix writes `scratchpad/*.json`, nodemon restarts on it, and the KPI checks then fail with `UND_ERR_SOCKET`.
+- When done, stop the servers you started, run `npm run smoke:access:cleanup`, and switch back to the developer's branch.
 
 ## Required env (`.env`, copied from `.env.example`)
 
@@ -31,6 +70,8 @@ Before gathering context or planning, check the matching `docs/claude/` subfolde
 - **Planning new or novel work:** check `docs/claude/plans/` for prior plans on the same or nearby areas, and for decisions already made.
 
 These docs can drift from the code. If something in a doc you read is wrong or out of date (it contradicts the code, names files or functions that no longer exist, or describes behavior that has changed), tell the user what is stale and ask whether to update the doc. Don't edit it silently, and don't just ignore it.
+
+Write all prose in [ASD-STE100 Simplified Technical English](https://www.asd-ste100.org/): short sentences (procedures 20 words max, descriptions 25 words max), one instruction per sentence, imperative mood for steps, active voice, one meaning per word, no idioms or phrasal verbs, and the same technical name for the same thing every time. Use lists and tables for steps and options. This applies to documentation (files in `docs/claude/`, READMEs and other repo `.md` docs), chat replies, PR descriptions, GitHub issues and commit messages.
 
 ## Architecture
 
@@ -54,6 +95,7 @@ Index of `docs/claude/architecture/` (see Project docs above). These cover the f
 Open bugs that have been investigated are written up in `docs/claude/bugs/`. New workups go in that folder and get a line in this list.
 
 - `incident-attachments-on-local-disk.md`: incident comment attachments are written to `public/uploads` instead of MongoDB, so they don't move with the database and are lost if the checkout folder is recreated
+- `ooni-alerts-not-saved.md`: OONI alerts stopped saving after Oct 7 because the stored chart used domain names as keys, which MongoDB rejects, plus the related fetching weak points
 
 ### Multi-process backend
 
@@ -116,7 +158,7 @@ When the user gives requirements and asks for a GitHub issue, turn them into iss
 
 - **Output** the issue as a single fenced ` ```markdown ` block in chat so it can be pasted directly into GitHub. Do **not** open the issue with `gh` unless the user explicitly asks.
 - **Ask only if blocked.** If a required piece (e.g. the actual-vs-expected behavior of a bug) is missing and can't be inferred, ask; otherwise fill from the requirements and sensible defaults, and note any assumptions below the block.
-- Follow the repo's writing rules: no em dashes; reference code with repo-relative paths like `backend/api/controllers/sourceController.js`; link related issues/PRs with `#123`. Do not force line breaks in markdown code; let prose wrap naturally.
+- Follow the repo's writing rules: ASD-STE100 (see Project docs above); no em dashes; reference code with repo-relative paths like `backend/api/controllers/sourceController.js`; link related issues/PRs with `#123`. Do not force line breaks in markdown code; let prose wrap naturally.
 
 **Title:** concise and imperative, prefixed with the type in brackets. Example: `[Bug] Report count drifts after incident merge`. Pick the prefix by what the issue is:
 

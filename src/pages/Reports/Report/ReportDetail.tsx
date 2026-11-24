@@ -1,3 +1,4 @@
+import { usePermission } from "../../../hooks/usePermission";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -43,6 +44,7 @@ const ReportDetail = ({
   isBatchMode = false,
   compact = false,
 }: IProps) => {
+  const canEdit = usePermission("edit data", report);
   const navigate = useNavigate();
   const { setRead, setIrrelevance } = useReportMutations({ key: listQueryKey });
   const [addReportModal, setAddReportModal] = useState(false);
@@ -50,7 +52,7 @@ const ReportDetail = ({
   // Mark as read once when the detail becomes visible.
   const [markedId, setMarkedId] = useState("");
   useEffect(() => {
-    if (!markReadOnView || !report?._id || markedId === report._id) return;
+    if (!canEdit || !markReadOnView || !report?._id || markedId === report._id) return;
     if (!report.read) {
       setRead.mutate({
         reportIds: [report._id],
@@ -59,7 +61,7 @@ const ReportDetail = ({
       });
     }
     setMarkedId(report._id);
-  }, [report, markReadOnView, markedId, setRead]);
+  }, [report, markReadOnView, markedId, setRead, canEdit]);
 
   function newIncidentFromReport() {
     const params = new URLSearchParams({ reports: [report._id].toString() });
@@ -78,7 +80,7 @@ const ReportDetail = ({
       />
 
       <nav className='flex flex-wrap justify-end items-center gap-1 text-xs'>
-        <AggieButton
+        <AggieButton permission="edit data" permissionResource={report}
           variant={report.read ? "light:lime" : "light:amber"}
           className='rounded-lg border border-slate-300'
           onClick={(e) => {
@@ -96,7 +98,7 @@ const ReportDetail = ({
           {report.read ? "Unread" : "Read"}
         </AggieButton>
         <div className='rounded-lg border border-slate-300 flex'>
-          <AggieButton
+          <AggieButton permission="edit data" permissionResource={report}
             variant='light:rose'
             className='rounded-l-lg'
             onClick={(e) => {
@@ -113,7 +115,7 @@ const ReportDetail = ({
           >
             Ignore
           </AggieButton>
-          <AggieButton
+          <AggieButton permission="edit data" permissionResource={report}
             variant='light:green'
             className='rounded-r-lg'
             onClick={(e) => {
@@ -133,7 +135,7 @@ const ReportDetail = ({
         </div>
 
         <div className='flex font-medium'>
-          <AggieButton
+          <AggieButton permission="edit data" permissionResource={report}
             className='px-2 py-1 rounded-l-lg bg-slate-100 dark:bg-gray-700 border border-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600'
             onClick={(e) => {
               e.stopPropagation();
@@ -152,7 +154,7 @@ const ReportDetail = ({
               </>
             )}
           </AggieButton>
-          <DropdownMenu
+          <DropdownMenu permission="edit data" permissionResource={report}
             variant='secondary'
             buttonElement={
               <FontAwesomeIcon icon={faCaretDown} className='ui-open:rotate-180' />
@@ -160,7 +162,7 @@ const ReportDetail = ({
             className='px-2 py-1 rounded-r-lg border-y border-r'
             panelClassName='right-0'
           >
-            <AggieButton
+            <AggieButton permission="create incident" permissionResource={report}
               className='px-3 py-2 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600'
               onClick={newIncidentFromReport}
             >

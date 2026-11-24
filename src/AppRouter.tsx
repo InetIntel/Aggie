@@ -32,6 +32,7 @@ import FetchIndicator from "./components/FetchIndicator";
 import Settings from "./pages/Settings";
 import Kpis from "./pages/Settings/Kpis";
 import Dashboard from "./pages/Dashboard";
+import Timeline from "./pages/Timeline";
 import { useQueryClient } from "@tanstack/react-query";
 import AllReportsList from "./pages/Reports/AllReportsList";
 import Style from "./pages/Style";
@@ -90,11 +91,12 @@ const PrivateRoutes = ({ sessionData }: IPrivateRouteProps) => {
       </Route>
 
       <Route path='/dashboard' element={<Dashboard />} />
+      <Route path='/timeline' element={<Timeline />} />
       <Route path='/incidents' element={<Incidents />} />
       <Route path='/incidents/:id' element={<Incident />} />
       <Route path='/incidents/new' element={<NewIncident />} />
       <Route path='/settings' element={<Settings />}>
-        {sessionData?.role === 'admin' && <Route path='kpis' element={<Kpis />} />}
+        {sessionData?.kpiAccess?.canView && <Route path='kpis' element={<Kpis accessKey={JSON.stringify([sessionData._id, sessionData.kpiAccess])} />} />}
         <Route path='sources' element={<SourcesIndex />} />
         <Route path='source/:id' element={<SourceDetails />} />
         <Route path='tags' element={<TagsIndex />} />

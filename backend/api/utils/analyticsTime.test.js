@@ -204,3 +204,25 @@ test('presets still reject a bucket they do not offer', () => {
     /Unsupported analytics bucket preset/
   );
 });
+
+test('rolling presets span their number of days back from the snapped now', () => {
+  const expected = { last24h: 1, last3d: 3, last7d: 7, last30d: 30 };
+  for (const [range, days] of Object.entries(expected)) {
+    const window = resolveAnalyticsTimeWindow({ range, now: NOW });
+    assert.equal(iso(window.rangeEndUtc), '2026-09-29T15:40:00.000Z');
+    assert.equal(
+      window.rangeEndUtc.getTime() - window.rangeStartUtc.getTime(),
+      days * DAY * 60 * 1000,
+      range
+    );
+  }
+});
+
+test('last3d defaults to hourly; last30d defaults to 6h and rejects hourly', () => {
+  assert.equal(resolveAnalyticsTimeWindow({ range: 'last3d', now: NOW }).bucketPreset, '1h');
+  assert.equal(resolveAnalyticsTimeWindow({ range: 'last30d', now: NOW }).bucketPreset, '6h');
+  assert.throws(
+    () => resolveAnalyticsTimeWindow({ range: 'last30d', bucket: '1h', now: NOW }),
+    /Unsupported analytics bucket preset/
+  );
+});
