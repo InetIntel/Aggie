@@ -31,6 +31,27 @@ export const getGroups = async (
   }
 };
 
+// Every published incident (includes "Shared with Networks"), open and closed.
+// /api/group pages at 100, so keep fetching until we have the full total.
+export const getPublishedGroups = async () => {
+  const results: Group[] = [];
+  for (let page = 0; ; page++) {
+    const params = new URLSearchParams({
+      stages: "published",
+      closed: "all",
+      sortBy: "descStartDate",
+      page: String(page),
+    });
+    const { data } = await axios.get<Groups | undefined>(
+      "/api/group?" + params.toString()
+    );
+    const batch = data?.results ?? [];
+    results.push(...batch);
+    if (!batch.length || results.length >= (data?.total ?? 0)) break;
+  }
+  return results;
+};
+
 const defaultAllGroups = {
   lean: "true",
 };
@@ -41,11 +62,19 @@ export const getAllGroups = async (
   options = { ...defaultAllGroups, ...options };
   const params = new URLSearchParams(options);
   const { data } = await axios.get<
-    | Pick<Group, "title" | "_id" | "idnum" | "escalated" | "closed">[]
+    | Pick<Group, "title" | "_id" | "idnum" | "escalated" | "closed" | "impactedAsns">[]
     | Groups
     | undefined
   >("/api/group/all?" + params.toString());
 
+  return data;
+};
+
+export const getGroupFilterOptions = async () => {
+  const { data } = await axios.get<{
+    incidents: { idnum: number; title: string }[];
+    asns: string[];
+  }>("/api/group/filter-options");
   return data;
 };
 

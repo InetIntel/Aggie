@@ -25,11 +25,14 @@ const Team = require('../../models/team');
 const {
   combineReportFilters,
   getReportSourceAccessFilter,
+  getReportAccessUser,
 } = require('../utils/reportSourceAccess');
 const { normalizeIds } = require('../../access/teamAccess');
 const {
   hideRestrictedIncidentReferences,
 } = require('../../access/reportIncidentReferences');
+
+const { resolvePermissionScope } = require('../middlewares/scopedPermissionMiddlewares');
 
 // Determine the search keywords
 const parseQueryData = (queryString) => {
@@ -38,7 +41,7 @@ const parseQueryData = (queryString) => {
   var query = _.pick(queryString, ['alerts', 'keywords', 'status', 'after', 'before',
     'outageAfter', 'outageBefore', 'eventAggKeyBase', 'media', 'dataSources', 'entityLevel',
     'sourceId', 'groupId', 'author', 'tags', 'list', 'reportIds', 'escalated', 'veracity',
-    'isRelevantReports', "irrelevant", 'ongoing', 'countries', 'asns', 'regions']);
+    'isRelevantReports', "irrelevant", 'ongoing', 'sort', 'sortBy', 'network', 'countries', 'asns', 'regions']);
 
   if (query.ongoing === 'true') {
     query.isOutageOngoing = true;
@@ -61,7 +64,7 @@ const parseQueryData = (queryString) => {
   return query;
 }
 
-const canModifyReportsWithinScope = async (
+const getEditableReportIds = async (
   reportIds,
   scopedTeamIds,
   allowUnscoped = false
@@ -111,7 +114,7 @@ const canModifyReportsWithinScope = async (
       ? normalizeIds(group.accessPolicy.teams)
       : [],
   ]));
-  return reports.length === reportIds.length && reports.every((report) => {
+  return reports.filter((report) => {
     const reportTeamIds = [
       ...(report._sources || []).flatMap(
         (sourceId) => sourceTeams.get(String(sourceId)) || []
@@ -121,7 +124,12 @@ const canModifyReportsWithinScope = async (
 
     if (reportTeamIds.length === 0) return allowUnscoped;
     return reportTeamIds.some((teamId) => allowedTeams.has(teamId));
-  });
+  }).map((report) => String(report._id));
+};
+
+const canModifyReportsWithinScope = async (ids, teamIds, allowUnscoped) => {
+  const editable = await getEditableReportIds(ids, teamIds, allowUnscoped);
+  return editable.length === ids.length;
 };
 
 exports.requireReportAccess = async (req, res, next) => {
@@ -258,6 +266,17 @@ const serializeReportResponse = (payload, { stripChart = true } = {}) => {
 const sendReportResponse = async (req, res, payload, status = 200, options = {}) => {
   try {
     const serialized = serializeReportResponse(payload, options);
+    const rows = Array.isArray(serialized) ? serialized
+      : Array.isArray(serialized?.results) ? serialized.results : [serialized];
+    const user = await getReportAccessUser(req);
+    const scope = await resolvePermissionScope(user, 'edit data');
+    const editableIds = scope.global || (!scope.allowUnscoped && scope.teamIds.length === 0) ? new Set() : new Set(await getEditableReportIds(
+      rows.filter((row) => row?._id).map((row) => String(row._id)),
+      scope.teamIds, scope.allowUnscoped
+    ));
+    rows.forEach((row) => {
+      if (row?._id) row.canEdit = scope.global || editableIds.has(String(row._id));
+    });
     const safePayload = await hideRestrictedIncidentReferences(
       req.accessUser || req.user,
       serialized
@@ -275,22 +294,23 @@ const sendReportResponse = async (req, res, payload, status = 200, options = {})
 // Get a list of queried Reports
 exports.report_filter_options = async (req, res) => {
   try {
-    const { countryExpression, regionExpression } = require('../../shared/alertLocations');
+    const { countryExpression, regionExpression, asnExpression } = require('../../shared/alertLocations');
     const countries = require('i18n-iso-countries');
     const access = await getReportSourceAccessFilter(req);
     const rows = await Report.aggregate([
       { $match: combineReportFilters({ isOutageEvent: true }, access) },
-      { $project: { country: countryExpression, region: regionExpression, asn: 1, geoScope: 1,
+      { $project: { country: countryExpression, region: regionExpression, asn: asnExpression, geoScope: 1,
         network: { $ifNull: ['$metadata.rawAPIResponse.networkName', { $ifNull: [
           '$metadata.rawAPIResponse.rawEvent.asnDetails.name', '$metadata.rawAPIResponse.entityName',
         ] }] } } },
       { $group: { _id: { country: '$country', region: '$region', asn: '$asn' }, scope: { $max: '$geoScope' }, network: { $max: '$network' } } },
     ]);
-    const options = { countries: new Map(), asns: new Map(), regions: new Map() };
+    const options = { countries: new Map(), asns: new Map(), regions: new Map(), networks: new Map() };
     for (const row of rows) {
       const { country, region, asn } = row._id;
       const countryName = country && (countries.getName(country, 'en') || country);
       if (country) options.countries.set(country, countryName);
+      if (row.network) options.networks.set(row.network, row.network);
       if (asn) options.asns.set(asn, `${asn.toUpperCase()}${row.network ? ` — ${row.network}` : ''}`);
       if (region) options.regions.set(region, `${row.scope || region}${countryName ? ` (${countryName})` : ''}`);
     }
@@ -537,31 +557,21 @@ exports.reports_escalated_update = (req, res) => {
   });
 }
 // mark selected reports as irrelevent
-exports.reports_irrelevant_update = (req, res) => {
+exports.reports_irrelevant_update = async (req, res) => {
   if (!req.body.ids || !req.body.ids.length) return res.sendStatus(200);
-  Report.find({ _id: { $in: req.body.ids } }, (err, reports) => {
-    if (err) return res.status(err.status).send(err.message);
+  try {
+    const reports = await Report.find({ _id: { $in: req.body.ids } }).exec();
     if (reports.length === 0) return res.sendStatus(200);
-    let remaining = reports.length;
-    reports.forEach((report) => {
-      // Mark each report as escalated to catch it in model
+    await Promise.all(reports.map(async (report) => {
       report.setIrrelevant(req.body.irrelevance);
-      report.save((err) => {
-        if (err) {
-          if (!res.headersSent) res.status(err.status).send(err.message)
-          return;
-        }
-        
-        if (--remaining === 0) {
-          eventRouter.publish('reports:update', { ids: req.body.ids, update: { irrelevant: req.body.irrelevance } }).then(() => {
-            return res.sendStatus(200)
-          });
-
-        };
-      });
-    });
-  });
-}
+      await report.save();
+    }));
+    await eventRouter.publish('reports:update', { ids: req.body.ids, update: { irrelevant: req.body.irrelevance } });
+    return res.sendStatus(200);
+  } catch (err) {
+    if (!res.headersSent) return res.status(err.status || 500).send(err.message);
+  }
+};
 
 // Link selected reports to one group
 exports.reports_group_update = async (req, res) => {

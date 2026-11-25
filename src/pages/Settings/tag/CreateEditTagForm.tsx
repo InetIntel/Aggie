@@ -113,9 +113,6 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
               label: TAG_CATEGORY_LABELS[category],
             }))}
           />
-          <p className='mt-1 text-xs text-slate-500 dark:text-gray-400'>
-            This controls where the tag is grouped throughout Aggie.
-          </p>
         </div>
         <FormikInput
           label='Description'
@@ -152,7 +149,7 @@ const CreateEditTagForm = ({ tag, onClose }: IProps) => {
 function SpecialTagColor() {
   const { values, setFieldValue } = useFormikContext<editSchema>();
   return values.category === "special"
-    ? <TagColorPicker value={values.color}
+    ? <TagColorPicker value={values.color} previewName={values.name}
         onChange={(color) => setFieldValue("color", color)} /> : null;
 }
 

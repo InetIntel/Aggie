@@ -21,6 +21,7 @@ const mainLinks: Record<string, LinkOptions> = {
   "Social Media Posts": { to: "/mediaposts" },
   Incidents: { to: "/incidents" },
   Dashboard: { to: "/dashboard" },
+  Timeline: { to: "/timeline" },
 };
 
 // Both nav groups are shrink-0, so their widths are what they need, not what they got.
@@ -205,7 +206,7 @@ const AggieNavbar = ({ isAuthenticated, session }: IProps) => {
                 </Menu.Item>
               ))}
             </div>
-            {Object.entries(menuLinks(session?.role, session?.isTeamLead, session?._id)).map(([name, link]) => (
+            {Object.entries(menuLinks(session?.role, session?.isTeamLead, session?._id, session?.kpiAccess?.canView)).map(([name, link]) => (
               <Menu.Item key={name}>
                 {({ active }) => (
                   <Link

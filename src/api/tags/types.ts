@@ -5,6 +5,12 @@ export const TAG_CATEGORIES = [
   "protocol_affected",
   "cause",
   "circumvention_solution",
+  "direction",
+  "network_type",
+  "connection_technology",
+  "location",
+  "measurement_method",
+  "service_type",
   "special",
 ] as const;
 
@@ -25,6 +31,12 @@ export const TAG_CATEGORY_LABELS: Record<TagCategory, string> = {
   protocol_affected: "Protocols Affected",
   cause: "Cause",
   circumvention_solution: "Circumvention Solution",
+  direction: "Direction",
+  network_type: "Network / Organization Type",
+  connection_technology: "Connection Technology",
+  location: "Location",
+  measurement_method: "Measurement Method",
+  service_type: "Service Type",
   special: "Custom tags",
 };
 
@@ -77,6 +89,12 @@ export const tagColor = (tag: Pick<Tag, "category" | "color">) => {
     protocol_affected: "#7c3aed",
     cause: "#b45309",
     circumvention_solution: "#047857",
+    direction: "#b91c1c",
+    network_type: "#1d4ed8",
+    connection_technology: "#4338ca",
+    location: "#7e22ce",
+    measurement_method: "#475569",
+    service_type: "#047857",
     special: "#7c3aed",
     uncategorized: "#475569",
   };

@@ -1,3 +1,4 @@
+import AggieButton from "../../../components/AggieButton";
 import {
   faCompass,
   faFileLines,
@@ -36,9 +37,9 @@ const NestedIncidentsList = ({
     <>
       {incidents &&
         incidents.results.map((item) => (
-          <button
+          <AggieButton override permission="edit data" permissionResource={item}
             key={item._id}
-            className='w-full text-left active:bg-blue-200 hover:bg-blue-100 dark:active:bg-blue-200 dark:hover:bg-blue-100 dark:saturate-[0.7]'
+            className='disabled:opacity-50 disabled:cursor-not-allowed w-full text-left active:bg-blue-200 hover:bg-blue-100 dark:active:bg-blue-200 dark:hover:bg-blue-100 dark:saturate-[0.7]'
             onClick={() => onIncidentClicked(item)}
           >
             <article className='grid grid-cols-4 lg:grid-cols-6 px-2 py-2 text-sm text-slate-500 dark:text-gray-400 group-hover:bg-slate-50 dark:group-hover:bg-gray-900 border-b border-slate-200'>
@@ -113,7 +114,7 @@ const NestedIncidentsList = ({
                 </div>
               </footer>
             </article>
-          </button>
+          </AggieButton>
         ))}
     </>
   );

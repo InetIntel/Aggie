@@ -16,7 +16,10 @@ const PERMISSION_ROLES = Object.freeze({
   'delete users': ['admin', 'team_lead'],
   'admin users': ['admin'],
   'change admin password': ['admin'],
-  'edit tags': ['manager', 'admin'],
+  'edit tags': ['admin'],
+  'view team kpis': ['admin'],
+  'view all kpis': ['admin'],
+  'export kpis': ['admin'],
 });
 
 const PERMISSION_KEYS = Object.freeze(Object.keys(PERMISSION_ROLES));

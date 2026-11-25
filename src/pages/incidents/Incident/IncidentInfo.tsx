@@ -233,15 +233,15 @@ const IncidentInfo = ({
                 Deleted
               </span>
             )}
-            {group?.accessPolicy?.mode === "restricted" && (
+            {(group?.accessPolicy?.mode === "restricted" || !!group?.countryCodes?.length) && (
               <span className='px-1 bg-amber-100 text-amber-800 font-medium inline-flex gap-1 items-center'>
                 <FontAwesomeIcon icon={faLock} />
-                Restricted
+                Restricted{group?.countryCodes?.length ? ` · ${group.countryCodes.join(", ")}` : ""}
               </span>
             )}
             <TagsList values={group?.smtcTags} />
-            {canManageTags && group && (
-              <AggieButton
+            {group && (
+              <AggieButton permission="edit data"
                 type='button'
                 variant='secondary'
                 className='text-xs'

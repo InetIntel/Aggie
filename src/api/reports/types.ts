@@ -6,6 +6,7 @@ import type {
 } from "../common";
 
 export interface Report extends hasId {
+  canEdit?: boolean;
   veracity: VeracityOptions;
   smtcTags: string[];
   hasSMTCTags: boolean;
@@ -50,6 +51,7 @@ export interface Reports {
 
 export interface ReportQueryState {
   keywords?: string;
+  network?: string;
   author?: string;
   groupId?: string;
   status?: string; // 'Read' or 'Unread'
@@ -73,6 +75,8 @@ export interface ReportQueryState {
   irrelevant?: string;
   alerts?: boolean;
   ongoing?: string;
+  sort?: string; // 'oldest' for oldest first; absent means newest first
+  sortBy?: string;
 }
 
 // metadata typed
@@ -123,7 +127,10 @@ export interface OoniChartData {
   until: string; // end of the last block (ISO, UTC)
   starts?: string[]; // start of each block (ISO, UTC)
   days?: string[]; // older shape: YYYY-MM-DD
-  domains: Record<string, number[]>; // watched domain -> count per block
+  // Watched domains with a count per block. Stored as a list because MongoDB rejects
+  // field names containing "."; charts saved before that was fixed (if any) are keyed
+  // by domain name instead.
+  domains: { domain: string; counts: number[] }[] | Record<string, number[]>;
   fetchedAt?: string;
 }
 

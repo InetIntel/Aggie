@@ -26,6 +26,32 @@ const STANDARD_TAGS = [
   { name: 'Maintenance', category: 'cause' },
   { name: 'VPN', category: 'circumvention_solution' },
   { name: 'Alternate DNS', category: 'circumvention_solution' },
+  { name: 'Inbound', category: 'direction' },
+  { name: 'Outbound', category: 'direction' },
+  { name: 'Domestic to Domestic Measurement', category: 'direction' },
+  { name: 'Mobile operator', category: 'network_type' },
+  { name: 'Datacenter', category: 'network_type' },
+  { name: 'Domestic platforms', category: 'network_type' },
+  { name: 'Fintech', category: 'network_type' },
+  { name: 'Office', category: 'network_type' },
+  { name: 'Infrastructure', category: 'network_type' },
+  { name: 'International Gateway', category: 'network_type' },
+  { name: 'Anycast', category: 'network_type' },
+  { name: 'Fiber', category: 'connection_technology' },
+  { name: 'LTE', category: 'connection_technology' },
+  { name: 'ADSL', category: 'connection_technology' },
+  { name: 'Tehran', category: 'location' },
+  { name: 'Karaj', category: 'location' },
+  { name: 'Tabriz', category: 'location' },
+  { name: 'Other location', category: 'location' },
+  { name: 'Passive', category: 'measurement_method' },
+  { name: 'HTTPS', category: 'measurement_method' },
+  { name: 'API', category: 'measurement_method' },
+  { name: 'Mobile app', category: 'measurement_method' },
+  { name: 'ICMP', category: 'measurement_method' },
+  { name: 'Multi Probe', category: 'measurement_method' },
+  { name: 'Streaming', category: 'service_type' },
+  { name: 'Download service', category: 'service_type' },
 ];
 
 const waitForDatabase = async () => {
@@ -40,11 +66,16 @@ const waitForDatabase = async () => {
 const main = async () => {
   await waitForDatabase();
 
-  const existing = await SMTCTag.find({
-    name: { $in: STANDARD_TAGS.map((tag) => tag.name) },
-  }).select('name').lean();
-  const existingNames = new Set(existing.map((tag) => tag.name));
-  const missing = STANDARD_TAGS.filter((tag) => !existingNames.has(tag.name));
+  // Match names regardless of case or surrounding whitespace; preserve existing tags.
+  const normalizeName = (name) => name.trim().toLowerCase();
+  const existing = await SMTCTag.find({}).select('name').lean();
+  const existingNames = new Set(existing.map((tag) => normalizeName(tag.name)));
+  const missing = STANDARD_TAGS.filter((tag) => {
+    const name = normalizeName(tag.name);
+    if (existingNames.has(name)) return false;
+    existingNames.add(name);
+    return true;
+  });
 
   console.log(`${missing.length} standard tag(s) will be added.`);
   missing.forEach((tag) => console.log(`${tag.category}: ${tag.name}`));

@@ -39,7 +39,15 @@ const OoniChart = ({ report, alertDomains = [] }: IProps) => {
   const [picked, setPicked] = useState<string[] | null>(null);
   const [open, setOpen] = useState(false);
 
-  const allDomains = useMemo(() => Object.keys(data?.domains ?? {}).sort(), [data]);
+  // Domain -> count per block, whichever shape the chart was stored in.
+  const countsByDomain = useMemo<Record<string, number[]>>(() => {
+    const stored = data?.domains;
+    if (!stored) return {};
+    return Array.isArray(stored)
+      ? Object.fromEntries(stored.map(({ domain, counts }) => [domain, counts]))
+      : stored;
+  }, [data]);
+  const allDomains = useMemo(() => Object.keys(countsByDomain).sort(), [countsByDomain]);
   const defaultSelection = useMemo(() => {
     const inAlert = alertDomains.filter((d) => allDomains.includes(d));
     return inAlert.length > 0 ? inAlert : allDomains;
@@ -64,10 +72,10 @@ const OoniChart = ({ report, alertDomains = [] }: IProps) => {
       return {
         label: fmtStart(start),
         range: `${fmtStamp(start)} to ${fmtStamp(end)} UTC`,
-        count: selected.reduce((sum, d) => sum + (data.domains[d]?.[i] ?? 0), 0),
+        count: selected.reduce((sum, d) => sum + (countsByDomain[d]?.[i] ?? 0), 0),
       };
     });
-  }, [data, starts, blockMs, selected]);
+  }, [data, starts, blockMs, selected, countsByDomain]);
 
   if (loading) return <p className={muted}>Loading last 14 days…</p>;
   if (!data) return <p className={muted}>The last 14 days were not stored for this alert.</p>;
