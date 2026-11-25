@@ -19,6 +19,13 @@ const loginFormSchema = Yup.object().shape({
 
 interface IProps { }
 
+// Strip the trailing "/" (a root PUBLIC_URL gives "/") and collapse leading
+// slashes in `to`, so the result is never a protocol-relative "//host" URL.
+export function loginRedirectPath(publicUrl: string | undefined, to: string | null) {
+  const base = publicUrl ? new URL(publicUrl).pathname.replace(/\/+$/, "") : "";
+  return `${base}/${(to || "/alerts").replace(/^\/+/, "")}`;
+}
+
 function isWebAuthnSupported() {
   return typeof window !== "undefined" && "PublicKeyCredential" in window;
 }
@@ -59,9 +66,7 @@ const Login = ({ }: IProps) => {
         return;
       }
 
-      const to = getParam("to") || "/alerts";
-      const base = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).pathname : "";
-      window.location.assign(`${base}${to.startsWith("/") ? to : `/${to}`}`);
+      window.location.assign(loginRedirectPath(process.env.PUBLIC_URL, getParam("to")));
     },
     onError: (_) => { },
   });
@@ -90,9 +95,7 @@ const Login = ({ }: IProps) => {
 
       await webauthnLoginFinish({ username, assertion });
 
-      const to = getParam("to") || "/alerts";
-      const base = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).pathname : "";
-      window.location.assign(`${base}${to.startsWith("/") ? to : `/${to}`}`);
+      window.location.assign(loginRedirectPath(process.env.PUBLIC_URL, getParam("to")));
     } catch (err: any) {
       const msg = err?.name === 'NotAllowedError'
         ? 'Authentication was canceled or timed out.'
@@ -113,9 +116,7 @@ const Login = ({ }: IProps) => {
         code: totpCode.trim(),
       });
   
-      const to = getParam("to") || "/alerts";
-      const base = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).pathname : "";
-      window.location.assign(`${base}${to.startsWith("/") ? to : `/${to}`}`);
+      window.location.assign(loginRedirectPath(process.env.PUBLIC_URL, getParam("to")));
     } catch (err: any) {
       const apiMsg = err?.response?.data?.error;
       const msg = apiMsg || err?.message || "Multi-factor authentication failed. Please try again.";
