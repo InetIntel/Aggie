@@ -26,6 +26,8 @@ router.patch('/batch', User.can('edit data'), reportController.report_batch_new)
 router.put('/batch', User.can('edit data'), reportController.report_batch_cancel);
 
 // Get report details
+router.get('/by-url', User.can('view data'), reportController.report_by_url);
+
 router.get('/:_id', User.can('view data'), reportController.requireReportAccess, reportController.report_details);
 
 // Get report comments

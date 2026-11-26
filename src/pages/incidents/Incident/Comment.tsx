@@ -20,6 +20,7 @@ import {
 import UserToken from "../../../components/UserToken";
 import { Formik, Field, FieldProps, Form } from "formik";
 import Linkify from "linkify-react";
+import CommentPostPreviews from "./CommentPostPreviews";
 import { isEmpty, isEqual, differenceWith } from "lodash";
 
 import { faComment, faCommentAlt } from "@fortawesome/free-regular-svg-icons";
@@ -298,6 +299,7 @@ const Comment = ({ data, groupId }: IProps) => {
       ) : (
         <div className="bg-white dark:bg-gray-800 flex flex-col gap-3 px-3 py-3 whitespace-pre-line">
           <CommentContent text={data.data} />
+          <CommentPostPreviews text={data.data} />
           <FileChipList
             nameList={nameList.filter((_, index) => {
               const attachment = data.attachments[index];
