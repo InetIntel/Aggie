@@ -82,18 +82,25 @@ const StatusCell = ({ report }: { report: Report }) => (
     >
       {report.read ? "Read" : "Unread"}
     </span>
-    {report.irrelevant === "true" && (
+  </div>
+);
+
+// Triage decision: irrelevant "false" = Investigate, "true" = Ignore, unset = not triaged.
+const TriageCell = ({ report }: { report: Report }) => {
+  if (report.irrelevant === "true")
+    return (
       <AggieToken variant='light:red' icon={faXmark} className='text-xs'>
         Ignore
       </AggieToken>
-    )}
-    {report.irrelevant === "false" && (
+    );
+  if (report.irrelevant === "false")
+    return (
       <AggieToken variant='light:green' icon={faDotCircle} className='text-xs'>
         Investigate
       </AggieToken>
-    )}
-  </div>
-);
+    );
+  return dash;
+};
 
 const SignalCell = ({ report }: { report: Report }) => {
   const [signal, bgColor] = reportSignal(report);
@@ -344,7 +351,7 @@ export const buildReportColumns = ({
       header: "Signal",
       headerActionIsLabel: true,
       headerAction: (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+        <ColumnHeaderControls>
           <FilterListBox
             headerStyle
             label="Signal"
@@ -358,6 +365,19 @@ export const buildReportColumns = ({
               });
             }}
           />
+        </ColumnHeaderControls>
+      ),
+      minWidth: 120,
+      collapsePriority: 1,
+      noSpillover: true, // signal already shown by the IODA badge in the expanded detail
+      cell: (report) => <SignalCell report={report} />,
+    },
+    {
+      id: "triage",
+      header: "Triage",
+      headerActionIsLabel: true,
+      headerAction: (
+        <ColumnHeaderControls>
           <FilterListBox
             headerStyle
             label="Triage"
@@ -380,12 +400,12 @@ export const buildReportColumns = ({
               })
             }
           />
-        </div>
+        </ColumnHeaderControls>
       ),
-      minWidth: 200,
-      collapsePriority: 1,
-      noSpillover: true, // signal already shown by the IODA badge in the expanded detail
-      cell: (report) => <SignalCell report={report} />,
+      minWidth: 130,
+      collapsePriority: 2,
+      spilloverLabel: "Triage",
+      cell: (report) => <TriageCell report={report} />,
     },
   ];
 };
